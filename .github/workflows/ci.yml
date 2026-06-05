@@ -1,21 +1,20 @@
 name: CI
 
-# Manual dispatch ONLY while the repo is private (limited minutes; macOS billed
-# 10x, Windows 2x). push/pull_request triggers get added when the repo goes
-# public on the bmc4j org (see the release backlog).
+# Runs on pushes to main (full gate + every platform smoke), on pull requests
+# (trimmed for fast feedback: gate + one linux-arm64 smoke), and on manual
+# dispatch (fully scriptable via the inputs). The release workflow calls it too.
 #
-# The green gate for this repo is core build+tests plus the model-conformance
-# proofs — NOT a clean `gradlew test`: the examples include fail-on-purpose demo
-# proofs, so example TESTS are never run here. Their test sources ARE compiled
-# (root `testClasses`), so breakage in examples is still caught.
-#
-# The full gate runs on linux-x64 (cheapest; optionally across a JDK matrix via
-# the `jdks` input). Every other platform gets a smoke job: one real proof class
-# end-to-end, which exercises that platform's engine jar assembly -> extraction
-# -> an actual jbmc run. A docs link-check job guards the README/docs/examples
-# cross-links.
+# The root test is the green gate: the model-conformance proof suite plus every
+# example module — the fail-on-purpose demos declare their expected verdicts
+# (expect = REFUTED / VACUOUS / TIMEOUT), so the whole run is green by design.
+# Every other platform gets a smoke job: one real proof class end-to-end, which
+# exercises that platform's engine jar assembly -> extraction -> an actual jbmc
+# run. A docs link-check job guards the README/docs/examples cross-links.
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
     inputs:
       gate:
@@ -44,22 +43,34 @@ on:
 permissions:
   contents: read
 
+# Force-pushes to a PR cancel its superseded runs; main pushes and dispatches
+# never cancel mid-run.
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # matrix context isn't available in a job-level `if`, so the smoke-platform
-  # filter and the gate JDK list are computed here and fed via fromJSON (same
-  # pattern as engine-jars.yml).
+  # filter, the gate switch, and the gate JDK list are computed here and fed via
+  # fromJSON (same pattern as engine-jars.yml). Per-event defaults:
+  #   push (main)   -> gate + ALL smokes
+  #   pull_request  -> gate + linux-arm64 smoke only (fast feedback)
+  #   dispatch/call -> whatever the inputs say
   plan:
     runs-on: ubuntu-latest
     outputs:
       include: ${{ steps.filter.outputs.include }}
       any: ${{ steps.filter.outputs.any }}
+      gate: ${{ steps.filter.outputs.gate }}
       jdks: ${{ steps.filter.outputs.jdks }}
     steps:
       - id: filter
         shell: bash
         env:
+          EVENT: ${{ github.event_name }}
           PLATFORMS: ${{ inputs.platforms }}
           JDKS: ${{ inputs.jdks }}
+          GATE_INPUT: ${{ inputs.gate }}
         run: |
           set -euo pipefail
           all='[
@@ -69,26 +80,34 @@ jobs:
             {"runner":"macos-14","platform":"macos-arm64"}
           ]'
 
+          # Per-event defaults; inputs.* are empty on push/PR events.
+          case "$EVENT" in
+            push)         gate="true"; sel_spec="all" ;;
+            pull_request) gate="true"; sel_spec="linux-arm64" ;;
+            *)            gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}" ;;
+          esac
+          echo "gate=$gate" >> "$GITHUB_OUTPUT"
+
           jdks="$(echo "${JDKS:-21}" | jq -cR 'split(",") | map(gsub("\\s";"")) | map(select(length > 0))')"
           echo "jdks=$jdks" >> "$GITHUB_OUTPUT"
 
-          if [ "$PLATFORMS" = "all" ]; then
+          if [ "$sel_spec" = "all" ]; then
             sel="$(echo "$all" | jq -c .)"
-          elif [ "$PLATFORMS" = "none" ]; then
+          elif [ "$sel_spec" = "none" ]; then
             sel='[]'
           else
-            sel="$(echo "$all" | jq -c --arg p "$PLATFORMS" \
+            sel="$(echo "$all" | jq -c --arg p "$sel_spec" \
               '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
-            [ "$sel" != "[]" ] || { echo "No platforms matched '$PLATFORMS'"; exit 1; }
+            [ "$sel" != "[]" ] || { echo "No platforms matched '$sel_spec'"; exit 1; }
           fi
-          echo "Gate JDKs: $jdks | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
+          echo "Event: $EVENT | gate: $gate (JDKs $jdks) | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
           echo "include=$sel" >> "$GITHUB_OUTPUT"
           echo "any=$(echo "$sel" | jq 'length > 0')" >> "$GITHUB_OUTPUT"
 
   gate:
     name: full gate (linux-x64, JDK ${{ matrix.jdk }})
     needs: plan
-    if: ${{ inputs.gate }}
+    if: ${{ needs.plan.outputs.gate == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
