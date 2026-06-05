@@ -3,15 +3,31 @@ name: Release
 # Manual dispatch only. The full release rehearsal/execution:
 #
 #   preflight (version consistency)
-#     -> ci.yml      (gate + all platform smokes)
-#     -> engine-jars (build + smoke all five engine jars; publish unless dry run)
+#     -> ci.yml         (gate + all platform smokes)
+#     -> engine-jars    (build + smoke all five engine jars; GH Packages publish
+#                        unless dry run; Central staging artifacts always)
+#     -> publish-core   (non-engine modules: GH Packages unless dry run; Central
+#                        staging artifact always)
+#     -> central        (merge all staging artifacts into ONE signed Portal bundle;
+#                        verify .asc/.sha1/.md5 per file; upload the bundle as a
+#                        workflow artifact; POST it to the Central Publisher Portal
+#                        unless dry run - USER_MANAGED, so nothing goes live until
+#                        the deployment is published in the Portal UI)
+#     -> plugin-portal  (publishPlugins --validate-only: metadata validation only -
+#                        the REAL Plugin Portal publish is the separate
+#                        publish-plugin-portal.yml, dispatched AFTER the Central
+#                        deployment is published, because a Portal-resolved plugin
+#                        must find its runtime dependencies on Central)
 #     -> tag + draft GitHub release (skipped on dry run)
 #
-# dryRun=true (the default) runs EVERYTHING except publishing and tagging —
-# the release rehearsal. Flip dryRun=false to actually release.
+# dryRun=true (the default) runs EVERYTHING except remote publishing and tagging —
+# the release rehearsal, including assembling + verifying the real Central bundle.
+# Flip dryRun=false to actually release.
 #
-# Publishing currently targets GitHub Packages; when Maven Central / Plugin
-# Portal land, only the publish leg changes.
+# Release order after this workflow (dryRun=false) goes green:
+#   1. central.sonatype.com -> Deployments -> publish the VALIDATED deployment.
+#   2. Once the artifacts are live on Central, dispatch publish-plugin-portal.yml.
+#   3. Review + publish the draft GitHub release (publishing it creates the tag).
 
 on:
   workflow_dispatch:
@@ -20,13 +36,13 @@ on:
         description: 'Version to release - must match bmc4jVersion in core/gradle.properties (e.g. 0.1.0)'
         required: true
       dryRun:
-        description: 'Dry run: build + verify everything, publish and tag nothing'
+        description: 'Dry run: build + verify everything (incl. the Central bundle), publish and tag nothing'
         type: boolean
         default: true
 
 permissions:
   contents: write   # tag + draft release creation
-  packages: write   # engine-jar publishing (via the called workflow)
+  packages: write   # GH Packages publishing (via the called workflows)
 
 jobs:
   preflight:
@@ -62,12 +78,127 @@ jobs:
   engines:
     needs: preflight
     uses: ./.github/workflows/engine-jars.yml
+    secrets: inherit
     with:
       platforms: all
       publish: ${{ !inputs.dryRun }}
+      centralStaging: true
+
+  publish-core:
+    needs: verify
+    uses: ./.github/workflows/publish-core.yml
+    secrets: inherit
+    with:
+      githubPackages: ${{ !inputs.dryRun }}
+      centralStaging: true
+
+  # Assemble + verify + (unless dry run) upload the Maven Central bundle. The
+  # Portal takes ONE zip of the whole maven-repo layout; every staging artifact
+  # (five engine platforms + the core set) merges into it. USER_MANAGED means the
+  # upload only VALIDATES server-side - publishing is a manual click in the Portal
+  # UI, so a bad bundle can simply be dropped.
+  central:
+    needs: [engines, publish-core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Download staging artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: central-staging-*
+          path: staging/
+          merge-multiple: true
+
+      - name: Assemble + verify bundle
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # The Portal generates maven-metadata.xml itself; shipping ours trips validation.
+          find staging -name 'maven-metadata.xml*' -delete
+          # Every artifact file must carry a signature and the required checksums.
+          missing=0
+          while IFS= read -r f; do
+            for suffix in .asc .md5 .sha1; do
+              [ -f "$f$suffix" ] || { echo "::error::missing $f$suffix"; missing=1; }
+            done
+          done < <(find staging -type f \( -name '*.jar' -o -name '*.pom' -o -name '*.module' \))
+          [ "$missing" = 0 ] || exit 1
+          count=$(find staging -type f \( -name '*.jar' -o -name '*.pom' \) | wc -l)
+          echo "Bundle: $count jars/poms across $(find staging -mindepth 3 -maxdepth 3 -type d | wc -l) coordinates"
+          (cd staging && zip -qr "../bmc4j-$VERSION-bundle.zip" .)
+          ls -lh "bmc4j-$VERSION-bundle.zip"
+
+      # The exact bytes a real release would upload - inspectable on dry runs.
+      - name: Upload bundle as workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: central-bundle
+          path: bmc4j-${{ inputs.version }}-bundle.zip
+          if-no-files-found: error
+
+      - name: Upload to Central Publisher Portal (USER_MANAGED)
+        if: ${{ !inputs.dryRun }}
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          token="$(printf '%s:%s' "$CENTRAL_TOKEN_USERNAME" "$CENTRAL_TOKEN_PASSWORD" | base64 -w0)"
+          id="$(curl -sS --fail-with-body \
+            -H "Authorization: Bearer $token" \
+            -F "bundle=@bmc4j-$VERSION-bundle.zip" \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=bmc4j-$VERSION&publishingType=USER_MANAGED")"
+          echo "Deployment id: $id"
+          # Poll until server-side validation settles. USER_MANAGED stops at VALIDATED;
+          # publishing is then a manual click in the Portal UI.
+          for i in $(seq 1 60); do
+            sleep 10
+            state="$(curl -sS -H "Authorization: Bearer $token" -X POST \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$id")"
+            status="$(echo "$state" | jq -r .deploymentState)"
+            echo "[$i] $status"
+            case "$status" in
+              VALIDATED|PUBLISHED) echo "Deployment $status - publish it at central.sonatype.com -> Deployments."; exit 0 ;;
+              FAILED) echo "::error::Central validation failed"; echo "$state" | jq .; exit 1 ;;
+            esac
+          done
+          echo "::error::Central validation did not settle within 10 minutes (deployment $id - check the Portal UI)"
+          exit 1
+
+  # Metadata validation only - proves publishPlugins WOULD succeed. The real Plugin
+  # Portal publish is publish-plugin-portal.yml, run after Central goes live.
+  plugin-portal:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # --validate-only still authenticates against the Portal (verified: dummy keys
+      # are rejected with Unauthorized), so this proves credentials + metadata both.
+      - name: Validate Plugin Portal publication
+        shell: bash
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+        run: ./gradlew -p core :bmc-gradle-plugin:publishPlugins --validate-only --no-daemon
 
   release:
-    needs: [verify, engines]
+    needs: [verify, engines, publish-core, central, plugin-portal]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -77,7 +208,7 @@ jobs:
       - name: Dry-run summary
         if: ${{ inputs.dryRun }}
         run: |
-          echo "Dry run complete for ${{ inputs.version }}: gate + smokes green, all five engine jars built + smoke-checked. Nothing published or tagged."
+          echo "Dry run complete for ${{ inputs.version }}: gate + smokes green, all five engine jars built + smoke-checked, Central bundle assembled + verified (see the central-bundle artifact), Plugin Portal metadata validated. Nothing published or tagged."
 
       - name: Tag + draft GitHub release
         if: ${{ !inputs.dryRun }}
@@ -91,3 +222,4 @@ jobs:
             --generate-notes \
             --draft
           echo "Draft release v${{ inputs.version }} created - review and publish it in the UI (publishing the release creates the tag)."
+          echo "Next: publish the VALIDATED Central deployment in the Portal UI, then dispatch publish-plugin-portal.yml."

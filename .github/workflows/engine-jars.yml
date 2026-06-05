@@ -17,6 +17,10 @@ on:
         description: 'Publish to GitHub Packages (false = build + smoke-check only)'
         type: boolean
         default: true
+      centralStaging:
+        description: 'Also publish each engine jar (signed) to a local staging repo and upload it as a central-staging-<platform> artifact for the release workflow''s Maven Central bundle'
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       platforms:
@@ -25,6 +29,9 @@ on:
       publish:
         type: boolean
         default: true
+      centralStaging:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -133,3 +140,28 @@ jobs:
           ./gradlew -p core
           :bmc-engine-${{ matrix.platform }}:publishMavenPublicationToGitHubPackagesRepository
           --no-daemon
+
+      # Maven Central staging: publish this platform's engine jar (signed - Central
+      # requires .asc on every file) into a local directory repo and hand it to the
+      # release workflow as an artifact. The release workflow merges every platform's
+      # staging dir into ONE Portal bundle. The publish-time guard in core/build.gradle.kts
+      # still applies: an empty placeholder jar can never be staged.
+      - name: Publish to Central staging artifact
+        if: ${{ inputs.centralStaging }}
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew -p core
+          -PcentralStagingDir="$GITHUB_WORKSPACE/central-staging"
+          :bmc-engine-${{ matrix.platform }}:publishMavenPublicationToCentralStagingRepository
+          --no-daemon
+
+      - name: Upload Central staging artifact
+        if: ${{ inputs.centralStaging }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: central-staging-${{ matrix.platform }}
+          path: central-staging/
+          if-no-files-found: error
