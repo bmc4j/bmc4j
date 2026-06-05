@@ -39,6 +39,10 @@ on:
         description: 'Dry run: build + verify everything (incl. the Central bundle), publish and tag nothing'
         type: boolean
         default: true
+      githubPackages:
+        description: 'Publish to GitHub Packages (set false when this version is already up there - GH Packages rejects overwrites, so a Central-only release run would otherwise die on a 409)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write   # tag + draft release creation
@@ -81,7 +85,7 @@ jobs:
     secrets: inherit
     with:
       platforms: all
-      publish: ${{ !inputs.dryRun }}
+      publish: ${{ !inputs.dryRun && inputs.githubPackages }}
       centralStaging: true
 
   publish-core:
@@ -89,7 +93,7 @@ jobs:
     uses: ./.github/workflows/publish-core.yml
     secrets: inherit
     with:
-      githubPackages: ${{ !inputs.dryRun }}
+      githubPackages: ${{ !inputs.dryRun && inputs.githubPackages }}
       centralStaging: true
 
   # Assemble + verify + (unless dry run) upload the Maven Central bundle. The
