@@ -1,0 +1,59 @@
+name: Publish core modules
+
+# Publishes the NON-ENGINE module set (runtime, gradle plugin + its org.bmc4j
+# marker, models, kotlin, contracts, constraints) to GitHub Packages. The five
+# bmc-engine-<platform> jars are published separately by engine-jars.yml — each
+# can only be assembled on its own OS; everything here is plain JVM and
+# publishes from one linux runner.
+#
+# Note: GitHub Packages rejects overwrites — re-running this for an
+# already-published version fails loudly on the first upload. Bump
+# bmc4jVersion in core/gradle.properties first.
+#
+# Also callable from the release workflow (workflow_call).
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Signing is conditional in the build (applies only when SIGNING_KEY is
+      # present). GitHub Packages doesn't require signatures, but signing here
+      # keeps the published artifacts identical to the Central-bound ones and
+      # exercises the signing path on every publish.
+      - name: Publish non-engine modules to GitHub Packages
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew -p core --no-daemon
+          :bmc-runtime:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-gradle-plugin:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-models:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-kotlin:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-contracts:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-constraints:publishAllPublicationsToGitHubPackagesRepository
+          :bmc-constraints-jakarta:publishAllPublicationsToGitHubPackagesRepository
