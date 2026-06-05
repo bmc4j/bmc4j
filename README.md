@@ -122,12 +122,24 @@ counterexample is a ready-made reproduction of the bug, dropped into
 
 And when **not** to: I/O and frameworks (mock boundaries, prove the logic between them),
 float-heavy numerics (IEEE-754 is slow in a SAT solver — prefer integer models),
-unbounded structures (everything is proven *within a bound*), and **concurrency — use
-[Lincheck](https://github.com/JetBrains/lincheck)**: bmc4j proves sequential logic
-(including code that *uses* atomics/futures/concurrent collections, modeled with
-single-threaded semantics); Lincheck tests the concurrency itself. The two are
-complementary — [`examples/concurrency-kotlin`](examples/concurrency-kotlin) shows both
-on one class.
+unbounded structures (everything is proven *within a bound*), and serious concurrency
+testing (see the note below).
+
+> **Concurrency: supported but experimental, deliberately not first-class.** bmc4j can
+> exhaustively search **JVM thread** interleavings for small state spaces (see
+> [`examples/concurrency-java`](examples/concurrency-java)) — a few threads, short
+> critical sections, basic `synchronized`/atomic patterns. It will find the data race
+> and show you the exact interleaving. But interleaving search explodes
+> combinatorially, so it does not scale to realistic concurrent code **and never will
+> under BMC** — that's solver physics, not a roadmap item. **Kotlin coroutines: not at
+> all.** The interleaving search understands JVM threads only — dispatchers,
+> suspension scheduling and structured concurrency aren't modeled, so coroutine
+> *concurrency* cannot be verified, full stop. (The *sequential* logic inside `suspend`
+> functions still proves fine via the bundled `runBlocking` model — see
+> [`examples/concurrency-kotlin`](examples/concurrency-kotlin).) For serious
+> concurrency testing — linearizability, lock-freedom, large state spaces, coroutines —
+> use [Lincheck](https://github.com/JetBrains/lincheck); bmc4j is its complement for
+> sequential logic, not its competitor.
 
 ## The tradeoffs, honestly
 
