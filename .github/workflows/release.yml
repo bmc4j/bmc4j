@@ -4,13 +4,17 @@ name: Release
 #
 #   git tag vX.Y.Z && git push origin vX.Y.Z      (that's it - no version bumps first)
 #
+# No version lives in the tree: the build reads the BMC4J_VERSION env var (set
+# from the tag by these jobs) and defaults to 0.0.1-local everywhere else, so
+# there is nothing to bump before OR after a release.
+#
 #   preflight        derives the version from the tag (vX.Y.Z -> X.Y.Z)
 #   verify           ci.yml (full gate + every platform smoke), at the tag
-#   engines          all five engine jars built + smoke-checked with the tag
-#                    version pinned into gradle.properties; GH Packages publish
-#                    (skips any version already up there, so re-runs never 409);
-#                    signed Central staging artifacts
-#   publish-core     non-engine modules: same pin + GH Packages + staging treatment
+#   engines          all five engine jars built + smoke-checked at the tag
+#                    version (BMC4J_VERSION); GH Packages publish (skips any
+#                    version already up there, so re-runs never 409); signed
+#                    Central staging artifacts
+#   publish-core     non-engine modules: same treatment
 #   central          ONE signed Portal bundle (.asc/.sha1/.md5 verified per
 #                    file), uploaded publishingType=AUTOMATIC - Sonatype
 #                    validation-gates it, then publishes; the job polls to
@@ -20,9 +24,9 @@ name: Release
 #                    resolved plugin must find its runtime deps on Central),
 #                    then publishPlugins to the Gradle Plugin Portal
 #   github-release   release notes on the tag (--generate-notes)
-#   sync-version     opens the paperwork PR against main bumping
-#                    core/gradle.properties + the README quickstart to the
-#                    version that just shipped (skips if already current)
+#   sync-readme      opens a PR bumping the README quickstart to what shipped -
+#                    the one place a version string exists for HUMANS to
+#                    copy-paste; skips when already current
 #
 # Every job is re-runnable: if repo1 sync outlasts the plugin-portal poll, or any
 # leg flakes, "Re-run failed jobs" resumes exactly there (publishes are idempotent
@@ -30,8 +34,8 @@ name: Release
 # publishPlugins of an existing version fails loudly rather than silently).
 #
 # workflow_dispatch is the REHEARSAL: identical build + verify + bundle assembly
-# + Plugin Portal credential/metadata validation at gradle.properties' version,
-# publishes and tags NOTHING.
+# + Plugin Portal credential/metadata validation, all at 0.0.1-local, publishing
+# and tagging NOTHING.
 
 on:
   push:
@@ -39,9 +43,9 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write        # release-notes creation on the tag + version-sync branch push
+  contents: write        # release-notes creation on the tag + readme-sync branch push
   packages: write        # GH Packages publishing (via the called workflows)
-  pull-requests: write   # the post-release version-sync PR
+  pull-requests: write   # the post-release readme-sync PR
 
 # One release at a time; never cancel a publish mid-flight.
 concurrency:
@@ -69,8 +73,8 @@ jobs:
             echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' \
               || { echo "::error::tag ${GITHUB_REF_NAME} is not a version tag (expected vX.Y.Z[-suffix])"; exit 1; }
           else
-            # Rehearsal: whatever the branch's gradle.properties says.
-            version="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+            # Rehearsal: the dev default - no version exists outside a tag.
+            version="0.0.1-local"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Releasing $version (real publish: ${{ github.event_name == 'push' }})"
@@ -186,6 +190,9 @@ jobs:
     needs: [preflight, central]
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # publishPlugins publishes at project.version, which reads BMC4J_VERSION.
+    env:
+      BMC4J_VERSION: ${{ github.event_name == 'push' && needs.preflight.outputs.version || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -214,15 +221,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
-
-      # publishPlugins publishes at project.version - pin the tag version here too.
-      - name: Pin version from tag
-        if: ${{ github.event_name == 'push' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          sed -i.bak -E "s/^bmc4jVersion=.*/bmc4jVersion=${{ needs.preflight.outputs.version }}/" core/gradle.properties
-          rm core/gradle.properties.bak
 
       - name: Publish to the Plugin Portal
         shell: bash
@@ -253,11 +251,11 @@ jobs:
             --title "bmc4j ${{ needs.preflight.outputs.version }}" \
             --generate-notes
 
-  # The released version becomes repo paperwork AFTER the fact: open a PR against
-  # main syncing core/gradle.properties + the README quickstart to what shipped.
-  # The tag stays the source of truth; this just keeps the tree honest for dev
-  # builds and the next reader. Skips when main is already current.
-  sync-version:
+  # The README quickstart is the ONE version string left in the tree - it exists
+  # for humans to copy-paste, so it should advertise the latest release. Open a
+  # PR bumping it to what just shipped; skips when already current. Nothing in
+  # the BUILD reads it - delete this job and the quickstart just goes stale.
+  sync-readme:
     if: ${{ github.event_name == 'push' }}
     needs: [preflight, github-release]
     runs-on: ubuntu-latest
@@ -268,25 +266,23 @@ jobs:
         with:
           ref: main
 
-      - name: Open version-sync PR
+      - name: Open readme-sync PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          current="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
-          if [ "$current" = "$VERSION" ] && grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md; then
-            echo "main already at $VERSION - nothing to sync"; exit 0
+          if grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md; then
+            echo "README quickstart already at $VERSION - nothing to sync"; exit 0
           fi
-          branch="sync-version-$VERSION"
+          branch="sync-readme-$VERSION"
           git checkout -b "$branch"
-          sed -i -E "s/^bmc4jVersion=.*/bmc4jVersion=$VERSION/" core/gradle.properties
           sed -i -E "s/id\(\"org\.bmc4j\"\) version \"[^\"]+\"/id(\"org.bmc4j\") version \"$VERSION\"/" README.md
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add core/gradle.properties README.md
-          git commit -m "Sync version to $VERSION (released from tag v$VERSION)"
+          git add README.md
+          git commit -m "README quickstart: $VERSION (just released)"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
-            --title "Sync version to $VERSION (just released)" \
-            --body "v$VERSION shipped (tag is the source of truth); this aligns core/gradle.properties and the README quickstart with it. Auto-opened by the release workflow."
+            --title "README quickstart: $VERSION (just released)" \
+            --body "v$VERSION shipped; this points the quickstart's copy-paste version at it. Auto-opened by the release workflow - the build itself reads no version from the tree (tag is the source of truth)."
