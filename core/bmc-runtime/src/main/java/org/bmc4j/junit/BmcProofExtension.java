@@ -86,30 +86,37 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
         // README's Lincheck guidance — @BmcProof proves logic soundness.
         VerificationBackend backend = VerificationBackends.select(request);
 
-        // Verdict cache: a proof's verdict is a pure function of its inputs, so a green
-        // proof whose inputs haven't changed need not be re-verified. Consult the cache on the
-        // per-proof path; on a VERIFIED hit, skip the engine entirely. Reds are NEVER cached, so this
-        // can only ever short-circuit a green. Fail-open: any cache error just falls through to a run.
-        // The cache key uses the EFFECTIVE solver (per-proof override else -Dbmc.solver) so a
-        // -Dbmc.solver change invalidates even with unchanged bytecode (cf. unwind/maxStringLength,
-        // which are already effective on the request).
+        // Verdict cache: a proof's deterministic verdict is a pure function of its inputs, so a PASS
+        // (VERIFIED for a normal proof; REFUTED/VACUOUS for a fail-on-purpose demo expecting exactly
+        // that) whose inputs haven't changed need not be re-verified. Consult the cache on the per-proof
+        // path; the cache stores the verdict FACT, and the expectation is judged fresh HERE at read
+        // time: only a hit whose stored verdict equals the expectation short-circuits the engine. A
+        // non-satisfying hit falls through to a LIVE run — a mismatch (the dangerous drift) must always
+        // come from a fresh engine run, never be judged off a cached fact. Failures and TIMEOUT/UNKNOWN
+        // are never stored, so this can only ever short-circuit a pass. Fail-open: any cache error just
+        // falls through to a run. The cache key uses the EFFECTIVE solver (per-proof override else
+        // -Dbmc.solver) so a -Dbmc.solver change invalidates even with unchanged bytecode (cf.
+        // unwind/maxStringLength, which are already effective on the request).
         String engineIdentity = backend.engineIdentity() + solverEnvSuffix();
         BmcRequest cacheRequest = cacheKeyRequest(request, config);
         org.bmc4j.Verdict expected = config.expect();
-        VerdictCache.Hit hit = VerdictCache.lookupVerified(cacheRequest, engineIdentity);
-        if (hit != null) {
-            // Cached green: only ever a VERIFIED verdict. With a non-VERIFIED expectation that's an
-            // expectation mismatch (judged fresh each run — the cache stores the FACT, never the pass).
-            if (expected != org.bmc4j.Verdict.VERIFIED) {
-                throw expectationMismatch(entryFunction, expected, org.bmc4j.Verdict.VERIFIED, null);
+        VerdictCache.Hit hit = VerdictCache.lookup(cacheRequest, engineIdentity);
+        if (hit != null && hit.verdict() == expected) {
+            if (expected == org.bmc4j.Verdict.VERIFIED) {
+                // Report passed without an engine run. (Progress line annotates "cached".)
+                // The model + stub policies are RE-JUDGED here from the stored facts, so flipping
+                // strictStubs / editing allowStubs re-decides without an engine re-run. A strict-mode
+                // unacknowledged stub still turns a cached green into UNKNOWN.
+                System.out.println("  bmc4j: " + entryFunction + " -> VERIFIED (cached)");
+                applyModelPolicy(entryFunction);
+                applyStubPolicy(entryFunction, config, hit.stubbedMethods());
+            } else {
+                // A cached expectation-matching REFUTED/VACUOUS demo pass. Note the replay scratch
+                // file is NOT regenerated on a cached pass — it was written by the live run that
+                // stored this entry (delete the cache entry or run -Dbmc.noCache=true to re-render).
+                System.out.println("  bmc4j: " + entryFunction + " -> " + hit.verdict()
+                        + " (cached, as expected)");
             }
-            // Report passed without an engine run. (Progress line annotates "cached".)
-            // The stub policy is RE-JUDGED here from the stored stub fact, so flipping
-            // strictStubs / editing allowStubs re-decides without an engine re-run. A strict-mode
-            // unacknowledged stub still turns a cached green into UNKNOWN.
-            System.out.println("  bmc4j: " + entryFunction + " -> VERIFIED (cached)");
-            applyModelPolicy(entryFunction);
-            applyStubPolicy(entryFunction, config, hit.stubbedMethods());
             return;
         }
 
@@ -139,11 +146,12 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
             return;
         }
 
-        // Store ONLY a VERIFIED verdict (storeIfVerified is a no-op for REFUTED/UNKNOWN/vacuous) so a
-        // later unchanged run can skip the engine. Fail-open: a write error never affects the verdict.
-        // Note this stores the FACT even when the expectation is non-VERIFIED — the expectation is
-        // re-judged on every run (including cache hits), so a mismatch can never be cached away.
-        VerdictCache.storeIfVerified(cacheRequest, engineIdentity, result);
+        // Store the verdict iff it's an expectation-matching PASS with a deterministic verdict
+        // (VERIFIED for a normal proof; REFUTED/VACUOUS for a demo expecting exactly that), so a later
+        // unchanged run can skip the engine. Failures are never stored — a mismatch always re-runs live
+        // — and TIMEOUT/UNKNOWN are never stored even when expected (machine-dependent). Fail-open: a
+        // write error never affects the verdict.
+        VerdictCache.storeIfExpectedMatch(cacheRequest, engineIdentity, result, expected);
 
         org.bmc4j.Verdict actual = actualVerdict(result);
         if (actual != org.bmc4j.Verdict.VERIFIED) {

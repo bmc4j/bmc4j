@@ -21,18 +21,28 @@ import java.util.stream.Stream;
  * free", which is what lets {@code @BmcProof} stay in the default {@code test} task.
  *
  * <h2>Soundness</h2>
- * A <b>stale green is a soundness bug</b> for this tool, so the cache is deliberately biased toward
+ * A <b>stale pass is a soundness bug</b> for this tool, so the cache is deliberately biased toward
  * over-invalidation (re-running) and against under-invalidation (a wrong skip):
  * <ul>
- *   <li><b>Only {@code VERIFIED} verdicts are ever cached.</b> A {@code REFUTED} or {@code UNKNOWN}
- *       proof is never written and never served — reds always re-run, so the counterexample is fresh
- *       and a flaky environment can't pin a stale failure.</li>
+ *   <li><b>Only deterministic, expectation-matching PASSES are ever cached.</b> {@code VERIFIED} for a
+ *       normal proof; {@code REFUTED} / {@code VACUOUS} for a fail-on-purpose demo whose
+ *       {@code @BmcProof(expect = ...)} declares exactly that verdict — a refutation is as much a pure
+ *       function of the inputs as a verification, and the demo's <em>pass</em> is the refutation.
+ *       <b>Failures are never cached</b>: any expectation mismatch (the dangerous drift) always comes
+ *       from a live engine run, so the counterexample is fresh and a flaky environment can't pin a
+ *       stale failure.</li>
+ *   <li><b>{@code TIMEOUT} and {@code UNKNOWN} are never cached, even when expected.</b> A timeout is a
+ *       function of machine speed, not of the inputs — serving a cached "TIMEOUT, as expected" on a
+ *       faster runner would hide the drift to VERIFIED that the expectation exists to catch. (It would
+ *       also save almost nothing: a timeout costs exactly its budget.)</li>
  *   <li>The key composes every input that can change a verdict (see {@link #computeKey}): the analysis
  *       classpath <em>content</em>, the effective request, the engine identity, and the bmc4j runtime
  *       semantics identity ({@link Bmc4jVersion#IDENTITY}). Coarse on purpose — any application-class
- *       change invalidates that module's whole cache.</li>
+ *       change invalidates that module's whole cache. (The {@code expect} attribute lives in the
+ *       compiled test class, so changing it invalidates via classpath content too.)</li>
  *   <li><b>Fail-open.</b> Any error reading or writing the cache is swallowed and treated as a miss, so
- *       the cache can never cause a wrong or varying verdict — at worst it runs the engine.</li>
+ *       the cache can never cause a wrong or varying verdict — at worst it runs the engine. A hit whose
+ *       stored verdict does not satisfy the proof's expectation is ignored the same way: live run.</li>
  * </ul>
  */
 public final class VerdictCache {
@@ -68,14 +78,24 @@ public final class VerdictCache {
         return lookupVerified(request, engineIdentity) != null;
     }
 
-    /**
-     * A cache hit's stored verified verdict (verdict + stub facts): the entry marker plus the nondet-stub
-     * list that was harvested when the proof verified. {@code null} on a miss, a disabled cache, or any
-     * error (fail-open → run the engine). The stored stub list lets the stub <em>policy</em> be re-judged
-     * at read time — flipping {@code strictStubs} or editing {@code allowStubs} re-decides from the stored
-     * fact <em>without</em> an engine re-run, because neither is part of the cache key.
-     */
+    /** {@link #lookup} narrowed to {@code VERIFIED}: a hit with any other stored verdict is a miss. */
     public static Hit lookupVerified(BmcRequest request, String engineIdentity) {
+        Hit hit = lookup(request, engineIdentity);
+        return hit != null && hit.verdict() == org.bmc4j.Verdict.VERIFIED ? hit : null;
+    }
+
+    /**
+     * A cache hit's stored verdict <em>fact</em> (verdict + stub facts): the entry's verdict marker
+     * ({@code VERIFIED}, {@code REFUTED} or {@code VACUOUS} — the only verdicts ever stored) plus the
+     * nondet-stub list that was harvested when the proof verified. {@code null} on a miss, a disabled
+     * cache, an unrecognized marker, or any error (fail-open → run the engine). Whether the stored
+     * verdict <em>satisfies</em> the proof's expectation is the caller's judgement, made fresh at read
+     * time — the cache stores the fact, never the pass. Likewise the stored stub list lets the stub
+     * <em>policy</em> be re-judged at read time — flipping {@code strictStubs} or editing
+     * {@code allowStubs} re-decides from the stored fact <em>without</em> an engine re-run, because
+     * neither is part of the cache key.
+     */
+    public static Hit lookup(BmcRequest request, String engineIdentity) {
         if (disabled()) {
             return null;
         }
@@ -85,10 +105,15 @@ public final class VerdictCache {
             if (!Files.isRegularFile(entry)) {
                 return null;
             }
-            // The entry's first line must start with VERIFIED (a truncated/scribbled file is a miss,
-            // fail-open). Remaining "STUB <fqn>" lines carry the harvested stub fact for re-judgement.
+            // The entry's first line is "<VERDICT> <entryFunction>"; only the deterministic markers are
+            // recognized (a truncated/scribbled file is a miss, fail-open). Remaining "STUB <fqn>" lines
+            // carry the harvested stub fact for re-judgement.
             List<String> lines = Files.readAllLines(entry, StandardCharsets.UTF_8);
-            if (lines.isEmpty() || !lines.get(0).trim().startsWith("VERIFIED")) {
+            if (lines.isEmpty()) {
+                return null;
+            }
+            org.bmc4j.Verdict verdict = parseMarker(lines.get(0).trim());
+            if (verdict == null) {
                 return null;
             }
             List<String> stubs = new ArrayList<>();
@@ -98,47 +123,96 @@ public final class VerdictCache {
                     stubs.add(line.substring("STUB ".length()).trim());
                 }
             }
-            return new Hit(stubs);
+            return new Hit(verdict, stubs);
         } catch (RuntimeException | IOException e) {
             return null; // fail-open: any trouble reading the cache -> miss -> run the engine
         }
     }
 
-    /** A verified cache hit: carries the stub list stored when the proof verified. */
+    /** The deterministic verdict named by an entry's first line, or {@code null} if unrecognized. */
+    private static org.bmc4j.Verdict parseMarker(String firstLine) {
+        int space = firstLine.indexOf(' ');
+        String token = space < 0 ? firstLine : firstLine.substring(0, space);
+        for (org.bmc4j.Verdict v : DETERMINISTIC) {
+            if (v.name().equals(token)) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The verdicts that are a pure function of the proof's inputs and may therefore be cached.
+     * {@code TIMEOUT}/{@code UNKNOWN} are deliberately absent: a timeout is a function of machine speed.
+     */
+    private static final org.bmc4j.Verdict[] DETERMINISTIC = {
+            org.bmc4j.Verdict.VERIFIED, org.bmc4j.Verdict.REFUTED, org.bmc4j.Verdict.VACUOUS,
+    };
+
+    /** A cache hit: the stored verdict fact, plus the stub list harvested when the proof verified. */
     public static final class Hit {
+        private final org.bmc4j.Verdict verdict;
         private final List<String> stubbedMethods;
 
-        Hit(List<String> stubbedMethods) {
+        Hit(org.bmc4j.Verdict verdict, List<String> stubbedMethods) {
+            this.verdict = verdict;
             this.stubbedMethods = List.copyOf(stubbedMethods);
         }
 
-        /** The nondet stubs (filtered signal) recorded when this proof verified. */
+        /** The stored verdict: {@code VERIFIED}, {@code REFUTED} or {@code VACUOUS} — never a failure. */
+        public org.bmc4j.Verdict verdict() {
+            return verdict;
+        }
+
+        /** The nondet stubs (filtered signal) recorded when this proof verified; empty for non-VERIFIED. */
         public List<String> stubbedMethods() {
             return stubbedMethods;
         }
     }
 
     /**
-     * Record that {@code request} (under {@code engineIdentity}) verified. No-ops when the cache is
-     * disabled, when the result is not {@code VERIFIED} (reds are never cached), or on ANY write error
-     * (fail-open). The marker is written atomically (temp file + move) so a concurrent reader never sees
-     * a half-written entry.
+     * Record that {@code request} (under {@code engineIdentity}) verified. Equivalent to
+     * {@link #storeIfExpectedMatch} with a {@code VERIFIED} expectation: stores iff the result verified.
      */
     public static void storeIfVerified(BmcRequest request, String engineIdentity, JbmcResult result) {
-        if (disabled() || result == null || !result.isVerified()) {
-            return; // never cache REFUTED / UNKNOWN / vacuous — always re-run reds
+        storeIfExpectedMatch(request, engineIdentity, result, org.bmc4j.Verdict.VERIFIED);
+    }
+
+    /**
+     * Record {@code result}'s verdict iff it is an expectation-matching <em>pass</em> with a
+     * deterministic verdict: {@code VERIFIED} for a normal proof, {@code REFUTED}/{@code VACUOUS} for a
+     * fail-on-purpose demo whose {@code @BmcProof(expect = ...)} declares exactly that verdict. No-ops
+     * when the cache is disabled, when the actual verdict does not equal {@code expected} (failures are
+     * never cached — a mismatch must always come from a live run), when the verdict is
+     * {@code TIMEOUT}/{@code UNKNOWN} (machine-dependent, never cached even when expected), or on ANY
+     * write error (fail-open). The marker is written atomically (temp file + move) so a concurrent
+     * reader never sees a half-written entry.
+     */
+    public static void storeIfExpectedMatch(BmcRequest request, String engineIdentity, JbmcResult result,
+                                            org.bmc4j.Verdict expected) {
+        if (disabled() || result == null) {
+            return;
+        }
+        org.bmc4j.Verdict actual = deterministicVerdictOf(result);
+        if (actual == null || actual != expected) {
+            return; // never cache UNKNOWN/TIMEOUT, never cache a failure — always re-run those
         }
         try {
             String key = computeKey(request, engineIdentity);
             Files.createDirectories(cacheDir());
             Path entry = cacheDir().resolve(key);
             Path tmp = cacheDir().resolve(key + ".tmp." + Long.toHexString(System.nanoTime()));
-            // Store the verdict marker plus the harvested nondet-stub fact, one "STUB <fqn>"
-            // per line. The stub policy is judged at READ time, so the cache key is unchanged — only this
-            // payload grows — and flipping strictStubs / allowStubs re-judges without an engine re-run.
-            StringBuilder body = new StringBuilder("VERIFIED ").append(request.entryFunction()).append('\n');
-            for (String stub : result.stubbedMethods()) {
-                body.append("STUB ").append(stub).append('\n');
+            // Store the verdict marker plus (for VERIFIED) the harvested nondet-stub fact, one
+            // "STUB <fqn>" per line. The stub policy is judged at READ time, so the cache key is
+            // unchanged — only this payload grows — and flipping strictStubs / allowStubs re-judges
+            // without an engine re-run. (The stub policy only applies to greens, so non-VERIFIED
+            // entries carry no STUB lines.)
+            StringBuilder body = new StringBuilder(actual.name()).append(' ')
+                    .append(request.entryFunction()).append('\n');
+            if (actual == org.bmc4j.Verdict.VERIFIED) {
+                for (String stub : result.stubbedMethods()) {
+                    body.append("STUB ").append(stub).append('\n');
+                }
             }
             Files.writeString(tmp, body.toString(), StandardCharsets.UTF_8);
             try {
@@ -151,6 +225,24 @@ public final class VerdictCache {
             // fail-open: a write failure must never break the build or vary a verdict.
             cleanupTemp();
         }
+    }
+
+    /**
+     * The result's verdict if it is deterministic (cacheable), else {@code null}. Mirrors the
+     * user-facing verdict mapping but collapses the machine-dependent verdicts ({@code TIMEOUT} and
+     * other {@code UNKNOWN}s) to {@code null} — they are never cacheable regardless of expectation.
+     */
+    private static org.bmc4j.Verdict deterministicVerdictOf(JbmcResult result) {
+        if (result.isVerified()) {
+            return org.bmc4j.Verdict.VERIFIED;
+        }
+        if (result.isVacuous()) {
+            return org.bmc4j.Verdict.VACUOUS;
+        }
+        if (result.isUnknown()) {
+            return null; // TIMEOUT / UNKNOWN: a function of machine speed, not of the inputs
+        }
+        return org.bmc4j.Verdict.REFUTED;
     }
 
     /**

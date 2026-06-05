@@ -66,8 +66,9 @@ for a reason — range reduction usually beats it.
 
 ## What you get for free
 
-- **The verdict cache**: a verified proof whose inputs haven't changed is never
-  re-solved — a "nothing changed" run is near-free, so the expensive solve happens
+- **The verdict cache**: a passing proof whose inputs haven't changed is never
+  re-solved (including a fail-on-purpose demo whose expected `REFUTED`/`VACUOUS` arrived) — a
+  "nothing changed" run is near-free, so the expensive solve happens
   once per actual change ([configuration → Verdict cache](configuration.md#verdict-cache)).
 - **Parallelism**: proofs verify concurrently, one engine process per proof, sized to
   your CPUs.
