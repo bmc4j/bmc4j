@@ -1,25 +1,28 @@
 name: Release
 
-# Tag-driven release. The whole flow is:
+# Tag-driven release. THE TAG IS THE VERSION'S SOURCE OF TRUTH - the whole flow:
 #
-#   1. Bump bmc4jVersion in core/gradle.properties + the README quickstart, merge.
-#   2. git tag vX.Y.Z && git push origin vX.Y.Z
-#   3. This workflow builds + verifies AT THAT TAG, then publishes everything:
-#        preflight        tag == bmc4jVersion == README quickstart
-#        verify           ci.yml (full gate + every platform smoke)
-#        engines          all five engine jars built + smoke-checked; GH Packages
-#                         publish (skips any version already up there, so re-runs
-#                         never 409); signed Central staging artifacts
-#        publish-core     non-engine modules: same GH Packages + staging treatment
-#        central          ONE signed Portal bundle (.asc/.sha1/.md5 verified per
-#                         file), uploaded publishingType=AUTOMATIC - Sonatype
-#                         validation-gates it, then publishes; the job polls to
-#                         PUBLISHED. Central is immutable: the tag push is the
-#                         deliberate act, there is no unpublish.
-#        plugin-portal    waits for the artifacts to be LIVE on repo1 (a Portal-
-#                         resolved plugin must find its runtime deps on Central),
-#                         then publishPlugins to the Gradle Plugin Portal
-#        github-release   release notes on the tag (--generate-notes)
+#   git tag vX.Y.Z && git push origin vX.Y.Z      (that's it - no version bumps first)
+#
+#   preflight        derives the version from the tag (vX.Y.Z -> X.Y.Z)
+#   verify           ci.yml (full gate + every platform smoke), at the tag
+#   engines          all five engine jars built + smoke-checked with the tag
+#                    version pinned into gradle.properties; GH Packages publish
+#                    (skips any version already up there, so re-runs never 409);
+#                    signed Central staging artifacts
+#   publish-core     non-engine modules: same pin + GH Packages + staging treatment
+#   central          ONE signed Portal bundle (.asc/.sha1/.md5 verified per
+#                    file), uploaded publishingType=AUTOMATIC - Sonatype
+#                    validation-gates it, then publishes; the job polls to
+#                    PUBLISHED. Central is immutable: the tag push is the
+#                    deliberate act, there is no unpublish.
+#   plugin-portal    waits for the artifacts to be LIVE on repo1 (a Portal-
+#                    resolved plugin must find its runtime deps on Central),
+#                    then publishPlugins to the Gradle Plugin Portal
+#   github-release   release notes on the tag (--generate-notes)
+#   sync-version     opens the paperwork PR against main bumping
+#                    core/gradle.properties + the README quickstart to the
+#                    version that just shipped (skips if already current)
 #
 # Every job is re-runnable: if repo1 sync outlasts the plugin-portal poll, or any
 # leg flakes, "Re-run failed jobs" resumes exactly there (publishes are idempotent
@@ -27,7 +30,8 @@ name: Release
 # publishPlugins of an existing version fails loudly rather than silently).
 #
 # workflow_dispatch is the REHEARSAL: identical build + verify + bundle assembly
-# + Plugin Portal credential/metadata validation, publishes and tags NOTHING.
+# + Plugin Portal credential/metadata validation at gradle.properties' version,
+# publishes and tags NOTHING.
 
 on:
   push:
@@ -35,8 +39,9 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write   # release-notes creation on the tag
-  packages: write   # GH Packages publishing (via the called workflows)
+  contents: write        # release-notes creation on the tag + version-sync branch push
+  packages: write        # GH Packages publishing (via the called workflows)
+  pull-requests: write   # the post-release version-sync PR
 
 # One release at a time; never cancel a publish mid-flight.
 concurrency:
@@ -53,20 +58,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Version consistency
+      - name: Derive version
         id: v
         shell: bash
         run: |
           set -euo pipefail
-          prop="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # The tag is the source of truth: vX.Y.Z[-suffix] -> X.Y.Z[-suffix].
             version="${GITHUB_REF_NAME#v}"
-            [ "$version" = "$prop" ] || { echo "::error::tag ${GITHUB_REF_NAME} != bmc4jVersion '$prop' - bump core/gradle.properties BEFORE tagging"; exit 1; }
+            echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' \
+              || { echo "::error::tag ${GITHUB_REF_NAME} is not a version tag (expected vX.Y.Z[-suffix])"; exit 1; }
           else
-            version="$prop"   # rehearsal: whatever the branch says
+            # Rehearsal: whatever the branch's gradle.properties says.
+            version="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
           fi
-          grep -q "id(\"org.bmc4j\") version \"$version\"" README.md \
-            || { echo "::error::README quickstart does not reference version $version"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Releasing $version (real publish: ${{ github.event_name == 'push' }})"
 
@@ -86,14 +91,16 @@ jobs:
       platforms: all
       publish: ${{ github.event_name == 'push' }}
       centralStaging: true
+      version: ${{ github.event_name == 'push' && needs.preflight.outputs.version || '' }}
 
   publish-core:
-    needs: verify
+    needs: [preflight, verify]
     uses: ./.github/workflows/publish-core.yml
     secrets: inherit
     with:
       githubPackages: ${{ github.event_name == 'push' }}
       centralStaging: true
+      version: ${{ github.event_name == 'push' && needs.preflight.outputs.version || '' }}
 
   # Assemble + verify the Maven Central bundle; on a tag, upload it AUTOMATIC and
   # poll to PUBLISHED. The Portal takes ONE zip of the whole maven-repo layout -
@@ -208,6 +215,15 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # publishPlugins publishes at project.version - pin the tag version here too.
+      - name: Pin version from tag
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i.bak -E "s/^bmc4jVersion=.*/bmc4jVersion=${{ needs.preflight.outputs.version }}/" core/gradle.properties
+          rm core/gradle.properties.bak
+
       - name: Publish to the Plugin Portal
         shell: bash
         env:
@@ -236,3 +252,41 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             --title "bmc4j ${{ needs.preflight.outputs.version }}" \
             --generate-notes
+
+  # The released version becomes repo paperwork AFTER the fact: open a PR against
+  # main syncing core/gradle.properties + the README quickstart to what shipped.
+  # The tag stays the source of truth; this just keeps the tree honest for dev
+  # builds and the next reader. Skips when main is already current.
+  sync-version:
+    if: ${{ github.event_name == 'push' }}
+    needs: [preflight, github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Open version-sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          current="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          if [ "$current" = "$VERSION" ] && grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md; then
+            echo "main already at $VERSION - nothing to sync"; exit 0
+          fi
+          branch="sync-version-$VERSION"
+          git checkout -b "$branch"
+          sed -i -E "s/^bmc4jVersion=.*/bmc4jVersion=$VERSION/" core/gradle.properties
+          sed -i -E "s/id\(\"org\.bmc4j\"\) version \"[^\"]+\"/id(\"org.bmc4j\") version \"$VERSION\"/" README.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add core/gradle.properties README.md
+          git commit -m "Sync version to $VERSION (released from tag v$VERSION)"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Sync version to $VERSION (just released)" \
+            --body "v$VERSION shipped (tag is the source of truth); this aligns core/gradle.properties and the README quickstart with it. Auto-opened by the release workflow."

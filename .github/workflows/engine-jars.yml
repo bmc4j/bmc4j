@@ -21,6 +21,10 @@ on:
         description: 'Also publish each engine jar (signed) to a local staging repo and upload it as a central-staging-<platform> artifact for the release workflow''s Maven Central bundle'
         type: boolean
         default: false
+      version:
+        description: 'Version override pinned into core/gradle.properties before any Gradle step (the release workflow passes the tag version - the tag is the source of truth). Empty = build whatever gradle.properties says.'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       platforms:
@@ -32,6 +36,9 @@ on:
       centralStaging:
         type: boolean
         default: false
+      version:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -82,6 +89,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # The tag is the version's source of truth on releases: pin it into
+      # gradle.properties BEFORE any Gradle step, so every build/publish task and
+      # the skip-if-exists checks all see the tag's version. (-i.bak: BSD sed on
+      # the macOS runners doesn't take bare -i.)
+      - name: Pin version from tag
+        if: ${{ inputs.version != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i.bak -E "s/^bmc4jVersion=.*/bmc4jVersion=${{ inputs.version }}/" core/gradle.properties
+          rm core/gradle.properties.bak
+          grep '^bmc4jVersion=' core/gradle.properties
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
