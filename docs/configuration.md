@@ -37,20 +37,29 @@ proofs strain memory; set `1` for serial.
 
 ## Verdict cache
 
-A proof's verdict is a pure function of its inputs, so re-verifying a green
+A proof's deterministic verdict is a pure function of its inputs, so re-verifying a passing
 proof whose inputs haven't changed buys nothing — and BMC is the expensive kind of test. By default
-bmc4j caches each **verified** proof under `build/bmc4j/verdict-cache/` and skips its engine run on the
-next build when nothing relevant changed, so a "nothing changed" run is near-free (in our model-proof
-suite, a warm second pass runs 131 proofs in ~2s instead of ~80s). The cache key composes everything
+bmc4j caches each **expectation-matching pass** under `build/bmc4j/verdict-cache/` and skips its engine
+run on the next build when nothing relevant changed, so a "nothing changed" run is near-free (in our
+model-proof suite, a warm second pass runs 131 proofs in ~2s instead of ~80s). A *pass* means
+`VERIFIED` for a normal proof, or `REFUTED`/`VACUOUS` for a fail-on-purpose demo whose
+[`expect`](api.md) declares exactly that verdict — a refutation is as deterministic a fact as
+a verification, and the demo's pass *is* the refutation. The cache key composes everything
 that can change a verdict: the analysis-classpath **content** (every compiled class in the module plus
-the model jars), the effective request (`unwind`, `unwindingAssertions`, `maxStringLength`,
+the model jars — the `expect` attribute lives in the compiled test class, so changing it invalidates
+too), the effective request (`unwind`, `unwindingAssertions`, `maxStringLength`,
 `timeoutSeconds`, `concurrent`, and the external-solver identity when set), the engine identity
 (bundled engine version, or a content hash of an explicit `jbmcPath` binary), and the bmc4j
 runtime's analysis-semantics version (its bytecode-rewrite layer). Change any of them — edit a class, bump `unwind`, swap the engine — and the affected verdicts
-re-run. It is deliberately coarse and **biased toward over-invalidation**: a *stale green is a soundness
-bug*, so the cache only ever serves a previously-**verified** verdict — **refuted and UNKNOWN proofs are
-never cached** and always re-run (fresh counterexample, no flaky failure pinned). Any error reading or
-writing the cache is fail-open (the proof just runs). The cache lives under `build/`, so `gradlew clean`
+re-run. It is deliberately coarse and **biased toward over-invalidation**: a *stale pass is a soundness
+bug*, so the cache stores the verdict **fact** and the expectation is re-judged on every run —
+**failures are never cached** (any expectation mismatch always comes from a live engine run, with a
+fresh counterexample and no flaky failure pinned), and **`TIMEOUT`/`UNKNOWN` are never cached even when
+expected** (a timeout is a function of machine speed, not of the inputs — a cached "TIMEOUT, as
+expected" on a faster machine would hide the drift the expectation exists to catch). Any error reading
+or writing the cache is fail-open (the proof just runs). One side effect: a cached `REFUTED` demo pass
+does not re-render the counterexample replay file — delete the entry or run with `-Dbmc.noCache=true`
+to regenerate it. The cache lives under `build/`, so `gradlew clean`
 clears it and it is never committed. Disable it with `bmc { cache = false }` or `-Dbmc.noCache=true` to
 force full re-verification.
 

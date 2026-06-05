@@ -16,9 +16,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit tests for the verdict cache: the key composition (every input perturbs the hash),
- * the never-cache-reds rule, the read/write round-trip, the noCache bypass, and fail-open on a garbage
- * cache file. These pin the soundness contract — a stale green is a soundness bug, so over-invalidation
- * is always fine and under-invalidation never is.
+ * the only-expectation-matching-deterministic-passes rule, the read/write round-trip, the noCache
+ * bypass, and fail-open on a garbage cache file. These pin the soundness contract — a stale green is a
+ * soundness bug, so over-invalidation is always fine and under-invalidation never is.
  */
 class VerdictCacheTest {
 
@@ -375,6 +375,97 @@ class VerdictCacheTest {
                     "raw", true);
             VerdictCache.storeIfVerified(r, ENGINE, vacuous);
             assertFalse(VerdictCache.isVerified(r, ENGINE), "VACUOUS (a flavour of refuted) must never be cached");
+        });
+    }
+
+    // --- Expected-match caching (fail-on-purpose demo passes) -------------------
+
+    @Test
+    void refutedResult_withMatchingExpectation_roundTrips(@TempDir Path dir) throws Exception {
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            JbmcResult refuted = new JbmcResult(false, List.of(
+                    new JbmcResult.Violation("boom", "C.java", 1, List.of(), List.of())), "raw");
+            VerdictCache.storeIfExpectedMatch(r, ENGINE, refuted, org.bmc4j.Verdict.REFUTED);
+            VerdictCache.Hit hit = VerdictCache.lookup(r, ENGINE);
+            assertTrue(hit != null, "an expectation-matching REFUTED demo pass is cached");
+            assertEquals(org.bmc4j.Verdict.REFUTED, hit.verdict(), "the stored FACT is the verdict itself");
+            assertTrue(hit.stubbedMethods().isEmpty(), "non-VERIFIED entries carry no stub fact");
+            assertFalse(VerdictCache.isVerified(r, ENGINE),
+                    "a stored REFUTED must never read back as a verified hit");
+        });
+    }
+
+    @Test
+    void vacuousResult_withMatchingExpectation_roundTrips(@TempDir Path dir) throws Exception {
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            JbmcResult vacuous = new JbmcResult(false, List.of(
+                    new JbmcResult.Violation(BmcReachability.VACUOUS_MESSAGE, null, 0, List.of(), List.of())),
+                    "raw", true);
+            VerdictCache.storeIfExpectedMatch(r, ENGINE, vacuous, org.bmc4j.Verdict.VACUOUS);
+            VerdictCache.Hit hit = VerdictCache.lookup(r, ENGINE);
+            assertTrue(hit != null, "an expectation-matching VACUOUS demo pass is cached");
+            assertEquals(org.bmc4j.Verdict.VACUOUS, hit.verdict());
+            assertFalse(VerdictCache.isVerified(r, ENGINE));
+        });
+    }
+
+    @Test
+    void expectationMismatch_isNeverCached(@TempDir Path dir) throws Exception {
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            // A REFUTED result offered against expect=VERIFIED: a FAILURE — never cached.
+            JbmcResult refuted = new JbmcResult(false, List.of(
+                    new JbmcResult.Violation("boom", "C.java", 1, List.of(), List.of())), "raw");
+            VerdictCache.storeIfExpectedMatch(r, ENGINE, refuted, org.bmc4j.Verdict.VERIFIED);
+            assertTrue(VerdictCache.lookup(r, ENGINE) == null,
+                    "a failure (actual != expected) must never be cached — mismatches always re-run live");
+            // The reverse failure: a VERIFIED result offered against expect=REFUTED (drift) — never cached.
+            VerdictCache.storeIfExpectedMatch(r, ENGINE, new JbmcResult(true, List.of(), "raw"),
+                    org.bmc4j.Verdict.REFUTED);
+            assertTrue(VerdictCache.lookup(r, ENGINE) == null,
+                    "a green offered against a fail-on-purpose expectation (the dangerous drift) must never be cached");
+        });
+    }
+
+    @Test
+    void timeoutResult_isNeverCached_evenWhenExpected(@TempDir Path dir) throws Exception {
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            VerdictCache.storeIfExpectedMatch(r, ENGINE,
+                    JbmcResult.unknownTimeout("timed out after 1s", "raw"), org.bmc4j.Verdict.TIMEOUT);
+            assertTrue(VerdictCache.lookup(r, ENGINE) == null,
+                    "TIMEOUT is a function of machine speed, not of the inputs — never cached, even expected");
+        });
+    }
+
+    @Test
+    void unknownResult_isNeverCached_evenWhenExpected(@TempDir Path dir) throws Exception {
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            VerdictCache.storeIfExpectedMatch(r, ENGINE,
+                    JbmcResult.unknown("solver fell over", "raw"), org.bmc4j.Verdict.UNKNOWN);
+            assertTrue(VerdictCache.lookup(r, ENGINE) == null,
+                    "UNKNOWN is undecided, not a deterministic fact — never cached, even expected");
+        });
+    }
+
+    @Test
+    void legacyVerifiedEntry_readsBack_asVerifiedHit(@TempDir Path dir) throws Exception {
+        // Entries written before expected-match caching start "VERIFIED <entry>" with no other change —
+        // the generalized lookup must keep serving them (no cache flag-day on upgrade).
+        runIn(dir, () -> {
+            BmcRequest r = req(dir.resolve("classes").toString());
+            String key = VerdictCache.computeKey(r, ENGINE);
+            Path entry = Path.of(System.getProperty("user.dir"), "build", "bmc4j", "verdict-cache", key);
+            Files.createDirectories(entry.getParent());
+            Files.write(entry, ("VERIFIED pkg.C.proof\nSTUB java.util.Formatter.format\n")
+                    .getBytes(StandardCharsets.UTF_8));
+            VerdictCache.Hit hit = VerdictCache.lookupVerified(r, ENGINE);
+            assertTrue(hit != null, "a pre-existing VERIFIED entry still hits after the format generalization");
+            assertEquals(org.bmc4j.Verdict.VERIFIED, hit.verdict());
+            assertEquals(List.of("java.util.Formatter.format"), hit.stubbedMethods());
         });
     }
 

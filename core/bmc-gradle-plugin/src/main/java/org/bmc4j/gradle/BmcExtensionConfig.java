@@ -73,10 +73,13 @@ public abstract class BmcExtensionConfig {
 
     /**
      * Per-proof verdict caching. When {@code true} (the default), a proof that
-     * <b>verified</b> and whose inputs (bytecode, flags, engine + runtime semantics) are unchanged is
-     * skipped on the next run and reported passed from the cache under {@code build/bmc4j/verdict-cache/}
-     * — so "nothing changed" runs are near-free. Only green verdicts are ever cached; refuted/UNKNOWN
-     * proofs always re-run. Set {@code false} (or pass {@code -Dbmc.noCache=true}) to force full
+     * <b>passed with a deterministic verdict</b> ({@code VERIFIED}, or {@code REFUTED}/{@code VACUOUS}
+     * for a fail-on-purpose proof whose {@code expect} declares exactly that) and whose inputs
+     * (bytecode, flags, engine + runtime semantics) are unchanged is skipped on the next run and
+     * reported passed from the cache under {@code build/bmc4j/verdict-cache/} — so "nothing changed"
+     * runs are near-free. Only expectation-matching passes are ever cached; failures always re-run
+     * live, and {@code TIMEOUT}/{@code UNKNOWN} are never cached even when expected (machine-dependent).
+     * Set {@code false} (or pass {@code -Dbmc.noCache=true}) to force full
      * re-verification every time. The cache lives under {@code build/}, so {@code gradlew clean} clears it.
      */
     public abstract Property<Boolean> getCache();

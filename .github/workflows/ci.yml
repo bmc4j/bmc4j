@@ -129,10 +129,12 @@ jobs:
 
       # Persist bmc4j verdict caches across runs. Safe by the cache's own design:
       # entries are keyed on analysis-classpath CONTENT + request + engine identity +
-      # runtime semantics version, and only VERIFIED verdicts are ever served
-      # (refuted/UNKNOWN always re-run) — a restored stale dir cannot produce a stale
-      # green, it just skips re-proving what hasn't changed. Key on run_id so every
-      # run saves a fresh snapshot; restore-keys picks up the most recent prior one.
+      # runtime semantics version, and only expectation-matching deterministic PASSES
+      # are ever served (VERIFIED, or REFUTED/VACUOUS for a demo expecting exactly
+      # that; failures and TIMEOUT/UNKNOWN always re-run) — a restored stale dir
+      # cannot produce a stale pass, it just skips re-proving what hasn't changed.
+      # Key on run_id so every run saves a fresh snapshot; restore-keys picks up the
+      # most recent prior one.
       - name: Restore verdict caches
         uses: actions/cache@v5
         with:
