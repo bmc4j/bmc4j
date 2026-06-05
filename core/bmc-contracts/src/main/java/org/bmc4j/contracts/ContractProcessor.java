@@ -122,8 +122,17 @@ public class ContractProcessor extends AbstractProcessor {
                     requires == null ? null : requires.value(),
                     ensures == null ? null : ensures.value(),
                     expectEnforce));
-            contractRecords.add(ContractManifest.contractLine(
-                    targetInternal, name, descriptor(mirror), stubInternal, name + "__stub"));
+            // SOUNDNESS: only a contract whose enforce-proof is expected to VERIFY may publish a
+            // reusable redirect. A non-VERIFIED contract (@ExpectEnforce REFUTED/VACUOUS, or a
+            // type-level non-VERIFIED expectEnforce) declares the framework KNOWS its @Ensures is
+            // not discharged — its __stub assume(<ensures>) would summarize callers against a FALSE
+            // postcondition, a false green. Its __BmcEnforce proof is STILL generated below (the
+            // refutation/vacuity demo must keep running); we just emit no `contract` redirect line,
+            // so JbmcBackend never rewrites any other proof's call sites to that stub.
+            if ("VERIFIED".equals(expectEnforce)) {
+                contractRecords.add(ContractManifest.contractLine(
+                        targetInternal, name, descriptor(mirror), stubInternal, name + "__stub"));
+            }
         }
         if (contracts.isEmpty()) {
             warn(contractType, "@BmcContractsFor type has no @Requires/@Ensures mirror methods");
