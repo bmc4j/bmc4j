@@ -70,6 +70,19 @@ subprojects {
                             ?: providers.gradleProperty("gpr.token").orNull
                     }
                 }
+                // Maven Central staging: a local DIRECTORY repo (-PcentralStagingDir=<abs path>).
+                // The Central Publisher Portal takes one zipped bundle of the whole maven-repo
+                // layout, so each CI job publishes its modules HERE (signed; signing is required
+                // for Central), the release workflow merges the staging dirs from every platform
+                // job, adds the .md5/.sha1 checksums Gradle doesn't generate for file:// repos,
+                // and uploads the zip to the Portal API. Only declared when the property is set,
+                // so ordinary builds/publishes are unaffected.
+                providers.gradleProperty("centralStagingDir").orNull?.let { stagingDir ->
+                    maven {
+                        name = "CentralStaging"
+                        url = uri(java.io.File(stagingDir).toURI())
+                    }
+                }
             }
             // License metadata on every published POM (required by Maven Central / the
             // Plugin Portal). bmc4j itself is Apache-2.0; the engine jars additionally
