@@ -241,11 +241,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Idempotent: a release may already exist for this tag - either a previous
+      # attempt's, or because the tag was PUSHED BY creating a GitHub release in
+      # the UI (a perfectly good way to trigger this workflow). Don't fight it.
       - name: Release notes on the tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "release ${GITHUB_REF_NAME} already exists - leaving it as-is"
+            exit 0
+          fi
           gh release create "${GITHUB_REF_NAME}" \
             --title "bmc4j ${{ needs.preflight.outputs.version }}" \
             --generate-notes
