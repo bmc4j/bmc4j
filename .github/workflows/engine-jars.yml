@@ -21,6 +21,10 @@ on:
         description: 'Also publish each engine jar (signed) to a local staging repo and upload it as a central-staging-<platform> artifact for the release workflow''s Maven Central bundle'
         type: boolean
         default: false
+      version:
+        description: 'Version to build/publish as (the release workflow passes the tag version - the tag is the source of truth; surfaced to Gradle as BMC4J_VERSION). Empty = the 0.0.1-local dev default; publishing then refuses to run.'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       platforms:
@@ -32,6 +36,9 @@ on:
       centralStaging:
         type: boolean
         default: false
+      version:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -78,6 +85,11 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.include) }}
+    # The tag is the version's source of truth: the build reads BMC4J_VERSION
+    # (empty -> the 0.0.1-local dev default), so every Gradle step in this job
+    # builds/publishes at the requested version with no file edits.
+    env:
+      BMC4J_VERSION: ${{ inputs.version }}
 
     steps:
       - name: Checkout
@@ -132,7 +144,8 @@ jobs:
 
       # Skip-if-exists makes release re-runs idempotent: GH Packages rejects
       # overwrites with a 409, so a re-run after a partial failure would otherwise
-      # die on the jars that DID publish.
+      # die on the jars that DID publish. Publishing requires an explicit version -
+      # the 0.0.1-local dev default must never reach a registry.
       - name: Publish to GitHub Packages
         if: ${{ inputs.publish }}
         shell: bash
@@ -141,11 +154,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ver="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
           mod="bmc-engine-${{ matrix.platform }}"
           if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
-              "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$ver/$mod-$ver.pom"; then
-            echo "$mod $ver already on GitHub Packages - skipping"
+              "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$BMC4J_VERSION/$mod-$BMC4J_VERSION.pom"; then
+            echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
             exit 0
           fi
           ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon

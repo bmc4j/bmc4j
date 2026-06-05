@@ -24,10 +24,13 @@ public final class Bmc4jVersion {
 
     /**
      * The published runtime artifact version. Read from the runtime jar's manifest
-     * ({@code Implementation-Version}) when present, else this hardcoded fallback (e.g. when running
-     * straight from {@code build/classes} with no manifest). Kept in sync with the build version.
+     * ({@code Implementation-Version}, stamped by the build from the release tag) when present, else
+     * this fallback — the build's dev default, used when running straight from {@code build/classes}
+     * with no manifest. Dev-build cache identity then leans on {@link #SEMANTICS_REVISION} and the
+     * cache key's classpath-content digest (which hashes the runtime's own classes when they're on
+     * the analysis classpath), so a constant fallback here cannot serve a stale green.
      */
-    private static final String ARTIFACT_VERSION = resolveArtifactVersion("0.1.0");
+    private static final String ARTIFACT_VERSION = resolveArtifactVersion("0.0.1-local");
 
     /**
      * A monotonically-bumped tag for analysis-semantics changes that ship without an artifact-version

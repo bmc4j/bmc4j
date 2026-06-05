@@ -7,11 +7,11 @@ name: Publish core modules
 # by engine-jars.yml — each can only be assembled on its own OS; everything
 # here is plain JVM and publishes from one linux runner.
 #
-# Note: GitHub Packages rejects overwrites — re-running the GHP leg for an
-# already-published version fails loudly on the first upload. Bump
-# bmc4jVersion in core/gradle.properties first.
+# GitHub Packages rejects overwrites; the GHP leg skips already-published
+# modules per-version, so re-runs are idempotent.
 #
-# Also callable from the release workflow (workflow_call).
+# Also callable from the release workflow (workflow_call), which passes the
+# tag version - the tag is the source of truth, pinned into gradle.properties.
 
 on:
   workflow_dispatch:
@@ -24,6 +24,10 @@ on:
         description: 'Also publish the set (signed) to a local staging repo and upload it as the central-staging-core artifact for the release workflow''s Maven Central bundle'
         type: boolean
         default: false
+      version:
+        description: 'Version to build/publish as (the release workflow passes the tag version - the tag is the source of truth; surfaced to Gradle as BMC4J_VERSION). Empty = the 0.0.1-local dev default; publishing then refuses to run.'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       githubPackages:
@@ -32,6 +36,9 @@ on:
       centralStaging:
         type: boolean
         default: false
+      version:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -41,6 +48,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The tag is the version's source of truth: the build reads BMC4J_VERSION
+    # (empty -> the 0.0.1-local dev default), so every Gradle step in this job
+    # builds/publishes at the requested version with no file edits.
+    env:
+      BMC4J_VERSION: ${{ inputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -71,12 +83,12 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
-          ver="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
           tasks=""
           for mod in bmc-runtime bmc-gradle-plugin bmc-models bmc-kotlin bmc-contracts bmc-constraints bmc-constraints-jakarta; do
             if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
-                "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$ver/$mod-$ver.pom"; then
-              echo "$mod $ver already on GitHub Packages - skipping"
+                "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$BMC4J_VERSION/$mod-$BMC4J_VERSION.pom"; then
+              echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
             else
               tasks="$tasks :$mod:publishAllPublicationsToGitHubPackagesRepository"
             fi

@@ -24,9 +24,14 @@ val repoSlug = "bmc4j/bmc4j"
 
 subprojects {
     group = "org.bmc4j"
-    // Single version source: core/gradle.properties (bmc4jVersion). The release
-    // workflow checks the README quickstart against it before publishing.
-    version = providers.gradleProperty("bmc4jVersion").get()
+    // The version's source of truth is the release TAG, surfaced to the build as
+    // the BMC4J_VERSION env var (the release workflow sets it from vX.Y.Z). No
+    // version lives in the tree, so there is nothing to bump or sync per release.
+    // Anything built without it - local dev, IDE, plain CI - is "0.0.1-local":
+    // obviously not a release, sorts below every real version, and can never
+    // collide with a published coordinate.
+    version = providers.environmentVariable("BMC4J_VERSION").orNull
+        ?.takeIf { it.isNotBlank() } ?: "0.0.1-local"
 
     repositories {
         mavenCentral()
@@ -39,6 +44,13 @@ subprojects {
             metaInf {
                 from(licenseFile)
                 from(noticesFile)
+            }
+            // Stamp the version into every jar manifest: Bmc4jVersion reads it at
+            // runtime as part of the verdict-cache identity (a release whose rewrite
+            // semantics changed must invalidate consumer caches). It was previously
+            // never stamped, so the runtime always fell back to a hardcoded version.
+            manifest {
+                attributes["Implementation-Version"] = project.version.toString()
             }
         }
         // Maven Central requires a -sources and -javadoc jar alongside every published
