@@ -1,5 +1,12 @@
 <p align="center"><img src="assets/logo.svg" width="440" alt="bmc4j"></p>
 
+<p align="center">
+  <a href="https://central.sonatype.com/artifact/org.bmc4j/bmc-runtime"><img src="https://img.shields.io/maven-central/v/org.bmc4j/bmc-runtime?label=maven%20central" alt="Maven Central"></a>
+  <a href="https://plugins.gradle.org/plugin/org.bmc4j"><img src="https://img.shields.io/gradle-plugin-portal/v/org.bmc4j?label=plugin%20portal" alt="Gradle Plugin Portal"></a>
+  <a href="https://github.com/bmc4j/bmc4j/actions/workflows/ci.yml"><img src="https://github.com/bmc4j/bmc4j/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/bmc4j/bmc4j" alt="License"></a>
+</p>
+
 **Prove your Java or Kotlin code correct for *every* input — as easily as writing a JUnit test.**
 
 A unit test checks the inputs you thought of. A property-based test samples a few
@@ -24,7 +31,7 @@ the one plugin.
 // build.gradle.kts
 plugins {
     java
-    id("org.bmc4j") version "0.1.0"
+    id("org.bmc4j") version "<version>" // latest: see the Maven Central badge above
 }
 ```
 
