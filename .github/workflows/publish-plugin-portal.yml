@@ -1,0 +1,69 @@
+name: Publish to Gradle Plugin Portal
+
+# Manual dispatch only, and deliberately SEPARATE from the release workflow:
+# a Portal-resolved `plugins { id("org.bmc4j") }` must find the plugin's runtime
+# dependencies (bmc-runtime, models, ...) on Maven Central, so this runs ONLY
+# after the release's Central deployment has been published and is live.
+#
+# Credentials: the GRADLE_PUBLISH_KEY / GRADLE_PUBLISH_SECRET repo secrets
+# (API keys from plugins.gradle.org). Note the first-ever publish of a new
+# plugin id goes through manual approval by the Plugin Portal team.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish - must match bmc4jVersion in core/gradle.properties and be LIVE on Maven Central'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Version consistency
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          prop="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          [ "$VERSION" = "$prop" ] || { echo "::error::version input '$VERSION' != bmc4jVersion '$prop'"; exit 1; }
+
+      - name: Dependencies are live on Central
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # The plugin's POM points consumers at these coordinates; publishing the
+          # plugin before they resolve gives every early adopter a broken first run.
+          for a in bmc-runtime bmc-gradle-plugin; do
+            url="https://repo1.maven.org/maven2/org/bmc4j/$a/$VERSION/$a-$VERSION.pom"
+            curl -sSf -o /dev/null "$url" \
+              || { echo "::error::$a $VERSION is not live on Maven Central yet ($url) - publish the Central deployment first"; exit 1; }
+          done
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish to the Plugin Portal
+        shell: bash
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew -p core :bmc-gradle-plugin:publishPlugins --no-daemon
