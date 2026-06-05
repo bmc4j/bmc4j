@@ -24,9 +24,9 @@ name: Release
 #                    resolved plugin must find its runtime deps on Central),
 #                    then publishPlugins to the Gradle Plugin Portal
 #   github-release   release notes on the tag (--generate-notes)
-#   sync-readme      opens a PR bumping the README quickstart to what shipped -
-#                    the one place a version string exists for HUMANS to
-#                    copy-paste; skips when already current
+#
+# (The README quickstart version is updated by hand when desired - the build
+# reads nothing from it.)
 #
 # Every job is re-runnable: if repo1 sync outlasts the plugin-portal poll, or any
 # leg flakes, "Re-run failed jobs" resumes exactly there (publishes are idempotent
@@ -43,9 +43,8 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write        # release-notes creation on the tag + readme-sync branch push
-  packages: write        # GH Packages publishing (via the called workflows)
-  pull-requests: write   # the post-release readme-sync PR
+  contents: write   # release-notes creation on the tag
+  packages: write   # GH Packages publishing (via the called workflows)
 
 # One release at a time; never cancel a publish mid-flight.
 concurrency:
@@ -251,38 +250,3 @@ jobs:
             --title "bmc4j ${{ needs.preflight.outputs.version }}" \
             --generate-notes
 
-  # The README quickstart is the ONE version string left in the tree - it exists
-  # for humans to copy-paste, so it should advertise the latest release. Open a
-  # PR bumping it to what just shipped; skips when already current. Nothing in
-  # the BUILD reads it - delete this job and the quickstart just goes stale.
-  sync-readme:
-    if: ${{ github.event_name == 'push' }}
-    needs: [preflight, github-release]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v6
-        with:
-          ref: main
-
-      - name: Open readme-sync PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.preflight.outputs.version }}
-        run: |
-          set -euo pipefail
-          if grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md; then
-            echo "README quickstart already at $VERSION - nothing to sync"; exit 0
-          fi
-          branch="sync-readme-$VERSION"
-          git checkout -b "$branch"
-          sed -i -E "s/id\(\"org\.bmc4j\"\) version \"[^\"]+\"/id(\"org.bmc4j\") version \"$VERSION\"/" README.md
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "README quickstart: $VERSION (just released)"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" \
-            --title "README quickstart: $VERSION (just released)" \
-            --body "v$VERSION shipped; this points the quickstart's copy-paste version at it. Auto-opened by the release workflow - the build itself reads no version from the tree (tag is the source of truth)."
