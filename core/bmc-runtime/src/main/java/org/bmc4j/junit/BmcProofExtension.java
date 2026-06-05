@@ -148,6 +148,13 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
 
         org.bmc4j.Verdict actual = actualVerdict(result);
 
+        // Surface the SAT backend the engine actually used for this run — observe-only, the verdict is
+        // already decided. On a normal `gradlew test` (and in CI) this prints one line per proof, so
+        // external-solver engagement is provable in normal output; and if an external solver was
+        // requested but the engine fell back to MiniSAT, it warns loudly (the silent-fallback guard).
+        // Placed before the residual-indy early-return below, so every run logs its backend.
+        reportSolverBackend(entryFunction, result);
+
         // Residual-invokedynamic demotion: a REFUTED whose reachable slice includes a havoc'd
         // residual-indy marker (see ResidualIndyBytecode) cannot promise a REAL counterexample —
         // the "refutation" may be the havoc itself reaching an artifact path (e.g. a pattern
@@ -245,6 +252,42 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
             return result.isTimeout() ? org.bmc4j.Verdict.TIMEOUT : org.bmc4j.Verdict.UNKNOWN;
         }
         return org.bmc4j.Verdict.REFUTED;
+    }
+
+    private static final String EXTERNAL_SAT_PROP = "bmc.externalSat";
+
+    /**
+     * Surface, in the per-proof progress log, the SAT backend the engine reported solving this run with
+     * (its {@code "Solving with …"} status line, e.g. {@code "Solving with External SAT solver"} or
+     * {@code "Solving with MiniSAT 2.2.1 without simplifier"}). This makes external-solver engagement
+     * provable in a normal {@code gradlew test} / CI run rather than something you have to infer.
+     *
+     * <p><b>Silent-fallback guard.</b> jbmc only routes a proof to {@code --external-sat-solver} when the
+     * formula bit-blasts to pure CNF (string-free); a string-refinement proof silently solves with the
+     * built-in MiniSAT instead, so a configured external solver can go unused with no error. When
+     * {@code bmc.externalSat} is set but the captured backend does NOT name the external solver, we log a
+     * clear WARNING — the verdict is unchanged (this is observe-only), but the operator learns the external
+     * solver was not actually engaged for this proof.
+     */
+    static void reportSolverBackend(String entryFunction, JbmcResult result) {
+        String backend = result == null ? null : result.solverDescription();
+        if (backend != null) {
+            System.out.println("  bmc4j: " + entryFunction + " [" + backend + "]");
+        }
+        String externalSat = System.getProperty(EXTERNAL_SAT_PROP);
+        if (externalSat == null || externalSat.isBlank()) {
+            return; // no external solver requested — nothing to cross-check
+        }
+        // Requested an external solver; warn if the engine didn't actually use it. We only assert the
+        // mismatch when we positively captured a backend line that isn't the external solver (an absent
+        // line — engine error, no solving phase — isn't evidence of a fallback).
+        if (backend != null && !backend.toLowerCase().contains("external")) {
+            System.out.println("  bmc4j: WARNING " + entryFunction
+                    + " external SAT solver requested (" + externalSat.trim()
+                    + ") but the engine solved with [" + backend + "] — external solver was NOT used"
+                    + " (likely a non-string-free proof or a solver error). The verdict stands; the"
+                    + " external solver simply did not engage for this proof.");
+        }
     }
 
     /**

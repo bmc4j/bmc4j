@@ -16,6 +16,16 @@ public final class JbmcResult {
     private final List<String> stubbedMethods;
 
     /**
+     * The SAT/SMT backend the engine reported solving this run with, verbatim from its
+     * {@code "Solving with …"} status message (e.g. {@code "Solving with External SAT solver"} or
+     * {@code "Solving with MiniSAT 2.2.1 without simplifier"}), or {@code null} if the stream carried no
+     * such line. Observe-only — it never feeds the verdict — but it lets a run PROVE which solver actually
+     * ran and lets bmc4j detect an external-solver silent fallback (requested external, solved with
+     * MiniSAT). Harvested on every run alongside the nondet-stub fact.
+     */
+    private final String solverDescription;
+
+    /**
      * The three-way verdict of a proof run. A proof is either {@code VERIFIED} (holds for
      * all inputs in the bound), {@code REFUTED} (a counterexample exists), or {@code UNKNOWN}
      * (undecided within budget — timeout, engine gave up / crashed, or unparseable output). VACUOUS
@@ -41,11 +51,12 @@ public final class JbmcResult {
 
     public JbmcResult(boolean verified, List<Violation> violations, String rawOutput, boolean vacuous) {
         this(verified ? Verdict.VERIFIED : Verdict.REFUTED, violations, rawOutput, vacuous, null,
-                false, List.of());
+                false, List.of(), null);
     }
 
     private JbmcResult(Verdict verdict, List<Violation> violations, String rawOutput, boolean vacuous,
-                       String undecidedReason, boolean timedOut, List<String> stubbedMethods) {
+                       String undecidedReason, boolean timedOut, List<String> stubbedMethods,
+                       String solverDescription) {
         this.verdict = verdict;
         this.violations = violations;
         this.rawOutput = rawOutput;
@@ -53,6 +64,7 @@ public final class JbmcResult {
         this.undecidedReason = undecidedReason;
         this.timedOut = timedOut;
         this.stubbedMethods = stubbedMethods == null ? List.of() : List.copyOf(stubbedMethods);
+        this.solverDescription = solverDescription;
     }
 
     /**
@@ -64,7 +76,7 @@ public final class JbmcResult {
      * expected-verdict assertion distinguishes TIMEOUT from other unknowns.
      */
     public static JbmcResult unknown(String reason, String rawOutput) {
-        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, false, List.of());
+        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, false, List.of(), null);
     }
 
     /**
@@ -73,7 +85,7 @@ public final class JbmcResult {
      * string — so {@code @BmcProof(expect = TIMEOUT)} can assert this exact outcome.
      */
     public static JbmcResult unknownTimeout(String reason, String rawOutput) {
-        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, true, List.of());
+        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, true, List.of(), null);
     }
 
     /** True if this UNKNOWN was caused by the per-proof wall-clock budget expiring. */
@@ -90,7 +102,30 @@ public final class JbmcResult {
         if (stubs == null || stubs.isEmpty()) {
             return this;
         }
-        return new JbmcResult(verdict, violations, rawOutput, vacuous, undecidedReason, timedOut, stubs);
+        return new JbmcResult(verdict, violations, rawOutput, vacuous, undecidedReason, timedOut, stubs,
+                solverDescription);
+    }
+
+    /**
+     * Return a copy of this result carrying the SAT-backend description the engine reported (its
+     * {@code "Solving with …"} line). The verdict and all other fields are unchanged — like the stub list
+     * it's a parallel observe-only fact attached after the verdict is computed. Returns {@code this} when
+     * the description is null/blank.
+     */
+    public JbmcResult withSolverDescription(String solver) {
+        if (solver == null || solver.isBlank()) {
+            return this;
+        }
+        return new JbmcResult(verdict, violations, rawOutput, vacuous, undecidedReason, timedOut,
+                stubbedMethods, solver);
+    }
+
+    /**
+     * The SAT/SMT backend the engine reported solving this run with (verbatim {@code "Solving with …"}
+     * text), or {@code null} when no such line was in the stream. Observe-only — never feeds the verdict.
+     */
+    public String solverDescription() {
+        return solverDescription;
     }
 
     /**

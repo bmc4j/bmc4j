@@ -431,6 +431,55 @@ class JbmcOutputParserTest {
         assertTrue(JbmcOutputParser.parse(clean, ENTRY).stubbedMethods().isEmpty());
     }
 
+    // --- SAT-backend (solver) harvesting -------------------------
+    // Pin the bundled engine's "Solving with …" status line (cbmc 6.9.0, --json-ui --verbosity 10): it
+    // names the SAT backend that actually closed the proof. Observe-only — it never feeds the verdict — but
+    // it lets a run PROVE which solver ran and lets bmc4j detect an external-solver silent fallback.
+
+    @Test
+    void captures_external_sat_solver_description() {
+        String json = """
+            [
+              {"messageType":"STATUS-MESSAGE","messageText":"Solving with External SAT solver"},
+              {"result":[{"name":"m","status":"FAILURE",
+                 "sourceLocation":{"line":"%d","function":"java::pkg.Tests.proof:()V"}}]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertEquals("Solving with External SAT solver", r.solverDescription());
+        // observe-only: the verdict is unaffected (reachable marker -> verified).
+        assertTrue(r.isVerified());
+    }
+
+    @Test
+    void captures_minisat_default_solver_description() {
+        String json = """
+            [
+              {"messageType":"STATUS-MESSAGE",
+               "messageText":"Building error trace string refinement loop with MiniSAT 2.2.1"},
+              {"messageType":"STATUS-MESSAGE",
+               "messageText":"Solving with MiniSAT 2.2.1 without simplifier"},
+              {"result":[{"name":"m","status":"FAILURE",
+                 "sourceLocation":{"line":"%d","function":"java::pkg.Tests.proof:()V"}}]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        // The last "Solving with …" line wins and names the built-in backend, not the refinement-loop line.
+        assertEquals("Solving with MiniSAT 2.2.1 without simplifier", r.solverDescription());
+        assertTrue(r.isVerified());
+    }
+
+    @Test
+    void solver_description_is_null_when_no_solving_line_present() {
+        String json = """
+            [
+              {"result":[{"name":"p1","status":"SUCCESS"}]},
+              {"cProverStatus":"success"}
+            ]""";
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertEquals(null, r.solverDescription());
+    }
+
     @Test
     void harvest_attaches_stubs_even_on_a_refuted_verdict() {
         // The stub FACT is harvested regardless of verdict — policy is applied later.

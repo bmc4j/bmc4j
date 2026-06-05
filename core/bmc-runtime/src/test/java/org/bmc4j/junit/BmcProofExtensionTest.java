@@ -209,6 +209,75 @@ class BmcProofExtensionTest {
         assertDoesNotThrow(() -> captureModelPolicy("pkg.T.p", "", "", false));
     }
 
+    // --- SAT-backend progress line + external-solver silent-fallback guard --------
+
+    /** Capture {@code reportSolverBackend}'s stdout with {@code bmc.externalSat} set/cleared as given. */
+    private static String captureSolverReport(String entryFunction,
+                                              org.bmc4j.engine.JbmcResult result, String externalSat) {
+        String prev = System.getProperty("bmc.externalSat");
+        java.io.PrintStream realOut = System.out;
+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+        try {
+            setOrClear("bmc.externalSat", externalSat);
+            System.setOut(new java.io.PrintStream(buf, true, java.nio.charset.StandardCharsets.UTF_8));
+            BmcProofExtension.reportSolverBackend(entryFunction, result);
+            return buf.toString(java.nio.charset.StandardCharsets.UTF_8);
+        } finally {
+            System.setOut(realOut);
+            restore("bmc.externalSat", prev);
+        }
+    }
+
+    private static org.bmc4j.engine.JbmcResult verifiedWithSolver(String solverLine) {
+        return new org.bmc4j.engine.JbmcResult(true, List.of(), "raw").withSolverDescription(solverLine);
+    }
+
+    @Test
+    void reportSolverBackend_printsBackendLine_perProof() {
+        String out = captureSolverReport("pkg.T.p",
+                verifiedWithSolver("Solving with External SAT solver"), null);
+        assertTrue(out.contains("pkg.T.p"), out);
+        assertTrue(out.contains("[Solving with External SAT solver]"),
+                "the per-proof progress line must surface the SAT backend: " + out);
+    }
+
+    @Test
+    void reportSolverBackend_externalRequestedAndUsed_doesNotWarn() {
+        String out = captureSolverReport("pkg.T.p",
+                verifiedWithSolver("Solving with External SAT solver"), "C:/sat/cadical.exe");
+        assertTrue(out.contains("[Solving with External SAT solver]"), out);
+        assertFalse(out.contains("WARNING"),
+                "external requested AND used -> no fallback warning: " + out);
+    }
+
+    @Test
+    void reportSolverBackend_externalRequestedButMiniSatUsed_warnsSilentFallback() {
+        String out = captureSolverReport("pkg.T.p",
+                verifiedWithSolver("Solving with MiniSAT 2.2.1 without simplifier"), "C:/sat/cadical.exe");
+        assertTrue(out.contains("WARNING"),
+                "external requested but engine solved with MiniSAT -> silent-fallback warning: " + out);
+        assertTrue(out.contains("NOT used"), out);
+        assertTrue(out.contains("C:/sat/cadical.exe"), "the warning names the requested solver: " + out);
+    }
+
+    @Test
+    void reportSolverBackend_noExternalRequested_minisatUsed_noWarning() {
+        String out = captureSolverReport("pkg.T.p",
+                verifiedWithSolver("Solving with MiniSAT 2.2.1 without simplifier"), null);
+        assertTrue(out.contains("[Solving with MiniSAT 2.2.1 without simplifier]"), out);
+        assertFalse(out.contains("WARNING"), "default MiniSAT run is not a fallback: " + out);
+    }
+
+    @Test
+    void reportSolverBackend_noBackendLine_isQuietAndNeverFalseWarns() {
+        // No "Solving with …" captured (engine error / no solving phase): don't print a backend line and
+        // don't assert a fallback even if external was requested (absence isn't evidence of a fallback).
+        String out = captureSolverReport("pkg.T.p",
+                new org.bmc4j.engine.JbmcResult(true, List.of(), "raw"), "C:/sat/cadical.exe");
+        assertFalse(out.contains("["), "no backend line when none was captured: " + out);
+        assertFalse(out.contains("WARNING"), "absent backend line is not a fallback claim: " + out);
+    }
+
     @Disabled("reflection-only fixture; not a runnable proof suite")
     static class MixedStringLengthProofs {
         @BmcProof

@@ -37,8 +37,12 @@ public final class JbmcOutputParser {
         }
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
-        // computed verdict below via withStubbedMethods (a no-op when empty).
-        return parseVerdict(root, json, entryFunctionFqn).withStubbedMethods(harvestStubs(root));
+        // computed verdict below via withStubbedMethods (a no-op when empty). The SAT-backend line is
+        // harvested the same way (an observe-only fact, never feeds the verdict) and carried on the
+        // result so callers can prove which solver the engine actually used.
+        return parseVerdict(root, json, entryFunctionFqn)
+                .withStubbedMethods(harvestStubs(root))
+                .withSolverDescription(harvestSolverDescription(root));
     }
 
     private static JbmcResult parseVerdict(JsonArray root, String json, String entryFunctionFqn) {
@@ -142,6 +146,41 @@ public final class JbmcOutputParser {
             }
         }
         return new ArrayList<>(stubs);
+    }
+
+    /**
+     * Prefix of the authoritative SAT-backend STATUS-MESSAGE the engine stamps once per run (at
+     * {@code --verbosity 10} in the {@code --json-ui} stream). The full text names the solver actually
+     * used, e.g. {@code "Solving with External SAT solver"} when {@code --external-sat-solver} engaged, or
+     * {@code "Solving with MiniSAT 2.2.1 without simplifier"} on the built-in default. We carry this
+     * verbatim so a run can PROVE which backend solved it (and detect a silent external-solver fallback).
+     * Not an engine contract; like {@link #OPAQUE_MARKER} it's observe-only and the engine identity is in
+     * the verdict-cache key, so an engine bump that changes the wording forces re-validation.
+     */
+    private static final String SOLVING_WITH_MARKER = "Solving with ";
+
+    /**
+     * The SAT-backend description the engine reported for this run, or {@code null} if the stream carried
+     * no {@code "Solving with …"} status message (e.g. a parse/engine error before solving, or a verbosity
+     * too low to emit it). The LAST such message wins — string-refinement can emit a per-iteration line and
+     * the final one names the backend that closed the proof. Pure; never throws; never feeds the verdict.
+     */
+    static String harvestSolverDescription(JsonArray root) {
+        String solver = null;
+        for (JsonElement e : root) {
+            if (!e.isJsonObject()) {
+                continue;
+            }
+            String text = str(e.getAsJsonObject(), "messageText");
+            if (text == null) {
+                continue;
+            }
+            int at = text.indexOf(SOLVING_WITH_MARKER);
+            if (at >= 0) {
+                solver = text.substring(at).trim();
+            }
+        }
+        return solver;
     }
 
     /** {@code java::pkg.Class.method:(sig)ret} -> {@code pkg.Class.method} (null if unrecognizable). */
