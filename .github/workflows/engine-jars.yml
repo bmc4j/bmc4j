@@ -96,7 +96,9 @@ jobs:
         run: |
           set -euo pipefail
           libs="core/bmc-engine-${{ matrix.platform }}/build/libs"
-          jarfile="$(cd "$libs" && ls bmc-engine-${{ matrix.platform }}-*.jar | head -n1)"
+          # Exclude the -javadoc/-sources classifier jars (added by the Central
+          # publishing prereqs) - the engine binary lives in the main jar only.
+          jarfile="$(cd "$libs" && ls bmc-engine-${{ matrix.platform }}-*.jar | grep -vE -- '-(javadoc|sources)\.jar$' | head -n1)"
           echo "Inspecting $libs/$jarfile"
           exe="jbmc"
           [[ "${{ runner.os }}" == "Windows" ]] && exe="jbmc.exe"
