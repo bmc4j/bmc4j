@@ -1,0 +1,4 @@
+# The fake engine fixtures under bmc-runtime's test resources are byte-exact "binaries":
+# BundledEngineTest compares the extracted copy byte-for-byte, so they must never be EOL-converted
+# (git autocrlf on a Windows checkout would turn their LF into CRLF and break the comparison).
+core/bmc-runtime/src/test/resources/jbmc/** -text

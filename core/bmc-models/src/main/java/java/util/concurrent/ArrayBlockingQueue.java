@@ -1,0 +1,202 @@
+package java.util.concurrent;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import org.cprover.CProver;
+
+/**
+ * Sequential BMC model of {@link java.util.concurrent.ArrayBlockingQueue} — a bounded FIFO over a
+ * fixed-size backing array (head at index 0, tail at {@code size}; {@code poll}/{@code take} shift
+ * left, like the bmc4j ArrayList model). bmc4j proves logic, not interleavings (Lincheck's job).
+ *
+ * <p>The <b>non-blocking surface</b> is sound: {@code offer} returns false when full, {@code poll}/
+ * {@code peek} return null when empty, {@code add}/{@code remove}/{@code element} throw per the
+ * {@link java.util.Queue} contract. The <b>blocking</b> {@code put}/{@code take} are idealized as
+ * assume-prune (see {@link BlockingQueue}): {@code put} assumes room (within capacity) then enqueues,
+ * {@code take} assumes non-empty then dequeues — the would-block path (full / empty) is pruned from
+ * the analysis, so producer/consumer <em>logic</em> through the queue stays testable and sound.
+ *
+ * <p><b>Axis note:</b> {@code put}/{@code take} use the {@link CProver#assume} prune primitive
+ * (JBMC-only), so they are exercised on the {@code @BmcProof} axis only, never on the JVM-runnable
+ * differential axis (the non-blocking surface is what is differential-tested vs the JDK).
+ *
+ * <p>Capacity is the constructor argument, capped at the model bound {@value #MAX_CAPACITY}.
+ */
+public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
+
+    static final int MAX_CAPACITY = 64;
+
+    private final Object[] elements;
+    private final int capacity;
+    private int size;
+
+    public ArrayBlockingQueue(int capacity) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException();
+        }
+        this.capacity = capacity;
+        this.elements = new Object[MAX_CAPACITY];
+    }
+
+    public ArrayBlockingQueue(int capacity, boolean fair) {
+        this(capacity);
+    }
+
+    /** Internal ctor used by LinkedBlockingQueue's default (effectively unbounded) capacity. */
+    ArrayBlockingQueue(int capacity, boolean fair, boolean internal) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException();
+        }
+        this.capacity = capacity;
+        this.elements = new Object[MAX_CAPACITY];
+    }
+
+    @Override
+    public int size() {
+        return size;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return size == 0;
+    }
+
+    @Override
+    public int remainingCapacity() {
+        return capacity - size;
+    }
+
+    /** Enqueue if room; returns false when full. NPE on null per the JDK. */
+    @Override
+    public boolean offer(E e) {
+        if (e == null) {
+            throw new NullPointerException();
+        }
+        if (size >= capacity) {
+            return false;
+        }
+        elements[size] = e;
+        size++;
+        return true;
+    }
+
+    /** Enqueue; throws IllegalStateException("Queue full") when full, per the JDK. */
+    @Override
+    public boolean add(E e) {
+        if (!offer(e)) {
+            throw new IllegalStateException("Queue full");
+        }
+        return true;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public E poll() {
+        if (size == 0) {
+            return null;
+        }
+        E head = (E) elements[0];
+        for (int i = 0; i < size - 1; i++) {
+            elements[i] = elements[i + 1];
+        }
+        size--;
+        return head;
+    }
+
+    @Override
+    public E remove() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return poll();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public E peek() {
+        return size == 0 ? null : (E) elements[0];
+    }
+
+    @Override
+    public E element() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return peek();
+    }
+
+    /**
+     * Blocking put, idealized as assume-prune (see class javadoc): assume there is room (within
+     * capacity), then enqueue. The would-block "full" path is pruned. Use {@link #offer(Object)} to
+     * probe without blocking.
+     */
+    @Override
+    public void put(E e) throws InterruptedException {
+        if (e == null) {
+            throw new NullPointerException();
+        }
+        CProver.assume(size < capacity);
+        elements[size] = e;
+        size++;
+    }
+
+    /**
+     * Blocking take, idealized as assume-prune (see class javadoc): assume the queue is non-empty,
+     * then dequeue. The would-block "empty" path is pruned. Use {@link #poll()} to probe without
+     * blocking.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public E take() throws InterruptedException {
+        CProver.assume(size > 0);
+        return poll();
+    }
+
+    @Override
+    public boolean contains(Object o) {
+        for (int i = 0; i < size; i++) {
+            if (o == null ? elements[i] == null : o.equals(elements[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void clear() {
+        size = 0;
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+        return new Itr();
+    }
+
+    /** Drain all elements into {@code c} (in FIFO order) and return the count moved. */
+    public int drainTo(Collection<? super E> c) {
+        int n = size;
+        while (size > 0) {
+            c.add(poll());
+        }
+        return n;
+    }
+
+    private final class Itr implements Iterator<E> {
+        private int cursor;
+
+        @Override
+        public boolean hasNext() {
+            return cursor < size;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public E next() {
+            if (cursor >= size) {
+                throw new NoSuchElementException();
+            }
+            return (E) elements[cursor++];
+        }
+    }
+}

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 240" width="480" height="240" role="img" aria-label="bmc4j">
+  <!-- The background is a real DIMACS CNF instance: every sign pattern over three
+       variables, which is UNSATISFIABLE - and UNSAT is exactly what a verified
+       proof looks like: no counterexample exists. -->
+  <defs>
+    <clipPath id="box">
+      <rect x="2" y="2" width="476" height="236" rx="16"/>
+    </clipPath>
+  </defs>
+
+  <!-- white box -->
+  <rect x="2" y="2" width="476" height="236" rx="16" fill="#ffffff" stroke="#d9d9d9" stroke-width="2"/>
+
+  <!-- the SAT problem, as texture -->
+  <g clip-path="url(#box)" font-family="Consolas,Menlo,'Liberation Mono',monospace" font-size="13" fill="#c9c9c9">
+    <text x="26" y="32">c bmc4j: proof or counterexample</text>
+    <text x="26" y="50">p cnf 3 8</text>
+    <text x="26" y="68">1 2 3 0</text>
+    <text x="26" y="86">1 2 -3 0</text>
+    <text x="26" y="104">1 -2 3 0</text>
+    <text x="26" y="122">1 -2 -3 0</text>
+    <text x="26" y="140">-1 2 3 0</text>
+    <text x="26" y="158">-1 2 -3 0</text>
+    <text x="26" y="176">-1 -2 3 0</text>
+    <text x="26" y="194">-1 -2 -3 0</text>
+    <text x="26" y="212">s UNSATISFIABLE</text>
+    <text x="26" y="230">c verified: no counterexample exists</text>
+  </g>
+
+  <!-- wordmark: white halo so the CNF never fights the text, then solid black -->
+  <g font-family="Consolas,Menlo,'Liberation Mono',monospace" font-size="76" font-weight="700" text-anchor="middle">
+    <text x="240" y="147" fill="none" stroke="#ffffff" stroke-width="18" stroke-linejoin="round">bmc4j</text>
+    <text x="240" y="147" fill="#0a0a0a">bmc4j</text>
+  </g>
+</svg>

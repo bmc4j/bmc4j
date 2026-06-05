@@ -1,0 +1,93 @@
+name: Release
+
+# Manual dispatch only. The full release rehearsal/execution:
+#
+#   preflight (version consistency)
+#     -> ci.yml      (gate + all platform smokes)
+#     -> engine-jars (build + smoke all five engine jars; publish unless dry run)
+#     -> tag + draft GitHub release (skipped on dry run)
+#
+# dryRun=true (the default) runs EVERYTHING except publishing and tagging —
+# the release rehearsal. Flip dryRun=false to actually release.
+#
+# Publishing currently targets GitHub Packages; when Maven Central / Plugin
+# Portal land, only the publish leg changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release - must match bmc4jVersion in core/gradle.properties (e.g. 0.1.0)'
+        required: true
+      dryRun:
+        description: 'Dry run: build + verify everything, publish and tag nothing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # tag + draft release creation
+  packages: write   # engine-jar publishing (via the called workflow)
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Version consistency
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          prop="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          echo "input=$VERSION  gradle.properties=$prop"
+          [ "$VERSION" = "$prop" ] || { echo "::error::version input '$VERSION' != bmc4jVersion '$prop'"; exit 1; }
+          grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md \
+            || { echo "::error::README quickstart does not reference version $VERSION"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::tag v$VERSION already exists"; exit 1
+          fi
+
+  verify:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    with:
+      gate: true
+      platforms: all
+      jdks: '21'
+
+  engines:
+    needs: preflight
+    uses: ./.github/workflows/engine-jars.yml
+    with:
+      platforms: all
+      publish: ${{ !inputs.dryRun }}
+
+  release:
+    needs: [verify, engines]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Dry-run summary
+        if: ${{ inputs.dryRun }}
+        run: |
+          echo "Dry run complete for ${{ inputs.version }}: gate + smokes green, all five engine jars built + smoke-checked. Nothing published or tagged."
+
+      - name: Tag + draft GitHub release
+        if: ${{ !inputs.dryRun }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ inputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "bmc4j ${{ inputs.version }}" \
+            --generate-notes \
+            --draft
+          echo "Draft release v${{ inputs.version }} created - review and publish it in the UI (publishing the release creates the tag)."

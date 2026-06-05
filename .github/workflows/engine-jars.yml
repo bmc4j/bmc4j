@@ -1,0 +1,133 @@
+name: Engine jars (per-platform)
+
+# Manual dispatch ONLY (private repo + limited CI minutes; macOS billed 10x), and
+# each engine jar can only be ASSEMBLED on its own OS. Also callable from the
+# release workflow (workflow_call) with publishing toggleable for dry runs.
+# It assembles each platform's bmc-engine-<platform> jar from the upstream CBMC
+# 6.9.0 artifact (SHA-256 verified), smoke-checks the bundled jbmc, uploads the
+# jar as a build artifact, and (unless publish=false) publishes to GitHub Packages.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build: "all" or comma-separated from windows-x64,linux-x64,linux-arm64,macos-x64,macos-arm64 (avoids republishing already-published jars - GitHub Packages rejects overwrites)'
+        default: all
+      publish:
+        description: 'Publish to GitHub Packages (false = build + smoke-check only)'
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      platforms:
+        type: string
+        default: all
+      publish:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # matrix context isn't available in a job-level `if`, so the platform filter
+  # is computed here and fed to the engine job via fromJSON.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.filter.outputs.include }}
+    steps:
+      - id: filter
+        shell: bash
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          set -euo pipefail
+          # macos-13 (the old Intel label) is retired - macos-15-intel is the
+          # current GitHub-hosted Intel image. The sonoma x64 bottle runs fine on it.
+          all='[
+            {"runner":"windows-latest","platform":"windows-x64"},
+            {"runner":"ubuntu-latest","platform":"linux-x64"},
+            {"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},
+            {"runner":"macos-15-intel","platform":"macos-x64"},
+            {"runner":"macos-14","platform":"macos-arm64"}
+          ]'
+          if [ "${PLATFORMS:-all}" = "all" ]; then
+            sel="$(echo "$all" | jq -c .)"
+          else
+            sel="$(echo "$all" | jq -c --arg p "$PLATFORMS" \
+              '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
+          fi
+          [ "$sel" != "[]" ] || { echo "No platforms matched '$PLATFORMS'"; exit 1; }
+          echo "Building: $(echo "$sel" | jq -r '[.[].platform] | join(", ")')"
+          echo "include=$sel" >> "$GITHUB_OUTPUT"
+
+  engine:
+    name: ${{ matrix.platform }}
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.include) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build engine jar
+        shell: bash
+        run: ./gradlew -p core :bmc-engine-${{ matrix.platform }}:build --no-daemon
+
+      # Extraction uses `jar xf` (ships with the JDK) rather than unzip, which the
+      # windows runner's git-bash doesn't have.
+      - name: Smoke-check bundled jbmc
+        shell: bash
+        run: |
+          set -euo pipefail
+          libs="core/bmc-engine-${{ matrix.platform }}/build/libs"
+          jarfile="$(cd "$libs" && ls bmc-engine-${{ matrix.platform }}-*.jar | head -n1)"
+          echo "Inspecting $libs/$jarfile"
+          exe="jbmc"
+          [[ "${{ runner.os }}" == "Windows" ]] && exe="jbmc.exe"
+          work="$(mktemp -d)"
+          cp "$libs/$jarfile" "$work/"
+          (cd "$work" && jar xf "$jarfile" "jbmc/${{ matrix.platform }}/bin/$exe")
+          bin="$work/jbmc/${{ matrix.platform }}/bin/$exe"
+          chmod +x "$bin"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # A relocated bottle binary may be quarantined / need an ad-hoc signature.
+            xattr -dr com.apple.quarantine "$bin" || true
+            codesign --force --sign - "$bin" || true
+          fi
+          out="$("$bin" --version)"
+          echo "jbmc --version => $out"
+          echo "$out" | grep -q "6.9.0" || { echo "Expected jbmc version 6.9.0, got: $out"; exit 1; }
+
+      - name: Upload engine jar artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: bmc-engine-${{ matrix.platform }}
+          path: core/bmc-engine-${{ matrix.platform }}/build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Publish to GitHub Packages
+        if: ${{ inputs.publish }}
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          ./gradlew -p core
+          :bmc-engine-${{ matrix.platform }}:publishMavenPublicationToGitHubPackagesRepository
+          --no-daemon

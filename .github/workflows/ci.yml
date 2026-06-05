@@ -1,0 +1,212 @@
+name: CI
+
+# Manual dispatch ONLY while the repo is private (limited minutes; macOS billed
+# 10x, Windows 2x). push/pull_request triggers get added when the repo goes
+# public on the bmc4j org (see the release backlog).
+#
+# The green gate for this repo is core build+tests plus the model-conformance
+# proofs — NOT a clean `gradlew test`: the examples include fail-on-purpose demo
+# proofs, so example TESTS are never run here. Their test sources ARE compiled
+# (root `testClasses`), so breakage in examples is still caught.
+#
+# The full gate runs on linux-x64 (cheapest; optionally across a JDK matrix via
+# the `jdks` input). Every other platform gets a smoke job: one real proof class
+# end-to-end, which exercises that platform's engine jar assembly -> extraction
+# -> an actual jbmc run. A docs link-check job guards the README/docs/examples
+# cross-links.
+
+on:
+  workflow_dispatch:
+    inputs:
+      gate:
+        description: 'Run the full gate job (linux-x64)'
+        type: boolean
+        default: true
+      platforms:
+        description: 'Smoke platforms: "all", "none", or comma-separated from windows-x64,linux-arm64,macos-x64,macos-arm64'
+        default: all
+      jdks:
+        description: 'Comma-separated JDKs for the gate matrix (e.g. "17,21,25")'
+        default: '21'
+  # Callable from the release workflow (full gate + smokes before publishing).
+  workflow_call:
+    inputs:
+      gate:
+        type: boolean
+        default: true
+      platforms:
+        type: string
+        default: all
+      jdks:
+        type: string
+        default: '21'
+
+permissions:
+  contents: read
+
+jobs:
+  # matrix context isn't available in a job-level `if`, so the smoke-platform
+  # filter and the gate JDK list are computed here and fed via fromJSON (same
+  # pattern as engine-jars.yml).
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.filter.outputs.include }}
+      any: ${{ steps.filter.outputs.any }}
+      jdks: ${{ steps.filter.outputs.jdks }}
+    steps:
+      - id: filter
+        shell: bash
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+          JDKS: ${{ inputs.jdks }}
+        run: |
+          set -euo pipefail
+          all='[
+            {"runner":"windows-latest","platform":"windows-x64"},
+            {"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},
+            {"runner":"macos-15-intel","platform":"macos-x64"},
+            {"runner":"macos-14","platform":"macos-arm64"}
+          ]'
+
+          jdks="$(echo "${JDKS:-21}" | jq -cR 'split(",") | map(gsub("\\s";"")) | map(select(length > 0))')"
+          echo "jdks=$jdks" >> "$GITHUB_OUTPUT"
+
+          if [ "$PLATFORMS" = "all" ]; then
+            sel="$(echo "$all" | jq -c .)"
+          elif [ "$PLATFORMS" = "none" ]; then
+            sel='[]'
+          else
+            sel="$(echo "$all" | jq -c --arg p "$PLATFORMS" \
+              '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
+            [ "$sel" != "[]" ] || { echo "No platforms matched '$PLATFORMS'"; exit 1; }
+          fi
+          echo "Gate JDKs: $jdks | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
+          echo "include=$sel" >> "$GITHUB_OUTPUT"
+          echo "any=$(echo "$sel" | jq 'length > 0')" >> "$GITHUB_OUTPUT"
+
+  gate:
+    name: full gate (linux-x64, JDK ${{ matrix.jdk }})
+    needs: plan
+    if: ${{ inputs.gate }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ${{ fromJSON(needs.plan.outputs.jdks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Persist bmc4j verdict caches across runs. Safe by the cache's own design:
+      # entries are keyed on analysis-classpath CONTENT + request + engine identity +
+      # runtime semantics version, and only VERIFIED verdicts are ever served
+      # (refuted/UNKNOWN always re-run) — a restored stale dir cannot produce a stale
+      # green, it just skips re-proving what hasn't changed. Key on run_id so every
+      # run saves a fresh snapshot; restore-keys picks up the most recent prior one.
+      - name: Restore verdict caches
+        uses: actions/cache@v5
+        with:
+          path: '**/build/bmc4j/verdict-cache'
+          key: bmc-verdict-${{ runner.os }}-jdk${{ matrix.jdk }}-${{ github.run_id }}
+          restore-keys: |
+            bmc-verdict-${{ runner.os }}-jdk${{ matrix.jdk }}-
+
+      - name: Core - build + unit tests
+        run: ./gradlew -p core build --no-daemon
+
+      # The root test runs EVERYTHING: the model-conformance proof suite plus every
+      # example module. The fail-on-purpose demos all declare their expected verdict
+      # (expect = REFUTED / VACUOUS / TIMEOUT), so they pass while the guard they
+      # protect holds and go loudly red on a drift — the root test is GREEN by design.
+      # -Dbmc.timeoutSeconds=180 keeps any SAT-pathological proof failing fast as a
+      # NAMED UNKNOWN instead of hanging the job (per-proof budgets like the timeout
+      # demo's 1s override it). Examples need newer javac than 17, so the full root
+      # test runs on the canonical JDK; other matrix JDKs run core + conformance.
+      # jarModelsConformanceTest is invoked EXPLICITLY: root `test` doesn't trigger
+      # `check`, so without it the as-shipped JAR rewrite path (ClasspathMirror on
+      # jars - what a published consumer actually exercises) would have no CI coverage.
+      - name: Root test - conformance proofs + all examples (expected-verdict demos included)
+        if: ${{ matrix.jdk == '21' }}
+        run: ./gradlew test :model-conformance-proofs:jarModelsConformanceTest --no-daemon -Dbmc.timeoutSeconds=180
+
+      - name: Model conformance proofs (non-canonical JDKs)
+        if: ${{ matrix.jdk != '21' }}
+        run: ./gradlew :model-conformance-proofs:test --no-daemon -Dbmc.timeoutSeconds=180
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-jdk${{ matrix.jdk }}-test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/test-results/**
+          if-no-files-found: ignore
+
+  smoke:
+    name: smoke ${{ matrix.platform }}
+    needs: plan
+    if: ${{ needs.plan.outputs.any == 'true' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.include) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # One real proof class, end-to-end: assembles this platform's engine jar from
+      # the (checksum-verified) upstream artifact, extracts the bundled jbmc, and
+      # verifies actual proofs with it. bash on windows runs the sh wrapper fine.
+      - name: One proof class end-to-end
+        shell: bash
+        run: ./gradlew :model-conformance-proofs:test --tests "proofs.optional.*" --no-daemon
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-${{ matrix.platform }}-test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/test-results/**
+          if-no-files-found: ignore
+
+  # Docs link check: the README/docs/examples cross-link web has broken before.
+  # Offline mode = internal file links + anchors only (no network flakiness).
+  # Cheap (seconds, 1x linux).
+  links:
+    name: docs links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check internal doc links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --include-fragments --no-progress README.md CONTRIBUTING.md SECURITY.md THIRD-PARTY-NOTICES.md "docs/**/*.md" "examples/**/*.md"
+          fail: true

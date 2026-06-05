@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024" role="img" aria-label="bmc4j">
+  <!-- Square (avatar) variant of the logo. The background is a real DIMACS CNF
+       instance: every sign pattern over three variables - UNSATISFIABLE, which is
+       exactly what a verified proof looks like: no counterexample exists. -->
+  <defs>
+    <clipPath id="box">
+      <rect x="4" y="4" width="504" height="504" rx="36"/>
+    </clipPath>
+  </defs>
+
+  <!-- white box -->
+  <rect x="4" y="4" width="504" height="504" rx="36" fill="#ffffff" stroke="#d9d9d9" stroke-width="4"/>
+
+  <!-- the SAT problem, as texture -->
+  <g clip-path="url(#box)" font-family="Consolas,Menlo,'Liberation Mono',monospace" font-size="19" fill="#c9c9c9">
+    <text x="36" y="48">c bmc4j: proof or</text>
+    <text x="36" y="76">c counterexample</text>
+    <text x="36" y="104">p cnf 3 8</text>
+    <text x="36" y="132">1 2 3 0</text>
+    <text x="36" y="160">1 2 -3 0</text>
+    <text x="36" y="188">1 -2 3 0</text>
+    <text x="36" y="216">1 -2 -3 0</text>
+    <text x="36" y="244">-1 2 3 0</text>
+    <text x="36" y="272">-1 2 -3 0</text>
+    <text x="36" y="300">-1 -2 3 0</text>
+    <text x="36" y="328">-1 -2 -3 0</text>
+    <text x="36" y="356">s UNSATISFIABLE</text>
+    <text x="36" y="384">c verified:</text>
+    <text x="36" y="412">c no counterexample</text>
+    <text x="36" y="440">c exists</text>
+  </g>
+
+  <!-- wordmark: white halo, then solid black -->
+  <g font-family="Consolas,Menlo,'Liberation Mono',monospace" font-size="118" font-weight="700" text-anchor="middle">
+    <text x="256" y="296" fill="none" stroke="#ffffff" stroke-width="30" stroke-linejoin="round">bmc4j</text>
+    <text x="256" y="296" fill="#0a0a0a">bmc4j</text>
+  </g>
+</svg>

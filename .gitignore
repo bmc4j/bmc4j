@@ -1,0 +1,9 @@
+# Build output
+.gradle/
+build/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
