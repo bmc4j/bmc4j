@@ -57,7 +57,10 @@ jobs:
       # Signing is conditional in the build (applies only when SIGNING_KEY is
       # present). GitHub Packages doesn't require signatures, but signing here
       # keeps the published artifacts identical to the Central-bound ones and
-      # exercises the signing path on every publish.
+      # exercises the signing path on every publish. Per-module skip-if-exists
+      # makes re-runs idempotent: GH Packages rejects overwrites with a 409, so a
+      # re-run after a partial failure would otherwise die on the modules that
+      # DID publish.
       - name: Publish non-engine modules to GitHub Packages
         if: ${{ inputs.githubPackages }}
         shell: bash
@@ -66,15 +69,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-        run: >-
-          ./gradlew -p core --no-daemon
-          :bmc-runtime:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-gradle-plugin:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-models:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-kotlin:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-contracts:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-constraints:publishAllPublicationsToGitHubPackagesRepository
-          :bmc-constraints-jakarta:publishAllPublicationsToGitHubPackagesRepository
+        run: |
+          set -euo pipefail
+          ver="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          tasks=""
+          for mod in bmc-runtime bmc-gradle-plugin bmc-models bmc-kotlin bmc-contracts bmc-constraints bmc-constraints-jakarta; do
+            if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
+                "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$ver/$mod-$ver.pom"; then
+              echo "$mod $ver already on GitHub Packages - skipping"
+            else
+              tasks="$tasks :$mod:publishAllPublicationsToGitHubPackagesRepository"
+            fi
+          done
+          if [ -z "$tasks" ]; then
+            echo "every module already published - nothing to do"
+          else
+            ./gradlew -p core --no-daemon $tasks
+          fi
 
       # Maven Central staging: same module set into a local directory repo (signed -
       # Central requires .asc on every file), handed to the release workflow as an

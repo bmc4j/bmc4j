@@ -1,75 +1,74 @@
 name: Release
 
-# Manual dispatch only. The full release rehearsal/execution:
+# Tag-driven release. The whole flow is:
 #
-#   preflight (version consistency)
-#     -> ci.yml         (gate + all platform smokes)
-#     -> engine-jars    (build + smoke all five engine jars; GH Packages publish
-#                        unless dry run; Central staging artifacts always)
-#     -> publish-core   (non-engine modules: GH Packages unless dry run; Central
-#                        staging artifact always)
-#     -> central        (merge all staging artifacts into ONE signed Portal bundle;
-#                        verify .asc/.sha1/.md5 per file; upload the bundle as a
-#                        workflow artifact; POST it to the Central Publisher Portal
-#                        unless dry run - USER_MANAGED, so nothing goes live until
-#                        the deployment is published in the Portal UI)
-#     -> plugin-portal  (publishPlugins --validate-only: metadata validation only -
-#                        the REAL Plugin Portal publish is the separate
-#                        publish-plugin-portal.yml, dispatched AFTER the Central
-#                        deployment is published, because a Portal-resolved plugin
-#                        must find its runtime dependencies on Central)
-#     -> tag + draft GitHub release (skipped on dry run)
+#   1. Bump bmc4jVersion in core/gradle.properties + the README quickstart, merge.
+#   2. git tag vX.Y.Z && git push origin vX.Y.Z
+#   3. This workflow builds + verifies AT THAT TAG, then publishes everything:
+#        preflight        tag == bmc4jVersion == README quickstart
+#        verify           ci.yml (full gate + every platform smoke)
+#        engines          all five engine jars built + smoke-checked; GH Packages
+#                         publish (skips any version already up there, so re-runs
+#                         never 409); signed Central staging artifacts
+#        publish-core     non-engine modules: same GH Packages + staging treatment
+#        central          ONE signed Portal bundle (.asc/.sha1/.md5 verified per
+#                         file), uploaded publishingType=AUTOMATIC - Sonatype
+#                         validation-gates it, then publishes; the job polls to
+#                         PUBLISHED. Central is immutable: the tag push is the
+#                         deliberate act, there is no unpublish.
+#        plugin-portal    waits for the artifacts to be LIVE on repo1 (a Portal-
+#                         resolved plugin must find its runtime deps on Central),
+#                         then publishPlugins to the Gradle Plugin Portal
+#        github-release   release notes on the tag (--generate-notes)
 #
-# dryRun=true (the default) runs EVERYTHING except remote publishing and tagging —
-# the release rehearsal, including assembling + verifying the real Central bundle.
-# Flip dryRun=false to actually release.
+# Every job is re-runnable: if repo1 sync outlasts the plugin-portal poll, or any
+# leg flakes, "Re-run failed jobs" resumes exactly there (publishes are idempotent
+# - GH Packages legs skip what exists, Central rejects a duplicate bundle loudly,
+# publishPlugins of an existing version fails loudly rather than silently).
 #
-# Release order after this workflow (dryRun=false) goes green:
-#   1. central.sonatype.com -> Deployments -> publish the VALIDATED deployment.
-#   2. Once the artifacts are live on Central, dispatch publish-plugin-portal.yml.
-#   3. Review + publish the draft GitHub release (publishing it creates the tag).
+# workflow_dispatch is the REHEARSAL: identical build + verify + bundle assembly
+# + Plugin Portal credential/metadata validation, publishes and tags NOTHING.
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release - must match bmc4jVersion in core/gradle.properties (e.g. 0.1.0)'
-        required: true
-      dryRun:
-        description: 'Dry run: build + verify everything (incl. the Central bundle), publish and tag nothing'
-        type: boolean
-        default: true
-      githubPackages:
-        description: 'Publish to GitHub Packages (set false when this version is already up there - GH Packages rejects overwrites, so a Central-only release run would otherwise die on a 409)'
-        type: boolean
-        default: true
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
 
 permissions:
-  contents: write   # tag + draft release creation
+  contents: write   # release-notes creation on the tag
   packages: write   # GH Packages publishing (via the called workflows)
+
+# One release at a time; never cancel a publish mid-flight.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Version consistency
+        id: v
         shell: bash
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           prop="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
-          echo "input=$VERSION  gradle.properties=$prop"
-          [ "$VERSION" = "$prop" ] || { echo "::error::version input '$VERSION' != bmc4jVersion '$prop'"; exit 1; }
-          grep -q "id(\"org.bmc4j\") version \"$VERSION\"" README.md \
-            || { echo "::error::README quickstart does not reference version $VERSION"; exit 1; }
-          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "::error::tag v$VERSION already exists"; exit 1
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            [ "$version" = "$prop" ] || { echo "::error::tag ${GITHUB_REF_NAME} != bmc4jVersion '$prop' - bump core/gradle.properties BEFORE tagging"; exit 1; }
+          else
+            version="$prop"   # rehearsal: whatever the branch says
           fi
+          grep -q "id(\"org.bmc4j\") version \"$version\"" README.md \
+            || { echo "::error::README quickstart does not reference version $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version (real publish: ${{ github.event_name == 'push' }})"
 
   verify:
     needs: preflight
@@ -85,7 +84,7 @@ jobs:
     secrets: inherit
     with:
       platforms: all
-      publish: ${{ !inputs.dryRun && inputs.githubPackages }}
+      publish: ${{ github.event_name == 'push' }}
       centralStaging: true
 
   publish-core:
@@ -93,18 +92,16 @@ jobs:
     uses: ./.github/workflows/publish-core.yml
     secrets: inherit
     with:
-      githubPackages: ${{ !inputs.dryRun && inputs.githubPackages }}
+      githubPackages: ${{ github.event_name == 'push' }}
       centralStaging: true
 
-  # Assemble + verify + (unless dry run) upload the Maven Central bundle. The
-  # Portal takes ONE zip of the whole maven-repo layout; every staging artifact
-  # (five engine platforms + the core set) merges into it. USER_MANAGED means the
-  # upload only VALIDATES server-side - publishing is a manual click in the Portal
-  # UI, so a bad bundle can simply be dropped.
+  # Assemble + verify the Maven Central bundle; on a tag, upload it AUTOMATIC and
+  # poll to PUBLISHED. The Portal takes ONE zip of the whole maven-repo layout -
+  # every staging artifact (five engine platforms + the core set) merges into it.
   central:
-    needs: [engines, publish-core]
+    needs: [preflight, engines, publish-core]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Download staging artifacts
         uses: actions/download-artifact@v8
@@ -116,7 +113,7 @@ jobs:
       - name: Assemble + verify bundle
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
           # The Portal generates maven-metadata.xml itself; shipping ours trips validation.
@@ -134,19 +131,19 @@ jobs:
           (cd staging && zip -qr "../bmc4j-$VERSION-bundle.zip" .)
           ls -lh "bmc4j-$VERSION-bundle.zip"
 
-      # The exact bytes a real release would upload - inspectable on dry runs.
+      # The exact bytes a real release uploads - inspectable on rehearsals.
       - name: Upload bundle as workflow artifact
         uses: actions/upload-artifact@v7
         with:
           name: central-bundle
-          path: bmc4j-${{ inputs.version }}-bundle.zip
+          path: bmc4j-${{ needs.preflight.outputs.version }}-bundle.zip
           if-no-files-found: error
 
-      - name: Upload to Central Publisher Portal (USER_MANAGED)
-        if: ${{ !inputs.dryRun }}
+      - name: Publish to Maven Central (AUTOMATIC)
+        if: ${{ github.event_name == 'push' }}
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.preflight.outputs.version }}
           CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
         run: |
@@ -155,33 +152,52 @@ jobs:
           id="$(curl -sS --fail-with-body \
             -H "Authorization: Bearer $token" \
             -F "bundle=@bmc4j-$VERSION-bundle.zip" \
-            "https://central.sonatype.com/api/v1/publisher/upload?name=bmc4j-$VERSION&publishingType=USER_MANAGED")"
+            "https://central.sonatype.com/api/v1/publisher/upload?name=bmc4j-$VERSION&publishingType=AUTOMATIC")"
           echo "Deployment id: $id"
-          # Poll until server-side validation settles. USER_MANAGED stops at VALIDATED;
-          # publishing is then a manual click in the Portal UI.
-          for i in $(seq 1 60); do
-            sleep 10
+          # AUTOMATIC: Sonatype validates, then publishes on its own - poll to PUBLISHED.
+          for i in $(seq 1 120); do
+            sleep 15
             state="$(curl -sS -H "Authorization: Bearer $token" -X POST \
               "https://central.sonatype.com/api/v1/publisher/status?id=$id")"
             status="$(echo "$state" | jq -r .deploymentState)"
             echo "[$i] $status"
             case "$status" in
-              VALIDATED|PUBLISHED) echo "Deployment $status - publish it at central.sonatype.com -> Deployments."; exit 0 ;;
+              PUBLISHED) echo "Deployment PUBLISHED."; exit 0 ;;
               FAILED) echo "::error::Central validation failed"; echo "$state" | jq .; exit 1 ;;
             esac
           done
-          echo "::error::Central validation did not settle within 10 minutes (deployment $id - check the Portal UI)"
+          echo "::error::deployment $id did not reach PUBLISHED within 30 minutes - check central.sonatype.com -> Deployments, then re-run the plugin-portal job"
           exit 1
 
-  # Metadata validation only - proves publishPlugins WOULD succeed. The real Plugin
-  # Portal publish is publish-plugin-portal.yml, run after Central goes live.
+  # Gradle Plugin Portal. On a tag: wait until the artifacts are LIVE on repo1
+  # (Portal-resolved plugins must find their runtime deps on Central; Central ->
+  # repo1 sync can lag publication by many minutes), then publish for real. On a
+  # rehearsal: --validate-only, which still authenticates (bad keys are rejected),
+  # so it proves credentials AND metadata. First-ever publish of a new plugin id
+  # additionally sits in the Portal team's manual approval queue.
   plugin-portal:
-    needs: verify
+    needs: [preflight, central]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Wait for repo1 sync
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          for a in bmc-runtime bmc-gradle-plugin; do
+            url="https://repo1.maven.org/maven2/org/bmc4j/$a/$VERSION/$a-$VERSION.pom"
+            for i in $(seq 1 75); do
+              curl -sf -o /dev/null "$url" && { echo "$a live"; break; }
+              [ "$i" = 75 ] && { echo "::error::$a $VERSION not on repo1 after 75 minutes - re-run this job once it lands"; exit 1; }
+              sleep 60
+            done
+          done
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -192,38 +208,31 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # --validate-only still authenticates against the Portal (verified: dummy keys
-      # are rejected with Unauthorized), so this proves credentials + metadata both.
-      - name: Validate Plugin Portal publication
+      - name: Publish to the Plugin Portal
         shell: bash
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
-        run: ./gradlew -p core :bmc-gradle-plugin:publishPlugins --validate-only --no-daemon
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew -p core :bmc-gradle-plugin:publishPlugins --no-daemon
+          ${{ github.event_name != 'push' && '--validate-only' || '' }}
 
-  release:
-    needs: [verify, engines, publish-core, central, plugin-portal]
+  github-release:
+    if: ${{ github.event_name == 'push' }}
+    needs: [preflight, central, plugin-portal]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Dry-run summary
-        if: ${{ inputs.dryRun }}
-        run: |
-          echo "Dry run complete for ${{ inputs.version }}: gate + smokes green, all five engine jars built + smoke-checked, Central bundle assembled + verified (see the central-bundle artifact), Plugin Portal metadata validated. Nothing published or tagged."
-
-      - name: Tag + draft GitHub release
-        if: ${{ !inputs.dryRun }}
+      - name: Release notes on the tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release create "v${{ inputs.version }}" \
-            --target "${{ github.sha }}" \
-            --title "bmc4j ${{ inputs.version }}" \
-            --generate-notes \
-            --draft
-          echo "Draft release v${{ inputs.version }} created - review and publish it in the UI (publishing the release creates the tag)."
-          echo "Next: publish the VALIDATED Central deployment in the Portal UI, then dispatch publish-plugin-portal.yml."
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "bmc4j ${{ needs.preflight.outputs.version }}" \
+            --generate-notes

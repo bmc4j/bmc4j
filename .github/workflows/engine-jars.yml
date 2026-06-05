@@ -130,16 +130,25 @@ jobs:
           path: core/bmc-engine-${{ matrix.platform }}/build/libs/*.jar
           if-no-files-found: error
 
+      # Skip-if-exists makes release re-runs idempotent: GH Packages rejects
+      # overwrites with a 409, so a re-run after a partial failure would otherwise
+      # die on the jars that DID publish.
       - name: Publish to GitHub Packages
         if: ${{ inputs.publish }}
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          ./gradlew -p core
-          :bmc-engine-${{ matrix.platform }}:publishMavenPublicationToGitHubPackagesRepository
-          --no-daemon
+        run: |
+          set -euo pipefail
+          ver="$(grep -E '^bmc4jVersion=' core/gradle.properties | cut -d= -f2 | tr -d '[:space:]')"
+          mod="bmc-engine-${{ matrix.platform }}"
+          if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
+              "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$ver/$mod-$ver.pom"; then
+            echo "$mod $ver already on GitHub Packages - skipping"
+            exit 0
+          fi
+          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon
 
       # Maven Central staging: publish this platform's engine jar (signed - Central
       # requires .asc on every file) into a local directory repo and hand it to the
