@@ -39,7 +39,10 @@ consumed by the `examples/` via `includeBuild`):
 - **`core/bmc-contracts`** — the `@Requires`/`@Ensures` annotation processor: generates
   replace-stubs, auto-discharged enforce-`@BmcProof`s, and the manifest the backend reads
   to redirect call sites. Enables modular (assume-guarantee) proofs — see
-  [contracts](contracts.md). The plugin wires it onto consumers automatically.
+  [contracts](contracts.md). The plugin wires it onto consumers automatically. Written in
+  Kotlin, as are `bmc-constraints`/`bmc-constraints-jakarta` — all three live on the
+  annotation-processor path only, so their kotlin-stdlib never reaches a consumer's test or
+  analysis classpath.
 
 ## Platform support
 
