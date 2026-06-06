@@ -187,6 +187,11 @@ class VerdictCacheTest {
             assertEquals(before, stable, "unchanged user models must hash identically");
 
             Files.write(model, new byte[]{1, 2, 4}); // edit a user model class
+            // A real edit always moves size or mtime (recompilation rewrites the file). Make the mtime
+            // move explicit: this same-size in-place write could otherwise share a coarse-clock
+            // timestamp tick with the original, and the digest memo's fingerprint is (path, size, mtime).
+            Files.setLastModifiedTime(model, java.nio.file.attribute.FileTime.fromMillis(
+                    Files.getLastModifiedTime(model).toMillis() + 1_000));
             String after = VerdictCache.computeKey(baseReq(), ENGINE);
             assertNotEquals(before, after, "editing a user model must invalidate the cache");
         } finally {
@@ -196,6 +201,35 @@ class VerdictCacheTest {
                 System.setProperty("bmc.userModels", prev);
             }
         }
+    }
+
+    // --- computeKey memoization (a cache hit must be cheap) ---------------------
+
+    /**
+     * computeKey runs for every proof, so its expensive inputs (classpath digest + config call-site
+     * scan) are memoized behind a (path, size, mtime) fingerprint. Unchanged files must not re-digest;
+     * a content change must still invalidate THROUGH the memo (over-invalidation stays fine,
+     * under-invalidation never is).
+     */
+    @Test
+    void computeKey_skipsRecomputingDigests_whenFilesUnchanged(@TempDir Path dir) throws IOException {
+        Path classes = Files.createDirectory(dir.resolve("classes"));
+        Path clazz = classes.resolve("A.class");
+        Files.write(clazz, new byte[]{1, 2, 3});
+        BmcRequest r = req(classes.toString());
+
+        String k1 = VerdictCache.computeKey(r, ENGINE); // first call computes (and memoizes)
+        int afterFirst = VerdictCache.MEMO_RECOMPUTES.get();
+        String k2 = VerdictCache.computeKey(r, ENGINE);
+        assertEquals(k1, k2);
+        assertEquals(afterFirst, VerdictCache.MEMO_RECOMPUTES.get(),
+                "unchanged files must not re-digest/re-scan the classpath (the cost of a cache hit)");
+
+        Files.write(clazz, new byte[]{1, 2, 3, 4}); // content (and size) changes
+        String k3 = VerdictCache.computeKey(r, ENGINE);
+        assertNotEquals(k1, k3, "a changed class must still invalidate through the memo");
+        assertTrue(VerdictCache.MEMO_RECOMPUTES.get() > afterFirst,
+                "a changed fingerprint must force a fresh compute");
     }
 
     // --- Resolved-config folding (config-pinning false-green fix) --------------
