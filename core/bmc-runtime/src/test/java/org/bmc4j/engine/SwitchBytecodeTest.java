@@ -119,9 +119,90 @@ class SwitchBytecodeTest {
         assertEquals(2, sw.invoke(null, "x", 0)); // neither -> default
     }
 
+    // ---- enumSwitch --------------------------------------------------------------------------
+
+    /** Fixture enum for enumSwitch helpers: constants resolvable via GETSTATIC at test runtime. */
+    public enum Color { RED, GREEN, BLUE }
+
+    private static final String COLOR = Color.class.getName().replace('.', '/');
+
+    /**
+     * Build {@code static int sw(Color target, int restartIndex)} whose body is exactly one
+     * {@code enumSwitch} indy with the given labels (String = a constant name of the SELECTOR enum,
+     * matched by identity; Type = a type-pattern label).
+     */
+    private static byte[] classWithEnumSwitch(Object... labels) {
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "EsC", null, "java/lang/Object", null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "sw",
+                "(L" + COLOR + ";I)I", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        Handle bsm = new Handle(Opcodes.H_INVOKESTATIC, BSM_OWNER, "enumSwitch", BSM_DESC, false);
+        mv.visitInvokeDynamicInsn("enumSwitch", "(L" + COLOR + ";I)I", bsm, labels);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    @Test
+    void enumSwitch_indy_is_replaced_by_a_static_helper() {
+        byte[] rewritten = SwitchBytecode.rewriteClass(classWithEnumSwitch("RED", "GREEN"));
+        assertFalse(sawIndyNamed(rewritten, "enumSwitch"), "enumSwitch indy must be gone");
+        assertTrue(methodCalls(rewritten).stream().anyMatch(c -> c.startsWith("EsC.bmc$enumSwitch$0")),
+                "indy should be replaced by a call to a generated helper");
+    }
+
+    @Test
+    void enumSwitch_helper_reproduces_the_contract() throws Exception {
+        Class<?> c = define("EsC", SwitchBytecode.rewriteClass(classWithEnumSwitch("RED", "GREEN", "BLUE")));
+        Method sw = c.getMethod("sw", Color.class, int.class);
+
+        assertEquals(-1, sw.invoke(null, null, 0));            // null -> -1
+        assertEquals(0, sw.invoke(null, Color.RED, 0));        // identity match -> label index
+        assertEquals(1, sw.invoke(null, Color.GREEN, 0));
+        assertEquals(2, sw.invoke(null, Color.BLUE, 0));
+        // RED with restartIndex=1: its own label is skipped, nothing later matches -> default (3)
+        assertEquals(3, sw.invoke(null, Color.RED, 1));
+    }
+
+    @Test
+    void enumSwitch_restartIndex_skips_earlier_labels_to_default() throws Exception {
+        Class<?> c = define("EsC", SwitchBytecode.rewriteClass(classWithEnumSwitch("RED", "GREEN")));
+        Method sw = c.getMethod("sw", Color.class, int.class);
+        // RED with restartIndex=1: its own label (index 0) is skipped, GREEN doesn't match -> 2 (default)
+        assertEquals(2, sw.invoke(null, Color.RED, 1));
+        // GREEN with restartIndex=1: still matches its own label
+        assertEquals(1, sw.invoke(null, Color.GREEN, 1));
+    }
+
+    @Test
+    void enumSwitch_type_pattern_label_matches_by_instanceof() throws Exception {
+        Class<?> c = define("EsC", SwitchBytecode.rewriteClass(classWithEnumSwitch(
+                "RED", org.objectweb.asm.Type.getObjectType(COLOR))));
+        Method sw = c.getMethod("sw", Color.class, int.class);
+        assertEquals(0, sw.invoke(null, Color.RED, 0));   // identity label first
+        assertEquals(1, sw.invoke(null, Color.BLUE, 0));  // falls to the type-pattern label
+    }
+
+    @Test
+    void enumSwitch_unknown_label_kind_leaves_indy_untouched() {
+        Handle weird = new Handle(Opcodes.H_INVOKESTATIC, "X", "y", "()V", false);
+        byte[] rewritten = SwitchBytecode.rewriteClass(classWithEnumSwitch("RED", weird));
+        assertTrue(sawIndyNamed(rewritten, "enumSwitch"),
+                "an unrecognised enumSwitch label kind must leave the indy for the residual pass");
+    }
+
     // ---- helpers -----------------------------------------------------------------------------
 
     private static boolean sawTypeSwitchIndy(byte[] clazz) {
+        return sawIndyNamed(clazz, "typeSwitch");
+    }
+
+    private static boolean sawIndyNamed(byte[] clazz, String indyName) {
         boolean[] saw = {false};
         new ClassReader(clazz).accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
@@ -129,7 +210,7 @@ class SwitchBytecodeTest {
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override
                     public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... args) {
-                        if (BSM_OWNER.equals(bsm.getOwner()) && name.equals("typeSwitch")) {
+                        if (BSM_OWNER.equals(bsm.getOwner()) && name.equals(indyName)) {
                             saw[0] = true;
                         }
                     }

@@ -62,6 +62,11 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   comparison, a deterministic `31*r + componentHash` fold, and the canonical
   `"Name[c1=v1, ...]"` builder respectively; and **lambdas / method references**
   (`LambdaMetafactory`) → a generated class implementing the functional interface.
+  Pattern switches are desugared for **both** bootstraps — `typeSwitch` (mixed
+  type/constant/guarded labels) and `enumSwitch` (an enum subject with e.g. a
+  `case null` arm) — to identity/`instanceof`/sound-equals chains, so a symbolic
+  subject's selected branch is provably tied to its real value (see
+  `proofs.patternswitch` in [`examples/language-java`](../examples/language-java)).
   For records, `equals` and `hashCode` are sound for any component types; the
   guaranteed `hashCode` property proven is *consistency* (equal records hash equal,
   it's a pure function of the components — the JDK does not fix the exact value, so no
@@ -69,19 +74,15 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   renders soundly (primitive or `String`); a record with another reference component
   keeps its original `toString` indy.
 - **Residual `invokedynamic` is visibly undecided, never silently trusted.** Whatever
-  the desugar passes deliberately leave (`enumSwitch` from a pattern switch over an
-  enum — e.g. one with a `case null` arm — an unhandled `typeSwitch` label shape, a
-  record `toString` with a reference component, or any future bootstrap) is surfaced
-  through the nondet-stub channel: the site is rewritten to a bodiless
+  the desugar passes deliberately leave (a record `toString` with a non-String
+  reference component, an unrecognised switch label shape, or any future bootstrap)
+  is surfaced through the nondet-stub channel: the site is rewritten to a bodiless
   `ResidualInvokedynamic.<indyName>__<bootstrapOwner>` marker, so a green proof that
   reaches it carries a stub footnote (and `strictStubs` escalates it), and a
   **refutation whose slice includes the havoc'd marker is demoted to a named
-  UNKNOWN** — the "counterexample" may be an artifact of the havoc (e.g. a pattern
-  switch's `MatchException` default arm the real bootstrap can never reach), and
-  REFUTED is reserved for real counterexamples. Pin a proof that deliberately
-  exercises such a site with `expect = UNKNOWN`, or restructure to an indy-free form
-  (a classic enum switch without `case null` compiles to the analyzable `$SwitchMap`
-  form). See `proofs.patternswitch.EnumSwitchResidualProofs` in
+  UNKNOWN** — the "counterexample" may be an artifact of the havoc, and REFUTED is
+  reserved for real counterexamples. Pin a proof that deliberately exercises such a
+  site with `expect = UNKNOWN`. See `proofs.records.ResidualToStringProofs` in
   [`examples/language-java`](../examples/language-java).
 - **Strings: content ops and concatenation are made sound in our layer.** JBMC's own
   `String.equals`/`startsWith`/`contains` are unsound; bmc4j rewrites those call sites
