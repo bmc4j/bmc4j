@@ -11,8 +11,12 @@ import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
 import java.util.concurrent.ConcurrentHashMap
 
-/** Kept in sync with the root build version; runtime + engine publish at this coordinate. */
-internal const val VERSION = "0.1.0"
+// VERSION is GENERATED into BuildConfig.kt from the build's own project.version
+// (the generateBmcVersion task in build.gradle.kts), so the plugin always emits
+// the SAME coordinate it was itself published at - the runtime/engine/models a
+// consumer resolves are exactly this plugin build's, with no hand-bumped constant
+// to drift. A snapshot plugin (e.g. 0.1.0-ab12cd3) therefore pulls the snapshot
+// runtime + engine, not the released line.
 private const val JUNIT_VERSION = "5.10.2"
 private const val JUNIT_PLATFORM_LAUNCHER_VERSION = "1.10.2"
 private const val GROUP = "org.bmc4j"

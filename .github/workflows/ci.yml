@@ -38,6 +38,10 @@ on:
       kotlins:
         description: 'Comma-separated consumer-kotlinc proof legs (e.g. "2.0.21,2.2.21"; empty = none)'
         default: ''
+      snapshot:
+        description: 'Run the snapshot-publish + consumer-test legs (the push-to-main flow) for testing this branch'
+        type: boolean
+        default: false
   # Callable from the release workflow (full verification before publishing).
   workflow_call:
     inputs:
@@ -315,3 +319,156 @@ jobs:
         with:
           args: --offline --include-fragments --no-progress README.md CONTRIBUTING.md SECURITY.md THIRD-PARTY-NOTICES.md "docs/**/*.md" "examples/**/*.md"
           fail: true
+
+  # ── Snapshot publish + consumer test (push-to-main only) ──────────────────────
+  #
+  # On every push to main (and on a workflow_dispatch with snapshot=true, for
+  # testing this flow), after the gate (build + every proof leg) is GREEN: publish
+  # THIS commit's artifacts to GitHub Packages at a snapshot version, then dispatch
+  # the bmc4j-consumer-test repo to install-and-prove that exact version. This is
+  # the GitHub-Packages-only pre-Central channel; tagged releases (Maven Central +
+  # the Plugin Portal) are untouched by this path.
+  #
+  # The snapshot version is <latest tag>-<short sha> (e.g. 0.1.0-ab12cd3): it sorts
+  # below the next release, never collides with a real release, and the short sha
+  # makes each main commit's artifacts independently resolvable. The build already
+  # versions itself from BMC4J_VERSION, so the engine-jars/publish-core reusable
+  # workflows publish at this version with no file edits.
+  #
+  # Forks can't access packages and shouldn't publish, so the whole flow is gated to
+  # the canonical repo. PRs never reach here (the if excludes pull_request).
+  snapshot-version:
+    name: snapshot version
+    needs: [build, proofs]
+    if: >-
+      github.repository == 'bmc4j/bmc4j' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && inputs.snapshot))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # describe --tags needs tag history; the default shallow checkout has none.
+          fetch-depth: 0
+      - name: Derive snapshot version
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The latest release tag (vX.Y.Z) is the base; strip the leading v. If the
+          # repo has no tags yet, fall back to 0.0.0 so the flow still produces a
+          # well-formed, clearly-pre-release version.
+          tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          base="${tag#v}"
+          short="$(git rev-parse --short HEAD)"
+          version="${base}-${short}"
+          echo "Snapshot version: $version (tag=$tag sha=$short)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # Non-engine modules (runtime, plugin, models, kotlin, contracts, constraints) to
+  # GitHub Packages at the snapshot version. Reuses publish-core.yml verbatim - the
+  # same idempotent, skip-if-exists publish the release uses. centralStaging stays
+  # false: snapshots never touch Maven Central.
+  snapshot-publish-core:
+    needs: snapshot-version
+    uses: ./.github/workflows/publish-core.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      githubPackages: true
+      centralStaging: false
+      version: ${{ needs.snapshot-version.outputs.version }}
+
+  # The three engine jars the consumer test actually runs on (its matrix is
+  # ubuntu-latest / windows-latest / macos-14 = linux-x64, windows-x64,
+  # macos-arm64). Each is assembled on its own OS by engine-jars.yml and published
+  # at the snapshot version, so the plugin (which wires bmc-engine-<platform> at its
+  # OWN version) resolves the matching snapshot engine on every consumer OS. The two
+  # platforms the consumer test doesn't exercise (linux-arm64, macos-x64) are
+  # skipped to save runner minutes - the release path publishes all five.
+  snapshot-publish-engines:
+    needs: snapshot-version
+    uses: ./.github/workflows/engine-jars.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      platforms: linux-x64,windows-x64,macos-arm64
+      publish: true
+      centralStaging: false
+      version: ${{ needs.snapshot-version.outputs.version }}
+
+  # Dispatch the consumer-test repo's "Consumer test" workflow against the just-
+  # published snapshot, then WAIT for and REFLECT its conclusion - this job goes red
+  # iff the consumer install/proof run fails, which is the whole point of the issue.
+  #
+  # Cross-repo dispatch: the default GITHUB_TOKEN cannot trigger a workflow in
+  # ANOTHER repo, so this uses CONSUMER_TEST_DISPATCH_TOKEN (a fine-grained PAT with
+  # actions:write on bmc4j-consumer-test). If that secret is absent the job fails
+  # fast with an explicit, actionable message rather than a cryptic 404 - creating
+  # the PAT is the one owner-only step (documented in the PR).
+  consumer-test:
+    name: consumer test (snapshot)
+    needs: [snapshot-version, snapshot-publish-core, snapshot-publish-engines]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Dispatch consumer test and wait for its conclusion
+        shell: bash
+        env:
+          # A PAT, not GITHUB_TOKEN: cross-repo workflow_dispatch + reading the
+          # dispatched run's status both require a token scoped to the other repo.
+          GH_TOKEN: ${{ secrets.CONSUMER_TEST_DISPATCH_TOKEN }}
+          VERSION: ${{ needs.snapshot-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::CONSUMER_TEST_DISPATCH_TOKEN is not set. Create a fine-grained PAT with actions:write on bmc4j/bmc4j-consumer-test and add it as a repo/org secret named CONSUMER_TEST_DISPATCH_TOKEN (owner-only step)."
+            exit 1
+          fi
+          repo="bmc4j/bmc4j-consumer-test"
+          workflow="consumer-test.yml"
+
+          # workflow_dispatch returns no run id, so stamp a unique marker BEFORE
+          # dispatching and find the run whose head matches it. We pass VERSION as
+          # the input; the marker is the dispatch time, used only to disambiguate.
+          before="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Dispatching $workflow in $repo for version $VERSION (at $before)"
+          gh workflow run "$workflow" --repo "$repo" -f version="$VERSION"
+
+          # Find the run we just created: the newest run of this workflow created at
+          # or after our dispatch timestamp. Poll briefly - the run can take a few
+          # seconds to register.
+          run_id=""
+          for i in $(seq 1 30); do
+            sleep 5
+            run_id="$(gh run list --repo "$repo" --workflow "$workflow" \
+              --created ">=$before" --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .[0].databaseId' 2>/dev/null || true)"
+            [ -n "$run_id" ] && [ "$run_id" != "null" ] && break
+            run_id=""
+          done
+          [ -n "$run_id" ] || { echo "::error::could not locate the dispatched consumer-test run"; exit 1; }
+          url="https://github.com/$repo/actions/runs/$run_id"
+          echo "Consumer test run: $url"
+
+          # Poll to completion and mirror the conclusion. Timeout below the job's own
+          # 40-min budget so we report a clear message instead of a hard cancel.
+          for i in $(seq 1 200); do
+            status="$(gh run view "$run_id" --repo "$repo" --json status,conclusion --jq '.status')"
+            if [ "$status" = "completed" ]; then
+              conclusion="$(gh run view "$run_id" --repo "$repo" --json conclusion --jq '.conclusion')"
+              echo "Consumer test concluded: $conclusion ($url)"
+              [ "$conclusion" = "success" ] && exit 0
+              echo "::error::consumer test for $VERSION did not pass: $conclusion - see $url"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::consumer test run $url did not complete in time"
+          exit 1
