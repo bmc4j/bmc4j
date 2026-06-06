@@ -113,7 +113,11 @@ jobs:
               '. + [{name: ("jdk" + $j + "-" + $s), jdk: $j, flags: ("-PbmcJvmTarget=" + $j), tasks: $t}]')"
           }
           kotlin_leg() {
-            legs="$(echo "$legs" | jq -c --arg v "$1" --arg t "$kotlin" \
+            # language-kotlin24 holds the 2.4-only syntax (context parameters, collection
+            # literals) - older consumer compilers cannot build it, so only 2.4+ legs get it.
+            local t="$kotlin"
+            case "$1" in 2.[4-9]*|2.[1-9][0-9]*|[3-9].*) t="$t :examples:language-kotlin24:test";; esac
+            legs="$(echo "$legs" | jq -c --arg v "$1" --arg t "$t" \
               '. + [{name: ("kotlin-" + $v), jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t}]')"
           }
 

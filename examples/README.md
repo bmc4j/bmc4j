@@ -11,6 +11,7 @@ the exact input) with one that passes — that failure *is* the result.
 | [fundamentals-kotlin](fundamentals-kotlin) | The same six fundamentals in idiomatic Kotlin (incl. `!!`/`?.`/`?:` null-safety) |
 | [language-java](language-java) | Java language features: lambdas & method references (desugared from invokedynamic) |
 | [language-kotlin](language-kotlin) | Kotlin features: `when` in every form (incl. sealed `is`), value classes & `assumeValid` |
+| [language-kotlin24](language-kotlin24) | What's new in Kotlin 2.4: context parameters, explicit backing fields, collection literals (needs kotlinc ≥ 2.4) |
 | [stdlib](stdlib) | Standard-library modeling: strings, collections, `BigDecimal`, `java.time` |
 | [integrations](integrations) | Real-world inputs: Jakarta validation, env/property config, custom models (Java & Kotlin) |
 | [concurrency-java](concurrency-java) | `@BmcProof(concurrent = true)` thread-interleaving search (data race + lock fix) |

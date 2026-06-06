@@ -48,6 +48,7 @@ include(
     "examples:fundamentals-kotlin",
     "examples:language-java",
     "examples:language-kotlin",
+    "examples:language-kotlin24", // needs kotlinc >= 2.4; older -PbmcKotlinVersion legs must not build it
     "examples:stdlib",
     "examples:integrations",
     "examples:concurrency-java",
