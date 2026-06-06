@@ -60,5 +60,5 @@ target. Verified ranges (the bundled engine is CBMC 6.9.0 / JBMC):
 
 | | Verified | Notes |
 |---|---|---|
-| **Java** | 17 – 25 | class-file major 61–69 all parse and analyse correctly; no JBMC ceiling found through 25 |
-| **Kotlin** | 1.9 – 2.3 | 1.9.0 and the 2.x K2 line are behaviourally identical for analysis. Kotlin 2.x requires the `compilerOptions` build DSL (not `kotlinOptions`) |
+| **Java** | 17 – 25 | class-file major 61–69 all parse and analyse correctly; no JBMC ceiling found through 25. Every merge gates on 17/21/25: the full suite on 21 and 25, core + model conformance on the 17 shipped-floor runtime |
+| **Kotlin** | 2.0 – 2.3 | verified on every merge by the consumer-compiler CI matrix (the conformance suite + Kotlin examples recompiled with kotlinc 2.0 and 2.2; 2.3 is the default toolchain). The 2.x K2 line is behaviourally identical for analysis; Kotlin 2.x requires the `compilerOptions` build DSL (not `kotlinOptions`). **Kotlin 1.9** consumers are supported by design — `bmc-kotlin` pins its emitted metadata (`languageVersion`/`apiVersion`) and its stdlib dependency (`coreLibrariesVersion`) to a 1.9 floor — but no longer continuously re-verified: KGP 1.9 cannot configure under the Gradle 9 build, so the 1.9 claim rests on those pins plus the original 1.9 sweep |
