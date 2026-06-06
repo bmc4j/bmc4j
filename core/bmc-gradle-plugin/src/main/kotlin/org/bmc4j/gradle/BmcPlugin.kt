@@ -378,11 +378,33 @@ private fun detectPlatformId(): String {
             if (arm) {
                 throw GradleException(
                         "bmc4j has no engine for windows-arm64 (os.name=$osName, os.arch=$osArch). " +
-                                "Supported: windows-x64, linux-x64, linux-arm64, macos-x64, macos-arm64.")
+                                "Supported: windows-x64, linux-x64, linux-x64-musl, linux-arm64, " +
+                                "macos-x64, macos-arm64.")
             }
             "windows-x64"
         }
         os.contains("mac") || os.contains("darwin") -> if (arm) "macos-arm64" else "macos-x64"
-        else -> if (arm) "linux-arm64" else "linux-x64"
+        arm -> "linux-arm64"
+        // Keep in sync with Platform.current(): a glibc and a musl x64 host both report Linux/amd64,
+        // but the glibc jbmc can't exec under musl, so a musl/Alpine x64 host gets the musl engine
+        // jar. The runtime's BundledEngine.isMuslLibc does the same probe (Alpine marker or ld-musl
+        // loader); the plugin can't depend on bmc-runtime, so the check is inlined here.
+        isMuslLibc() -> "linux-x64-musl"
+        else -> "linux-x64"
     }
 }
+
+/**
+ * True if this host uses the musl C library (Alpine) rather than glibc. Mirrors
+ * `BundledEngine.isMuslLibc`: the Alpine release marker or a musl dynamic loader under
+ * `/lib`|`/usr/lib`. The plugin can't depend on bmc-runtime, so the probe is duplicated.
+ */
+private fun isMuslLibc(): Boolean {
+    if (java.io.File("/etc/alpine-release").exists()) {
+        return true
+    }
+    return hasMuslLoader("/lib") || hasMuslLoader("/usr/lib")
+}
+
+private fun hasMuslLoader(dir: String): Boolean =
+        java.io.File(dir).listFiles()?.any { it.name.startsWith("ld-musl-") } ?: false

@@ -80,13 +80,30 @@ runnable.
 | OS | Engine jar | Status |
 |---|---|---|
 | Windows x64 | `bmc-engine-windows-x64` (from CBMC `.msi`) | **bundled + verified** |
-| Linux x64 / arm64 | `bmc-engine-linux-*` (from CBMC `.deb`) | **bundled + verified** (CI-built) |
+| Linux x64 / arm64 (glibc) | `bmc-engine-linux-x64`, `bmc-engine-linux-arm64` (from CBMC `.deb`) | **bundled + verified** (CI-built) |
+| Linux x64 (musl / Alpine) | `bmc-engine-linux-x64-musl` (static-musl `jbmc` fetched from the [bmc4j/jbmc-musl-builds](https://github.com/bmc4j/jbmc-musl-builds) release; `core-models.jar` reused from the glibc `.deb`) | **bundled + verified** (CI-built) |
 | macOS x64 / arm64 | `bmc-engine-macos-*` (from the Homebrew bottle) | **bundled + verified** (CI-built) |
 
 Each `bmc-engine-*` jar can only be *assembled* on its own OS (extraction tooling
 differs), so the cross-platform jars are produced by a per-OS CI matrix
 (`.github/workflows/engine-jars.yml`) and published to GitHub Packages. The
 runtime's extraction + execution path is platform-generic.
+
+The musl/Alpine engine exists because upstream CBMC ships only glibc artifacts, and
+a glibc-linked `jbmc` cannot exec under musl. Since there's no upstream musl artifact
+to fetch, the static-musl `jbmc` is built — once per CBMC bump — in a dedicated builder
+repo ([bmc4j/jbmc-musl-builds](https://github.com/bmc4j/jbmc-musl-builds)): it compiles
+`jbmc` from the integrity-pinned CBMC 6.9.0 source in an `alpine` container with the
+musl toolchain (statically linked, so the bundled binary has no apk runtime
+dependencies), smoke-tests it, and publishes it as a SHA-256-pinned GitHub release
+asset. The `linux-x64-musl` engine jar is then assembled exactly like every other
+platform — `prepareEngine` *fetches* that prebuilt tarball, verifies its SHA-256, and
+extracts it (no compiler runs in bmc4j's own pipeline); the architecture-independent
+`core-models.jar` is reused verbatim from the (integrity-pinned) glibc `.deb`. The
+runtime tells a musl x64 host
+apart from glibc by probing for the Alpine release marker or an `ld-musl-*` loader
+(`Platform.current()` / `BundledEngine.isMuslLibc`), and selects this jar accordingly;
+the Gradle plugin runs the same probe when wiring the engine dependency.
 
 ## Java & Kotlin versions
 

@@ -28,6 +28,7 @@ include(
     "bmc-gradle-plugin",
     "bmc-engine-windows-x64",
     "bmc-engine-linux-x64",
+    "bmc-engine-linux-x64-musl",
     "bmc-engine-linux-arm64",
     "bmc-engine-macos-x64",
     "bmc-engine-macos-arm64",

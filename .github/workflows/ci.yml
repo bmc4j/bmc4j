@@ -30,7 +30,7 @@ on:
         type: boolean
         default: true
       platforms:
-        description: 'Smoke platforms: "all", "none", or comma-separated from windows-x64,linux-arm64,macos-x64,macos-arm64'
+        description: 'Smoke platforms: "all", "none", or comma-separated from windows-x64,linux-arm64,linux-x64-musl,macos-x64,macos-arm64'
         default: all
       jdks:
         description: 'Comma-separated JDK proof legs (e.g. "17,21,25"; 17 runs conformance-only - examples need newer javac)'
@@ -76,6 +76,7 @@ jobs:
     outputs:
       include: ${{ steps.filter.outputs.include }}
       any: ${{ steps.filter.outputs.any }}
+      alpine: ${{ steps.filter.outputs.alpine }}
       gate: ${{ steps.filter.outputs.gate }}
       legs: ${{ steps.filter.outputs.legs }}
     steps:
@@ -148,17 +149,30 @@ jobs:
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
           echo "legs=$legs" >> "$GITHUB_OUTPUT"
 
+          # linux-x64-musl smokes in an alpine CONTAINER (it needs a musl toolchain to
+          # assemble + run its engine), so it's tracked by a separate `alpine` flag, not
+          # in the runner-native smoke matrix `all`.
           if [ "$sel_spec" = "all" ]; then
             sel="$(echo "$all" | jq -c .)"
+            alpine="true"
           elif [ "$sel_spec" = "none" ]; then
             sel='[]'
+            alpine="false"
           else
             sel="$(echo "$all" | jq -c --arg p "$sel_spec" \
               '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
-            [ "$sel" != "[]" ] || { echo "No platforms matched '$sel_spec'"; exit 1; }
+            if echo "$sel_spec" | tr ',' '\n' | sed 's/[[:space:]]//g' | grep -qx 'linux-x64-musl'; then
+              alpine="true"
+            else
+              alpine="false"
+            fi
+            if [ "$sel" = "[]" ] && [ "$alpine" != "true" ]; then
+              echo "No platforms matched '$sel_spec'"; exit 1
+            fi
           fi
-          echo "Event: $EVENT | gate: $gate | legs: $(echo "$legs" | jq -r '[.[].name] | join(", ")') | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
+          echo "Event: $EVENT | gate: $gate | legs: $(echo "$legs" | jq -r '[.[].name] | join(", ")') | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')$([ "$alpine" = "true" ] && echo ", linux-x64-musl")"
           echo "include=$sel" >> "$GITHUB_OUTPUT"
+          echo "alpine=$alpine" >> "$GITHUB_OUTPUT"
           echo "any=$(echo "$sel" | jq 'length > 0')" >> "$GITHUB_OUTPUT"
 
   # Core build + unit tests: once, on the canonical JDK. The proof legs validate the
@@ -302,6 +316,79 @@ jobs:
             **/build/reports/tests/**
             **/build/test-results/**
           if-no-files-found: ignore
+
+  # linux-x64-musl smoke: GitHub has no Alpine runner, so run on ubuntu inside an
+  # alpine container. End-to-end on musl: assemble the musl engine jar (now a fast
+  # fetch + SHA-256-verify + extract of the prebuilt static-musl binary from the
+  # bmc4j/jbmc-musl-builds release - NO in-pipeline compile), extract the bundled
+  # jbmc + core-models.jar, then run that jbmc on a real, freshly-compiled Java class
+  # and assert it VERIFIES. This proves the whole musl path - static musl binary ->
+  # extraction -> a real jbmc analysis - on the actual musl C library.
+  #
+  # The Gradle proof suite (model-conformance-proofs) isn't used here: it pins a Java 25
+  # toolchain that Foojay would fetch as a glibc build, which can't run under musl. The
+  # alpine JDK (21) compiles the smoke class and runs Gradle for the engine assembly; the
+  # bundled musl jbmc does the proof.
+  smoke-alpine:
+    name: smoke linux-x64-musl
+    needs: plan
+    if: ${{ needs.plan.outputs.alpine == 'true' }}
+    runs-on: ubuntu-latest
+    container: alpine:3.20
+    timeout-minutes: 15
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk
+    steps:
+      # Assembly is now fetch + tar-extract (no C++ compile), so only the JDK (Gradle
+      # + javac), curl/tar (the fetch + extract), and bash are needed - no CBMC build
+      # toolchain. libstdc++ is the static musl binary's only (statically satisfied)
+      # C++ dep; keep it for safety. gcompat is not needed (the binary is musl-native).
+      - name: Install toolchain (apk)
+        run: |
+          set -eu
+          apk add --no-cache \
+            openjdk21 curl bash tar libstdc++
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Assemble the musl engine jar: fetch + verify + extract the prebuilt musl jbmc.
+      # The plugin's musl detection would wire this same engine for a real consumer in
+      # this container.
+      - name: Assemble musl engine jar
+        run: ./gradlew -p core :bmc-engine-linux-x64-musl:build --no-daemon
+
+      - name: Run a real proof with the bundled musl jbmc
+        run: |
+          set -eu
+          export PATH="$JAVA_HOME/bin:$PATH"
+          libs="$(pwd)/core/bmc-engine-linux-x64-musl/build/libs"
+          jarfile="$(cd "$libs" && ls bmc-engine-linux-x64-musl-*.jar | grep -vE -- '-(javadoc|sources)\.jar$' | head -n1)"
+          work="$(mktemp -d)"
+          # Extract the bundled engine (binary + the operational model jar) exactly as the
+          # runtime would, then exercise it directly.
+          (cd "$work" && jar xf "$libs/$jarfile")
+          eng="$work/jbmc/linux-x64-musl"
+          chmod +x "$eng/bin/jbmc"
+          "$eng/bin/jbmc" --version | grep -q "6.9.0"
+
+          # A tiny program with an assertion that holds for all inputs: jbmc must report
+          # VERIFICATION SUCCESSFUL. This is a genuine end-to-end proof on musl.
+          cat > "$work/Smoke.java" <<'EOF'
+          public class Smoke {
+            static int dbl(int x) { return x + x; }
+            public static void main(String[] a) {
+              int x = a.length;
+              assert dbl(x) == 2 * x;
+            }
+          }
+          EOF
+          (cd "$work" && javac Smoke.java)
+          out="$("$eng/bin/jbmc" Smoke --classpath "$work:$eng/lib/core-models.jar" \
+                  --function Smoke.main 2>&1 || true)"
+          echo "$out"
+          echo "$out" | grep -q "VERIFICATION SUCCESSFUL" \
+            || { echo "::error::musl jbmc did not prove the smoke assertion"; exit 1; }
 
   # Docs link check: the README/docs/examples cross-link web has broken before.
   # Offline mode = internal file links + anchors only (no network flakiness).
