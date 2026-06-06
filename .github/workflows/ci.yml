@@ -218,9 +218,16 @@ jobs:
           restore-keys: |
             bmc-verdict-${{ runner.os }}-${{ matrix.name }}-
 
+      # --no-build-cache: Gradle's task cache would REPLAY test results for legs whose
+      # inputs match another leg (it formally deduped the kotlin-2.3-default leg against
+      # jdk21-full on its first run) - but these legs exist to PROVE each version
+      # combination actually works, so the test JVMs must execute. Speed still comes
+      # from the right layer: the per-proof verdict cache (restored above) skips the
+      # SOLVES for anything unchanged, which also keeps that cache continuously
+      # exercised in CI. Dependency caching (setup-gradle) is unaffected.
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
-        run: ./gradlew --no-daemon -Dbmc.timeoutSeconds=180 ${{ matrix.flags }} ${{ matrix.tasks }}
+        run: ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=180 ${{ matrix.flags }} ${{ matrix.tasks }}
 
       - name: Upload test reports
         if: failure()
