@@ -57,11 +57,22 @@ public final class JbmcBackend implements VerificationBackend {
     public JbmcResult verify(BmcRequest request) {
         String jbmcPath = resolveJbmc();
         String classpath = prepareClasspath(request, jbmcPath);
-        return new Jbmc(jbmcPath).run(
+        JbmcResult result = new Jbmc(jbmcPath).run(
                 request.entryClass(), request.entryFunction(), classpath,
                 request.unwind(), request.unwindingAssertions(),
                 request.maxStringLength(), request.concurrent(), request.solver(),
                 request.timeoutSeconds());
+        // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
+        // the opaque-symbol parse provably works against THIS engine — a format drift in a
+        // -Dbmc.jbmc engine empties the harvest silently, which would strip honesty footnotes and
+        // disarm strictStubs with nothing visible anywhere. A non-empty harvest proves the parse by
+        // existing; the empty case is vouched for by a one-time canary (memoized + disk-marked),
+        // which throws an engine-infrastructure UNKNOWN when it can't. Non-green verdicts don't
+        // consult stub facts, so they pass through unfloored.
+        if (result.isVerified() && result.stubbedMethods().isEmpty()) {
+            StubHarvestFloor.ensure(jbmcPath, engineIdentity());
+        }
+        return result;
     }
 
     private static String resolveJbmc() {
