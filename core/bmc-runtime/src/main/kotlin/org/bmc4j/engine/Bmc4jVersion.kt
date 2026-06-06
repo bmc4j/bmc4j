@@ -38,9 +38,14 @@ object Bmc4jVersion {
      * served — the cache key hashes the ORIGINAL classpath, not the rewrite output); r4 relaxes
      * Kotlin proof-parameter prologues to assume(p != null) (KotlinParamBytecode) and starts
      * keying the rewrite-mirror cache by this identity too (ClasspathMirror), so a revision bump
-     * now re-mirrors as well as re-verifying; r5 ports the rewrite passes + contract/model plumbing to Kotlin (behavior-identical by review/tests, but a rewriter-code change re-mirrors on principle).
+     * now re-mirrors as well as re-verifying; r5 ports the rewrite passes + contract/model plumbing
+     * to Kotlin (behavior-identical by review/tests, but a rewriter-code change re-mirrors on
+     * principle); r6 extends the coroutine-LVT strip to drop the LocalVariableTable of ANY method
+     * with a duplicate parameter-slot entry (not just invokeSuspend / Continuation-param methods),
+     * so a previously-cached mirror that still carried a crash-triggering synthetic bridge
+     * ($default) is re-stripped instead of re-served.
      */
-    private const val SEMANTICS_REVISION = "r5"
+    private const val SEMANTICS_REVISION = "r6"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
