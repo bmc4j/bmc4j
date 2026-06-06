@@ -11,7 +11,7 @@ pluginManagement {
     // The Kotlin version the CONSUMER-side builds (examples + the conformance suite)
     // compile with - i.e. the user's kotlinc, whose emitted bytecode the rewrite layer
     // and models must handle. The CI Kotlin matrix overrides it (-PbmcKotlinVersion=2.0.21
-    // etc., paired with -PbmcKotlinJvmTarget for KGPs without newer JVM targets); the
+    // etc., paired with -PbmcJvmTarget for KGPs without newer JVM targets); the
     // product build under core/ keeps its own pinned Kotlin - shipped artifacts don't
     // vary with the consumer's compiler.
     plugins {

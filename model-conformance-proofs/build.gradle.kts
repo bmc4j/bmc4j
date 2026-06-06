@@ -9,16 +9,16 @@ plugins {
 }
 
 // The CONSUMER-side compile target. Default 25; the Kotlin-version CI matrix passes
-// -PbmcKotlinJvmTarget=21 alongside -PbmcKotlinVersion, because older KGPs have no
+// -PbmcJvmTarget=21 alongside -PbmcKotlinVersion, because older KGPs have no
 // JVM_25 target - and real Kotlin-2.0 consumers are on older JVMs anyway.
-val bmcKotlinJvmTarget = providers.gradleProperty("bmcKotlinJvmTarget").orNull ?: "25"
+val bmcJvmTarget = providers.gradleProperty("bmcJvmTarget").orNull ?: "25"
 
 java {
-    toolchain { languageVersion.set(JavaLanguageVersion.of(bmcKotlinJvmTarget.toInt())) }
+    toolchain { languageVersion.set(JavaLanguageVersion.of(bmcJvmTarget.toInt())) }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(bmcKotlinJvmTarget)) }
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(bmcJvmTarget)) }
 }
 
 // Some of these proofs are division-heavy and opt into Z3 via @BmcProof(solver = "z3"). Z3 just has
