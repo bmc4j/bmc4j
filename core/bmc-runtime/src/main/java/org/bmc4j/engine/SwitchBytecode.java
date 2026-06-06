@@ -14,13 +14,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Desugars pattern-matching {@code switch} {@code invokedynamic} (bootstrap
- * {@code java.lang.runtime.SwitchBootstraps.typeSwitch}) into an ordinary {@code instanceof}/{@code
- * equals} chain, because JBMC links an indy call site to an <em>unconstrained</em> result — which is
- * unsound for a symbolic-typed subject (the selected branch is decoupled from the subject's real
- * type). This was the last invokedynamic blind spot; the others (string concat, lambdas,
- * record {@code equals}/{@code hashCode}/{@code toString}) are already desugared the same way in
- * {@link StringBytecode} / {@link LambdaBytecode}.
+ * Desugars pattern-matching {@code switch} {@code invokedynamic} (bootstraps
+ * {@code java.lang.runtime.SwitchBootstraps.typeSwitch} and {@code .enumSwitch}) into an ordinary
+ * {@code instanceof}/{@code equals}/{@code ==} chain, because JBMC links an indy call site to an
+ * <em>unconstrained</em> result — which is unsound for a symbolic-typed subject (the selected branch
+ * is decoupled from the subject's real type). The others (string concat, lambdas, record
+ * {@code equals}/{@code hashCode}/{@code toString}) are already desugared the same way in
+ * {@link StringBytecode} / {@link LambdaBytecode}; whatever no pass recognises is surfaced by
+ * {@link ResidualIndyBytecode} rather than silently trusted.
+ *
+ * <p>{@code enumSwitch} (a pattern switch over an enum subject, e.g. one with a {@code case null}
+ * arm) shares the typeSwitch contract below; its labels are mostly plain Strings naming constants of
+ * the <em>selector's</em> enum type (recovered from the indy descriptor), matched by identity —
+ * enum constants are singletons, the same reason javac's indy-free {@code $SwitchMap} form is
+ * already sound under JBMC.
  *
  * <p><b>The contract we reproduce, exactly.</b> A {@code typeSwitch(Object target, int restartIndex)}
  * carries an ordered label list in its bootstrap arguments and returns:
@@ -148,18 +155,25 @@ public final class SwitchBytecode {
                 return new MethodVisitor(Opcodes.ASM9, mv) {
                     @Override
                     public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
-                        if (SWITCH_BOOTSTRAPS.equals(bsm.getOwner()) && name.equals("typeSwitch")) {
-                            List<LabelMatch> labels = decodeLabels(bsmArgs);
+                        if (SWITCH_BOOTSTRAPS.equals(bsm.getOwner())
+                                && (name.equals("typeSwitch") || name.equals("enumSwitch"))) {
+                            // Same contract, different label encoding: typeSwitch labels are
+                            // Class/constant/EnumDesc; enumSwitch labels are mostly plain Strings
+                            // NAMING constants of the selector's enum type (taken from the indy
+                            // descriptor), matched by identity — not by string equality.
+                            List<LabelMatch> labels = name.equals("typeSwitch")
+                                    ? decodeLabels(bsmArgs)
+                                    : decodeEnumSwitchLabels(desc, bsmArgs);
                             if (labels != null) {
-                                String hName = "bmc$typeSwitch$" + (counter[0]++);
+                                String hName = "bmc$" + name + "$" + (counter[0]++);
                                 helpers.add(new SwitchHelper(hName, desc, labels));
                                 super.visitMethodInsn(Opcodes.INVOKESTATIC, owner[0], hName, desc, isInterface[0]);
                                 return;
                             }
                         }
-                        // enumSwitch (pure enum-only pattern switch) and any unrecognised label shape:
-                        // leave untouched rather than risk an unsound stand-in. (Pure enum switches that
-                        // do NOT use indy at all — javac's $SwitchMap form — are already sound in JBMC.)
+                        // Any unrecognised bootstrap / label shape: leave untouched rather than risk an
+                        // unsound stand-in — the ResidualIndyBytecode pass then surfaces it as a
+                        // visible nondet stub (footnote / strictStubs / REFUTED-to-UNKNOWN demotion).
                         super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
                     }
                 };
@@ -199,6 +213,42 @@ public final class SwitchBytecode {
                 EnumLabel e = decodeEnumLabel(cd);
                 if (e == null) {
                     return null; // unknown dynamic-constant label
+                }
+                labels.add(e);
+            } else {
+                return null; // unknown label kind
+            }
+        }
+        return labels;
+    }
+
+    /**
+     * Decode {@code enumSwitch} bootstrap arguments. The selector's enum type comes from the indy
+     * descriptor ({@code (L<EnumType>;I)I}); a plain {@code String} label names a constant of that
+     * type and matches by <b>identity</b> ({@code target == EnumType.NAME} — enum constants are
+     * singletons), NOT by string equality; a {@code Class} label is an ordinary type pattern; a
+     * qualified {@code Enum$EnumDesc} dynamic constant decodes like typeSwitch's. {@code null} =
+     * "leave this site alone" (an unknown label shape falls through to the residual-indy surfacing).
+     */
+    private static List<LabelMatch> decodeEnumSwitchLabels(String desc, Object[] bsmArgs) {
+        Type[] args = Type.getArgumentTypes(desc);
+        if (args.length != 2 || args[0].getSort() != Type.OBJECT) {
+            return null; // not the (EnumType, int) shape we know
+        }
+        String enumInternalName = args[0].getInternalName();
+        List<LabelMatch> labels = new ArrayList<>(bsmArgs.length);
+        for (Object arg : bsmArgs) {
+            if (arg instanceof String constantName) {
+                labels.add(new EnumLabel(enumInternalName, constantName));
+            } else if (arg instanceof Type t) {
+                if (t.getSort() != Type.OBJECT && t.getSort() != Type.ARRAY) {
+                    return null;
+                }
+                labels.add(new TypeLabel(t.getInternalName()));
+            } else if (arg instanceof ConstantDynamic cd) {
+                EnumLabel e = decodeEnumLabel(cd);
+                if (e == null) {
+                    return null;
                 }
                 labels.add(e);
             } else {
