@@ -58,4 +58,14 @@ class ConfigProofs {
         int timeout = Bmc.intFromProperty("app.timeoutMs");
         Bmc.check(timeout >= 0);
     }
+
+    // FAIL: this run sets app.legacyFlag=1 — truthy in many config schemes, but not a Java boolean.
+    // Booleans must be exactly "true"/"false" (case-insensitive); anything else fails the proof
+    // rather than silently reading as false and verifying the wrong configuration.
+    // Expected verdict: REFUTED - "1" does not parse as a boolean; the proof must not guess.
+    @BmcProof(expect = Verdict.REFUTED)
+    void malformed_boolean_fails_rather_than_guessing() {
+        boolean legacy = Bmc.boolFromProperty("app.legacyFlag");
+        Bmc.check(!legacy); // would (wrongly) VERIFY if "1" were silently read as false
+    }
 }
