@@ -114,6 +114,28 @@ public class BmcPlugin implements Plugin<Project> {
                     test.getLogger().lifecycle("bmc4j: verifying proofs with JBMC (" + note + ")");
                 }
             });
+            // Cache-hit detection for the progress line. The extension prints a
+            // "  bmc4j: <entryFunction> -> <VERDICT> (cached...)" marker to the test JVM's stdout
+            // when a proof is served from the verdict cache - stdout Gradle normally swallows on
+            // passing tests, but output EVENTS still reach listeners. Record which proofs carried
+            // the marker so the finish line can say "(cached verdict, ...)" instead of looking like
+            // a (suspiciously fast) engine run. Keyed by the entry-function FQN PARSED FROM THE
+            // MESSAGE, not the event's descriptor: under parallel proof execution the descriptor
+            // attribution of stdout events is unreliable (observed: one of two same-class hits
+            // attributed, one not). ConcurrentHashMap because test workers report in parallel.
+            java.util.concurrent.ConcurrentHashMap<String, Boolean> cachedProofs =
+                    new java.util.concurrent.ConcurrentHashMap<>();
+            java.util.regex.Pattern cachedMarker =
+                    java.util.regex.Pattern.compile("bmc4j: (\\S+) -> \\S+ \\(cached");
+            test.addTestOutputListener((descriptor, event) -> {
+                String msg = event.getMessage();
+                if (msg != null && msg.contains("(cached")) {
+                    java.util.regex.Matcher m = cachedMarker.matcher(msg);
+                    while (m.find()) {
+                        cachedProofs.put(m.group(1), Boolean.TRUE);
+                    }
+                }
+            });
             test.addTestListener(new TestListener() {
                 @Override
                 public void beforeSuite(TestDescriptor suite) {
@@ -152,8 +174,15 @@ public class BmcPlugin implements Plugin<Project> {
                             // progress log doesn't call a timeout/engine-error a refutation.
                             outcome = isUndecided(r) ? "UNKNOWN" : "REFUTED";
                         }
-                        test.getLogger().lifecycle(String.format("  bmc4j < %-7s %s.%s (%.1fs)",
+                        // A proof served from the verdict cache says so - a 0.0s "OK" otherwise
+                        // reads as either suspicious or as engine speed it didn't earn. The map key
+                        // is the entry-function FQN the extension printed (class.method, no parens);
+                        // the JUnit display name carries "method(...)", so strip the parameter list.
+                        String bareName = t.getName().replaceFirst("\\(.*\\)$", "");
+                        boolean cached = cachedProofs.remove(t.getClassName() + "." + bareName) != null;
+                        test.getLogger().lifecycle(String.format("  bmc4j < %-7s %s.%s (%s%.1fs)",
                                 outcome, simpleName(t.getClassName()), t.getName(),
+                                cached ? "cached verdict, " : "",
                                 (r.getEndTime() - r.getStartTime()) / 1000.0));
                     }
                 }
