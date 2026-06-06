@@ -54,8 +54,9 @@ public final class JbmcOutputParser {
         }
 
         List<JbmcResult.Violation> violations = new ArrayList<>();
-        int markers = 0;          // injected reachability markers seen
-        int markersFailed = 0;    // ... that FAILED (i.e. that exit is reachable)
+        int markers = 0;            // injected reachability markers seen
+        int markersFailed = 0;      // ... that FAILED (i.e. that exit is reachable)
+        int unwindingFailures = 0;  // --unwinding-assertions firings: the BOUND is too small
         if (result != null) {
             for (JsonElement pe : result) {
                 JsonObject p = pe.getAsJsonObject();
@@ -68,6 +69,15 @@ public final class JbmcOutputParser {
                     continue; // never report a marker as a user violation
                 }
                 if ("FAILURE".equals(status)) {
+                    if (isUnwindingAssertion(p)) {
+                        // NOT a counterexample: an unwinding-assertion failure says the loop
+                        // bound truncated exploration — the analysis is incomplete, nothing was
+                        // proven wrong. Counted separately and judged below; reporting it as a
+                        // violation would mislabel "bound too small" as REFUTED, and an
+                        // expect = REFUTED demo could pass for the wrong reason.
+                        unwindingFailures++;
+                        continue;
+                    }
                     violations.add(toViolation(p, entryFunctionFqn));
                 }
             }
@@ -77,13 +87,23 @@ public final class JbmcOutputParser {
         // overall cProverStatus is ALWAYS "failure" on the green path — a reachable marker is itself a
         // FAILURE property — so we must NOT consult cProverStatus when markers exist; the verdict is
         // driven by user properties + marker reachability:
-        //   - any real (non-marker) user FAILURE  -> refuted;
+        //   - any real (non-marker) user FAILURE  -> refuted (a trace within the bound is a REAL
+        //                                            trace — under-approximation — so a genuine
+        //                                            counterexample stands even if the bound ALSO
+        //                                            truncated deeper paths);
+        //   - else if any unwinding assertion fired -> UNKNOWN (the bound is too small: exploration
+        //                                            was truncated, so neither a green nor a vacuity
+        //                                            claim is trustworthy — markers may be unreachable
+        //                                            merely because the bound cut them off);
         //   - else if every marker is SUCCESS      -> VACUOUS (all normal exits dead, assumptions
         //                                             unsatisfiable, the proof checked nothing);
         //   - else (>=1 marker reachable)          -> verified.
         if (markers > 0) {
             if (!violations.isEmpty()) {
                 return new JbmcResult(false, violations, json);
+            }
+            if (unwindingFailures > 0) {
+                return JbmcResult.unknown(unwindingReason(unwindingFailures), json);
             }
             if (markersFailed == 0) {
                 return new JbmcResult(false, List.of(vacuityViolation()), json, true);
@@ -99,8 +119,33 @@ public final class JbmcOutputParser {
         if (!violations.isEmpty()) {
             return new JbmcResult(false, violations, json);
         }
+        if (unwindingFailures > 0) {
+            return JbmcResult.unknown(unwindingReason(unwindingFailures), json);
+        }
         return JbmcResult.unknown(
                 "reachability markers missing — vacuity could not be checked", json);
+    }
+
+    /**
+     * True if a FAILURE property is an {@code --unwinding-assertions} firing rather than a user
+     * property: cbmc names these {@code <function>.unwind.<n>} with description
+     * {@code "unwinding assertion loop <n>"}. Either signal suffices (defensive OR — the shape is
+     * pinned against the bundled engine by the parser tests).
+     */
+    private static boolean isUnwindingAssertion(JsonObject p) {
+        String property = str(p, "property");
+        if (property != null && property.contains(".unwind.")) {
+            return true;
+        }
+        String description = str(p, "description");
+        return description != null && description.startsWith("unwinding assertion");
+    }
+
+    /** The UNKNOWN reason for a bound-too-small run (the extension appends the remedies). */
+    private static String unwindingReason(int count) {
+        return "unwinding assertion failed: the loop bound is too small to cover this proof ("
+                + count + (count == 1 ? " loop" : " loops") + " hit the bound) — exploration was"
+                + " truncated, so this is incompleteness, not a refutation";
     }
 
     /**

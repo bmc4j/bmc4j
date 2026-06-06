@@ -5,7 +5,8 @@ full, because a proof tool that hides its limits is worse than no proof tool.
 
 - **Bounded, not unbounded.** Loops/recursion are unwound to `unwind`. Proofs pass
   `--unwinding-assertions` by default, so an insufficient bound is reported rather
-  than silently trusted.
+  than silently trusted - as **UNKNOWN** (incompleteness: exploration was truncated,
+  nothing was proven wrong), never as a refutation.
 - **Three-way verdict — UNKNOWN is a first-class outcome, not a pass.** A proof is
   **verified**, **refuted** (with a counterexample), or **UNKNOWN** — undecided within
   budget: it timed out (see [configuration → Timeout](configuration.md#timeout)), the

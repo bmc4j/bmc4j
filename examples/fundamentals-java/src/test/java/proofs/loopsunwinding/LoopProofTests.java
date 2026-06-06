@@ -18,12 +18,14 @@ class LoopProofTests {
     }
 
     /**
-     * FAILS: same property, but the unwind bound (4) is too small to cover n up
-     * to 10. --unwinding-assertions (on by default) reports this instead of
-     * silently "proving" an under-explored loop.
+     * FAILS as UNDECIDED: same property, but the unwind bound (4) is too small to cover
+     * n up to 10. --unwinding-assertions (on by default) reports the truncation, and the
+     * verdict is UNKNOWN - incompleteness, NOT a refutation: nothing was proven wrong,
+     * the bound just cut exploration short. (It used to be mislabeled REFUTED, which let
+     * this very demo pass for the wrong reason.)
      */
-    // Expected verdict: REFUTED - the unwinding assertion reports the insufficient bound.
-    @BmcProof(unwind = 4, expect = Verdict.REFUTED)
+    // Expected verdict: UNKNOWN - the insufficient bound is reported as undecided.
+    @BmcProof(unwind = 4, expect = Verdict.UNKNOWN)
     void too_small_a_bound_is_reported_not_trusted() {
         int n = Bmc.anyInt(0, 10);
         Bmc.check(Sums.sumTo(n) == n * (n + 1) / 2);

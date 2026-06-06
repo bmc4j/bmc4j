@@ -446,4 +446,75 @@ class JbmcOutputParserTest {
         assertFalse(r.isVerified());
         assertEquals(List.of("java.util.List.stream"), r.stubbedMethods());
     }
+
+    // --- Unwinding assertions: bound-too-small is UNKNOWN, never REFUTED -----------------------
+
+    @Test
+    void unwinding_assertion_failure_alone_is_UNKNOWN_not_refuted() {
+        // --unwinding-assertions firing says the LOOP BOUND truncated exploration: incompleteness,
+        // not a counterexample. Mislabeling it REFUTED let expect = REFUTED demos pass for the
+        // wrong reason. Marker reachable (the proof body itself is fine within the bound).
+        String json = """
+            [
+              {"result":[
+                {"name":"u","status":"FAILURE","property":"java::pkg.Tests.proof.unwind.0",
+                 "description":"unwinding assertion loop 0",
+                 "sourceLocation":{"file":"T.java","line":"9","function":"java::pkg.Tests.proof:()V"}},
+                {"name":"m","status":"FAILURE","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"%d","function":"java::pkg.Tests.proof:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertTrue(r.isUnknown(), "bound-too-small must be UNKNOWN, got " + r.verdict());
+        assertFalse(r.isVacuous());
+        assertTrue(r.violations().isEmpty(), "an unwinding assertion is not a counterexample");
+        assertTrue(r.undecidedReason().contains("loop bound is too small"), r.undecidedReason());
+    }
+
+    @Test
+    void real_failure_stays_REFUTED_even_with_an_unwinding_assertion_alongside() {
+        // A trace within the bound is a REAL trace (under-approximation): a genuine user FAILURE
+        // is a counterexample even if the bound ALSO truncated deeper paths. Only the real
+        // violation is reported; the unwinding firing is not listed as a violation.
+        String json = """
+            [
+              {"result":[
+                {"name":"u1","status":"FAILURE","property":"java::pkg.Tests.proof.unwind.0",
+                 "description":"unwinding assertion loop 0",
+                 "sourceLocation":{"file":"T.java","line":"9","function":"java::pkg.Tests.proof:()V"}},
+                {"name":"u2","status":"FAILURE","description":"array index out of bounds",
+                 "sourceLocation":{"file":"T.java","line":"12","function":"java::pkg.Tests.proof:()V"}},
+                {"name":"m","status":"FAILURE","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"%d","function":"java::pkg.Tests.proof:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertFalse(r.isVerified());
+        assertFalse(r.isUnknown(), "a real counterexample within the bound is a refutation");
+        assertEquals(1, r.violations().size(), "only the real violation is reported");
+        assertEquals("array index out of bounds", r.violations().get(0).description());
+    }
+
+    @Test
+    void unwinding_assertion_with_unreachable_markers_is_UNKNOWN_not_vacuous() {
+        // With the bound truncating exploration, unreachable markers may just be cut off — claiming
+        // VACUOUS (assumptions unsatisfiable) would be wrong. Bound-too-small wins.
+        String json = """
+            [
+              {"result":[
+                {"name":"u","status":"FAILURE","property":"java::pkg.Tests.proof.unwind.1",
+                 "description":"unwinding assertion loop 1",
+                 "sourceLocation":{"file":"T.java","line":"9","function":"java::pkg.Tests.proof:()V"}},
+                {"name":"m","status":"SUCCESS","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"%d","function":"java::pkg.Tests.proof:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertTrue(r.isUnknown(), "bound truncation must not be mistaken for vacuity");
+        assertFalse(r.isVacuous());
+        assertTrue(r.undecidedReason().contains("loop bound is too small"), r.undecidedReason());
+    }
 }
