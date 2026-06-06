@@ -7,6 +7,7 @@ import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
 import org.bmc4j.Verdict
 import org.bmc4j.kotlin.assumeValid
+import org.bmc4j.kotlin.throws
 
 /**
  * Value classes carry invariants in their constructor (`init { require(...) }`). JBMC runs that
@@ -23,18 +24,13 @@ class PortProofs {
         Bmc.check(p.number in 1..65535)
     }
 
-    // PASS: the init { require(...) } genuinely runs under BMC — construction succeeds exactly when
-    // the input is in range. (Tautology only if JBMC executes the value class's constructor body.)
+    // PASS: the init { require(...) } genuinely runs under BMC — construction throws exactly when
+    // the input is out of range. (Tautology only if JBMC executes the value class's constructor
+    // body.) `throws<E> { ... }` is the composable boolean form of `checkThrows<E> { ... }`.
     @BmcProof
     fun init_is_enforced() {
         val raw = Bmc.anyInt()
-        var ok = true
-        try {
-            Port(raw)
-        } catch (e: IllegalArgumentException) {
-            ok = false
-        }
-        Bmc.check(ok == (raw in 1..65535))
+        Bmc.check(throws<IllegalArgumentException> { Port(raw) } == (raw !in 1..65535))
     }
 
     // FAIL (the bug): next(p) constructs Port(number + 1); at p == 65535 that is 65536, which the
