@@ -32,7 +32,7 @@ import org.objectweb.asm.Opcodes;
  * footnoted in lenient mode, {@code UNKNOWN} under {@code -Dbmc.strictStubs=true}, acknowledgeable
  * via {@code allowStubs}. The marker's method name carries the evidence —
  * {@code <indyName>__<bootstrapOwner>}, e.g. {@code enumSwitch__SwitchBootstraps} — so the
- * footnote names what was left un-desugared. ({@link StubFilter} exempts the marker from its
+ * footnote names what was left un-desugared. ({@code StubFilter} exempts the marker from its
  * {@code org.bmc4j.*} noise filter.)
  *
  * <p>Soundness direction: verdicts are unchanged (nondet before, nondet now); only the

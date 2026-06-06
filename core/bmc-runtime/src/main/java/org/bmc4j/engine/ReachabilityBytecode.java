@@ -18,7 +18,7 @@ import org.objectweb.asm.Opcodes;
  *
  * stamped on a {@linkplain BmcReachability#SENTINEL_LINE sentinel source line}. JBMC turns each into
  * an {@code assertion} property: a marker FAILS iff that exit is reachable under the proof's
- * assumptions. {@link JbmcOutputParser} then treats a proof as <b>vacuous</b> (assumptions
+ * assumptions. {@code JbmcOutputParser} then treats a proof as <b>vacuous</b> (assumptions
  * unsatisfiable) exactly when it has markers and <em>all</em> of them are SUCCESS (every normal exit
  * dead) — see {@link BmcReachability}.
  *
@@ -27,10 +27,10 @@ import org.objectweb.asm.Opcodes;
  * needed and the original frames are preserved. Proof methods are only ever JBMC entry points, so
  * never returning normally during analysis is harmless.
  *
- * <p>Ordering: this runs <b>last</b> in {@link JbmcBackend#prepareClasspath} (after the
+ * <p>Ordering: this runs <b>last</b> in {@code JbmcBackend.prepareClasspath} (after the
  * concat/lambda/switch/config desugars and the contract rewrite) so the marker is injected into the
  * <em>final</em> proof bodies and no later pass can strip it. Like the sibling passes, both directory
- * and jar entries are mirrored via {@link ClasspathMirror}.
+ * and jar entries are mirrored via {@code ClasspathMirror}.
  */
 public final class ReachabilityBytecode {
 

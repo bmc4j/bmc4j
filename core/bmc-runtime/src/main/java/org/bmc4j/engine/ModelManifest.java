@@ -19,13 +19,13 @@ import java.util.stream.Stream;
  *       serialized one model per entry as {@code intent|fqn|rationale} (rationale present only for
  *       {@code domain}). This is the trust metadata.</li>
  *   <li>{@code bmc.userModels} — the path(s) to the compiled {@code src/bmcModel} output (the same
- *       property {@link JbmcBackend} prepends to the analysis classpath). Scanning it gives the
+ *       property {@code JbmcBackend} prepends to the analysis classpath). Scanning it gives the
  *       <em>actual</em> user-model classes present, so the policy can compare declarations against what's
  *       really shadowing on the classpath.</li>
  * </ul>
  *
  * <p>Deliberately a pure reader of (declarations, present-classes) — the {@link ModelPolicy} turns those
- * into footnote / override-warning / strict-UNKNOWN, exactly as {@link StubPolicy} consumes the stub
+ * into footnote / override-warning / strict-UNKNOWN, exactly as {@code StubPolicy} consumes the stub
  * fact. Parsing is fail-loud on a malformed declaration entry (a typo'd intent must break the build, not
  * silently drop a model from the trust layer), mirroring the runtime's visible-over-silent ethos.
  */

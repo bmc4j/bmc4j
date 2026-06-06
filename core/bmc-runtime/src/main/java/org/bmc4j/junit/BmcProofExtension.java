@@ -24,9 +24,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 /**
- * Runs a {@link BmcProof} method through a model-checking {@link VerificationBackend}
+ * Runs a {@link BmcProof} method through a model-checking {@code VerificationBackend}
  * instead of executing its body. The extension is engine-agnostic: it builds a
- * {@link BmcRequest} from the proof and the test JVM's classpath
+ * {@code BmcRequest} from the proof and the test JVM's classpath
  * ({@code java.class.path}) and hands it to the selected backend (default JBMC;
  * {@code -Dbmc.backend=esbmc} to switch). On a violation, the proof fails with a
  * {@link BmcVerificationError} carrying a synthesized stack trace.
@@ -623,7 +623,7 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
      * a refutation: we wrap it in a {@link BmcUndecidedError} whose message carries the {@code (UNKNOWN)}
      * tag (so the runner line prints {@code UNKNOWN}, not {@code REFUTED}) and the undecided framing,
      * keeping the original throwable as the cause for diagnosis. REFUTED stays reserved for a real
-     * parsed JBMC counterexample (which never reaches here — it comes back as a {@link JbmcResult} and
+     * parsed JBMC counterexample (which never reaches here — it comes back as a {@code JbmcResult} and
      * is framed by {@link #toError}).
      */
     static BmcUndecidedError engineInfraUndecided(String engineId, String entryFunction, Throwable cause) {

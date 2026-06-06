@@ -187,7 +187,7 @@ object VerdictCache {
             // without an engine re-run. (The stub policy only applies to greens, so non-VERIFIED
             // entries carry no STUB lines.)
             val body = buildString {
-                append(actual.name).append(' ').append(request.entryFunction()).append('\n')
+                append(actual.name).append(' ').append(request.entryFunction).append('\n')
                 if (actual == Verdict.VERIFIED) {
                     for (stub in result.stubbedMethods) {
                         append("STUB ").append(stub).append('\n')
@@ -233,7 +233,7 @@ object VerdictCache {
      *    the whole module's cache);
      * 5. the user-model directory content (`bmc.userModels`): user `src/bmcModel` classes
      *    are spliced onto the analysis classpath inside `JbmcBackend.prepareClasspath`, AFTER
-     *    this key is built, so they aren't in `request.classpath()` — fold them in explicitly or
+     *    this key is built, so they aren't in `request.classpath` — fold them in explicitly or
      *    editing a user model serves a stale green;
      * 6. the Kotlin parameter semantics (`bmc.kotlinNullableParams`):
      *    [KotlinParamBytecode] rewrites proof prologues at analysis time, AFTER this key is
@@ -256,17 +256,17 @@ object VerdictCache {
         // 2) engine identity
         update(md, "engine", engineIdentity ?: "")
         // 3) effective request
-        update(md, "entry", request.entryFunction())
-        update(md, "unwind", request.unwind().toString())
-        update(md, "ua", request.unwindingAssertions().toString())
-        update(md, "solver", request.solver())
-        update(md, "msl", request.maxStringLength().toString())
-        update(md, "timeout", request.timeoutSeconds().toString())
-        update(md, "concurrent", request.concurrent().toString())
+        update(md, "entry", request.entryFunction)
+        update(md, "unwind", request.unwind.toString())
+        update(md, "ua", request.unwindingAssertions.toString())
+        update(md, "solver", request.solver)
+        update(md, "msl", request.maxStringLength.toString())
+        update(md, "timeout", request.timeoutSeconds.toString())
+        update(md, "concurrent", request.concurrent.toString())
         // 4) analysis-classpath content — memoized per classpath behind a (path, size, mtime)
         //    fingerprint; computeKey runs for EVERY proof and re-hashing the whole classpath
         //    dominated the cost of a cache hit (see memoized()).
-        update(md, "classpath", memoized(DIGEST_MEMO, request.classpath(), ::classpathContentDigest))
+        update(md, "classpath", memoized(DIGEST_MEMO, request.classpath, ::classpathContentDigest))
         // 5) user-model content (bmc.userModels) — spliced onto the classpath after this key is built,
         //    so editing a user model must invalidate here or a stale green is served.
         val userModels = System.getProperty("bmc.userModels", "")
@@ -281,7 +281,7 @@ object VerdictCache {
         //    .class files don't change when an env var / property changes. So fold the resolved KEY=value
         //    pairs (scanned from the same reachable classpath, incl. user models) in here, or a
         //    config-pinned proof keeps its cached green after its config flips to a violating value.
-        update(md, "config", resolvedConfig(request.classpath(), userModels))
+        update(md, "config", resolvedConfig(request.classpath, userModels))
         return toHex(md.digest())
     }
 

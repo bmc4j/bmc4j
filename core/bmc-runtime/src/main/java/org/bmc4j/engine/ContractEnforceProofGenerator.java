@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
  * false contract turns the build red. "Annotate ≠ proven" is therefore structural —
  * annotating a method emits a proof obligation that must pass.
  *
- * <p>Run modularly: {@link JbmcBackend} excludes this proof class as a caller when rewriting
+ * <p>Run modularly: {@code JbmcBackend} excludes this proof class as a caller when rewriting
  * (see {@link ContractRewriter}), so the proof's direct call to {@code C.f} hits the real
  * body while {@code C.f}'s own contracted callees — including a recursive self-call — are
  * summarized. The enforce of a recursive method is thus the inductive step, not a full unroll.

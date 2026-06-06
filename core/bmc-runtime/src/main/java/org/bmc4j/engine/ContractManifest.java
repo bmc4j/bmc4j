@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The handshake between the {@code bmc-contracts} annotation processor and {@link JbmcBackend}.
+ * The handshake between the {@code bmc-contracts} annotation processor and {@code JbmcBackend}.
  * The processor emits one line per contracted method and one line per generated enforce-proof
  * class into {@value #RESOURCE} on the analysis classpath; the backend reads it back to decide
  * how to rewrite call sites for a given proof:

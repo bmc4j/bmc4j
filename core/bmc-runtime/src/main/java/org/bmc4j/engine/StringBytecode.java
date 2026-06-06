@@ -36,7 +36,7 @@ import java.util.List;
  * </ul>
  *
  * <p>Both directory and jar classpath entries are mirrored (with sites rewritten) via
- * {@link ClasspathMirror} — a published consumer gets {@code bmc-models} and third-party libs as
+ * {@code ClasspathMirror} — a published consumer gets {@code bmc-models} and third-party libs as
  * jars, and those need the same desugaring as the in-repo class dirs.
  */
 public final class StringBytecode {

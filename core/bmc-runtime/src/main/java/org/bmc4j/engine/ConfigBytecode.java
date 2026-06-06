@@ -35,7 +35,7 @@ import java.util.zip.ZipFile;
  *   <li>non-literal key → left unchanged (falls back to the symbolic {@code Bmc} body).</li>
  * </ul>
  *
- * Both directory and jar entries are mirrored via {@link ClasspathMirror}, like {@link StringBytecode}
+ * Both directory and jar entries are mirrored via {@code ClasspathMirror}, like {@link StringBytecode}
  *.
  */
 public final class ConfigBytecode {
