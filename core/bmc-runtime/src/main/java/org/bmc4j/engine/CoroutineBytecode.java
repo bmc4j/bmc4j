@@ -21,7 +21,7 @@ import org.objectweb.asm.Opcodes;
  * {@code invokeSuspend} bodies. Line numbers and all other methods' debug info are
  * untouched, so ordinary counterexamples keep their variable names.
  *
- * <p>Both directory and jar entries are mirrored via {@link ClasspathMirror}: a published consumer's
+ * <p>Both directory and jar entries are mirrored via {@code ClasspathMirror}: a published consumer's
  * coroutine classes can arrive in a jar just like its own compiled output.
  */
 public final class CoroutineBytecode {
