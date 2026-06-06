@@ -341,12 +341,16 @@ public final class Bmc {
         return CProver.nondetLong();
     }
 
-    /** The value of environment variable {@code key}, interpreted as a {@code boolean}. */
+    /** The value of environment variable {@code key}, interpreted as a {@code boolean}.
+     *  The value must be exactly {@code "true"} or {@code "false"} (case-insensitive) —
+     *  anything else (e.g. {@code "1"}, {@code "yes"}) fails the proof rather than
+     *  silently reading as {@code false}. */
     public static boolean boolFromEnv(String key) {
         return CProver.nondetBoolean();
     }
 
-    /** The value of system property {@code key}, interpreted as a {@code boolean}. */
+    /** The value of system property {@code key}, interpreted as a {@code boolean};
+     *  same strict {@code "true"}/{@code "false"} format as {@link #boolFromEnv}. */
     public static boolean boolFromProperty(String key) {
         return CProver.nondetBoolean();
     }

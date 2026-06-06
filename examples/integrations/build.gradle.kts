@@ -50,4 +50,5 @@ tasks.withType<Test>().configureEach {
     systemProperty("app.quiet", "false")
     systemProperty("app.sampleRate", "0.25")
     systemProperty("app.mode", "production")
+    systemProperty("app.legacyFlag", "1") // NOT "true"/"false" — bmc4j refuses to guess (see ConfigProofs)
 }
