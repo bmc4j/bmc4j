@@ -109,6 +109,12 @@ public final class JbmcBackend implements VerificationBackend {
         // Desugar pattern-matching switch invokedynamic (SwitchBootstraps.typeSwitch) to a sound
         // instanceof/equals chain (JBMC links the indy to an unconstrained result otherwise).
         classpath = SwitchBytecode.rewrite(classpath);
+        // LAST indy pass: any invokedynamic still standing (enumSwitch, an unhandled typeSwitch
+        // label shape, record toString with a reference component, future bootstraps) would be
+        // SILENTLY linked to an unconstrained result by JBMC — no opaque-symbol message, invisible
+        // to the stub policy. Replace each with a call to a deliberately-bodiless marker so the
+        // same trust surfaces through the normal nondet-stub channel (footnote / strictStubs).
+        classpath = ResidualIndyBytecode.rewrite(classpath);
         // Redirect the integer Math.* methods JBMC stubs to nondet (floorDiv/floorMod/*Exact/
         // toIntExact/absExact/abs) to the sound BmcMath; sqrt/pow/trig (modeled) pass through.
         classpath = MathBytecode.rewrite(classpath);

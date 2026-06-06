@@ -67,7 +67,22 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   it's a pure function of the components — the JDK does not fix the exact value, so no
   magic constant is asserted). `toString` is desugared+sound only when every component
   renders soundly (primitive or `String`); a record with another reference component
-  keeps its original `toString` indy (left as-is rather than desugared unsoundly).
+  keeps its original `toString` indy.
+- **Residual `invokedynamic` is visibly undecided, never silently trusted.** Whatever
+  the desugar passes deliberately leave (`enumSwitch` from a pattern switch over an
+  enum — e.g. one with a `case null` arm — an unhandled `typeSwitch` label shape, a
+  record `toString` with a reference component, or any future bootstrap) is surfaced
+  through the nondet-stub channel: the site is rewritten to a bodiless
+  `ResidualInvokedynamic.<indyName>__<bootstrapOwner>` marker, so a green proof that
+  reaches it carries a stub footnote (and `strictStubs` escalates it), and a
+  **refutation whose slice includes the havoc'd marker is demoted to a named
+  UNKNOWN** — the "counterexample" may be an artifact of the havoc (e.g. a pattern
+  switch's `MatchException` default arm the real bootstrap can never reach), and
+  REFUTED is reserved for real counterexamples. Pin a proof that deliberately
+  exercises such a site with `expect = UNKNOWN`, or restructure to an indy-free form
+  (a classic enum switch without `case null` compiles to the analyzable `$SwitchMap`
+  form). See `proofs.patternswitch.EnumSwitchResidualProofs` in
+  [`examples/language-java`](../examples/language-java).
 - **Strings: content ops and concatenation are made sound in our layer.** JBMC's own
   `String.equals`/`startsWith`/`contains` are unsound; bmc4j rewrites those call sites
   to sound `length`+`charAt` stand-ins (and Kotlin `==`/string `when`, which lower to

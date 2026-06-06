@@ -146,6 +146,25 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
             return;
         }
 
+        org.bmc4j.Verdict actual = actualVerdict(result);
+
+        // Residual-invokedynamic demotion: a REFUTED whose reachable slice includes a havoc'd
+        // residual-indy marker (see ResidualIndyBytecode) cannot promise a REAL counterexample —
+        // the "refutation" may be the havoc itself reaching an artifact path (e.g. a pattern
+        // switch's MatchException default arm, unreachable under the real bootstrap). REFUTED is
+        // reserved for genuine counterexamples, so this fails toward UNKNOWN, naming the residual
+        // sites. Deliberately NOT bypassable via allowStubs (acknowledging a stub silences the
+        // footnote on greens; it cannot make a fake counterexample real), and judged BEFORE the
+        // cache store so an expect=REFUTED demo can never cache an undecided artifact as a pass.
+        if (actual == org.bmc4j.Verdict.REFUTED) {
+            java.util.List<String> residual = residualIndyMarkers(result);
+            if (!residual.isEmpty()) {
+                enforceExpectation(entryFunction, expected, org.bmc4j.Verdict.UNKNOWN,
+                        residualIndyUndecided(backend.id(), entryFunction, residual));
+                return;
+            }
+        }
+
         // Store the verdict iff it's an expectation-matching PASS with a deterministic verdict
         // (VERIFIED for a normal proof; REFUTED/VACUOUS for a demo expecting exactly that), so a later
         // unchanged run can skip the engine. Failures are never stored — a mismatch always re-runs live
@@ -153,7 +172,6 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
         // write error never affects the verdict.
         VerdictCache.storeIfExpectedMatch(cacheRequest, engineIdentity, result, expected);
 
-        org.bmc4j.Verdict actual = actualVerdict(result);
         if (actual != org.bmc4j.Verdict.VERIFIED) {
             enforceExpectation(entryFunction, expected, actual,
                     toError(backend.id(), entryFunction, result, method));
@@ -172,6 +190,44 @@ public class BmcProofExtension implements InvocationInterceptor, ParameterResolv
         // stubs are silent. A fully-modeled proof with no user models prints nothing.
         applyModelPolicy(entryFunction);
         applyStubPolicy(entryFunction, config, result.stubbedMethods());
+    }
+
+    /** The residual-invokedynamic marker stubs harvested for this result (dot-form FQNs), deduped. */
+    static java.util.List<String> residualIndyMarkers(JbmcResult result) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        for (String stub : result.stubbedMethods()) {
+            if (stub != null && stub.startsWith(org.bmc4j.engine.ResidualIndyBytecode.MARKER_FQN_PREFIX)) {
+                out.add(stub);
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    /**
+     * The UNKNOWN framing for a refutation demoted because its slice includes residual
+     * {@code invokedynamic} havoc. Non-infrastructure: this is a genuine analysis limit, so it
+     * satisfies {@code expect = UNKNOWN} (the supported way to pin a proof that deliberately
+     * exercises a residual site).
+     */
+    static BmcUndecidedError residualIndyUndecided(String engineId, String entryFunction,
+                                                   java.util.List<String> markers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(engineId.toUpperCase()).append(" could not decide ").append(entryFunction)
+                .append(" (UNKNOWN)\n");
+        sb.append("  ? the refutation reached un-desugared invokedynamic, whose result is havoc'd:\n");
+        for (String m : markers) {
+            sb.append("      ")
+                    .append(m.substring(org.bmc4j.engine.ResidualIndyBytecode.MARKER_FQN_PREFIX.length()))
+                    .append("  (indyName__bootstrapOwner)\n");
+        }
+        sb.append("    The counterexample may be an artifact of that havoc (e.g. a pattern switch's\n")
+                .append("    MatchException default arm, unreachable under the real bootstrap), so this is\n")
+                .append("    NOT reported as a refutation. To get a decision:\n")
+                .append("      - restructure to an indy-free form (e.g. a classic enum switch without\n")
+                .append("        'case null' compiles to the analyzable $SwitchMap form)\n")
+                .append("      - or keep the construct and pin the proof with @BmcProof(expect = UNKNOWN)\n")
+                .append("        to document the analysis limit deliberately.");
+        return new BmcUndecidedError(sb.toString().stripTrailing());
     }
 
     /** Map an engine result onto the user-facing four-way verdict (vacuity is carried as a

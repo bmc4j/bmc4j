@@ -35,10 +35,11 @@ public final class Bmc4jVersion {
     /**
      * A monotonically-bumped tag for analysis-semantics changes that ship without an artifact-version
      * bump. Increment this whenever a change to the bytecode rewriters, the bundled models, or the
-     * verdict-derivation logic could change a proof's verdict. This session changed the rewrite layer,
-     * so the cache must start fresh against any pre-existing on-disk entries.
+     * verdict-derivation logic could change a proof's verdict — or its harvested FACTS: r2 added the
+     * residual-invokedynamic surfacing pass, which changes the stub list stored in cache entries
+     * (strictStubs re-judges from that stored fact, so pre-r2 entries must not be served).
      */
-    private static final String SEMANTICS_REVISION = "r1";
+    private static final String SEMANTICS_REVISION = "r2";
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     public static final String IDENTITY = ARTIFACT_VERSION + "+" + SEMANTICS_REVISION;
