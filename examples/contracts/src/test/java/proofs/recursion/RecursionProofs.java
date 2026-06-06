@@ -25,11 +25,13 @@ class RecursionProofs {
     }
 
     /**
-     * FAILS at the same bound. No contract -> the real recursion is inlined to depth 12,
-     * which overruns unwind 4. Same property, provable only with the contract.
+     * UNDECIDED at the same bound. No contract -> the real recursion is inlined to depth 12,
+     * which overruns unwind 4 (a "recursion unwinding assertion" — the recursion flavour of
+     * bound-too-small, UNKNOWN like the loop one). Same property, provable only with the contract.
      */
-    // Expected verdict: REFUTED - uncontracted recursion exceeds the unwind bound.
-    @BmcProof(unwind = 4, expect = Verdict.REFUTED)
+    // Expected verdict: UNKNOWN - uncontracted recursion exceeds the unwind bound
+    // (truncated exploration is incompleteness, never REFUTED).
+    @BmcProof(unwind = 4, expect = Verdict.UNKNOWN)
     void without_a_contract_recursion_exceeds_the_bound() {
         int n = Bmc.anyInt(0, 12);
         Bmc.check(RecursiveNaive.sumTo(n) == n * (n + 1) / 2);
