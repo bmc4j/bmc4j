@@ -1,14 +1,15 @@
 <!-- bmc:metadata
-proofs: 13
-proof-execution: 334s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
+proofs: 20
+proof-execution: 380s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
 
 # Fundamentals (Kotlin)
 
 The same six fundamentals as [fundamentals-java](../fundamentals-java), written in idiomatic
-Kotlin. JBMC analyzes JVM bytecode, so Kotlin verifies the same way — the point of this module
-is that the on-ramp works in both languages, including Kotlin's null-safety operators.
+Kotlin, plus two Kotlin-specific ones (symbolic parameters, `lateinit`). JBMC analyzes JVM
+bytecode, so Kotlin verifies the same way — the point of this module is that the on-ramp works
+in both languages, including Kotlin's null-safety operators.
 
 ```
 ./gradlew :examples:fundamentals-kotlin:test
@@ -45,3 +46,21 @@ the unwinding assertion. *(1 pass + 1 fail.)*
 `when` over a Kotlin `enum class` (sound under JBMC — it lowers to a tableswitch, not
 invokedynamic). The buggy colour classifier omits SPADES; the fixed one and an exhaustive `rank`
 both verify. *(2 pass + 1 fail.)*
+
+## `symbolicparams` — symbolic Kotlin object parameters
+A `@BmcProof` taking an object parameter ("for every `Wallet`…") is the most natural proof
+shape — and in Kotlin it used to refute before the body ran: kotlinc guards every non-null
+parameter with an `Intrinsics.checkNotNullParameter` prologue, and JBMC's nondet input includes
+`null` — an input no Kotlin caller can construct. bmc4j relaxes that prologue (and the matching
+`@NotNull` annotation) to `assume(p != null)` **in proof methods only**, so the proof ranges
+over what the type system admits. Nullable (`Wallet?`) parameters keep `null` in their domain —
+pinned by a fail-on-purpose proof — and interior calls keep the throwing semantics.
+`bmc { kotlinNullableParams = true }` restores the honest-JVM null domain for proofs that
+deliberately model hostile Java callers. The bug found en route: `absCents()` overflows at
+`Int.MIN_VALUE` — the same wrap as `integeroverflow`, arriving through a fully symbolic field.
+*(2 pass + 2 fail.)*
+
+## `lateinitprops` — `lateinit`, all three directions
+Initialization promised, not proven by the type system: the unguarded pre-init read refutes
+(the defect), the `::user.isInitialized` guard verifies, and init-then-read verifies — so a
+`lateinit` lifecycle bug is findable, and the guarded idiom provably safe. *(2 pass + 1 fail.)*

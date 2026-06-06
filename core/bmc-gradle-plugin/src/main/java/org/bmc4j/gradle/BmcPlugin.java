@@ -260,6 +260,16 @@ public class BmcPlugin implements Plugin<Project> {
                     test.systemProperty("bmc.strictStubs", "true");
                 }
 
+                // Kotlin proof-parameter semantics (default: auto-assume non-null parameters
+                // non-null). Unlike the read-time policies above this changes the analyzed bytecode,
+                // so it IS part of the verdict-cache key; a command-line flag still wins.
+                String cliKotlinParams = System.getProperty("bmc.kotlinNullableParams");
+                if (cliKotlinParams != null && !cliKotlinParams.isBlank()) {
+                    test.systemProperty("bmc.kotlinNullableParams", cliKotlinParams);
+                } else if (ext.getKotlinNullableParams().getOrElse(false)) {
+                    test.systemProperty("bmc.kotlinNullableParams", "true");
+                }
+
                 // User-model trust layer. The declared intents are READ-TIME policy (the model FACTS —
                 // declarations + the classes present under src/bmcModel — are judged in the test JVM), so
                 // like the stub policy a command-line flag wins and flipping it re-judges cached greens

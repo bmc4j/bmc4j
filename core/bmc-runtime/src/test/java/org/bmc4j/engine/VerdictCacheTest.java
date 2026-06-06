@@ -95,6 +95,28 @@ class VerdictCacheTest {
     }
 
     @Test
+    void kotlinNullableParams_perturbsKey() {
+        // KotlinParamBytecode rewrites proof prologues AFTER the key is built, and the app .class
+        // files don't change when the mode flips — fold it in or a green proven under auto-assume
+        // would be served in honest-JVM mode (a soundness bug in that direction).
+        String prev = System.getProperty("bmc.kotlinNullableParams");
+        try {
+            System.clearProperty("bmc.kotlinNullableParams");
+            String autoAssume = VerdictCache.computeKey(baseReq(), ENGINE);
+            System.setProperty("bmc.kotlinNullableParams", "true");
+            String honestJvm = VerdictCache.computeKey(baseReq(), ENGINE);
+            assertNotEquals(autoAssume, honestJvm,
+                    "flipping bmc.kotlinNullableParams must invalidate the cache");
+        } finally {
+            if (prev == null) {
+                System.clearProperty("bmc.kotlinNullableParams");
+            } else {
+                System.setProperty("bmc.kotlinNullableParams", prev);
+            }
+        }
+    }
+
+    @Test
     void timeoutSeconds_perturbsKey() {
         BmcRequest other = new BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
                 16, true, 16, false, "", 30);

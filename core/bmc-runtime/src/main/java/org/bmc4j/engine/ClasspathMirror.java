@@ -107,6 +107,7 @@ final class ClasspathMirror {
      * config-free passes are unaffected.
      */
     static String mirror(String classpath, String cacheName, ClassTransform transform, String extraKey) {
+        extraKey = effectiveExtraKey(extraKey);
         String[] entries = classpath.split(File.pathSeparator);
         List<String> out = new ArrayList<>(entries.length);
         for (String entry : entries) {
@@ -467,17 +468,31 @@ final class ClasspathMirror {
         zos.closeEntry();
     }
 
-    /** SHA-256 of the jar's bytes, hex-encoded — the cache key. Identical content reuses the same
-     *  rewritten jar across runs; any change to the jar yields a fresh key (over-invalidate, never
-     *  under: a stale rewrite is never reused). */
+    /**
+     * The effective per-entry key config: the runtime semantics identity prepended to the pass's own
+     * {@code extraKey}. The transform CODE is part of a mirror's semantics but not of its input
+     * content, so a rewriter change (artifact bump or {@code SEMANTICS_REVISION} bump) must
+     * re-mirror — or jbmc re-analyzes STALE transforms of unchanged app dirs (the verdict cache
+     * re-runs, its key has the identity, but on old bytecode). Over-invalidation on a version bump
+     * is the safe, cheap direction.
+     */
+    private static String effectiveExtraKey(String extraKey) {
+        return Bmc4jVersion.IDENTITY + "|" + extraKey;
+    }
+
+    /** The published cache key of a config-free pass for this jar: SHA-256 over the runtime
+     *  semantics identity + the jar's bytes. Identical content under the same runtime reuses the
+     *  same rewritten jar across runs; a content change OR a semantics-identity change yields a
+     *  fresh key (over-invalidate, never under: a stale rewrite is never reused). */
     static String contentHash(Path file) {
-        return jarContentHash(file, "");
+        return jarContentHash(file, effectiveExtraKey(""));
     }
 
     /** SHA-256 of {@code extraKey} (length-framed) followed by the jar's bytes — the config-aware jar
-     *  cache key. An empty {@code extraKey} reproduces {@link #contentHash(Path)} bit-for-bit, so the
-     *  config-free passes keep their existing cache entries; a non-empty key (the contract pass)
-     *  separates distinct redirect/exclude configurations over the same jar into distinct mirrors. */
+     *  cache key. Every caller passes an {@link #effectiveExtraKey} (never empty), so the key always
+     *  carries the runtime semantics identity; a pass's own extra config (the contract pass)
+     *  additionally separates distinct redirect/exclude configurations over the same jar into
+     *  distinct mirrors. */
     private static String jarContentHash(Path file, String extraKey) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

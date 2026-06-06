@@ -261,6 +261,10 @@ public final class VerdictCache {
      *       are spliced onto the analysis classpath inside {@link JbmcBackend#prepareClasspath}, AFTER
      *       this key is built, so they aren't in {@code request.classpath()} — fold them in explicitly or
      *       editing a user model serves a stale green;</li>
+     *   <li>the Kotlin parameter semantics ({@code bmc.kotlinNullableParams}):
+     *       {@link KotlinParamBytecode} rewrites proof prologues at analysis time, AFTER this key is
+     *       built — fold the mode in or flipping it would serve verdicts proven under the other
+     *       semantics;</li>
      *   <li>the resolved config inputs: {@link ConfigBytecode} bakes the real
      *       {@code System.getenv}/{@code getProperty("KEY")} value into the analysed bytecode at analysis
      *       time (AFTER this key is built), and the app {@code .class} files don't change when an env var
@@ -292,7 +296,13 @@ public final class VerdictCache {
         //    so editing a user model must invalidate here or a stale green is served.
         String userModels = System.getProperty("bmc.userModels", "");
         update(md, "userModels", memoized(DIGEST_MEMO, userModels, VerdictCache::classpathContentDigest));
-        // 6) resolved config inputs — ConfigBytecode bakes the REAL System.getenv/getProperty("KEY")
+        // 6) Kotlin parameter semantics (bmc.kotlinNullableParams) — KotlinParamBytecode rewrites
+        //    proof prologues at analysis time, AFTER this key is built, and the app .class files
+        //    don't change when the flag flips — so fold the mode in, or flipping to honest-JVM
+        //    nullable-parameter semantics would serve greens proven under the auto-assume.
+        update(md, "kotlinNullableParams",
+                Boolean.toString(Boolean.getBoolean("bmc.kotlinNullableParams")));
+        // 7) resolved config inputs — ConfigBytecode bakes the REAL System.getenv/getProperty("KEY")
         //    value into the analysed bytecode at analysis time, AFTER this key is built, and the app
         //    .class files don't change when an env var / property changes. So fold the resolved KEY=value
         //    pairs (scanned from the same reachable classpath, incl. user models) in here, or a

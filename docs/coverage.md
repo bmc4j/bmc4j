@@ -58,6 +58,8 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | `data class` — `equals`/`copy`/`componentN`/destructuring | ✅ | |
 | `value class` (`@JvmInline`) incl. `init { require(...) }` | ✅ | [`examples/language-kotlin`](../examples/language-kotlin); `assumeValid { }` reuses it |
 | Null-safety (`!!`, `?.`, `?:`) | ✅ | clean `Intrinsics` model ([`examples/fundamentals-kotlin`](../examples/fundamentals-kotlin)) |
+| `lateinit` | ✅ | unguarded pre-init read refutes; the `::x.isInitialized` guard and init-then-read verify (pinned in [`examples/fundamentals-kotlin`](../examples/fundamentals-kotlin)) |
+| Symbolic non-null `@BmcProof` parameters | ✅ | the kotlinc `checkNotNullParameter` prologue + `@NotNull` annotation are relaxed to `assume(p != null)` in **proof methods only** — the proof ranges over what the Kotlin type system admits instead of refuting on an un-constructible `p = null`. Nullable (`T?`) parameters keep `null`; interior calls keep throwing; `bmc { kotlinNullableParams = true }` restores honest-JVM semantics ([`examples/fundamentals-kotlin`](../examples/fundamentals-kotlin)) |
 | Smart casts | ✅ | |
 | Ranges (`in`, `for (i in a..b)`) | ✅ | |
 | Extension functions | ✅ | |
