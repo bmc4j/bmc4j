@@ -24,4 +24,18 @@ public final class Ages {
         }
         return GROUPS[i].length();
     }
+
+    /**
+     * BUG: forgets that {@code loyaltyPoints} may be {@code null} on a perfectly VALID user
+     * ({@code @Min(0)} passes on null; only {@code @NotNull} would reject it). Unboxing null
+     * throws — found only if the proof domain still CONTAINS the valid-null users.
+     */
+    public static int bonus(User u) {
+        return u.loyaltyPoints / 10;
+    }
+
+    /** The fix: treat absent points as zero. Provably safe for every valid User. */
+    public static int bonusSafe(User u) {
+        return u.loyaltyPoints == null ? 0 : u.loyaltyPoints / 10;
+    }
 }

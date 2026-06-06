@@ -52,4 +52,33 @@ class ValidationProofTests {
         Bmc.assume(u.age >= 0 && u.age < 120);   // your own bounds; name left free (unused here)
         Ages.group(u);                            // PASSES
     }
+
+    /**
+     * FAILS: {@code loyaltyPoints} is a BOXED numeric without {@code @NotNull}, so {@code null}
+     * is a VALID value — and {@code bonus} unboxes it. The refutation only exists because the
+     * generated assume is null-guarded ({@code points == null || points >= 0}), keeping the
+     * valid-null users IN the proof domain. (An unguarded {@code points >= 0} would have
+     * silently excluded them — this proof would have "passed" while production NPEs on a
+     * perfectly valid user. That false green is the regression this demo pins.)
+     */
+    // Expected verdict: REFUTED - a valid user with absent loyaltyPoints crashes bonus().
+    @BmcProof(expect = Verdict.REFUTED)
+    void bonus_handles_every_valid_user(User u) {
+        UserConstraints.assumeValid(u);
+        Ages.bonus(u);
+    }
+
+    /** PASSES: the null-safe version is correct for every valid User, absent points included. */
+    @BmcProof
+    void bonusSafe_handles_every_valid_user(User u) {
+        UserConstraints.assumeValid(u);
+        Ages.bonusSafe(u);
+    }
+
+    /** PASSES: @AssertTrue on a primitive boolean flows into the generated assume. */
+    @BmcProof
+    void valid_users_have_accepted_the_terms(User u) {
+        UserConstraints.assumeValid(u);
+        Bmc.check(u.termsAccepted);
+    }
 }
