@@ -149,6 +149,26 @@ class ConcurrentLaws {
         Bmc.check(q.poll() == null);
     }
 
+    /**
+     * The DEFAULT LinkedBlockingQueue is unbounded, exactly like the JDK: within the model's
+     * storage bound, {@code offer} can never return false and {@code remainingCapacity} counts
+     * down from {@code Integer.MAX_VALUE} — never from the model bound. The model used to default
+     * its LOGICAL capacity to the 64-slot storage bound, which admitted rejection behaviors the
+     * real default queue cannot produce: a proof over an offer-returns-false backpressure branch
+     * could VERIFY against a branch that is unreachable in production (a silent false green).
+     * This law regression-pins the fix on the engine axis.
+     */
+    @BmcProof
+    void default_linkedqueue_is_unbounded_offer_never_rejects() {
+        LinkedBlockingQueue<Integer> q = new LinkedBlockingQueue<>();
+        int n = Bmc.anyInt(0, 4);
+        for (int i = 0; i < n; i++) {
+            Bmc.check(q.offer(i));                                    // unbounded: always accepted
+        }
+        Bmc.check(q.remainingCapacity() == Integer.MAX_VALUE - n);    // logical capacity, not 64
+        Bmc.check(q.size() == n);
+    }
+
     // --- Immediate ExecutorService ----------------------------------------------------------------
 
     /** submit(Callable) runs synchronously; the future is done and get() returns the computed value. */
