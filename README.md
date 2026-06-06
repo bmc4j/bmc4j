@@ -15,9 +15,11 @@ write a test-shaped method, and [JBMC](https://www.cprover.org/jbmc/) *proves* (
 an explicit bound) that no input breaks your code — or fails the test with a real stack
 trace and the exact input that does.
 
-bmc4j targets the **JVM**: **Java** (17–25) and **Kotlin** (1.9–2.3) are the verified,
+bmc4j targets the **JVM**: **Java** (17–25) and **Kotlin** (2.0–2.3) are the verified,
 first-class languages — it analyses the bytecode, so your build doesn't change beyond
-the one plugin.
+the one plugin. (Kotlin 1.9 is supported via the artifacts' 1.9 metadata/stdlib floor,
+just no longer re-verified on every merge — see
+[docs/internals.md](docs/internals.md#java--kotlin-versions).)
 
 > ⚠️ **Early development.** bmc4j is pre-1.0 (`0.x`) and under active development:
 > APIs, the `bmc { }` DSL, and model coverage are still moving. While pre-1.0, minor
@@ -211,9 +213,9 @@ verdict cache means the expensive solve happens once per change, not once per ru
 | | |
 |---|---|
 | Engine | CBMC 6.9.0 / JBMC, bundled per platform: windows-x64, linux-x64/arm64 (glibc), macos-x64/arm64. Windows-arm64 and Alpine/musl Linux are unsupported (fail fast) |
-| Java | 17 – 25 verified |
-| Kotlin | 1.9 – 2.3 verified (null-safety, data classes, collections, `runBlocking` logic) |
-| CI | per-platform engine jars + a proof gate on every platform |
+| Java | 17 – 25 verified on every merge (full suite on 21/25, core + conformance on the 17 floor) |
+| Kotlin | 2.0 – 2.3 verified on every merge via a consumer-compiler matrix (null-safety, data classes, collections, `runBlocking` logic); 1.9 supported via the artifacts' 1.9 metadata/stdlib floor |
+| CI | per-platform engine jars + a proof gate on every platform, every supported JDK, and consumer-Kotlin 2.0/2.2 |
 | License | [Apache-2.0](LICENSE); bundled engine binaries under the [CBMC license](THIRD-PARTY-NOTICES.md) |
 
 ## Developing
