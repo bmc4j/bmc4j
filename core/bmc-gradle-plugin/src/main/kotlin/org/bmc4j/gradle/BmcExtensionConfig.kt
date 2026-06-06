@@ -96,6 +96,21 @@ abstract class BmcExtensionConfig {
     abstract val allowStubs: ListProperty<String>
 
     /**
+     * Language of the **replay** scratch file bmc4j writes for a refuted proof
+     * (`build/bmc4j/replays/<Class>_<method>Replay.{java|kt}`). One of:
+     *
+     * - `"auto"` (default): a Kotlin proof class (detected by its `kotlin.Metadata`) gets a `.kt`
+     *   replay; any other class gets a `.java` replay — so a Kotlin loop stays Kotlin and pure-Java
+     *   users see no change.
+     * - `"kotlin"` / `"java"`: force that language for every replay regardless of the proof class —
+     *   for mixed modules or teams that keep scratch tests in one language.
+     *
+     * Overridable at the command line with `-Dbmc.replayLanguage=...` (or `-Pbmc.replayLanguage=...`).
+     * Any value other than `auto`/`kotlin`/`java` fails the build at configuration time.
+     */
+    abstract val replayLanguage: Property<String>
+
+    /**
      * Strict nondet-stub mode. When `true`, any *unacknowledged* stub a proof
      * reaches turns its verdict into UNKNOWN (`BmcUndecidedError`) — nothing was proven wrong, but
      * the verdict rests on havoc'd stand-ins, so it isn't trustworthy. Default `false` (lenient:

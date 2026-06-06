@@ -109,8 +109,12 @@ gradeBand_never_throws_for_valid_scores()  FAILED
     at proofs.GradeBandProofTests.gradeBand_never_throws_for_valid_scores(GradeBandProofTests.java:20)
 ```
 
-The counterexample renders as concrete Java you can paste into a scratch test and step
-through in a debugger — and bmc4j drops a ready-to-run `@Test` scaffold next to it.
+The counterexample renders as concrete source you can paste into a scratch test and step
+through in a debugger — and bmc4j drops a ready-to-run `@Test` scaffold next to it. The
+scaffold matches the language of the proof: a Kotlin proof class gets a `.kt` replay
+(`val` bindings, Kotlin literals), a Java proof class gets a `.java` one. Pin the language
+with `bmc { replayLanguage = "kotlin" }` (or `"java"` / `"auto"`, the default), overridable
+per run with `-Pbmc.replayLanguage=...`.
 
 ## What is bounded model checking?
 

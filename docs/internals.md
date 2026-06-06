@@ -44,6 +44,37 @@ consumed by the `examples/` via `includeBuild`):
   annotation-processor path only, so their kotlin-stdlib never reaches a consumer's test or
   analysis classpath.
 
+## Replay scratch files
+
+When JBMC refutes a proof it hands back the symbolic input assignment that triggers the
+violation. `ReplayRenderer` turns those bindings back into concrete source literals, and
+`ReplayTestWriter` drops a runnable `@Test` scaffold at
+`build/bmc4j/replays/<Class>_<method>Replay.{java|kt}` — a *scratch* artifact, never added
+to any source set, that the developer pastes into a test source set and steps through.
+
+**Language selection.** The replay matches the language of the proof it came from:
+
+- **`auto`** (default): the proof class is inspected for the `kotlin.Metadata` annotation
+  kotlinc stamps onto every class it emits. Present → a `.kt` replay (`val` bindings, Kotlin
+  literal syntax, header pointing at `src/test/kotlin`); absent → a `.java` replay, **byte-
+  identical to the historical output** so pure-Java users see no change.
+- **forced**: `bmc { replayLanguage = "kotlin" }` / `"java"` (or, per run,
+  `-Pbmc.replayLanguage=...` / `-Dbmc.replayLanguage=...`) pins one language regardless of
+  the proof class. Only `auto|kotlin|java` are accepted; anything else fails the build at
+  configuration time. `auto` is the runtime default, so the property is forwarded to the test
+  JVM only when an explicit `kotlin`/`java` override is set.
+
+**Kotlin literal rendering** is a real mode, not a string-replace over the Java output:
+doubles are emitted bare (Kotlin has no `d`/`D` suffix), `$` is escaped in strings (template
+interpolation), `short`/`byte` bindings get an explicit type (`val x: Short = 3`, since a
+bare integer literal is `Int`), while `1L` / `'c'` / `true` / `Float.POSITIVE_INFINITY` /
+enum constants (`Suit.HEARTS`) / `\uXXXX` escapes carry over unchanged. A Kotlin proof method
+with a backtick name containing spaces (`fun \`clamp is in bounds\`()`) is sanitized to a
+plain identifier for the file/class name and shown backtick-quoted where used as a Kotlin
+identifier. Non-reconstructible bindings (object graphs, references) stay **commented
+descriptions** in both languages — the renderer never emits non-compiling code presented as
+runnable.
+
 ## Platform support
 
 | OS | Engine jar | Status |
