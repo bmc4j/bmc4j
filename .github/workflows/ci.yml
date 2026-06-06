@@ -38,6 +38,10 @@ on:
       kotlins:
         description: 'Comma-separated consumer-kotlinc proof legs (e.g. "2.0.21,2.2.21"; empty = none)'
         default: ''
+      snapshot:
+        description: 'Run the snapshot-publish + consumer-test legs (the push-to-main flow) for testing this branch'
+        type: boolean
+        default: false
   # Callable from the release workflow (full verification before publishing).
   workflow_call:
     inputs:
@@ -315,3 +319,190 @@ jobs:
         with:
           args: --offline --include-fragments --no-progress README.md CONTRIBUTING.md SECURITY.md THIRD-PARTY-NOTICES.md "docs/**/*.md" "examples/**/*.md"
           fail: true
+
+  # ── Snapshot publish + consumer test (push-to-main only) ──────────────────────
+  #
+  # On every push to main (and on a workflow_dispatch with snapshot=true, for
+  # testing this flow), after the gate (build + every proof leg) is GREEN: publish
+  # THIS commit's artifacts to GitHub Packages at a snapshot version, then dispatch
+  # the bmc4j-consumer-test repo to install-and-prove that exact version. This is
+  # the GitHub-Packages-only pre-Central channel; tagged releases (Maven Central +
+  # the Plugin Portal) are untouched by this path.
+  #
+  # The snapshot version is <latest tag>-<short sha> (e.g. 0.1.0-ab12cd3): it sorts
+  # below the next release, never collides with a real release, and the short sha
+  # makes each main commit's artifacts independently resolvable. The build already
+  # versions itself from BMC4J_VERSION, so the engine-jars/publish-core reusable
+  # workflows publish at this version with no file edits.
+  #
+  # Forks can't access packages and shouldn't publish, so the whole flow is gated to
+  # the canonical repo. PRs never reach here (the if excludes pull_request).
+  snapshot-version:
+    name: snapshot version
+    needs: [build, proofs]
+    if: >-
+      github.repository == 'bmc4j/bmc4j' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && inputs.snapshot))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # describe --tags needs tag history; the default shallow checkout has none.
+          fetch-depth: 0
+      - name: Derive snapshot version
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The latest release tag (vX.Y.Z) is the base; strip the leading v. If the
+          # repo has no tags yet, fall back to 0.0.0 so the flow still produces a
+          # well-formed, clearly-pre-release version.
+          tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          base="${tag#v}"
+          short="$(git rev-parse --short HEAD)"
+          version="${base}-${short}"
+          echo "Snapshot version: $version (tag=$tag sha=$short)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # Non-engine modules (runtime, plugin, models, kotlin, contracts, constraints) to
+  # GitHub Packages at the snapshot version. Reuses publish-core.yml verbatim - the
+  # same idempotent, skip-if-exists publish the release uses. centralStaging stays
+  # false: snapshots never touch Maven Central.
+  snapshot-publish-core:
+    needs: snapshot-version
+    uses: ./.github/workflows/publish-core.yml
+    permissions:
+      contents: read
+      packages: write
+    # Inherit the org secrets the reusable workflow reads. Reusable workflows do
+    # NOT receive the caller's secrets implicitly, so without this the publish
+    # step sees an EMPTY SIGNING_KEY, applies signing with a blank key, and dies
+    # with "Could not read PGP secret key". centralStaging stays false (no Central
+    # touch); the real key just keeps the snapshot artifacts signed like releases.
+    secrets: inherit
+    with:
+      githubPackages: true
+      centralStaging: false
+      version: ${{ needs.snapshot-version.outputs.version }}
+
+  # The three engine jars the consumer test actually runs on (its matrix is
+  # ubuntu-latest / windows-latest / macos-14 = linux-x64, windows-x64,
+  # macos-arm64). Each is assembled on its own OS by engine-jars.yml and published
+  # at the snapshot version, so the plugin (which wires bmc-engine-<platform> at its
+  # OWN version) resolves the matching snapshot engine on every consumer OS. The two
+  # platforms the consumer test doesn't exercise (linux-arm64, macos-x64) are
+  # skipped to save runner minutes - the release path publishes all five.
+  snapshot-publish-engines:
+    needs: snapshot-version
+    uses: ./.github/workflows/engine-jars.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      platforms: linux-x64,windows-x64,macos-arm64
+      publish: true
+      centralStaging: false
+      version: ${{ needs.snapshot-version.outputs.version }}
+
+  # Trigger the consumer-test repo against the just-published snapshot, then WAIT
+  # for and REFLECT its conclusion - this job goes red iff the consumer
+  # install/proof run fails, which is the whole point of the issue.
+  #
+  # No PAT: the default GITHUB_TOKEN cannot trigger a workflow in ANOTHER repo, and
+  # Courtney has decided no PAT will ever exist. Instead we PUSH a snapshot/<version>
+  # branch to bmc4j-consumer-test over SSH using a WRITE DEPLOY KEY
+  # (CONSUMER_TEST_DEPLOY_KEY). A deploy-key push triggers `on: push` workflows
+  # normally - GitHub's "a GITHUB_TOKEN push doesn't re-trigger workflows" rule does
+  # NOT apply to deploy-key pushes - so the consumer-test repo's `push:
+  # snapshot/**` trigger fires and runs its matrix. The version travels in the
+  # branch's single commit as bmc4j-version.txt (and in the branch name as a
+  # fallback). We then POLL the consumer-test repo's runs (public reads, plain
+  # GITHUB_TOKEN) for the run on head branch snapshot/<version> and mirror its
+  # conclusion. The deploy key + secret are already provisioned (deploy key title
+  # "bmc4j snapshot trigger" on bmc4j-consumer-test; secret CONSUMER_TEST_DEPLOY_KEY
+  # on bmc4j/bmc4j).
+  consumer-test:
+    name: consumer test (snapshot)
+    needs: [snapshot-version, snapshot-publish-core, snapshot-publish-engines]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Push snapshot branch (deploy key) and wait for the consumer run
+        shell: bash
+        env:
+          # Public reads of the consumer-test repo's runs only - the default token
+          # is enough; the cross-repo TRIGGER comes from the deploy-key push, not
+          # from this token.
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_KEY: ${{ secrets.CONSUMER_TEST_DEPLOY_KEY }}
+          VERSION: ${{ needs.snapshot-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_KEY:-}" ]; then
+            echo "::error::CONSUMER_TEST_DEPLOY_KEY is not set. Add the ed25519 PRIVATE key (whose public half is the 'bmc4j snapshot trigger' WRITE deploy key on bmc4j/bmc4j-consumer-test) as a secret named CONSUMER_TEST_DEPLOY_KEY."
+            exit 1
+          fi
+          repo="bmc4j/bmc4j-consumer-test"
+          branch="snapshot/${VERSION}"
+
+          # Configure SSH with the deploy key (restricted perms, known_hosts pinned).
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/consumer_test_deploy_key
+          chmod 600 ~/.ssh/consumer_test_deploy_key
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/consumer_test_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts"
+
+          # Build the single-commit snapshot branch in a throwaway clone of the
+          # consumer-test repo and push it. The deploy-key push fires the repo's
+          # `push: snapshot/**` trigger. Force-push so a re-run of the SAME version
+          # (e.g. a retried CI attempt) cleanly replaces a stale branch.
+          work="$(mktemp -d)"
+          git clone --depth 1 "git@github.com:${repo}.git" "$work"
+          cd "$work"
+          git config user.name "bmc4j-ci"
+          git config user.email "ci@bmc4j.invalid"
+          git checkout -b "$branch"
+          printf '%s\n' "$VERSION" > bmc4j-version.txt
+          git add bmc4j-version.txt
+          git commit -m "snapshot: bmc4j ${VERSION}"
+          git push --force origin "$branch"
+          echo "Pushed $branch to $repo"
+          cd - >/dev/null
+
+          # Find the consumer-test run on this head branch (the push just created it;
+          # poll briefly for it to register).
+          workflow="consumer-test.yml"
+          run_id=""
+          for i in $(seq 1 30); do
+            sleep 5
+            run_id="$(gh run list --repo "$repo" --workflow "$workflow" \
+              --branch "$branch" --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .[0].databaseId' 2>/dev/null || true)"
+            [ -n "$run_id" ] && [ "$run_id" != "null" ] && break
+            run_id=""
+          done
+          [ -n "$run_id" ] || { echo "::error::could not locate the consumer-test run for $branch"; exit 1; }
+          url="https://github.com/$repo/actions/runs/$run_id"
+          echo "Consumer test run: $url"
+
+          # Poll to completion and mirror the conclusion (~20 min budget, below the
+          # job's own 40-min cap so we report a clear message instead of a hard
+          # cancel). 120 iterations * 10s = 1200s = 20 min.
+          for i in $(seq 1 120); do
+            status="$(gh run view "$run_id" --repo "$repo" --json status --jq '.status')"
+            if [ "$status" = "completed" ]; then
+              conclusion="$(gh run view "$run_id" --repo "$repo" --json conclusion --jq '.conclusion')"
+              echo "Consumer test concluded: $conclusion ($url)"
+              [ "$conclusion" = "success" ] && exit 0
+              echo "::error::consumer test for $VERSION did not pass: $conclusion - see $url"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::consumer test run $url did not complete within ~20 min"
+          exit 1
