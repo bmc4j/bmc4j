@@ -34,6 +34,7 @@ public final class JbmcResult {
     private final boolean vacuous;
     private final String undecidedReason;
     private final boolean timedOut;
+    private final boolean engineCrash;
 
     public JbmcResult(boolean verified, List<Violation> violations, String rawOutput) {
         this(verified, violations, rawOutput, false);
@@ -41,17 +42,19 @@ public final class JbmcResult {
 
     public JbmcResult(boolean verified, List<Violation> violations, String rawOutput, boolean vacuous) {
         this(verified ? Verdict.VERIFIED : Verdict.REFUTED, violations, rawOutput, vacuous, null,
-                false, List.of());
+                false, false, List.of());
     }
 
     private JbmcResult(Verdict verdict, List<Violation> violations, String rawOutput, boolean vacuous,
-                       String undecidedReason, boolean timedOut, List<String> stubbedMethods) {
+                       String undecidedReason, boolean timedOut, boolean engineCrash,
+                       List<String> stubbedMethods) {
         this.verdict = verdict;
         this.violations = violations;
         this.rawOutput = rawOutput;
         this.vacuous = vacuous;
         this.undecidedReason = undecidedReason;
         this.timedOut = timedOut;
+        this.engineCrash = engineCrash;
         this.stubbedMethods = stubbedMethods == null ? List.of() : List.copyOf(stubbedMethods);
     }
 
@@ -64,7 +67,7 @@ public final class JbmcResult {
      * expected-verdict assertion distinguishes TIMEOUT from other unknowns.
      */
     public static JbmcResult unknown(String reason, String rawOutput) {
-        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, false, List.of());
+        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, false, false, List.of());
     }
 
     /**
@@ -73,12 +76,28 @@ public final class JbmcResult {
      * string — so {@code @BmcProof(expect = TIMEOUT)} can assert this exact outcome.
      */
     public static JbmcResult unknownTimeout(String reason, String rawOutput) {
-        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, true, List.of());
+        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, true, false, List.of());
+    }
+
+    /**
+     * An UNKNOWN result caused by the engine process exiting with a non-verdict code (it crashed,
+     * aborted on an internal invariant, or was OOM-killed — anything but the verified/violation
+     * exits). Structurally flagged — not inferred from the reason string — so {@link Jbmc#exec} can
+     * retry a crash exactly once: a crash is not a verdict, and jbmc 6.9.0 has rare
+     * nondeterministic internal aborts.
+     */
+    public static JbmcResult unknownEngineCrash(String reason, String rawOutput) {
+        return new JbmcResult(Verdict.UNKNOWN, List.of(), rawOutput, false, reason, false, true, List.of());
     }
 
     /** True if this UNKNOWN was caused by the per-proof wall-clock budget expiring. */
     public boolean isTimeout() {
         return timedOut;
+    }
+
+    /** True if this UNKNOWN was caused by a non-verdict engine exit (crash/abort), not a timeout. */
+    public boolean isEngineCrash() {
+        return engineCrash;
     }
 
     /**
@@ -90,7 +109,8 @@ public final class JbmcResult {
         if (stubs == null || stubs.isEmpty()) {
             return this;
         }
-        return new JbmcResult(verdict, violations, rawOutput, vacuous, undecidedReason, timedOut, stubs);
+        return new JbmcResult(verdict, violations, rawOutput, vacuous, undecidedReason, timedOut,
+                engineCrash, stubs);
     }
 
     /**

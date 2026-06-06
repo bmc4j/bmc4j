@@ -46,9 +46,54 @@ class JbmcExecTimeoutTest {
         // Exit code 6 = neither 0 (verified) nor 10 (violation): an engine error -> UNKNOWN.
         JbmcResult r = Jbmc.exec(buildExitCommand(6), "pkg.T.proof", 0);
         assertTrue(r.isUnknown(), "engine-error exit must map to UNKNOWN, got " + r.verdict());
+        assertTrue(r.isEngineCrash(), "a non-verdict exit is structurally a crash");
         assertTrue(r.violations().isEmpty(), "UNKNOWN carries no counterexample");
         assertTrue(r.undecidedReason() != null && r.undecidedReason().contains("6"),
                 "reason should mention the exit code: " + r.undecidedReason());
+    }
+
+    @Test
+    void persistent_engine_crash_is_retried_once_then_UNKNOWN() throws Exception {
+        // A deterministic crash exit: exec retries once (two launches), then reports the crash
+        // UNKNOWN with the persisted-across-a-retry note. Launch count proves the retry happened.
+        long before = Jbmc.invocationCount();
+        JbmcResult r = Jbmc.exec(buildExitCommand(134), "pkg.T.proof", 0);
+        assertTrue(r.isUnknown() && r.isEngineCrash(), "still a crash UNKNOWN after the retry");
+        assertTrue(r.undecidedReason().contains("persisted across a retry"), r.undecidedReason());
+        assertTrue(Jbmc.invocationCount() - before == 2,
+                "a crash must be retried exactly once (2 launches), saw " + (Jbmc.invocationCount() - before));
+    }
+
+    @Test
+    void nondeterministic_crash_recovers_on_the_retry() throws Exception {
+        // Crash-once-then-succeed, keyed on a state file: first launch exits 134 (creating the
+        // marker), the retry sees the marker and exits 0 with (unparseable) output - the second
+        // attempt's result is returned, NOT the crash. This is the jbmc-6.9.0 nondeterministic
+        // internal-abort scenario the retry exists for.
+        File state = File.createTempFile("bmc4j-crash-once", ".marker");
+        assertTrue(state.delete(), "start without the marker");
+        state.deleteOnExit();
+        String path = state.getAbsolutePath().replace("\\", "\\\\");
+        long before = Jbmc.invocationCount();
+        JbmcResult r = Jbmc.exec(javaSource(
+                "public class S { public static void main(String[] a) throws Exception {"
+                        + " java.io.File f = new java.io.File(\"" + path + "\");"
+                        + " if (f.createNewFile()) { System.exit(134); }"
+                        + " System.out.println(\"recovered-not-json\"); System.exit(0); } }", "S"),
+                "pkg.T.proof", 0);
+        assertTrue(Jbmc.invocationCount() - before == 2, "one crash + one retry = 2 launches");
+        assertFalse(r.isEngineCrash(),
+                "the retry's clean exit must be the returned result, not the crash: " + r.undecidedReason());
+    }
+
+    @Test
+    void timeout_is_NOT_retried() throws Exception {
+        // The budget is the budget: a timed-out run is killed and reported once - no second spend.
+        long before = Jbmc.invocationCount();
+        JbmcResult r = Jbmc.exec(buildSleepCommand(20), "pkg.T.proof", 1);
+        assertTrue(r.isTimeout(), "timeout stays a timeout");
+        assertFalse(r.isEngineCrash(), "a timeout is not a crash");
+        assertTrue(Jbmc.invocationCount() - before == 1, "timeouts must not retry");
     }
 
     @Test

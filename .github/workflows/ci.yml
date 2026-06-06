@@ -1,8 +1,9 @@
 name: CI
 
-# Runs on pushes to main (full gate + every platform smoke), on pull requests
-# (trimmed for fast feedback: gate + one linux-arm64 smoke), and on manual
-# dispatch (fully scriptable via the inputs). The release workflow calls it too.
+# Runs on pushes to main (gate across the supported-JDK axis 17/21/25 + every
+# platform smoke), on pull requests (trimmed for fast feedback: one JDK-21 gate +
+# one linux-arm64 smoke), and on manual dispatch (fully scriptable via the
+# inputs). The release workflow calls it too.
 #
 # The root test is the green gate: the model-conformance proof suite plus every
 # example module — the fail-on-purpose demos declare their expected verdicts
@@ -80,15 +81,18 @@ jobs:
             {"runner":"macos-14","platform":"macos-arm64"}
           ]'
 
-          # Per-event defaults; inputs.* are empty on push/PR events.
+          # Per-event defaults; inputs.* are empty on push/PR events. Every merge to main
+          # validates the whole supported-JDK axis: full suite on 21 and 25, core + model
+          # conformance on 17 (the shipped-floor runtime; examples need newer javac). PRs
+          # stay single-JDK for fast feedback.
           case "$EVENT" in
-            push)         gate="true"; sel_spec="all" ;;
-            pull_request) gate="true"; sel_spec="linux-arm64" ;;
-            *)            gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}" ;;
+            push)         gate="true"; sel_spec="all"; jdk_spec="17,21,25" ;;
+            pull_request) gate="true"; sel_spec="linux-arm64"; jdk_spec="21" ;;
+            *)            gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"; jdk_spec="${JDKS:-21}" ;;
           esac
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
 
-          jdks="$(echo "${JDKS:-21}" | jq -cR 'split(",") | map(gsub("\\s";"")) | map(select(length > 0))')"
+          jdks="$(echo "$jdk_spec" | jq -cR 'split(",") | map(gsub("\\s";"")) | map(select(length > 0))')"
           echo "jdks=$jdks" >> "$GITHUB_OUTPUT"
 
           if [ "$sel_spec" = "all" ]; then
