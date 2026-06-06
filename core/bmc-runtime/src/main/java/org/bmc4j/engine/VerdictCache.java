@@ -284,12 +284,14 @@ public final class VerdictCache {
         update(md, "msl", Integer.toString(request.maxStringLength()));
         update(md, "timeout", Integer.toString(request.timeoutSeconds()));
         update(md, "concurrent", Boolean.toString(request.concurrent()));
-        // 4) analysis-classpath content
-        update(md, "classpath", classpathContentDigest(request.classpath()));
+        // 4) analysis-classpath content — memoized per classpath behind a (path, size, mtime)
+        //    fingerprint; computeKey runs for EVERY proof and re-hashing the whole classpath
+        //    dominated the cost of a cache hit (see memoized()).
+        update(md, "classpath", memoized(DIGEST_MEMO, request.classpath(), VerdictCache::classpathContentDigest));
         // 5) user-model content (bmc.userModels) — spliced onto the classpath after this key is built,
         //    so editing a user model must invalidate here or a stale green is served.
         String userModels = System.getProperty("bmc.userModels", "");
-        update(md, "userModels", classpathContentDigest(userModels));
+        update(md, "userModels", memoized(DIGEST_MEMO, userModels, VerdictCache::classpathContentDigest));
         // 6) resolved config inputs — ConfigBytecode bakes the REAL System.getenv/getProperty("KEY")
         //    value into the analysed bytecode at analysis time, AFTER this key is built, and the app
         //    .class files don't change when an env var / property changes. So fold the resolved KEY=value
@@ -313,10 +315,130 @@ public final class VerdictCache {
             String um = userModels == null ? "" : userModels;
             String combined = um.isBlank() ? cp
                     : (cp.isBlank() ? um : cp + java.io.File.pathSeparator + um);
-            return ConfigBytecode.resolvedConfig(combined);
+            // Only the bytecode SCAN for call sites is memoized (a pure function of the classpath's
+            // content, fingerprint-guarded like the digests). The VALUES are re-resolved on every key
+            // (one getenv/getProperty per site — cheap), so a config flip between calls still perturbs
+            // the key for unchanged bytecode.
+            List<String[]> sites = memoized(SITES_MEMO, combined, ConfigBytecode::scanCallSites);
+            return ConfigBytecode.resolveSites(sites);
         } catch (RuntimeException e) {
             return ""; // fail-open: scan trouble -> empty -> cache fails open to a re-run
         }
+    }
+
+    // --- Per-JVM memo of the expensive computeKey inputs --------------------------------------------
+
+    /** Count of expensive recomputes (full digest or scan) — test hook pinning that the memo hits. */
+    static final java.util.concurrent.atomic.AtomicInteger MEMO_RECOMPUTES =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** A memoized value plus the (path, size, mtime) fingerprint of the files it was computed from. */
+    private static final class Memo<V> {
+        final String fingerprint;
+        final V value;
+
+        Memo(String fingerprint, V value) {
+            this.fingerprint = fingerprint;
+            this.value = value;
+        }
+    }
+
+    private static final java.util.concurrent.ConcurrentHashMap<String, Memo<String>> DIGEST_MEMO =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, Memo<List<String[]>>> SITES_MEMO =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Memoize {@code compute} per classpath string, guarded by a cheap (path, size, mtime)
+     * fingerprint of every file the computation reads. {@link #computeKey} runs for <b>every</b> proof
+     * (the lookup; live runs pay it again on store), but its expensive inputs — the classpath content
+     * digest and the config call-site scan — hash every class file and decompress + parse every jar on
+     * the analysis classpath, which made even a cache HIT cost hundreds of milliseconds per proof.
+     * Both are pure functions of the classpath's file contents, which are stable for a test JVM's
+     * lifetime in any real run (Gradle compiles before the test task starts) — but stability is
+     * <em>verified, not assumed</em>: any file appearing, disappearing, or changing size/mtime changes
+     * the fingerprint and forces a fresh compute, so a mid-JVM edit (the soundness tests do exactly
+     * that) still invalidates. Fail-open: a fingerprint error yields a never-matching value, forcing
+     * the fresh compute.
+     *
+     * <p>Computes under a per-key lock: proofs run in parallel (the plugin defaults to one executor
+     * per core), so without it the FIRST wave of proofs all miss the empty memo simultaneously and
+     * each redundantly hashes the whole classpath — the herd pays the full cost as many times over as
+     * there are executors. With the lock, one thread computes and the rest wait briefly and reuse it.
+     */
+    private static <V> V memoized(java.util.concurrent.ConcurrentHashMap<String, Memo<V>> memo,
+                                  String classpath, java.util.function.Function<String, V> compute) {
+        String key = classpath == null ? "" : classpath;
+        String fp = fingerprint(key);
+        Memo<V> m = memo.get(key);
+        if (m != null && m.fingerprint.equals(fp)) {
+            return m.value;
+        }
+        synchronized (LOCKS.computeIfAbsent(key, k -> new Object())) {
+            m = memo.get(key); // re-check: another thread may have computed while we waited
+            if (m != null && m.fingerprint.equals(fp)) {
+                return m.value;
+            }
+            MEMO_RECOMPUTES.incrementAndGet();
+            V value = compute.apply(key);
+            memo.put(key, new Memo<>(fp, value));
+            return value;
+        }
+    }
+
+    /** Per-classpath compute locks for {@link #memoized} (never removed; a test JVM sees few keys). */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Object> LOCKS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A cheap identity of every file {@link #classpathContentDigest} and the config scan read: each
+     * directory entry's {@code .class} files (relative path, size, mtime — the same filter the digest
+     * walks) plus each regular-file entry (path, size, mtime), sorted. Reads attributes only, never
+     * content; mtime carries its full filesystem precision. Distinct absent/error markers so a path
+     * flipping between states never aliases a clean fingerprint.
+     */
+    private static String fingerprint(String classpath) {
+        try {
+            if (classpath.isBlank()) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            String[] entries = classpath.split(java.io.File.pathSeparator);
+            List<String> sorted = new ArrayList<>(List.of(entries));
+            Collections.sort(sorted);
+            for (String e : sorted) {
+                if (e == null || e.isBlank()) {
+                    continue;
+                }
+                Path p = Path.of(e);
+                if (Files.isDirectory(p)) {
+                    List<Path> classes = new ArrayList<>();
+                    try (Stream<Path> walk = Files.walk(p)) {
+                        walk.filter(Files::isRegularFile)
+                                .filter(f -> f.getFileName().toString().endsWith(".class"))
+                                .forEach(classes::add);
+                    }
+                    classes.sort(java.util.Comparator.comparing(Path::toString));
+                    for (Path c : classes) {
+                        appendFileId(sb, e + "!" + p.relativize(c).toString().replace('\\', '/'), c);
+                    }
+                } else if (Files.isRegularFile(p)) {
+                    appendFileId(sb, e, p);
+                } else {
+                    sb.append(e).append("|absent\n");
+                }
+            }
+            return sb.toString();
+        } catch (IOException | RuntimeException ex) {
+            // fail-open: an unfingerprintable classpath never matches a memo entry -> fresh compute
+            return "unfingerprintable:" + System.nanoTime();
+        }
+    }
+
+    private static void appendFileId(StringBuilder sb, String label, Path file) throws IOException {
+        sb.append(label).append('|').append(Files.size(file)).append('|')
+                .append(Files.getLastModifiedTime(file).to(java.util.concurrent.TimeUnit.NANOSECONDS))
+                .append('\n');
     }
 
     /**
