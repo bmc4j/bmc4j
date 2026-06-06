@@ -159,8 +159,6 @@ object JbmcOutputParser {
      * and `:(signature)` suffix), filter to [signal][StubFilter.isSignal], and dedupe in
      * first-seen order. Empty when the reachable slice was fully modeled. Pure; never throws.
      */
-    @JvmStatic
-    @JvmName("harvestStubs") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun harvestStubs(root: JsonArray): List<String> {
         val stubs = LinkedHashSet<String>()
         for (e in root) {

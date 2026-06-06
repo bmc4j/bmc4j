@@ -265,8 +265,6 @@ object ConfigBytecode {
         }, 0)
     }
 
-    @JvmStatic
-    @JvmName("rewriteClass") // package-private in Java; Java tests call it
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)

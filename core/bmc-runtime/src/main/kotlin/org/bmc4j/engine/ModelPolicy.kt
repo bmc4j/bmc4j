@@ -93,8 +93,6 @@ class ModelPolicy private constructor(
          * enumeration of the bundled jar's exact classes (which would couple this to the jar's build
          * layout) — and it errs only toward warning, never toward a false green.
          */
-        @JvmStatic
-        @JvmName("shadowsBundledModel") // internal functions are name-mangled; Java tests call it
         internal fun shadowsBundledModel(fqn: String?): Boolean {
             if (fqn == null) {
                 return false

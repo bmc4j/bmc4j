@@ -168,8 +168,6 @@ object ReplayRenderer {
     // --- literal rendering ----------------------------------------------------
 
     /** A valid Java string literal for [s] (surrounding quotes included). */
-    @JvmStatic
-    @JvmName("javaStringLiteral") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun javaStringLiteral(s: String): String = buildString(s.length + 2) {
         append('"')
         for (c in s) {
@@ -179,8 +177,6 @@ object ReplayRenderer {
     }
 
     /** A valid Java `char` literal for [c] (surrounding single quotes included). */
-    @JvmStatic
-    @JvmName("charLiteral") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun charLiteral(c: Char): String = "'" + escapeChar(c, true) + "'"
 
     /** Escape one char for a string (`inChar=false`) or char (`inChar=true`) literal. */
@@ -210,8 +206,6 @@ object ReplayRenderer {
     }
 
     /** Render a double, mapping JBMC's textual NaN/Inf forms to compilable constants. */
-    @JvmStatic
-    @JvmName("doubleLiteral") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun doubleLiteral(data: String?): String? {
         specialFloat(data, "Double")?.let { return it }
         val v = parseDoubleOrNull(data) ?: return null
@@ -223,8 +217,6 @@ object ReplayRenderer {
     }
 
     /** Render a float, mapping JBMC's textual NaN/Inf forms to compilable constants. */
-    @JvmStatic
-    @JvmName("floatLiteral") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun floatLiteral(data: String?): String? {
         specialFloat(data, "Float")?.let { return it }
         val v = parseDoubleOrNull(data) ?: return null

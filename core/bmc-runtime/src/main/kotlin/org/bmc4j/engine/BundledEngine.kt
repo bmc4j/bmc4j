@@ -122,8 +122,6 @@ object BundledEngine {
      * True if this host uses the musl C library (Alpine) rather than glibc. Checked only on
      * Linux. Reads the real filesystem root; the root-injecting overload is the testable core.
      */
-    @JvmStatic
-    @JvmName("isMuslLibc") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun isMuslLibc(): Boolean = isMuslLibc(Path.of("/"))
 
     /**
@@ -131,8 +129,6 @@ object BundledEngine {
      * the Alpine release marker, or a musl dynamic loader under `/lib`. Either is sufficient;
      * a glibc system has neither. Root-injecting so tests can stage the markers.
      */
-    @JvmStatic
-    @JvmName("isMuslLibc") // unmangled: the Java test calls this overload directly
     internal fun isMuslLibc(root: Path): Boolean {
         if (Files.exists(root.resolve("etc/alpine-release"))) {
             return true

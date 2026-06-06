@@ -456,8 +456,6 @@ internal object ClasspathMirror {
      *  semantics identity + the jar's bytes. Identical content under the same runtime reuses the
      *  same rewritten jar across runs; a content change OR a semantics-identity change yields a
      *  fresh key (over-invalidate, never under: a stale rewrite is never reused). */
-    @JvmStatic
-    @JvmName("contentHash") // unmangled: the Java tests call it
     internal fun contentHash(file: Path): String = jarContentHash(file, effectiveExtraKey(""))
 
     /** SHA-256 of [extraKey] (length-framed) followed by the jar's bytes — the config-aware jar

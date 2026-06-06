@@ -51,8 +51,6 @@ object ReachabilityBytecode {
                 ClasspathMirror.Transformed(rewriteClass(b))
             })
 
-    @JvmStatic
-    @JvmName("rewriteClass") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         // COMPUTE_MAXS only: we add a few stack slots (new/dup/ldc) but introduce no new jump targets,

@@ -71,9 +71,7 @@ object LambdaBytecode {
             @JvmField val samType: Type,         // erased SAM descriptor (bsmArg 0)
             @JvmField val impl: Handle)          // implementation method handle (bsmArg 1)
 
-    /** Package-private for tests. */
-    @JvmStatic
-    @JvmName("transform") // internal members are name-mangled in bytecode; the Java test calls it
+    /** Exposed for unit tests. */
     internal fun transform(bytes: ByteArray): Result {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)
