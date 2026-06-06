@@ -7,7 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/bmc4j/bmc4j" alt="License"></a>
 </p>
 
-**Prove your Kotlin or Java code correct for *every* input — as easily as writing a JUnit test.**
+**Prove your Kotlin (or Java) code correct for *every* input — as easily as writing a JUnit test.**
 
 A unit test checks the inputs you thought of. A property-based test samples a few
 hundred more. A `@BmcProof` covers **all of them at once**: apply one Gradle plugin,
@@ -38,23 +38,23 @@ plugins {
 ```
 
 ```kotlin
-import org.bmc4j.Bmc
+import org.bmc4j.Bmc.*
 import org.bmc4j.BmcProof
 
 class GradeBandProofs {
 
     @BmcProof
-    fun gradeBand_never_throws_for_valid_scores() {
-        val score = Bmc.anyInt(1, 100)          // symbolic input, valid domain folded in
+    fun `gradeBand never throws for valid scores`() {
+        val score = anyInt(1, 100)              // symbolic input, valid domain folded in
         Example.gradeBand(score)                // proven for every score in range
     }
 
     @BmcProof
-    fun clamp_result_is_always_within_bounds() {
-        val x = Bmc.anyInt(); val lo = Bmc.anyInt(); val hi = Bmc.anyInt()
-        Bmc.assume(lo <= hi)
+    fun `clamp result is always within bounds`() {
+        val x = anyInt(); val lo = anyInt(); val hi = anyInt()
+        assume(lo <= hi)
         val r = Example.clamp(x, lo, hi)
-        Bmc.check(r in lo..hi)                  // a property to prove
+        check(r in lo..hi)                      // a property to prove
     }
 }
 ```
