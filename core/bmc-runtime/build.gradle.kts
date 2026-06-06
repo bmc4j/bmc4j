@@ -1,4 +1,9 @@
 plugins {
+    // Same KGP version as the rest of the core build: one Kotlin plugin version per Gradle build.
+    // Engine INTERNALS are being ported to Kotlin; the analysis-facing classes (Bmc, BmcMath,
+    // BmcStrings, BmcKotlin, ConfigSupport, the annotations) stay Java permanently — their
+    // bytecode is the product JBMC analyzes inside consumers' proofs.
+    kotlin("jvm") version "2.3.21"
     `java-library`
     `maven-publish`
     // Shade + relocate gson/asm INTO the published jar so they never appear as
@@ -16,6 +21,24 @@ tasks.withType<JavaCompile>().configureEach {
     // Retain method parameter names: the replay renderer maps counterexample bindings
     // back to a proof's declared parameter types/names (enums, strings) via reflection.
     options.compilerArgs.add("-parameters")
+}
+
+// kotlin-stdlib is a DELIBERATE plain POM dependency (test scope for consumers via the plugin),
+// NOT shaded: relocated stdlib bytes would still land on the analysis classpath, so shading buys
+// little and costs shadow×KGP×metadata maintenance forever. The 1.9 metadata + stdlib floor
+// mirrors bmc-kotlin's: newer consumers resolve their own stdlib upward; a Kotlin-1.9 consumer is
+// never dragged past what its compiler can read.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
+        // Parity with javac's -parameters above.
+        javaParameters.set(true)
+    }
+}
+kotlin {
+    coreLibrariesVersion = "1.9.25"
 }
 
 // gson (parses JBMC's --json-ui output) and asm (rewrites bytecode for JBMC) are
