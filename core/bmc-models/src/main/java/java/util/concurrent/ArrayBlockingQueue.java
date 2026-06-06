@@ -21,7 +21,14 @@ import org.cprover.CProver;
  * (JBMC-only), so they are exercised on the {@code @BmcProof} axis only, never on the JVM-runnable
  * differential axis (the non-blocking surface is what is differential-tested vs the JDK).
  *
- * <p>Capacity is the constructor argument, capped at the model bound {@value #MAX_CAPACITY}.
+ * <p><b>Logical capacity vs storage bound.</b> {@code capacity} is the constructor argument,
+ * honored exactly as the JDK contract ({@code offer} returns false / {@code add} throws at
+ * {@code size == capacity}; {@code remainingCapacity() == capacity - size}) — it is NOT silently
+ * capped, because a smaller-than-real capacity would admit rejection behaviors the real queue
+ * cannot produce (a false-green vector). Independently, the model can only <em>store</em>
+ * {@value #MAX_CAPACITY} elements: a proof that actually holds more than that trips a loud
+ * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
+ * models — never a silent wrong answer.
  */
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 

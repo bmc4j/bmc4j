@@ -205,6 +205,30 @@ class ConcurrencyConformanceTest : FunSpec({
         }
     }
 
+    // The DEFAULT (no-arg) LinkedBlockingQueue is unbounded in the JDK: logical capacity
+    // Integer.MAX_VALUE, offer never rejects, add never throws, remainingCapacity counts down
+    // from MAX_VALUE. The model used to default to its 64-slot storage bound instead, ADMITTING
+    // rejections the real default queue cannot produce — a silent-false-green vector this case
+    // regression-pins (remainingCapacity is the within-model-domain discriminator: the old model
+    // reported 64 - n). Ops stay far below the model's storage bound, the documented domain.
+    test("LinkedBlockingQueue() no-arg default is unbounded (logical contract conforms)") {
+        val v = Arb.int(0..9)
+        val op = Arb.choice(
+            v.map { x -> QOp("offer($x)") { call(it, "offer", arrayOf(OBJECT), x) } },
+            v.map { x -> QOp("add($x)") { call(it, "add", arrayOf(OBJECT), x) } },
+            Arb.constant(QOp("poll") { call(it, "poll", arrayOf()) }),
+            Arb.constant(QOp("size") { call(it, "size", arrayOf()) }),
+            Arb.constant(QOp("isEmpty") { call(it, "isEmpty", arrayOf()) }),
+            Arb.constant(QOp("remainingCapacity") { call(it, "remainingCapacity", arrayOf()) }),
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.LinkedBlockingQueue<Int>()
+            val m = bmcref.java.util.concurrent.LinkedBlockingQueue<Int>()
+            ops.forEachIndexed { i, o -> assertEquivalent("op[$i]=$o", o.on(r), o.on(m)) }
+            repeat(31) { assertEquivalent("drain", call(r, "poll", arrayOf()), call(m, "poll", arrayOf())) }
+        }
+    }
+
     // --- Immediate ExecutorService (sequential) ----------------------------------------------------
     // The model runs tasks synchronously and returns a completed Future. On ONE thread the real JDK
     // single-thread executor is observably identical for submit->get. We compare the realized value.
