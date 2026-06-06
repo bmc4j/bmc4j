@@ -5,6 +5,39 @@ overriding: **a change that is merely wrong fails tests; a change that is
 unsound makes the tool lie.** Most of the conventions below exist to keep the
 second kind impossible to land quietly.
 
+## Language policy: Kotlin by default, Java only where the bytecode is the product
+
+bmc4j is written in **Kotlin by default.** New code — the engine, the JUnit 5
+extension, the Gradle plugin, the annotation processors, the contracts layer —
+should be Kotlin. The bulk of `bmc-runtime` is already Kotlin (the JBMC driver,
+the trace/counterexample decoding, the verdict cache, the bytecode-rewrite
+passes), and `bmc-gradle-plugin` is Kotlin throughout.
+
+There is one deliberate, **permanent** Java boundary: the **analysis-facing code
+whose compiled bytecode is itself the artifact JBMC analyses.** For that code the
+exact, stable bytecode shape *is* the product — it must stay hand-controlled and
+free of `kotlin-stdlib` references, so that what the engine sees is precisely what
+we intend, not whatever a given kotlinc version chose to emit. **Do not port these
+to Kotlin:**
+
+- The user-facing facades and API surface in `bmc-runtime`: `Bmc`
+  (`core/bmc-runtime/src/main/java/org/bmc4j/Bmc.java`), and the engine-package
+  facades `BmcMath`, `BmcStrings`, `BmcKotlin`, and `ConfigSupport`
+  (`core/bmc-runtime/src/main/java/org/bmc4j/engine/`).
+- The annotations and verdict enum at `core/bmc-runtime/src/main/java/org/bmc4j/`:
+  `BmcProof`, `Requires`, `Ensures`, `BmcContractsFor`, `ExpectEnforce`, and
+  `Verdict`.
+- The analysis support classes JBMC walks directly:
+  `analysis/ResidualInvokedynamic` and `concurrent/Latch`
+  (under `core/bmc-runtime/src/main/java/org/bmc4j/`).
+- **Every** model class in `bmc-models` and `bmc-kotlin-models` — these are the
+  hand-written, kotlin-stdlib-free stand-ins the engine analyses *instead of* the
+  real JDK/Kotlin classes; they are Java by necessity (see the model section
+  below) and must stay that way.
+
+If you find yourself reaching for Kotlin inside one of those, stop: that boundary
+is intentional, not technical debt. Everywhere else, prefer Kotlin.
+
 ## The green gate (read this first)
 
 ```powershell

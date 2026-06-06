@@ -7,7 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/bmc4j/bmc4j" alt="License"></a>
 </p>
 
-**Prove your Java or Kotlin code correct for *every* input — as easily as writing a JUnit test.**
+**Prove your Kotlin (or Java) code correct for *every* input — as easily as writing a JUnit test.**
 
 A unit test checks the inputs you thought of. A property-based test samples a few
 hundred more. A `@BmcProof` covers **all of them at once**: apply one Gradle plugin,
@@ -15,7 +15,7 @@ write a test-shaped method, and [JBMC](https://www.cprover.org/jbmc/) *proves* (
 an explicit bound) that no input breaks your code — or fails the test with a real stack
 trace and the exact input that does.
 
-bmc4j targets the **JVM**: **Java** (17–25) and **Kotlin** (2.0–2.4) are the verified,
+bmc4j targets the **JVM**: **Kotlin** (2.0–2.4) and **Java** (17–25) are the verified,
 first-class languages — it analyses the bytecode, so your build doesn't change beyond
 the one plugin. (Kotlin 1.9 is supported via the artifacts' 1.9 metadata/stdlib floor,
 just no longer re-verified on every merge — see
@@ -36,6 +36,31 @@ plugins {
     id("org.bmc4j") version "<version>" // latest: see the Maven Central badge above
 }
 ```
+
+```kotlin
+import org.bmc4j.Bmc.*
+import org.bmc4j.BmcProof
+
+class GradeBandProofs {
+
+    @BmcProof
+    fun `gradeBand never throws for valid scores`() {
+        val score = anyInt(1, 100)              // symbolic input, valid domain folded in
+        Example.gradeBand(score)                // proven for every score in range
+    }
+
+    @BmcProof
+    fun `clamp result is always within bounds`() {
+        val x = anyInt(); val lo = anyInt(); val hi = anyInt()
+        assume(lo <= hi)
+        val r = Example.clamp(x, lo, hi)
+        check(r in lo..hi)                      // a property to prove
+    }
+}
+```
+
+<details>
+<summary>Java</summary>
 
 ```java
 import org.bmc4j.Bmc;
@@ -59,6 +84,8 @@ class GradeBandProofTests {
     }
 }
 ```
+
+</details>
 
 ```
 ./gradlew test
@@ -213,8 +240,8 @@ verdict cache means the expensive solve happens once per change, not once per ru
 | | |
 |---|---|
 | Engine | CBMC 6.9.0 / JBMC, bundled per platform: windows-x64, linux-x64/arm64 (glibc), macos-x64/arm64. Windows-arm64 and Alpine/musl Linux are unsupported (fail fast) |
-| Java | 17 – 25 verified on every merge (full suite on 21/25, core + conformance on the 17 floor) |
 | Kotlin | 2.0 – 2.4 verified on every merge via a consumer-compiler matrix (null-safety, data classes, collections, `runBlocking` logic); 1.9 supported via the artifacts' 1.9 metadata/stdlib floor |
+| Java | 17 – 25 verified on every merge (full suite on 21/25, core + conformance on the 17 floor) |
 | CI | per-platform engine jars + a proof gate on every platform, every supported JDK, and consumer-Kotlin 2.0/2.2/2.3/2.4 |
 | License | [Apache-2.0](LICENSE); bundled engine binaries under the [CBMC license](THIRD-PARTY-NOTICES.md) |
 
