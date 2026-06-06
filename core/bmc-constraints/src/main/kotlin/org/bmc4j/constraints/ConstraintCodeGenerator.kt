@@ -8,8 +8,26 @@ package org.bmc4j.constraints
  */
 object ConstraintCodeGenerator {
 
-    /** A model field plus the accessor used to read it and its constraints. */
-    class Field(@JvmField val accessor: String, @JvmField val constraints: List<Constraint>)
+    /**
+     * A model field plus the accessor used to read it, its boolean [constraints] (each emitted as a
+     * `Bmc.assume(expr)`), and any [statements] (cascade / container loops emitted verbatim).
+     */
+    class Field @JvmOverloads constructor(
+            @JvmField val accessor: String,
+            @JvmField val constraints: List<Constraint>,
+            @JvmField val statements: List<StatementConstraint> = emptyList())
+
+    /**
+     * A shared symbolic reference moment for the temporal (`@Past`/`@Future`) constraints. One per
+     * distinct modeled time type used by the bean; [varName] is the local the temporal constraint
+     * expressions reference, [typeFqn] the modeled type (e.g. `java.time.LocalDate`), and
+     * [symbolicFactory] a Java expression producing a symbolic instance of that type (e.g.
+     * `java.time.LocalDate.ofEpochDay(org.bmc4j.Bmc.anyLong())`).
+     */
+    class NowParam(
+            @JvmField val varName: String,
+            @JvmField val typeFqn: String,
+            @JvmField val symbolicFactory: String)
 
     /**
      * @param packageName         package of the generated class (may be empty or null)
@@ -17,10 +35,13 @@ object ConstraintCodeGenerator {
      * @param targetTypeFqn       the model type, e.g. `com.acme.User`
      * @param paramName           the parameter name used in the generated method (e.g. `obj`)
      * @param fields              fields whose accessors are already expressed in terms of [paramName]
+     * @param nowParams           shared symbolic "now"s the temporal constraints reference; empty if none
      */
     @JvmStatic
+    @JvmOverloads
     fun generate(packageName: String?, generatedSimpleName: String,
-                 targetTypeFqn: String, paramName: String, fields: List<Field>): String = buildString {
+                 targetTypeFqn: String, paramName: String, fields: List<Field>,
+                 nowParams: List<NowParam> = emptyList()): String = buildString {
         if (!packageName.isNullOrEmpty()) {
             append("package ").append(packageName).append(";\n\n")
         }
@@ -28,10 +49,52 @@ object ConstraintCodeGenerator {
         append("public final class ").append(generatedSimpleName).append(" {\n\n")
         append("    private ").append(generatedSimpleName).append("() {}\n\n")
 
-        append("    /** Assume ").append(paramName)
-                .append(" satisfies its validation constraints. */\n")
-        append("    public static void assumeValid(").append(targetTypeFqn).append(' ')
-                .append(paramName).append(") {\n")
+        if (nowParams.isEmpty()) {
+            // No temporal constraints — a single method holds the whole body.
+            append("    /** Assume ").append(paramName)
+                    .append(" satisfies its validation constraints. */\n")
+            append("    public static void assumeValid(").append(targetTypeFqn).append(' ')
+                    .append(paramName).append(") {\n")
+            emitBody(paramName, fields)
+            append("    }\n")
+        } else {
+            // Temporal constraints reference shared "now"s. A private core routine takes every now
+            // explicitly so the symbolic-now entry point and the pinned-now overload feed the SAME
+            // nows to every temporal field — the sharing IS the validation semantic (all fields were
+            // in the past of one moment). The symbolic-now entry point introduces one `now` per type.
+            val nowSig = nowParams.joinToString("") { ", ${it.typeFqn} ${it.varName}" }
+            val nowArgs = nowParams.joinToString("") { ", ${it.varName}" }
+
+            append("    /** Assume ").append(paramName)
+                    .append(" satisfies its validation constraints (validation moment left symbolic). */\n")
+            append("    public static void assumeValid(").append(targetTypeFqn).append(' ')
+                    .append(paramName).append(") {\n")
+            for (np in nowParams) {
+                append("        ").append(np.typeFqn).append(' ').append(np.varName)
+                        .append(" = ").append(np.symbolicFactory).append(";\n")
+            }
+            append("        assumeValidAt(").append(paramName).append(nowArgs).append(");\n")
+            append("    }\n\n")
+
+            // Pinned-now overload — public only when there is exactly one temporal type, so `now`'s
+            // type is unambiguous. With mixed temporal types the core routine stays private.
+            val pinnedPublic = nowParams.size == 1
+            if (pinnedPublic) {
+                val np = nowParams[0]
+                append("    /** Assume ").append(paramName)
+                        .append(" is valid with the validation moment pinned to ").append(np.varName)
+                        .append(". */\n")
+            }
+            append("    ").append(if (pinnedPublic) "public" else "private")
+                    .append(" static void assumeValidAt(").append(targetTypeFqn).append(' ')
+                    .append(paramName).append(nowSig).append(") {\n")
+            emitBody(paramName, fields)
+            append("    }\n")
+        }
+        append("}\n")
+    }
+
+    private fun StringBuilder.emitBody(paramName: String, fields: List<Field>) {
         // A validated object exists; assume non-null before reading its fields.
         append("        org.bmc4j.Bmc.assume(").append(paramName).append(" != null);\n")
         for (f in fields) {
@@ -39,8 +102,11 @@ object ConstraintCodeGenerator {
                 append("        org.bmc4j.Bmc.assume(")
                         .append(c.toExpression(f.accessor)).append(");\n")
             }
+            for (s in f.statements) {
+                for (line in s.toStatements(f.accessor).split('\n')) {
+                    append("        ").append(line).append('\n')
+                }
+            }
         }
-        append("    }\n")
-        append("}\n")
     }
 }

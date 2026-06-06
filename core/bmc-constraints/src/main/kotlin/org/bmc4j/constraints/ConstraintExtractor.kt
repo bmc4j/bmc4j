@@ -10,6 +10,21 @@ import javax.lang.model.element.Element
  */
 interface ConstraintExtractor {
 
-    /** Constraints implied by the validation annotations on [element]; empty if none. */
+    /**
+     * Constraints implied by the validation annotations on [element]; empty if none.
+     *
+     * Covers the plain boolean field constraints (`@Min`, `@Size`, …). Richer shapes — the temporal
+     * shared-`now`, the `@Valid` cascade, container-element loops — are surfaced by [extractAll],
+     * which defaults to wrapping this. Implementations supporting those override [extractAll].
+     */
     fun extract(element: Element): List<Constraint>
+
+    /**
+     * The full set of constraints for [element]: boolean [ExtractedConstraints.constraints],
+     * [ExtractedConstraints.statements] (cascade / container loops), and any
+     * [ExtractedConstraints.nowParams] the temporal constraints reference. Defaults to the
+     * boolean-only [extract] for extractors that don't implement the richer shapes.
+     */
+    fun extractAll(element: Element): ExtractedConstraints =
+            ExtractedConstraints(constraints = extract(element))
 }
