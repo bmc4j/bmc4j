@@ -208,13 +208,19 @@ jobs:
       # Persist bmc4j verdict caches across runs, one lineage per leg (different JVM
       # targets / kotlinc versions emit different bytecode -> different content keys;
       # the cache's own content-keying handles correctness, the cache key only scopes
-      # WHICH snapshot gets restored). Key on run_id so every run saves a fresh
-      # snapshot; restore-keys picks up the most recent prior one.
+      # WHICH snapshot gets restored). Key on run_id + run_attempt so every attempt
+      # saves a fresh snapshot; restore-keys picks up the most recent prior one.
+      #
+      # Split restore/save (instead of actions/cache) so the snapshot is saved even
+      # when the leg FAILS: the verdict cache only ever stores expectation-matching
+      # verdicts (a flaky/failed/timed-out proof is never written), so a red leg's
+      # cache holds exactly the proofs that did pass - the re-run restores it and
+      # re-solves only what actually failed, instead of starting cold.
       - name: Restore verdict caches
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: '**/build/bmc4j/verdict-cache'
-          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}
+          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             bmc-verdict-${{ runner.os }}-${{ matrix.name }}-
 
@@ -228,6 +234,16 @@ jobs:
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
         run: ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=180 ${{ matrix.flags }} ${{ matrix.tasks }}
+
+      # always(): save the snapshot on failure too (see the restore step's comment) -
+      # only expectation-matching verdicts are ever in it, so this is sound by
+      # construction and lets a re-run continue from the failed proof.
+      - name: Save verdict caches
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: '**/build/bmc4j/verdict-cache'
+          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload test reports
         if: failure()

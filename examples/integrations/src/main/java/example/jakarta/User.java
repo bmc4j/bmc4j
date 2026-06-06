@@ -15,4 +15,16 @@ public class User {
     @NotNull
     @Size(min = 3, max = 20)
     public String name;
+
+    /**
+     * A BOXED numeric without {@code @NotNull}: per jakarta semantics, {@code null} is a VALID
+     * value here ({@code @Min} only constrains non-null values) — so the generated assume must
+     * keep null in the proof domain. The {@code bonus} demos pin exactly that.
+     */
+    @Min(0)
+    public Integer loyaltyPoints;
+
+    /** A primitive boolean constraint — @AssertTrue becomes a plain assume on the field. */
+    @jakarta.validation.constraints.AssertTrue
+    public boolean termsAccepted;
 }

@@ -43,6 +43,50 @@ class ConfigBytecodeTest {
         assertTrue(ex.getCause() instanceof AssertionError, "unset config should throw AssertionError");
     }
 
+    // --- boolean readers: strict "true"/"false", malformed fails loudly ------------------------------
+
+    @Test
+    void bool_property_parses_true_false_in_any_case() throws Exception {
+        System.setProperty("bmc.test.flag", "TRUE");
+        try {
+            byte[] cls = callingClass("Cfg$BoolSet", "boolFromProperty", "(Ljava/lang/String;)Z", "bmc.test.flag");
+            Class<?> c = define("Cfg$BoolSet", ConfigBytecode.rewriteClass(cls));
+            Method f = c.getMethod("f");
+            f.setAccessible(true);
+            assertEquals(1, (int) f.invoke(null), "\"TRUE\" (any case) must bake as true");
+        } finally {
+            System.clearProperty("bmc.test.flag");
+        }
+    }
+
+    @Test
+    void malformed_bool_fails_the_proof_instead_of_baking_false() throws Exception {
+        System.setProperty("bmc.test.flag", "1"); // truthy in many config schemes, but NOT "true"/"false"
+        try {
+            byte[] cls = callingClass("Cfg$BoolBad", "boolFromProperty", "(Ljava/lang/String;)Z", "bmc.test.flag");
+            Class<?> c = define("Cfg$BoolBad", ConfigBytecode.rewriteClass(cls));
+            Method f = c.getMethod("f");
+            f.setAccessible(true);
+            InvocationTargetException ex = assertThrows(InvocationTargetException.class, () -> f.invoke(null));
+            assertTrue(ex.getCause() instanceof AssertionError,
+                    "a malformed boolean must fail loudly, never silently bake false");
+        } finally {
+            System.clearProperty("bmc.test.flag");
+        }
+    }
+
+    @Test
+    void resolvedValue_malformed_bool_is_the_unset_sentinel() {
+        System.setProperty("bmc.test.flag", "yes");
+        try {
+            assertEquals(ConfigBytecode.UNSET, ConfigBytecode.resolvedValue(
+                    "boolFromProperty", "(Ljava/lang/String;)Z", "bmc.test.flag"),
+                    "malformed bool resolves like unset (thrower path), keeping cache key and bake in sync");
+        } finally {
+            System.clearProperty("bmc.test.flag");
+        }
+    }
+
     // --- resolvedValue / resolvedConfig: the single-source-of-truth the verdict cache folds in -------
 
     @Test

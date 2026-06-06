@@ -30,9 +30,11 @@ reflection-free `assumeValid(obj)` from `@Min`/`@Max`/`@NotNull`/`@Size`, so a p
 `stringFrom…` read the **actual** value this run was launched with and pin the proof input to it —
 so you verify against *this* deployment's config (for "every value", use `anyInt()` directly).
 bmc4j resolves each value at analysis-setup time (in the test JVM, which has the real environment)
-and bakes it in as a constant; a required-but-unset variable fails the proof. Keys must be string
-literals. **The bugs:** this run's `app.budgetKb` overflows `int` when doubled; `app.timeoutMs`
-isn't set, so the required-config proof reports it rather than silently passing. *(4 pass + 2 fail.)*
+and bakes it in as a constant; a required-but-unset (or unparseable) variable fails the proof.
+Booleans must be exactly `true`/`false` (case-insensitive) — `1`/`yes` fail rather than silently
+reading as `false`. Keys must be string literals. **The bugs:** this run's `app.budgetKb` overflows
+`int` when doubled; `app.timeoutMs` isn't set, so the required-config proof reports it rather than
+silently passing; `app.legacyFlag=1` is malformed, so its proof refuses to guess. *(4 pass + 3 fail.)*
 
 ## `custommodels` (Java) & `custommodelskt` (Kotlin) — un-analyzable dependencies
 
