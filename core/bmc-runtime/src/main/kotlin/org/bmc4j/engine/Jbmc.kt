@@ -91,8 +91,6 @@ class Jbmc(private val executable: String) {
         }
 
         /** The JBMC argument list — everything after the executable. */
-        @JvmStatic
-        @JvmName("args") // internal functions are name-mangled in bytecode; Java tests call it
         internal fun args(entryClass: String, entryFunction: String, classpath: String,
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
                           concurrent: Boolean, solver: String?): List<String> {
@@ -185,9 +183,6 @@ class Jbmc(private val executable: String) {
          * instead of failing the gate. The retry is LOUD (printed), never silent; timeouts are NOT
          * retried (the budget is the budget), and each attempt counts as a real engine launch.
          */
-        @JvmStatic
-        @JvmOverloads
-        @JvmName("exec") // internal functions are name-mangled in bytecode; Java tests call it
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0): JbmcResult {
             val first = execOnce(command, entryFunction, timeoutSeconds)
             if (!first.isEngineCrash) {

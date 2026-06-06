@@ -123,9 +123,7 @@ object StringBytecode {
             @JvmField val getters: List<Handle>)   // one accessor MethodHandle per record component
 
     /** Pure transform: redirect String ops to [BmcStrings] and desugar concat indy sites.
-     *  Package-private for tests. */
-    @JvmStatic
-    @JvmName("rewriteClass") // package-private in Java; Java tests call it
+     *  Exposed for unit tests. */
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)

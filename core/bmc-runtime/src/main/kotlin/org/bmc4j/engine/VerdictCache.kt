@@ -293,8 +293,6 @@ object VerdictCache {
      * `.class` files are unchanged, so [classpathContentDigest] alone can't catch it).
      * Fail-open: any error scanning yields the empty string (a miss-toward-re-run, never a wrong hit).
      */
-    @JvmStatic
-    @JvmName("resolvedConfig") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun resolvedConfig(classpath: String?, userModels: String?): String {
         return try {
             val cp = classpath ?: ""
@@ -426,8 +424,6 @@ object VerdictCache {
      * ignores zip timestamps, so a non-reproducible rebuild of the same classes doesn't spuriously
      * invalidate. Coarse but correct: any content change on the classpath invalidates.
      */
-    @JvmStatic
-    @JvmName("classpathContentDigest") // internal functions are name-mangled; Java tests call it
     internal fun classpathContentDigest(classpath: String?): String {
         val md = sha256()
         if (classpath.isNullOrBlank()) {
@@ -479,8 +475,6 @@ object VerdictCache {
      * every build — does NOT spuriously invalidate the cache. The model jars' actual class content is
      * what affects a verdict, and that's exactly what this hashes.
      */
-    @JvmStatic
-    @JvmName("jarContentDigest") // internal functions are name-mangled; Java tests call it
     internal fun jarContentDigest(jar: Path): String {
         val md = sha256()
         val entries = TreeMap<String, ByteArray>()
@@ -507,8 +501,6 @@ object VerdictCache {
     }
 
     /** SHA-256 of a file's bytes, hex-encoded. */
-    @JvmStatic
-    @JvmName("fileDigest") // internal functions are name-mangled; Java tests call it
     internal fun fileDigest(file: Path): String {
         try {
             val md = sha256()

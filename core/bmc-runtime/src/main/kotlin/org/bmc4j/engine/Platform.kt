@@ -35,8 +35,6 @@ enum class Platform(
          *
          * @throws UnsupportedOperationException if the OS/arch has no bundled engine
          */
-        @JvmStatic
-        @JvmName("of") // internal functions are name-mangled in bytecode; the Java tests call of(..)
         internal fun of(osName: String, osArch: String): Platform {
             val os = osName.lowercase()
             val arch = osArch.lowercase()

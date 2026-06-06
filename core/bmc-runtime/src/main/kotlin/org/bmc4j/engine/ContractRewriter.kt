@@ -45,7 +45,6 @@ object ContractRewriter {
             @JvmField internal val stubOwner: String,
             @JvmField internal val stubName: String) {
 
-        @JvmName("matches") // internal functions are name-mangled in bytecode; Java tests call it
         internal fun matches(o: String?, n: String?, d: String?): Boolean =
                 owner == o && name == n && (descriptor == null || descriptor == d)
 
@@ -89,8 +88,6 @@ object ContractRewriter {
     }
 
     /** Pure transform: redirect matching `invokestatic` call sites. Exposed for tests. */
-    @JvmStatic
-    @JvmName("rewriteClass") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun rewriteClass(bytes: ByteArray, redirects: List<Redirect>): ByteArray =
             rewriteClass(bytes, redirects, null)
 
@@ -99,8 +96,6 @@ object ContractRewriter {
      * being rewritten is [excludeCaller] (its call sites pass through unchanged).
      * Exposed for tests.
      */
-    @JvmStatic
-    @JvmName("rewriteClass") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun rewriteClass(bytes: ByteArray, redirects: List<Redirect>,
                               excludeCaller: String?): ByteArray {
         val cr = ClassReader(bytes)

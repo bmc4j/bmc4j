@@ -78,8 +78,6 @@ object MathBytecode {
 
     /** Pure transform: redirect the unmodeled `Math.*` static call sites to [BmcMath].
      *  Exposed for unit tests. */
-    @JvmStatic
-    @JvmName("rewriteClass") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)

@@ -96,9 +96,7 @@ object SwitchBytecode {
             @JvmField val constantName: String      // e.g. "RED"
     ) : LabelMatch()
 
-    /** Pure transform: desugar `SwitchBootstraps.typeSwitch` sites. Package-private for tests. */
-    @JvmStatic
-    @JvmName("rewriteClass") // package-private in Java; Java tests call it
+    /** Pure transform: desugar `SwitchBootstraps.typeSwitch` sites. Exposed for unit tests. */
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)

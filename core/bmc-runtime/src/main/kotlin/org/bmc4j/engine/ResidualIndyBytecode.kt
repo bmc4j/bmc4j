@@ -65,8 +65,6 @@ object ResidualIndyBytecode {
             })
 
     /** Exposed for unit tests: replace every remaining indy in one class with a marker call. */
-    @JvmStatic
-    @JvmName("rewriteClass") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)
@@ -95,8 +93,6 @@ object ResidualIndyBytecode {
      * (e.g. `enumSwitch`, `toString`), the bootstrap owner says whose machinery it was
      * (e.g. `SwitchBootstraps`, `ObjectMethods`).
      */
-    @JvmStatic
-    @JvmName("markerMethodName") // internal functions are name-mangled in bytecode; Java tests call it
     internal fun markerMethodName(indyName: String, bsm: Handle?): String {
         val owner = bsm?.owner ?: "unknown"
         val simple = owner.substringAfterLast('/')

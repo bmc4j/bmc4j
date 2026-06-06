@@ -90,8 +90,6 @@ object ContractStubGenerator {
 
     /** The CProver nondet call producing an arbitrary value of [type]. Shared with
      *  [ContractEnforceProofGenerator], which builds nondet enforce-proof args. */
-    @JvmStatic
-    @JvmName("nondetExpr") // internal functions are name-mangled in bytecode; Java callers/tests
     internal fun nondetExpr(type: String): String = when (type) {
         "int" -> "org.cprover.CProver.nondetInt()"
         "long" -> "org.cprover.CProver.nondetLong()"

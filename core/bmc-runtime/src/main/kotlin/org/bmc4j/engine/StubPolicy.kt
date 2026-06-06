@@ -57,8 +57,6 @@ class StubPolicy private constructor(
          * in `.*` / `*` to match a package or class prefix. `"a.b.C.*"` matches every method
          * of `a.b.C`; `"a.b.*"` matches everything under `a.b`; `"a.b.C.m"` is exact.
          */
-        @JvmStatic
-        @JvmName("matchesAny") // internal functions are name-mangled in bytecode; Java tests call it
         internal fun matchesAny(fqn: String, patterns: List<String?>?): Boolean {
             if (patterns == null) {
                 return false

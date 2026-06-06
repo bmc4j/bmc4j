@@ -1,0 +1,552 @@
+package org.bmc4j.junit
+
+import org.bmc4j.BmcProof
+import org.bmc4j.engine.BmcUndecidedError
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Test
+import java.lang.reflect.Method
+
+/**
+ * Unit tests for [BmcProofExtension]'s configuration parsing: the effective solver /
+ * maxStringLength / timeoutSeconds resolution (per-proof override then build default), and that a
+ * malformed int-valued `bmc.*` property fails loudly (throws, naming the property + bad value)
+ * instead of silently using the default.
+ *
+ * The sample fixtures below are plain static nested classes (NOT `@Nested`), so JUnit does
+ * not discover or run their `@BmcProof` methods — they exist only as reflection targets.
+ */
+internal class BmcProofExtensionTest {
+
+    // --- Fixtures: reflection-only targets, never executed by JUnit -----------
+
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class MixedSolverProofs {
+        @BmcProof
+        fun usesDefaultSolver() {}
+
+        @BmcProof(solver = "z3")
+        fun usesZ3() {}
+
+        @BmcProof
+        fun alsoDefaultSolver() {}
+    }
+
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class TunedProof {
+        @BmcProof(unwind = 8)
+        fun unwind8() {}
+    }
+
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class StubAckProofs {
+        @BmcProof(allowStubs = ["java.util.Formatter.*", " java.util.Locale.getDefault "])
+        fun acked() {}
+
+        @BmcProof
+        fun unacked() {}
+    }
+
+    // --- Nondet-stub policy ---------------------------------------
+
+    @Test
+    fun effectiveAllowStubs_mergesAnnotationAndBuildProp_trimmed() {
+        val prev = System.getProperty("bmc.allowStubs")
+        System.setProperty("bmc.allowStubs", "java.time.*, com.x.Y.z")
+        try {
+            val allow = BmcProofExtension.effectiveAllowStubs(
+                    annotationOn(StubAckProofs::class.java, "acked"))
+            assertTrue(allow.contains("java.util.Formatter.*"), allow.toString())
+            assertTrue(allow.contains("java.util.Locale.getDefault"), "whitespace trimmed: $allow")
+            assertTrue(allow.contains("java.time.*") && allow.contains("com.x.Y.z"),
+                    "build-wide -Dbmc.allowStubs entries are merged: $allow")
+        } finally {
+            restore("bmc.allowStubs", prev)
+        }
+    }
+
+    @Test
+    fun applyStubPolicy_lenient_isGreen_evenWithUnacknowledgedStub() {
+        val prevStrict = System.getProperty("bmc.strictStubs")
+        System.clearProperty("bmc.strictStubs")
+        try {
+            // Lenient (default): an unacknowledged stub prints a footnote but does NOT throw.
+            assertDoesNotThrow {
+                BmcProofExtension.applyStubPolicy(
+                        "pkg.T.unacked", annotationOn(StubAckProofs::class.java, "unacked"),
+                        listOf("java.util.Formatter.format"))
+            }
+        } finally {
+            restore("bmc.strictStubs", prevStrict)
+        }
+    }
+
+    @Test
+    fun applyStubPolicy_strict_throwsUnknownForUnacknowledged_butNotForAcknowledged() {
+        val prevStrict = System.getProperty("bmc.strictStubs")
+        System.setProperty("bmc.strictStubs", "true")
+        try {
+            val err = assertThrows(BmcUndecidedError::class.java) {
+                BmcProofExtension.applyStubPolicy("pkg.T.unacked",
+                        annotationOn(StubAckProofs::class.java, "unacked"),
+                        listOf("java.util.Formatter.format"))
+            }
+            assertTrue(err.message!!.contains("(UNKNOWN)"), err.message)
+            assertTrue(err.message!!.contains("java.util.Formatter.format"), err.message)
+
+            // Acknowledged (allowStubs covers it) -> no throw even in strict mode.
+            assertDoesNotThrow {
+                BmcProofExtension.applyStubPolicy("pkg.T.acked",
+                        annotationOn(StubAckProofs::class.java, "acked"),
+                        listOf("java.util.Formatter.format"))
+            }
+        } finally {
+            restore("bmc.strictStubs", prevStrict)
+        }
+    }
+
+    @Test
+    fun applyStubPolicy_noStubs_isNoOp() {
+        assertDoesNotThrow { BmcProofExtension.applyStubPolicy("pkg.T.p", null, listOf()) }
+        assertFalse(java.lang.Boolean.parseBoolean(System.getProperty("bmc.strictStubs", "false")))
+    }
+
+    // --- User-model trust policy ----------------------------------------
+
+    @Test
+    fun applyModelPolicy_domainModel_footnotesRationaleOnGreenProof(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "acme.NoCollisionMap")
+        val models = org.bmc4j.engine.ModelManifest.serialize(listOf(
+                org.bmc4j.engine.UserModel.domain("acme.NoCollisionMap", "no key collisions")))
+        val out = captureModelPolicy("pkg.T.p", models, dir.toString(), false)
+        assertTrue(out.contains("acme.NoCollisionMap"), out)
+        assertTrue(out.contains("no key collisions"),
+                "a green proof resting on a domain model must footnote its rationale: $out")
+        assertTrue(out.contains("domain model"), out)
+    }
+
+    @Test
+    fun applyModelPolicy_undeclaredModel_isGreenFootnoteInLenient_butUnknownInStrict(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "acme.Sneaky")
+        // Lenient: no declaration -> loud footnote, but green (does not throw).
+        val lenient = captureModelPolicy("pkg.T.p", "", dir.toString(), false)
+        assertTrue(lenient.contains("UNDECLARED model acme.Sneaky"), lenient)
+
+        // Strict: an undeclared present model -> UNKNOWN.
+        val err = assertThrows(BmcUndecidedError::class.java) {
+            captureModelPolicy("pkg.T.p", "", dir.toString(), true)
+        }
+        assertTrue(err.message!!.contains("(UNKNOWN)"), err.message)
+        assertTrue(err.message!!.contains("acme.Sneaky"), err.message)
+        assertFalse(err.message!!.contains("refuted "),
+                "an undeclared override is UNKNOWN, never a refutation: " + err.message)
+    }
+
+    @Test
+    fun applyModelPolicy_declaredModel_staysGreenEvenInStrict(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "acme.FastList")
+        val models = org.bmc4j.engine.ModelManifest.serialize(listOf(
+                org.bmc4j.engine.UserModel.conformant("acme.FastList")))
+        // Declared -> no throw even in strict mode (it's the UNDECLARED ones strictModels punishes).
+        assertDoesNotThrow { captureModelPolicy("pkg.T.p", models, dir.toString(), true) }
+    }
+
+    @Test
+    fun applyModelPolicy_overrideOfBundledModel_warnsLoudly(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "java.util.HashMap")
+        val models = org.bmc4j.engine.ModelManifest.serialize(listOf(
+                org.bmc4j.engine.UserModel.domain("java.util.HashMap", "bounded to 32 entries")))
+        val out = captureModelPolicy("pkg.T.p", models, dir.toString(), false)
+        assertTrue(out.contains("WARNING"), "shadowing a bundled model must warn: $out")
+        assertTrue(out.contains("java.util.HashMap"), out)
+    }
+
+    @Test
+    fun applyModelPolicy_noUserModels_isNoOp() {
+        assertDoesNotThrow { captureModelPolicy("pkg.T.p", "", "", false) }
+    }
+
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class MixedStringLengthProofs {
+        @BmcProof
+        fun usesDefaultLength() {}
+
+        @BmcProof(maxStringLength = 4)
+        fun usesLength4() {}
+
+        @BmcProof
+        fun alsoDefaultLength() {}
+    }
+
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class MixedTimeoutProofs {
+        @BmcProof
+        fun usesDefaultTimeout() {}
+
+        @BmcProof(timeoutSeconds = 5)
+        fun usesTimeout5() {}
+
+        @BmcProof
+        fun alsoDefaultTimeout() {}
+    }
+
+    @Test
+    fun resolveMaxStringLength_prefersPerProofOverride_thenDefaults() {
+        assertEquals(4, BmcProofExtension.resolveMaxStringLength(
+                annotationOn(MixedStringLengthProofs::class.java, "usesLength4")))
+        assertEquals(16, BmcProofExtension.resolveMaxStringLength(
+                annotationOn(MixedStringLengthProofs::class.java, "usesDefaultLength")),
+                "maxStringLength=0 falls back to the build default (16)")
+    }
+
+    @Test
+    fun resolveTimeoutSeconds_prefersPerProofOverride_thenDefaults() {
+        assertEquals(5, BmcProofExtension.resolveTimeoutSeconds(
+                annotationOn(MixedTimeoutProofs::class.java, "usesTimeout5")))
+        assertEquals(0, BmcProofExtension.resolveTimeoutSeconds(
+                annotationOn(MixedTimeoutProofs::class.java, "usesDefaultTimeout")),
+                "timeoutSeconds=0 falls back to the build default (0 = no timeout when unset)")
+    }
+
+    @Test
+    fun resolveTimeoutSeconds_honorsBuildDefaultProp_whenNoPerProofOverride() {
+        val prev = System.getProperty("bmc.timeoutSeconds")
+        System.setProperty("bmc.timeoutSeconds", "30")
+        try {
+            assertEquals(30, BmcProofExtension.resolveTimeoutSeconds(
+                    annotationOn(MixedTimeoutProofs::class.java, "usesDefaultTimeout")),
+                    "-Dbmc.timeoutSeconds must apply when the proof has no override")
+            assertEquals(5, BmcProofExtension.resolveTimeoutSeconds(
+                    annotationOn(MixedTimeoutProofs::class.java, "usesTimeout5")),
+                    "per-proof @BmcProof(timeoutSeconds=5) overrides the build default")
+        } finally {
+            restore("bmc.timeoutSeconds", prev)
+        }
+    }
+
+    @Test
+    fun effectiveSolver_prefersPerProofOverride_thenDefaults() {
+        assertEquals("z3", BmcProofExtension.effectiveSolver(annotationOn(MixedSolverProofs::class.java, "usesZ3")))
+        assertEquals("", BmcProofExtension.effectiveSolver(annotationOn(MixedSolverProofs::class.java, "usesDefaultSolver")))
+    }
+
+    // --- malformed bmc.* int properties fail loudly --------------------
+
+    @Test
+    fun unwind_malformedValue_throwsNamingPropAndValue() {
+        val prev = System.getProperty("bmc.unwind")
+        System.setProperty("bmc.unwind", "1o")
+        try {
+            val cfg = annotationOn(MixedSolverProofs::class.java, "usesDefaultSolver") // unwind=0 -> reads prop
+            val ex = assertThrows(IllegalArgumentException::class.java) { BmcProofExtension.resolveUnwind(cfg) }
+            assertTrue(ex.message!!.contains("bmc.unwind"), "message must name the property: " + ex.message)
+            assertTrue(ex.message!!.contains("1o"), "message must name the bad value: " + ex.message)
+        } finally {
+            restore("bmc.unwind", prev)
+        }
+    }
+
+    @Test
+    fun maxStringLength_malformedValue_throwsNamingPropAndValue() {
+        val prev = System.getProperty("bmc.maxStringLength")
+        System.setProperty("bmc.maxStringLength", "abc")
+        try {
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                BmcProofExtension.requestFor("C", "C.m", null)
+            }
+            assertTrue(ex.message!!.contains("bmc.maxStringLength"),
+                    "message must name the property: " + ex.message)
+            assertTrue(ex.message!!.contains("abc"),
+                    "message must name the bad value: " + ex.message)
+        } finally {
+            restore("bmc.maxStringLength", prev)
+        }
+    }
+
+    @Test
+    fun unwind_validPropValue_isHonored() {
+        val prev = System.getProperty("bmc.unwind")
+        System.setProperty("bmc.unwind", "8")
+        try {
+            val cfg = annotationOn(MixedSolverProofs::class.java, "usesDefaultSolver") // unwind=0 -> reads prop
+            assertEquals(8, BmcProofExtension.resolveUnwind(cfg), "valid -Dbmc.unwind=8 must be honored")
+        } finally {
+            restore("bmc.unwind", prev)
+        }
+    }
+
+    @Test
+    fun unwind_perProofAnnotationWins_overProp() {
+        val prev = System.getProperty("bmc.unwind")
+        System.setProperty("bmc.unwind", "16")
+        try {
+            val cfg = annotationOn(TunedProof::class.java, "unwind8") // explicit unwind=8
+            assertEquals(8, BmcProofExtension.resolveUnwind(cfg))
+        } finally {
+            restore("bmc.unwind", prev)
+        }
+    }
+
+    // --- engine-infrastructure failure classifies as UNKNOWN, not REFUTED -----------------
+
+    @Test
+    fun engineInfraFailure_classifiesAsUndecidedUnknown_notRefuted() {
+        // The exact engine-infrastructure failure shape: BundledEngine.extract() / process start throws a
+        // non-verdict IllegalStateException out of the engine-run path. That MUST become UNKNOWN
+        // (BmcUndecidedError) — there is no counterexample, the engine simply couldn't run.
+        val cause = IllegalStateException(
+                "Could not start JBMC process: jbmc --function P.p")
+        val err = BmcProofExtension.engineInfraUndecided("jbmc", "pkg.P.p", cause)
+
+        // BmcUndecidedError IS-A BmcVerificationError, but the (UNKNOWN) tag is what the runner line
+        // keys on to print UNKNOWN instead of REFUTED (BmcPlugin.isUndecided).
+        assertTrue(err is org.bmc4j.engine.BmcUndecidedError)
+        assertTrue(err.message!!.contains("(UNKNOWN)"),
+                "message must carry the (UNKNOWN) verdict tag so the runner prints UNKNOWN: " + err.message)
+        assertTrue(err.message!!.contains("NOT a refutation"),
+                "must frame it as not-a-refutation: " + err.message)
+        assertTrue(err.message!!.contains("pkg.P.p"), err.message)
+        assertEquals(cause, err.cause, "the original infrastructure cause is preserved for diagnosis")
+        // Crucially it does NOT read as a refutation.
+        assertFalse(err.message!!.contains("refuted "), err.message)
+    }
+
+    @Test
+    fun parsedFailureProperty_staysRefuted_notUndecided() {
+        // The other side of the classification split: a real parsed JBMC counterexample (a FAILURE property) comes
+        // back as a refuted JbmcResult and must stay REFUTED — a BmcVerificationError that is NOT the
+        // UNKNOWN subtype and does NOT carry the (UNKNOWN) tag.
+        val v = org.bmc4j.engine.JbmcResult.Violation(
+                "assertion failed: x > 0", null, 0, listOf(), listOf())
+        val refuted = org.bmc4j.engine.JbmcResult(false, listOf(v), "{}")
+        val proofMethod = MixedSolverProofs::class.java.getDeclaredMethod("usesDefaultSolver")
+
+        val err = BmcProofExtension.toError("jbmc", "pkg.P.p", refuted, proofMethod)
+
+        assertFalse(err is org.bmc4j.engine.BmcUndecidedError,
+                "a real counterexample is REFUTED, never the UNKNOWN subtype")
+        assertFalse(err.message!!.contains("(UNKNOWN)"),
+                "a refutation must not carry the UNKNOWN tag: " + err.message)
+        assertTrue(err.message!!.lowercase().contains("refuted"),
+                "a real counterexample reads as refuted: " + err.message)
+    }
+
+    // --- expected-verdict assertions (expect = REFUTED/UNKNOWN/VACUOUS) -----------------------
+
+    @Test
+    fun actualVerdict_mapsAllFourOutcomes() {
+        assertEquals(org.bmc4j.Verdict.VERIFIED, BmcProofExtension.actualVerdict(
+                org.bmc4j.engine.JbmcResult(true, listOf(), "{}")))
+        assertEquals(org.bmc4j.Verdict.REFUTED, BmcProofExtension.actualVerdict(refutedResult()))
+        assertEquals(org.bmc4j.Verdict.UNKNOWN, BmcProofExtension.actualVerdict(
+                org.bmc4j.engine.JbmcResult.unknown("timed out after 1s", "{}")))
+        // Vacuity is carried as a flavour of REFUTED internally but is its own expectation.
+        val vacuous = org.bmc4j.engine.JbmcResult(false, listOf(), "{}", true)
+        assertEquals(org.bmc4j.Verdict.VACUOUS, BmcProofExtension.actualVerdict(vacuous))
+    }
+
+    @Test
+    fun expectedVerdictMatch_swallowsTheFramedError() {
+        val framed = org.bmc4j.engine.BmcVerificationError("JBMC refuted pkg.P.p")
+        assertDoesNotThrow {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.REFUTED, org.bmc4j.Verdict.REFUTED, framed)
+        }
+    }
+
+    @Test
+    fun defaultExpectation_rethrowsTheFramedErrorUnchanged() {
+        val framed = org.bmc4j.engine.BmcVerificationError("JBMC refuted pkg.P.p")
+        val thrown = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.VERIFIED, org.bmc4j.Verdict.REFUTED, framed)
+        }
+        assertEquals(framed, thrown, "expect=VERIFIED must behave exactly as before: the framed error")
+    }
+
+    @Test
+    fun verdictMismatch_namesBothVerdicts_andKeepsTheCause() {
+        val framed = org.bmc4j.engine.BmcVerificationError("JBMC refuted pkg.P.p")
+        val err = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.VACUOUS, org.bmc4j.Verdict.REFUTED, framed)
+        }
+        assertTrue(err.message!!.contains("expected VACUOUS"), err.message)
+        assertTrue(err.message!!.contains("got REFUTED"), err.message)
+        assertEquals(framed, err.cause, "the real verdict's framing is preserved as the cause")
+    }
+
+    @Test
+    fun failOnPurposeProofGoingGreen_failsLoudly() {
+        val err = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            throw BmcProofExtension.expectationMismatch(
+                    "pkg.P.p", org.bmc4j.Verdict.REFUTED, org.bmc4j.Verdict.VERIFIED, null)
+        }
+        assertTrue(err.message!!.contains("expected REFUTED"), err.message)
+        assertTrue(err.message!!.contains("got VERIFIED"), err.message)
+        assertTrue(err.message!!.contains("stopped being"),
+                "the dangerous drift (false claim no longer refutable) is called out: " + err.message)
+    }
+
+    @Test
+    fun engineInfrastructureUnknown_neverSatisfiesExpectedUnknown() {
+        // A broken engine must not masquerade as an undecidability demo.
+        val infra = BmcProofExtension.engineInfraUndecided(
+                "jbmc", "pkg.P.p", IllegalStateException("could not extract engine"))
+        assertTrue(infra.isEngineInfrastructure())
+        val err = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, infra)
+        }
+        assertTrue(err.message!!.contains("not a real UNKNOWN"), err.message)
+        assertEquals(infra, err.cause)
+    }
+
+    @Test
+    fun genuineUnknown_satisfiesExpectedUnknown() {
+        // A real undecided verdict (timeout / solver gave up) is exactly what expect=UNKNOWN declares.
+        val genuine = BmcUndecidedError("JBMC could not decide pkg.P.p (UNKNOWN)")
+        assertFalse(genuine.isEngineInfrastructure())
+        assertDoesNotThrow {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, genuine)
+        }
+    }
+
+    // --- TIMEOUT: the structured subtype of UNKNOWN -------------------------------------------
+
+    @Test
+    fun timedOutResult_mapsToTimeoutVerdict_otherUnknownsStayUnknown() {
+        assertEquals(org.bmc4j.Verdict.TIMEOUT, BmcProofExtension.actualVerdict(
+                org.bmc4j.engine.JbmcResult.unknownTimeout("timed out after 1s", "{}")))
+        assertEquals(org.bmc4j.Verdict.UNKNOWN, BmcProofExtension.actualVerdict(
+                org.bmc4j.engine.JbmcResult.unknown("engine exited 6", "{}")))
+    }
+
+    @Test
+    fun expectedTimeout_passesOnTimeout_butRejectsOtherUnknowns() {
+        val framed = BmcUndecidedError("JBMC could not decide pkg.P.p (UNKNOWN)")
+        // The budget actually fired -> expect=TIMEOUT is satisfied.
+        assertDoesNotThrow {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.TIMEOUT, org.bmc4j.Verdict.TIMEOUT, framed)
+        }
+        // A non-timeout undecided (solver crash, unparseable output) must NOT satisfy expect=TIMEOUT.
+        val err = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.TIMEOUT, org.bmc4j.Verdict.UNKNOWN, framed)
+        }
+        assertTrue(err.message!!.contains("expected TIMEOUT"), err.message)
+        assertTrue(err.message!!.contains("got UNKNOWN"), err.message)
+    }
+
+    @Test
+    fun expectedUnknown_subsumesTimeout() {
+        // UNKNOWN is the umbrella: a timeout is one way to be undecided, so expect=UNKNOWN accepts it.
+        val framed = BmcUndecidedError("JBMC could not decide pkg.P.p (UNKNOWN)")
+        assertDoesNotThrow {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.TIMEOUT, framed)
+        }
+    }
+
+    // --- Residual-invokedynamic demotion (REFUTED + havoc'd marker -> UNKNOWN) ---
+
+    @Test
+    fun residualIndyMarkers_extractsAndDedupesOnlyMarkerStubs() {
+        val refuted = org.bmc4j.engine.JbmcResult(false, listOf(
+                org.bmc4j.engine.JbmcResult.Violation("boom", "C.java", 1, listOf(), listOf())), "raw")
+                .withStubbedMethods(listOf(
+                        "java.util.Formatter.format",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.toString__ObjectMethods"))
+        assertEquals(listOf(
+                "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                "org.bmc4j.analysis.ResidualInvokedynamic.toString__ObjectMethods"),
+                BmcProofExtension.residualIndyMarkers(refuted),
+                "marker stubs only, deduped, order-stable; ordinary stubs are not markers")
+    }
+
+    @Test
+    fun residualIndyUndecided_isNonInfraUnknown_namingTheSites_andSatisfiesExpectUnknown() {
+        val err = BmcProofExtension.residualIndyUndecided("jbmc", "pkg.P.p",
+                listOf("org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps"))
+        assertTrue(err.message!!.contains("(UNKNOWN)"), err.message)
+        assertTrue(err.message!!.contains("enumSwitch__SwitchBootstraps"), err.message)
+        assertTrue(err.message!!.contains("NOT reported as a refutation"), err.message)
+        assertFalse(err.isEngineInfrastructure(),
+                "an analysis-limit UNKNOWN must satisfy expect=UNKNOWN (infra must not)")
+        // The supported pin: a proof deliberately exercising a residual site declares expect=UNKNOWN.
+        assertDoesNotThrow {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, err)
+        }
+    }
+
+    companion object {
+        /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
+        private fun writeModelClass(root: java.nio.file.Path, fqn: String) {
+            val p = root.resolve(fqn.replace('.', '/') + ".class")
+            java.nio.file.Files.createDirectories(p.parent)
+            java.nio.file.Files.write(p, byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte()))
+        }
+
+        private fun captureModelPolicy(entryFunction: String, models: String, userModelsPath: String,
+                                       strict: Boolean): String {
+            val pModels = System.getProperty("bmc.models")
+            val pUser = System.getProperty("bmc.userModels")
+            val pStrict = System.getProperty("bmc.strictModels")
+            val realOut = System.out
+            val buf = java.io.ByteArrayOutputStream()
+            try {
+                setOrClear("bmc.models", models)
+                setOrClear("bmc.userModels", userModelsPath)
+                setOrClear("bmc.strictModels", if (strict) "true" else null)
+                System.setOut(java.io.PrintStream(buf, true, java.nio.charset.StandardCharsets.UTF_8))
+                BmcProofExtension.applyModelPolicy(entryFunction)
+                return buf.toString(java.nio.charset.StandardCharsets.UTF_8)
+            } finally {
+                System.setOut(realOut)
+                restore("bmc.models", pModels)
+                restore("bmc.userModels", pUser)
+                restore("bmc.strictModels", pStrict)
+            }
+        }
+
+        private fun setOrClear(key: String, value: String?) {
+            if (value == null) {
+                System.clearProperty(key)
+            } else {
+                System.setProperty(key, value)
+            }
+        }
+
+        private fun refutedResult(): org.bmc4j.engine.JbmcResult {
+            val v = org.bmc4j.engine.JbmcResult.Violation(
+                    "assertion failed: x > 0", null, 0, listOf(), listOf())
+            return org.bmc4j.engine.JbmcResult(false, listOf(v), "{}")
+        }
+
+        private fun annotationOn(type: Class<*>, method: String): BmcProof {
+            val m = type.getDeclaredMethod(method)
+            return m.getAnnotation(BmcProof::class.java)
+        }
+
+        private fun restore(key: String, prev: String?) {
+            if (prev == null) {
+                System.clearProperty(key)
+            } else {
+                System.setProperty(key, prev)
+            }
+        }
+    }
+}
