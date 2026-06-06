@@ -30,7 +30,8 @@ consumed by the `examples/` via `includeBuild`):
   for one OS/arch. Assembled at *our* build time (fetch + SHA-256-verify + extract);
   nothing binary is committed to git.
 - **`core/bmc-gradle-plugin`** — applies `java` + JUnit 5, adds the runtime + the matching
-  engine jar, and wires the `test` task.
+  engine jar, and wires the `test` task. Written in Kotlin (metadata/stdlib pinned to a 1.9
+  floor, like `bmc-kotlin`, so it loads against any Gradle's embedded Kotlin ≥ 1.9).
 - **`core/bmc-models`** — *additive* JBMC models for JDK types (collections, `Optional`,
   `Stream`, `BigInteger`/`BigDecimal`, `java.time` as epoch primitives), placed on the
   analysis classpath so that logic is analyzable. Extends JBMC's coverage without a fork.
