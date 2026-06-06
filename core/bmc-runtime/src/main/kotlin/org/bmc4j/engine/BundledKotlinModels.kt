@@ -1,22 +1,21 @@
-package org.bmc4j.engine;
+package org.bmc4j.engine
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 /**
  * Extracts the clean Kotlin runtime models bundled (as resources under
- * {@code bmc-kotlin-models/}) in this jar to a local directory, so JBMC can be
+ * `bmc-kotlin-models/`) in this jar to a local directory, so JBMC can be
  * pointed at them. They are resources — never on a runtime classpath — so they don't
  * shadow the real Kotlin classes when tests execute; only JBMC's analysis classpath
- * gets them (prepended), where they replace kotlin-stdlib's {@code Intrinsics}.
+ * gets them (prepended), where they replace kotlin-stdlib's `Intrinsics`.
  */
-public final class BundledKotlinModels {
+object BundledKotlinModels {
 
-    private static final String ROOT = "bmc-kotlin-models";
-    private static final String[] FILES = {
+    private const val ROOT = "bmc-kotlin-models"
+    private val FILES = arrayOf(
             "kotlin/jvm/internal/Intrinsics.class",
             // List/Set/Map factories (listOf/mutableListOf/setOf/mapOf/…) — route through stdlib
             // facades JBMC stubs; these return bmc4j's bounded collection models directly.
@@ -41,7 +40,7 @@ public final class BundledKotlinModels {
             "kotlin/coroutines/intrinsics/CoroutineSingletons.class",
             "kotlin/coroutines/intrinsics/IntrinsicsKt.class",
             "kotlin/Result.class",
-            "kotlin/Result$Failure.class",
+            "kotlin/Result\$Failure.class",
             "kotlin/ResultKt.class",
             "kotlin/coroutines/jvm/internal/Boxing.class",
             "kotlin/coroutines/jvm/internal/BaseContinuationImpl.class",
@@ -49,8 +48,8 @@ public final class BundledKotlinModels {
             "kotlin/coroutines/jvm/internal/SuspendLambda.class",
             // Idiomatic runBlocking { } support.
             "kotlinx/coroutines/BuildersKt.class",
-            "kotlinx/coroutines/BuildersKt$ImmediateScope.class",
-            "kotlinx/coroutines/BuildersKt$Completion.class",
+            "kotlinx/coroutines/BuildersKt\$ImmediateScope.class",
+            "kotlinx/coroutines/BuildersKt\$Completion.class",
             // Other scope builders, modeled as immediate synchronous drive so the
             // real dispatcher/JobSupport machinery (which trips JBMC's
             // create_parameter_names invariant) is never loaded.
@@ -66,31 +65,29 @@ public final class BundledKotlinModels {
             "kotlinx/coroutines/CompletedJob.class",
             "kotlinx/coroutines/CoroutineStart.class",
             "kotlinx/coroutines/Drive.class",
-            "kotlinx/coroutines/Drive$ImmediateScope.class",
-            "kotlinx/coroutines/Drive$Completion.class",
-    };
-
-    private BundledKotlinModels() {
-    }
+            "kotlinx/coroutines/Drive\$ImmediateScope.class",
+            "kotlinx/coroutines/Drive\$Completion.class")
 
     /** Extract the models and return the classpath root dir, or null if none bundled. */
-    public static String extractRoot() {
-        Path dir = Path.of(System.getProperty("user.home"), ".cache", "bmc4j", "kotlin-models");
-        boolean any = false;
-        for (String rel : FILES) {
-            try (InputStream in = BundledKotlinModels.class.getClassLoader()
-                    .getResourceAsStream(ROOT + "/" + rel)) {
-                if (in == null) {
-                    continue;
-                }
-                Path target = dir.resolve(rel);
-                Files.createDirectories(target.getParent());
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-                any = true;
-            } catch (IOException e) {
+    @JvmStatic
+    fun extractRoot(): String? {
+        val dir = Path.of(System.getProperty("user.home"), ".cache", "bmc4j", "kotlin-models")
+        var any = false
+        for (rel in FILES) {
+            try {
+                BundledKotlinModels::class.java.classLoader
+                        .getResourceAsStream("$ROOT/$rel").use { input ->
+                            if (input != null) {
+                                val target = dir.resolve(rel)
+                                Files.createDirectories(target.parent)
+                                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                                any = true
+                            }
+                        }
+            } catch (e: IOException) {
                 // Best effort: if a model can't be extracted, JBMC falls back to the real class.
             }
         }
-        return any ? dir.toString() : null;
+        return if (any) dir.toString() else null
     }
 }

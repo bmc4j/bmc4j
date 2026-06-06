@@ -1,0 +1,216 @@
+package org.bmc4j.engine
+
+import java.io.BufferedReader
+import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+
+/**
+ * Locates the JBMC binary that is *bundled* on the test runtime classpath
+ * (shipped inside a `bmc-engine-<platform>` jar) and extracts it to a local
+ * cache so it can be executed. There is no network access: the engine arrived as
+ * an ordinary, integrity-verified Gradle dependency.
+ *
+ * Layout inside the engine jar, for platform `<p>`:
+ * ```
+ *   jbmc/<p>/files.txt      newline list of files to extract
+ *   jbmc/<p>/version.txt    engine version (used as a cache key)
+ *   jbmc/<p>/bin/jbmc[.exe]
+ *   jbmc/<p>/lib/core-models.jar
+ * ```
+ */
+object BundledEngine {
+
+    /**
+     * The bundled engine's version string (e.g. `"cbmc-6.9.0"`), or `null` if no engine
+     * is bundled on the classpath. Used as part of the verdict-cache key: a new engine
+     * version can change a verdict, so its identity must bust the cache.
+     */
+    @JvmStatic
+    fun version(): String? {
+        val platform = Platform.current()
+        return readResourceAsString("jbmc/" + platform.id + "/version.txt")
+    }
+
+    /** Serializes first-use extraction across this JVM's proof worker threads. */
+    private val EXTRACT_LOCK = Any()
+
+    /**
+     * Extract (once) and return the path to the bundled jbmc executable.
+     *
+     * Concurrency-safe: proofs verify in parallel, so first use races N workers here
+     * (observed on CI as a `FileAlreadyExistsException` mid-`Files.copy`).
+     * In-JVM racers are serialized by a lock; cross-process racers (parallel Gradle test
+     * JVMs sharing the user-level cache) are handled by extracting into a unique temp
+     * dir and atomically renaming it into place — the cache dir is only ever observed
+     * complete, and the losing extractor just uses the winner's copy.
+     */
+    @JvmStatic
+    fun extract(): String {
+        val platform = Platform.current()
+        // The bundled Linux engine is a glibc build (from CBMC's `.deb`); on a musl C library
+        // (Alpine) it can't exec and the dynamic linker emits a confusing "not found" error. The
+        // name/arch mapper in Platform.of can't see the C library, so detect musl here — at the
+        // actual selection/extraction site — and fail fast with an actionable message instead.
+        if (!platform.isWindows && !platform.isMac && isMuslLibc()) {
+            throw UnsupportedOperationException(
+                    "bmc4j's bundled Linux engine is glibc-only and cannot run on a musl/Alpine " +
+                            "system (detected " + muslEvidence() + "). Supported Linux: glibc x64/arm64. " +
+                            "Set -Dbmc.jbmc=<path to a musl-compatible jbmc> to use a local binary.")
+        }
+        val root = "jbmc/" + platform.id
+        val files = readManifest("$root/files.txt", platform)
+        val version = readResourceAsString("$root/version.txt")
+
+        val cacheDir = baseCacheDir().resolve(platform.id + if (version != null) "-$version" else "")
+        val exeRel = "bin/jbmc" + if (platform.isWindows) ".exe" else ""
+        val exe = cacheDir.resolve(exeRel)
+        if (Files.isRegularFile(exe)) {
+            return exe.toString()
+        }
+
+        synchronized(EXTRACT_LOCK) {
+            if (Files.isRegularFile(exe)) {
+                return exe.toString() // an in-JVM racer extracted while we waited
+            }
+            try {
+                val tmp = Files.createTempDirectory(
+                        Files.createDirectories(cacheDir.parent),
+                        cacheDir.fileName.toString() + ".tmp-")
+                for (rel in files) {
+                    val target = tmp.resolve(rel)
+                    Files.createDirectories(target.parent)
+                    resource("$root/$rel").use { input ->
+                        if (input == null) {
+                            throw IllegalStateException("Bundled engine is missing $rel")
+                        }
+                        Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+                val tmpExe = tmp.resolve(exeRel)
+                tmpExe.toFile().setExecutable(true)
+                if (platform.isMac) {
+                    // Clear Gatekeeper quarantine and ad-hoc sign so a relocated binary runs.
+                    bestEffort("xattr", "-dr", "com.apple.quarantine", tmp.toString())
+                    bestEffort("codesign", "--force", "--sign", "-", tmpExe.toString())
+                }
+                try {
+                    Files.move(tmp, cacheDir, StandardCopyOption.ATOMIC_MOVE)
+                } catch (raced: IOException) {
+                    if (Files.isRegularFile(exe)) {
+                        // A concurrent process won and its copy is complete — use it.
+                        deleteRecursively(tmp)
+                    } else {
+                        // cacheDir exists but has no executable: a stale partial from a
+                        // pre-fix crash. Replace it with our complete copy.
+                        deleteRecursively(cacheDir)
+                        Files.move(tmp, cacheDir, StandardCopyOption.ATOMIC_MOVE)
+                    }
+                }
+                return exe.toString()
+            } catch (e: IOException) {
+                throw IllegalStateException("Failed to extract bundled JBMC engine to $cacheDir", e)
+            }
+        }
+    }
+
+    /**
+     * True if this host uses the musl C library (Alpine) rather than glibc. Checked only on
+     * Linux. Reads the real filesystem root; the root-injecting overload is the testable core.
+     */
+    @JvmStatic
+    @JvmName("isMuslLibc") // internal functions are name-mangled in bytecode; Java tests call it
+    internal fun isMuslLibc(): Boolean = isMuslLibc(Path.of("/"))
+
+    /**
+     * True if [root] looks like a musl/Alpine system. Two independent, reliable signals:
+     * the Alpine release marker, or a musl dynamic loader under `/lib`. Either is sufficient;
+     * a glibc system has neither. Root-injecting so tests can stage the markers.
+     */
+    @JvmStatic
+    @JvmName("isMuslLibc") // unmangled: the Java test calls this overload directly
+    internal fun isMuslLibc(root: Path): Boolean {
+        if (Files.exists(root.resolve("etc/alpine-release"))) {
+            return true
+        }
+        return hasMuslLoader(root.resolve("lib")) || hasMuslLoader(root.resolve("usr/lib"))
+    }
+
+    /** True if [dir] contains a musl dynamic loader (`ld-musl-<arch>.so.1`). */
+    private fun hasMuslLoader(dir: Path): Boolean {
+        if (!Files.isDirectory(dir)) {
+            return false
+        }
+        return try {
+            Files.newDirectoryStream(dir, "ld-musl-*").use { it.iterator().hasNext() }
+        } catch (e: IOException) {
+            false
+        }
+    }
+
+    /** Short description of which musl signal fired, for the failure message. */
+    private fun muslEvidence(): String =
+            if (Files.exists(Path.of("/etc/alpine-release"))) "/etc/alpine-release" else "a musl ld loader"
+
+    /** Best-effort recursive delete (cleanup of temp/partial extraction dirs). */
+    private fun deleteRecursively(dir: Path) {
+        try {
+            Files.walk(dir).use { walk ->
+                walk.sorted(Comparator.reverseOrder()).forEach { it.toFile().delete() }
+            }
+        } catch (ignored: IOException) {
+            // Non-fatal: a leftover temp dir is harmless.
+        }
+    }
+
+    private fun readManifest(resourcePath: String, platform: Platform): List<String> {
+        try {
+            resource(resourcePath).use { input ->
+                if (input == null) {
+                    throw IllegalStateException(
+                            "No bundled JBMC engine for platform '" + platform.id +
+                                    "' on the test classpath.\n" +
+                                    "Add the matching engine dependency (the 'org.bmc4j' plugin does this " +
+                                    "automatically), or set -Dbmc.jbmc=<path to a local jbmc>.")
+                }
+                val reader = BufferedReader(InputStreamReader(input, StandardCharsets.UTF_8))
+                return reader.readLines().map { it.trim() }.filter { it.isNotEmpty() }
+            }
+        } catch (e: IOException) {
+            throw IllegalStateException("Could not read engine manifest $resourcePath", e)
+        }
+    }
+
+    private fun readResourceAsString(resourcePath: String): String? {
+        return try {
+            resource(resourcePath).use { input ->
+                input?.readAllBytes()?.toString(StandardCharsets.UTF_8)?.trim()
+            }
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    private fun resource(path: String): InputStream? =
+            BundledEngine::class.java.classLoader.getResourceAsStream(path)
+
+    private fun baseCacheDir(): Path =
+            Path.of(System.getProperty("user.home"), ".cache", "bmc4j", "engine")
+
+    private fun bestEffort(vararg cmd: String) {
+        try {
+            val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            p.inputStream.readAllBytes()
+            p.waitFor()
+        } catch (e: IOException) {
+            // Non-fatal: if signing/xattr is unavailable the binary may still run.
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            // Non-fatal: if signing/xattr is unavailable the binary may still run.
+        }
+    }
+}

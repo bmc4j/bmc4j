@@ -23,7 +23,7 @@ import java.util.Set;
  * {@link BmcMath} method with the <em>identical</em> descriptor, so the rewrite is a one-instruction
  * owner swap ({@code java/lang/Math} → {@code org/bmc4j/engine/BmcMath}) with the operand stack
  * unchanged. Like the other passes, both directory and jar entries are mirrored (with sites
- * rewritten) via {@link ClasspathMirror}.
+ * rewritten) via {@code ClasspathMirror}.
  */
 public final class MathBytecode {
 

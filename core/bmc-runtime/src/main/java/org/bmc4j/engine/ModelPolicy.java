@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * Turns the model <em>facts</em> ({@link ModelManifest}: the user's intent declarations + the model
  * classes actually compiled under {@code src/bmcModel}) into a <em>policy</em> decision for a green
- * proof — exactly the fact-vs-policy split {@link StubPolicy} does for nondet stubs.
+ * proof — exactly the fact-vs-policy split {@code StubPolicy} does for nondet stubs.
  *
  * <p>A user model is {@code Bmc.assume()} at classpath altitude: it can quietly change what a proof
  * means, and unlike a stub it isn't visible at the proof site at all. The trust layer therefore mirrors
