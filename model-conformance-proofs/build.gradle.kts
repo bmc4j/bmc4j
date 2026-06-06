@@ -4,16 +4,21 @@
 // real java.* types; the org.bmc4j plugin puts the models on JBMC's analysis classpath, exactly as
 // for any user proof.
 plugins {
-    kotlin("jvm") version "2.3.21"
+    kotlin("jvm") // version from the root settings pluginManagement (-PbmcKotlinVersion overrides)
     id("org.bmc4j")
 }
 
+// The CONSUMER-side compile target. Default 25; the Kotlin-version CI matrix passes
+// -PbmcKotlinJvmTarget=21 alongside -PbmcKotlinVersion, because older KGPs have no
+// JVM_25 target - and real Kotlin-2.0 consumers are on older JVMs anyway.
+val bmcKotlinJvmTarget = providers.gradleProperty("bmcKotlinJvmTarget").orNull ?: "25"
+
 java {
-    toolchain { languageVersion.set(JavaLanguageVersion.of(25)) }
+    toolchain { languageVersion.set(JavaLanguageVersion.of(bmcKotlinJvmTarget.toInt())) }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25) }
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(bmcKotlinJvmTarget)) }
 }
 
 // Some of these proofs are division-heavy and opt into Z3 via @BmcProof(solver = "z3"). Z3 just has
