@@ -1,9 +1,9 @@
 package org.bmc4j.engine
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.lang.reflect.Method
 
 /**
  * Unit tests for [ReplayRenderer] — the bulk of the feature's validation. These
@@ -132,6 +132,131 @@ internal class ReplayRendererTest {
         assertTrue(out.contains("boolean b = true;"), out)
     }
 
+    // --- Kotlin rendering mode ------------------------------------------------
+
+    private val KT = ReplayRenderer.Language.KOTLIN
+
+    @Test
+    fun kotlin_renders_int_as_val_no_semicolon() {
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("score", "integer", "100")), KT)
+        assertTrue(out!!.contains("val score = 100"), out)
+        // No Java framing leaked in.
+        assertTrue(!out.contains("int score"), out)
+        assertTrue(!out.contains(";"), out)
+    }
+
+    @Test
+    fun kotlin_renders_long_char_boolean_carry_over() {
+        val m = ReplayRendererTest::class.java.getDeclaredMethod("longProof", Long::class.javaPrimitiveType)
+        assertTrue(ReplayRenderer.render("pkg.Example.longProof", m,
+                violation(b("n", "integer", "42")), KT)!!.contains("val n = 42L"))
+        assertTrue(ReplayRenderer.render(ENTRY, null, violation(b("flag", "boolean", "true")), KT)!!
+                .contains("val flag = true"))
+    }
+
+    @Test
+    fun kotlin_double_has_no_d_suffix_and_specials_carry_over() {
+        assertTrue(ReplayRenderer.render(ENTRY, null, violation(b("x", "double", "1.5")), KT)!!
+                .contains("val x = 1.5"))
+        // Never a d/D suffix.
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("x", "double", "1.5")), KT)!!
+        assertTrue(!out.contains("1.5d") && !out.contains("1.5D"), out)
+        assertTrue(ReplayRenderer.render(ENTRY, null, violation(b("x", "double", "NaN")), KT)!!
+                .contains("val x = Double.NaN"))
+        assertTrue(ReplayRenderer.render(ENTRY, null, violation(b("x", "double", "-Inf")), KT)!!
+                .contains("val x = Double.NEGATIVE_INFINITY"))
+    }
+
+    @Test
+    fun kotlin_float_keeps_f_suffix_and_specials() {
+        val m = ReplayRendererTest::class.java.getDeclaredMethod("floatProof", Float::class.javaPrimitiveType)
+        assertTrue(ReplayRenderer.render("pkg.Example.floatProof", m,
+                violation(b("f", "float", "2.5")), KT)!!.contains("val f = 2.5f"))
+        assertTrue(ReplayRenderer.render("pkg.Example.floatProof", m,
+                violation(b("f", "float", "+Inf")), KT)!!.contains("val f = Float.POSITIVE_INFINITY"))
+    }
+
+    @Test
+    fun kotlin_short_and_byte_get_explicit_types_not_casts() {
+        val ms = ReplayRendererTest::class.java.getDeclaredMethod("shortProof", Short::class.javaPrimitiveType)
+        val outS = ReplayRenderer.render("pkg.Example.shortProof", ms,
+                violation(b("s", "integer", "3")), KT)!!
+        assertTrue(outS.contains("val s: Short = 3"), outS)
+        assertTrue(!outS.contains("(short)"), outS)
+        val mb = ReplayRendererTest::class.java.getDeclaredMethod("byteProof", Byte::class.javaPrimitiveType)
+        val outB = ReplayRenderer.render("pkg.Example.byteProof", mb,
+                violation(b("by", "integer", "7")), KT)!!
+        assertTrue(outB.contains("val by: Byte = 7"), outB)
+        assertTrue(!outB.contains("(byte)"), outB)
+    }
+
+    @Test
+    fun kotlin_string_escapes_dollar_for_template_interpolation() {
+        // $ must be escaped (\$) so Kotlin doesn't read it as a template; other escapes carry over.
+        assertTrue(ReplayRenderer.kotlinStringLiteral("a\$b") == "\"a\\\$b\"",
+                ReplayRenderer.kotlinStringLiteral("a\$b"))
+        assertTrue(ReplayRenderer.kotlinStringLiteral("\${x}") == "\"\\\${x}\"",
+                ReplayRenderer.kotlinStringLiteral("\${x}"))
+        // Java escaping does NOT escape $ (byte-identical Java path is preserved).
+        assertTrue(ReplayRenderer.javaStringLiteral("a\$b") == "\"a\$b\"",
+                ReplayRenderer.javaStringLiteral("a\$b"))
+        // Quotes / backslashes / control chars / \uXXXX still escaped in Kotlin.
+        assertTrue(ReplayRenderer.kotlinStringLiteral("a\"b") == "\"a\\\"b\"")
+        assertTrue(ReplayRenderer.kotlinStringLiteral("a\nb") == "\"a\\nb\"")
+        assertTrue(ReplayRenderer.kotlinStringLiteral("é") == "\"\\u00e9\"")
+    }
+
+    @Test
+    fun kotlin_string_binding_escapes_dollar() {
+        val out = ReplayRenderer.render(ENTRY, null,
+                violation(b("region", "string", "price=\$5")), KT)
+        assertTrue(out!!.contains("val region = \"price=\\\$5\""), out)
+    }
+
+    @Test
+    fun kotlin_char_literal_carries_over() {
+        val m = ReplayRendererTest::class.java.getDeclaredMethod("charProof", Char::class.javaPrimitiveType)
+        val out = ReplayRenderer.render("pkg.Example.charProof", m,
+                violation(b("c", "integer", "65")), KT)!!
+        assertTrue(out.contains("val c = 'A'"), out)
+    }
+
+    @Test
+    fun kotlin_enum_renders_as_constant() {
+        val m = ReplayRendererTest::class.java.getDeclaredMethod("enumProof", Suit::class.java)
+        val out = ReplayRenderer.render("pkg.Example.enumProof", m,
+                violation(b("suit", "integer", "2")), KT)!!
+        assertTrue(out.contains("val suit = Suit.HEARTS"), out)
+    }
+
+    @Test
+    fun kotlin_degraded_binding_stays_a_comment() {
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("obj", "pointer", "0x1")), KT)!!
+        assertTrue(out.contains("// obj:"), out)
+        assertTrue(out.contains("object/reference value"), out)
+        assertTrue(!out.contains("val obj"), out)
+    }
+
+    @Test
+    fun kotlin_backtick_needing_binding_name_is_quoted() {
+        // A reserved word as a binding name must be backtick-quoted to be a legal val.
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("object", "integer", "1")), KT)!!
+        assertTrue(out.contains("val `object` = 1"), out)
+    }
+
+    // --- Java path is byte-identical to before (no regression) ----------------
+
+    @Test
+    fun java_default_block_is_unchanged_byte_for_byte() {
+        val out = ReplayRenderer.render(ENTRY, null,
+                violation(b("score", "integer", "100"), b("flag", "boolean", "true")))
+        val expected = "    replay:\n" +
+                "      int score = 100;\n" +
+                "      boolean flag = true;\n" +
+                "      // then run the body of Example.proof with these value(s)"
+        assertEquals(expected, out)
+    }
+
     companion object {
         private const val ENTRY = "pkg.Example.proof"
 
@@ -150,6 +275,22 @@ internal class ReplayRendererTest {
 
         @JvmStatic
         private fun longProof(n: Long) {
+        }
+
+        @JvmStatic
+        private fun floatProof(f: Float) {
+        }
+
+        @JvmStatic
+        private fun shortProof(s: Short) {
+        }
+
+        @JvmStatic
+        private fun byteProof(by: Byte) {
+        }
+
+        @JvmStatic
+        private fun charProof(c: Char) {
         }
     }
 }

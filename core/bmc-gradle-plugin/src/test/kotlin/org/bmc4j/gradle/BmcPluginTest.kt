@@ -28,6 +28,16 @@ class BmcPluginTest {
     }
 
     @Test
+    fun exposes_a_replayLanguage_property_defaulting_to_unset_auto() {
+        val ext = applied().extensions.findByType(BmcExtensionConfig::class.java)
+        assertNotNull(ext, "bmc extension")
+        // Unset by convention — the runtime treats absent as `auto`.
+        assertTrue(!ext!!.replayLanguage.isPresent, "replayLanguage should be unset (auto) by default")
+        ext.replayLanguage.set("kotlin")
+        assertEquals("kotlin", ext.replayLanguage.get())
+    }
+
+    @Test
     fun creates_the_bmcModel_source_set() {
         val sourceSets = applied().extensions.getByType(SourceSetContainer::class.java)
         assertNotNull(sourceSets.findByName("bmcModel"), "bmcModel source set")

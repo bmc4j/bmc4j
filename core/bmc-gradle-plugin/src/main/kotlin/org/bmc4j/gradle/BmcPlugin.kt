@@ -280,6 +280,27 @@ class BmcPlugin : Plugin<Project> {
                     test.systemProperty("bmc.strictModels", "true")
                 }
 
+                // Replay language for the scratch file written on a refutation. Precedence (like the
+                // solver knob): a command-line -Dbmc.replayLanguage wins, then -Pbmc.replayLanguage
+                // (a Gradle project property), then the build's `replayLanguage`. Default `auto` is
+                // left unset (the runtime treats "absent" as auto). Validated loudly: only
+                // auto|kotlin|java are accepted.
+                val replayLanguage = System.getProperty("bmc.replayLanguage")?.takeUnless { it.isBlank() }
+                        ?: (project.findProperty("bmc.replayLanguage") as String?)?.takeUnless { it.isBlank() }
+                        ?: ext.replayLanguage.orNull
+                if (!replayLanguage.isNullOrBlank()) {
+                    val normalized = replayLanguage.trim().lowercase()
+                    if (normalized !in setOf("auto", "kotlin", "java")) {
+                        throw GradleException(
+                                "bmc { replayLanguage } / -Dbmc.replayLanguage must be one of " +
+                                        "auto|kotlin|java, was \"$replayLanguage\".")
+                    }
+                    // `auto` is the runtime default; only forward an explicit override.
+                    if (normalized != "auto") {
+                        test.systemProperty("bmc.replayLanguage", normalized)
+                    }
+                }
+
                 // SAT/SMT backend (default = built-in MiniSat). A command-line -Dbmc.solver wins over
                 // the build default (so e.g. swapping the solver also invalidates the verdict cache).
                 val cliSolver = System.getProperty("bmc.solver")
