@@ -11,12 +11,18 @@ import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
 import java.util.concurrent.ConcurrentHashMap
 
-// VERSION is GENERATED into BuildConfig.kt from the build's own project.version
-// (the generateBmcVersion task in build.gradle.kts), so the plugin always emits
-// the SAME coordinate it was itself published at - the runtime/engine/models a
-// consumer resolves are exactly this plugin build's, with no hand-bumped constant
-// to drift. A snapshot plugin (e.g. 0.1.0-ab12cd3) therefore pulls the snapshot
-// runtime + engine, not the released line.
+// The version this plugin was published at, read from its own jar manifest
+// (Implementation-Version is stamped into every jar by the central build config -
+// the same mechanism Bmc4jVersion uses). The plugin emits this as the coordinate
+// for the runtime/engine/models it wires in, so a consumer resolves exactly the
+// artifacts this plugin build was published alongside - a snapshot plugin (e.g.
+// 0.1.2-ab12cd3) pulls the snapshot runtime + engine, not the released line.
+// The dev fallback only appears under includeBuild, where dependency substitution
+// replaces every org.bmc4j coordinate with the local projects and the literal
+// version is irrelevant.
+internal val VERSION: String =
+        BmcPlugin::class.java.`package`?.implementationVersion?.takeIf { it.isNotBlank() }
+                ?: "0.0.1-local"
 private const val JUNIT_VERSION = "5.10.2"
 private const val JUNIT_PLATFORM_LAUNCHER_VERSION = "1.10.2"
 private const val GROUP = "org.bmc4j"
