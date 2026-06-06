@@ -10,7 +10,7 @@ the exact input) with one that passes — that failure *is* the result.
 | [fundamentals-java](fundamentals-java) | The core ideas in Java: array bounds, integer overflow, null-safety, `assume` domains, loop unwinding, enums |
 | [fundamentals-kotlin](fundamentals-kotlin) | The same six fundamentals in idiomatic Kotlin (incl. `!!`/`?.`/`?:` null-safety) |
 | [language-java](language-java) | Java language features: lambdas & method references (desugared from invokedynamic) |
-| [language-kotlin](language-kotlin) | Kotlin features: `when` in every form (incl. sealed `is`), value classes & `assumeValid` |
+| [language-kotlin](language-kotlin) | Kotlin features: `when` in every form (incl. sealed `is`), value classes & `assumeValid`, exception-field proofs via `checkThrows` |
 | [language-kotlin24](language-kotlin24) | What's new in Kotlin 2.4: context parameters, explicit backing fields, collection literals (needs kotlinc ≥ 2.4) |
 | [stdlib](stdlib) | Standard-library modeling: strings, collections, `BigDecimal`, `java.time` |
 | [integrations](integrations) | Real-world inputs: Jakarta validation, env/property config, custom models (Java & Kotlin) |

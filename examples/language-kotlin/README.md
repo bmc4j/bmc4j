@@ -1,6 +1,6 @@
 <!-- bmc:metadata
-proofs: 10
-proof-execution: 138s summed across the module (JBMC time, MiniSat; approximate).
+proofs: 13
+proof-execution: 150s summed across the module (JBMC time, MiniSat; approximate).
 -->
 
 # Language features (Kotlin)
@@ -58,3 +58,27 @@ the range as an `assume`. Validation-as-exceptions *is* the spec; reuse it. `ass
 **The bug it finds:** `next(p) = Port(p.number + 1)` overflows the invariant at the maximum port
 (`65535 + 1 = 65536`, rejected). `successor_never_overflows` fails at `p.number == 65535`; the
 saturating `safeNext` passes. *(3 pass + 1 fail.)*
+
+## `exceptions` — proving the error path itself
+
+`checkThrows<E> { ... }` checks a block throws and **returns the caught exception** — an
+ordinary object under BMC (its constructor ran symbolically), so its fields are provable like
+any other result:
+
+```kotlin
+class InsufficientFunds(val balance: Int, val requested: Int) : RuntimeException() {
+    val shortfall: Int = requested - balance
+}
+
+val e = checkThrows<InsufficientFunds> { withdraw(balance, amount) }
+Bmc.check(e.shortfall == amount - balance)   // the refusal REPORTS the right numbers
+```
+
+The bug class this catches — an exception that fires correctly but *lies about its diagnosis* —
+is invisible to happy-path tests. Prefer typed fields over `message` (string proofs drag in the
+string solver). The composable boolean form is `throws<E> { ... }` (see `valueclasses`'
+`init_is_enforced` for an *iff*-shaped use).
+
+**The bug it finds:** `withdraw` refuses correctly but constructs the exception with the
+arguments **swapped** — the reported shortfall is negative. `refusal_reports_true_shortfall`
+fails; the fixed `safeWithdraw` reports the numbers it actually refused on. *(2 pass + 1 fail.)*
