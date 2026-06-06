@@ -13,6 +13,13 @@ bmc {
     allowStubs = ["java.util.Formatter.*"] // acknowledge known-sound stubs build-wide (silences them)
     strictStubs = false               // true: any *unacknowledged* stub -> UNKNOWN (-Dbmc.strictStubs)
     userPackages = ["com.acme"]       // your module's prefixes: a stub here is a config bug, warned loud
+
+    // Kotlin proof parameters (default: Kotlin-type-faithful)
+    kotlinNullableParams = false      // true: a @BmcProof's own non-null Kotlin parameters get the
+                                      // honest-JVM null domain back — the kotlinc prologue throws on
+                                      // null instead of being auto-assumed non-null. For proofs that
+                                      // deliberately model hostile Java callers. Part of the
+                                      // verdict-cache key. (-Dbmc.kotlinNullableParams=true)
 }
 ```
 

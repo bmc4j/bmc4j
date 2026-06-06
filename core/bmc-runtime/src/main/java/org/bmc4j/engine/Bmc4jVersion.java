@@ -38,9 +38,12 @@ public final class Bmc4jVersion {
      * verdict-derivation logic could change a proof's verdict — or its harvested FACTS: r2 added the
      * residual-invokedynamic surfacing pass (stub-list change); r3 desugars enumSwitch, turning
      * previously-undecided enum pattern switches into real verdicts (pre-r3 entries must not be
-     * served — the cache key hashes the ORIGINAL classpath, not the rewrite output).
+     * served — the cache key hashes the ORIGINAL classpath, not the rewrite output); r4 relaxes
+     * Kotlin proof-parameter prologues to assume(p != null) (KotlinParamBytecode) and starts
+     * keying the rewrite-mirror cache by this identity too (ClasspathMirror), so a revision bump
+     * now re-mirrors as well as re-verifying.
      */
-    private static final String SEMANTICS_REVISION = "r3";
+    private static final String SEMANTICS_REVISION = "r4";
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     public static final String IDENTITY = ARTIFACT_VERSION + "+" + SEMANTICS_REVISION;

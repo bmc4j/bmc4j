@@ -131,6 +131,11 @@ public final class JbmcBackend implements VerificationBackend {
         classpath = MathBytecode.rewrite(classpath);
         // Pin Bmc.*FromEnv/*FromProperty("KEY") to this run's real value (baked in as a constant).
         classpath = ConfigBytecode.rewrite(classpath);
+        // Kotlin symbolic parameters: inside @BmcProof methods only, turn the kotlinc
+        // checkNotNullParameter prologue into assume(p != null) — the proof ranges over the inputs
+        // the Kotlin type system admits instead of spuriously refuting on p = null. Interior calls
+        // keep throwing; -Dbmc.kotlinNullableParams=true restores the honest-JVM prologue.
+        classpath = KotlinParamBytecode.rewrite(classpath);
         // Vacuity guard: inject a reachability marker before every return of each
         // @BmcProof / enforce-proof. Runs LAST over the .class dirs so the marker lands in the final
         // proof bodies and no earlier desugar can strip it; the verdict logic flags a proof whose

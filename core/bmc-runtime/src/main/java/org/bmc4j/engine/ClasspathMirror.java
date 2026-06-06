@@ -107,6 +107,12 @@ final class ClasspathMirror {
      * config-free passes are unaffected.
      */
     static String mirror(String classpath, String cacheName, ClassTransform transform, String extraKey) {
+        // Fold the runtime semantics identity into every entry's key: the transform CODE is part of
+        // the mirror's semantics but not of the input content, so a rewriter change (artifact bump
+        // or SEMANTICS_REVISION bump) must re-mirror — or jbmc re-analyzes STALE transforms of
+        // unchanged app dirs (the verdict cache re-runs, its key has the identity, but on old
+        // bytecode). Over-invalidation on a version bump is the safe, cheap direction.
+        extraKey = Bmc4jVersion.IDENTITY + "|" + extraKey;
         String[] entries = classpath.split(File.pathSeparator);
         List<String> out = new ArrayList<>(entries.length);
         for (String entry : entries) {

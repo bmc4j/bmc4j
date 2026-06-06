@@ -105,6 +105,18 @@ public abstract class BmcExtensionConfig {
     public abstract Property<Boolean> getStrictStubs();
 
     /**
+     * Honest-JVM semantics for Kotlin proof parameters. By default a {@code @BmcProof}'s own
+     * non-null-typed Kotlin parameters are auto-assumed non-null (kotlinc's
+     * {@code checkNotNullParameter} prologue becomes {@code assume(p != null)}), so the proof ranges
+     * over the inputs the Kotlin type system admits instead of spuriously refuting on {@code p = null}
+     * — an input no Kotlin caller can construct. Interior calls always keep the throwing semantics.
+     * Set {@code true} (or pass {@code -Dbmc.kotlinNullableParams=true}) to restore the throwing
+     * prologue for proofs that deliberately model hostile Java callers passing {@code null} into
+     * Kotlin non-null parameters. Part of the verdict-cache key — flipping it re-verifies.
+     */
+    public abstract Property<Boolean> getKotlinNullableParams();
+
+    /**
      * Package prefixes of the module under test. A stub from one of these — the user's own
      * code — is almost always a missing-dependency config bug, not a JDK modeling gap, so it is warned
      * loudly even in lenient mode (and forces UNKNOWN in strict mode). Comma/space-separated prefixes,
