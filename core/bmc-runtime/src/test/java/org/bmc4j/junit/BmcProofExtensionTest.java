@@ -503,6 +503,38 @@ class BmcProofExtensionTest {
                 "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.TIMEOUT, framed));
     }
 
+    // --- Residual-invokedynamic demotion (REFUTED + havoc'd marker -> UNKNOWN) ---
+
+    @Test
+    void residualIndyMarkers_extractsAndDedupesOnlyMarkerStubs() {
+        org.bmc4j.engine.JbmcResult refuted = new org.bmc4j.engine.JbmcResult(false, List.of(
+                new org.bmc4j.engine.JbmcResult.Violation("boom", "C.java", 1, List.of(), List.of())), "raw")
+                .withStubbedMethods(List.of(
+                        "java.util.Formatter.format",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.toString__ObjectMethods"));
+        assertEquals(List.of(
+                        "org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps",
+                        "org.bmc4j.analysis.ResidualInvokedynamic.toString__ObjectMethods"),
+                BmcProofExtension.residualIndyMarkers(refuted),
+                "marker stubs only, deduped, order-stable; ordinary stubs are not markers");
+    }
+
+    @Test
+    void residualIndyUndecided_isNonInfraUnknown_namingTheSites_andSatisfiesExpectUnknown() {
+        BmcUndecidedError err = BmcProofExtension.residualIndyUndecided("jbmc", "pkg.P.p",
+                List.of("org.bmc4j.analysis.ResidualInvokedynamic.enumSwitch__SwitchBootstraps"));
+        assertTrue(err.getMessage().contains("(UNKNOWN)"), err.getMessage());
+        assertTrue(err.getMessage().contains("enumSwitch__SwitchBootstraps"), err.getMessage());
+        assertTrue(err.getMessage().contains("NOT reported as a refutation"), err.getMessage());
+        assertFalse(err.isEngineInfrastructure(),
+                "an analysis-limit UNKNOWN must satisfy expect=UNKNOWN (infra must not)");
+        // The supported pin: a proof deliberately exercising a residual site declares expect=UNKNOWN.
+        assertDoesNotThrow(() -> BmcProofExtension.enforceExpectation(
+                "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, err));
+    }
+
     private static void restore(String key, String prev) {
         if (prev == null) {
             System.clearProperty(key);

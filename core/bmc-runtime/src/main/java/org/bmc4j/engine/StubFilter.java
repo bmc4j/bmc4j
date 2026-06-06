@@ -43,6 +43,12 @@ public final class StubFilter {
                 || fqn.equals("java.lang.Double.valueOf") || fqn.equals("java.lang.Float.valueOf")) {
             return false;
         }
+        // Residual-invokedynamic markers are the OPPOSITE of noise: the rewrite layer plants them
+        // precisely so an un-desugared indy surfaces through the stub policy instead of being
+        // silently trusted (see ResidualIndyBytecode) — so they must survive the org.bmc4j filter.
+        if (fqn.startsWith(ResidualIndyBytecode.MARKER_FQN_PREFIX)) {
+            return true;
+        }
         // CProver intrinsics and bmc4j's own runtime/model plumbing are not user gaps.
         if (fqn.startsWith("org.cprover.") || fqn.startsWith("org.bmc4j.")) {
             return false;
