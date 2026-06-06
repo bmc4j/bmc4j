@@ -122,10 +122,10 @@ jobs:
             push)
               gate="true"; sel_spec="all"
               jdk_leg 17; jdk_leg 21; jdk_leg 25
-              # 2.3 is also the default toolchain the full legs compile with, but it gets
+              # 2.4 is also the default toolchain the full legs compile with, but it gets
               # its own EXPLICIT leg so the kotlin axis is self-contained - implicit
-              # coverage would silently vanish the day the default bumps to 2.4.
-              kotlin_leg 2.0.21; kotlin_leg 2.2.21; kotlin_leg 2.3.21
+              # coverage would silently vanish the day the default bumps to 2.5.
+              kotlin_leg 2.0.21; kotlin_leg 2.2.21; kotlin_leg 2.3.21; kotlin_leg 2.4.0
               ;;
             pull_request)
               gate="true"; sel_spec="linux-arm64"

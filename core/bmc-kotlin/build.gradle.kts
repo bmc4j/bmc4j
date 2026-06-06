@@ -4,6 +4,10 @@
 // adds this module to a project's testImplementation only when the Kotlin JVM plugin is
 // applied, so Java-only consumers never pull in kotlin-stdlib.
 plugins {
+    // Pinned to 2.3.x: kotlinc 2.4 removed languageVersion 1.9 ("no longer supported;
+    // use version 2.0 or greater"), and this module's whole point is the 1.9 emitted
+    // floor below. Bumping this pin past 2.3 means raising the floor — a consumer-facing
+    // compatibility break, not a routine toolchain bump.
     kotlin("jvm") version "2.3.21"
     `maven-publish`
 }
@@ -17,7 +21,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.release = 17
 }
 
-// Built with the Kotlin 2.3 compiler (Gradle 9 dropped the 1.x plugin's removed APIs),
+// Built with the Kotlin 2.3 compiler (the last line that can still emit a 1.9 floor),
 // but the EMITTED metadata/bytecode is pinned to Kotlin 1.9 + JVM 17 so consumers still
 // on Kotlin 1.9 can depend on this module — its inline helpers are the public surface.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

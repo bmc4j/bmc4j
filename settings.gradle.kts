@@ -15,7 +15,7 @@ pluginManagement {
     // product build under core/ keeps its own pinned Kotlin - shipped artifacts don't
     // vary with the consumer's compiler.
     plugins {
-        id("org.jetbrains.kotlin.jvm") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.3.21")
+        id("org.jetbrains.kotlin.jvm") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
     }
 }
 
