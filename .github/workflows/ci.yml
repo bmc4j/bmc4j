@@ -379,6 +379,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # Inherit the org secrets the reusable workflow reads. Reusable workflows do
+    # NOT receive the caller's secrets implicitly, so without this the publish
+    # step sees an EMPTY SIGNING_KEY, applies signing with a blank key, and dies
+    # with "Could not read PGP secret key". centralStaging stays false (no Central
+    # touch); the real key just keeps the snapshot artifacts signed like releases.
+    secrets: inherit
     with:
       githubPackages: true
       centralStaging: false
