@@ -44,7 +44,7 @@ import java.util.Set;
  * </ul>
  *
  * Mirrors the {@link MathBytecode} pattern: identical descriptor, one-instruction owner swap,
- * directory and jar entries mirrored via {@link ClasspathMirror}.
+ * directory and jar entries mirrored via {@code ClasspathMirror}.
  */
 public final class KotlinParamBytecode {
 

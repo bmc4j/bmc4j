@@ -16,7 +16,7 @@ import org.objectweb.asm.Opcodes;
  * shadowed, so its own enforce-proof still analyzes the real body — replace and enforce
  * coexist by which classpath a given proof is handed.
  *
- * <p>The rewrite is routed through {@link ClasspathMirror} — the one fail-loud, content-hashed
+ * <p>The rewrite is routed through {@code ClasspathMirror} — the one fail-loud, content-hashed
  * mirroring engine every other rewrite pass uses. Both directory and jar entries are mirrored
  * (each {@code .class} call-site-rewritten, everything else copied verbatim); the redirect set and
  * the excluded caller are folded into the mirror's content hash as extra key material, so distinct
@@ -79,7 +79,7 @@ public final class ContractRewriter {
      * {@code excludeCallerInternalName} (an internal class name like {@code pkg/Proof}, or
      * {@code null} to exclude nothing) untouched — see the class doc on modular enforce.
      *
-     * <p>Routed through {@link ClasspathMirror}: each entry is mirrored into a fresh dir/jar keyed by
+     * <p>Routed through {@code ClasspathMirror}: each entry is mirrored into a fresh dir/jar keyed by
      * a full SHA-256 of (content + this config), atomically published, and marked {@code .done} last;
      * a mirror failure throws (→ UNKNOWN) rather than silently passing the un-rewritten entry through.
      * The {@code redirects} and {@code excludeCallerInternalName} are the extra key material — the

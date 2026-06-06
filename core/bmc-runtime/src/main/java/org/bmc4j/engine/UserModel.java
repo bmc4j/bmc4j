@@ -18,7 +18,7 @@ package org.bmc4j.engine;
  *
  * <p>This is the <em>declaration</em> only; {@link ModelPolicy} turns a set of declarations plus the
  * models actually on a proof's classpath into the footnote / override-warning / strict-UNKNOWN decision,
- * mirroring how {@link StubPolicy} turns the stub fact into a policy decision.
+ * mirroring how {@code StubPolicy} turns the stub fact into a policy decision.
  */
 public final class UserModel {
 
