@@ -27,12 +27,14 @@ class ContractProofs {
     }
 
     /**
-     * FAILS at the same bound. Identical loop, but {@code TriangleNaive} has no contract, so
-     * the real loop is inlined and overruns {@code unwind = 2}. This is the baseline the
-     * contract improves on — same code, same bound, but provable only with the summary.
+     * UNDECIDED at the same bound. Identical loop, but {@code TriangleNaive} has no contract, so
+     * the real loop is inlined and overruns {@code unwind = 2} — the bound truncates exploration,
+     * which is incompleteness (UNKNOWN), not a counterexample. This is the baseline the contract
+     * improves on — same code, same bound, but provable only with the summary.
      */
-    // Expected verdict: REFUTED - without the contract the callee exceeds the unwind bound.
-    @BmcProof(unwind = 2, expect = Verdict.REFUTED)
+    // Expected verdict: UNKNOWN - without the contract the callee exceeds the unwind bound
+    // (bound-too-small is incompleteness, never REFUTED: nothing was proven wrong).
+    @BmcProof(unwind = 2, expect = Verdict.UNKNOWN)
     void without_a_contract_the_same_bound_is_too_small() {
         int n = Bmc.anyInt(0, 8);
         Bmc.check(TriangleNaive.triangle(n) >= 0);
