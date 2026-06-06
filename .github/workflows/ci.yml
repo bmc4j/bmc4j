@@ -409,64 +409,92 @@ jobs:
       centralStaging: false
       version: ${{ needs.snapshot-version.outputs.version }}
 
-  # Dispatch the consumer-test repo's "Consumer test" workflow against the just-
-  # published snapshot, then WAIT for and REFLECT its conclusion - this job goes red
-  # iff the consumer install/proof run fails, which is the whole point of the issue.
+  # Trigger the consumer-test repo against the just-published snapshot, then WAIT
+  # for and REFLECT its conclusion - this job goes red iff the consumer
+  # install/proof run fails, which is the whole point of the issue.
   #
-  # Cross-repo dispatch: the default GITHUB_TOKEN cannot trigger a workflow in
-  # ANOTHER repo, so this uses CONSUMER_TEST_DISPATCH_TOKEN (a fine-grained PAT with
-  # actions:write on bmc4j-consumer-test). If that secret is absent the job fails
-  # fast with an explicit, actionable message rather than a cryptic 404 - creating
-  # the PAT is the one owner-only step (documented in the PR).
+  # No PAT: the default GITHUB_TOKEN cannot trigger a workflow in ANOTHER repo, and
+  # Courtney has decided no PAT will ever exist. Instead we PUSH a snapshot/<version>
+  # branch to bmc4j-consumer-test over SSH using a WRITE DEPLOY KEY
+  # (CONSUMER_TEST_DEPLOY_KEY). A deploy-key push triggers `on: push` workflows
+  # normally - GitHub's "a GITHUB_TOKEN push doesn't re-trigger workflows" rule does
+  # NOT apply to deploy-key pushes - so the consumer-test repo's `push:
+  # snapshot/**` trigger fires and runs its matrix. The version travels in the
+  # branch's single commit as bmc4j-version.txt (and in the branch name as a
+  # fallback). We then POLL the consumer-test repo's runs (public reads, plain
+  # GITHUB_TOKEN) for the run on head branch snapshot/<version> and mirror its
+  # conclusion. The deploy key + secret are already provisioned (deploy key title
+  # "bmc4j snapshot trigger" on bmc4j-consumer-test; secret CONSUMER_TEST_DEPLOY_KEY
+  # on bmc4j/bmc4j).
   consumer-test:
     name: consumer test (snapshot)
     needs: [snapshot-version, snapshot-publish-core, snapshot-publish-engines]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Dispatch consumer test and wait for its conclusion
+      - name: Push snapshot branch (deploy key) and wait for the consumer run
         shell: bash
         env:
-          # A PAT, not GITHUB_TOKEN: cross-repo workflow_dispatch + reading the
-          # dispatched run's status both require a token scoped to the other repo.
-          GH_TOKEN: ${{ secrets.CONSUMER_TEST_DISPATCH_TOKEN }}
+          # Public reads of the consumer-test repo's runs only - the default token
+          # is enough; the cross-repo TRIGGER comes from the deploy-key push, not
+          # from this token.
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_KEY: ${{ secrets.CONSUMER_TEST_DEPLOY_KEY }}
           VERSION: ${{ needs.snapshot-version.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::CONSUMER_TEST_DISPATCH_TOKEN is not set. Create a fine-grained PAT with actions:write on bmc4j/bmc4j-consumer-test and add it as a repo/org secret named CONSUMER_TEST_DISPATCH_TOKEN (owner-only step)."
+          if [ -z "${DEPLOY_KEY:-}" ]; then
+            echo "::error::CONSUMER_TEST_DEPLOY_KEY is not set. Add the ed25519 PRIVATE key (whose public half is the 'bmc4j snapshot trigger' WRITE deploy key on bmc4j/bmc4j-consumer-test) as a secret named CONSUMER_TEST_DEPLOY_KEY."
             exit 1
           fi
           repo="bmc4j/bmc4j-consumer-test"
+          branch="snapshot/${VERSION}"
+
+          # Configure SSH with the deploy key (restricted perms, known_hosts pinned).
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/consumer_test_deploy_key
+          chmod 600 ~/.ssh/consumer_test_deploy_key
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/consumer_test_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts"
+
+          # Build the single-commit snapshot branch in a throwaway clone of the
+          # consumer-test repo and push it. The deploy-key push fires the repo's
+          # `push: snapshot/**` trigger. Force-push so a re-run of the SAME version
+          # (e.g. a retried CI attempt) cleanly replaces a stale branch.
+          work="$(mktemp -d)"
+          git clone --depth 1 "git@github.com:${repo}.git" "$work"
+          cd "$work"
+          git config user.name "bmc4j-ci"
+          git config user.email "ci@bmc4j.invalid"
+          git checkout -b "$branch"
+          printf '%s\n' "$VERSION" > bmc4j-version.txt
+          git add bmc4j-version.txt
+          git commit -m "snapshot: bmc4j ${VERSION}"
+          git push --force origin "$branch"
+          echo "Pushed $branch to $repo"
+          cd - >/dev/null
+
+          # Find the consumer-test run on this head branch (the push just created it;
+          # poll briefly for it to register).
           workflow="consumer-test.yml"
-
-          # workflow_dispatch returns no run id, so stamp a unique marker BEFORE
-          # dispatching and find the run whose head matches it. We pass VERSION as
-          # the input; the marker is the dispatch time, used only to disambiguate.
-          before="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo "Dispatching $workflow in $repo for version $VERSION (at $before)"
-          gh workflow run "$workflow" --repo "$repo" -f version="$VERSION"
-
-          # Find the run we just created: the newest run of this workflow created at
-          # or after our dispatch timestamp. Poll briefly - the run can take a few
-          # seconds to register.
           run_id=""
           for i in $(seq 1 30); do
             sleep 5
             run_id="$(gh run list --repo "$repo" --workflow "$workflow" \
-              --created ">=$before" --json databaseId,createdAt \
+              --branch "$branch" --json databaseId,createdAt \
               --jq 'sort_by(.createdAt) | reverse | .[0].databaseId' 2>/dev/null || true)"
             [ -n "$run_id" ] && [ "$run_id" != "null" ] && break
             run_id=""
           done
-          [ -n "$run_id" ] || { echo "::error::could not locate the dispatched consumer-test run"; exit 1; }
+          [ -n "$run_id" ] || { echo "::error::could not locate the consumer-test run for $branch"; exit 1; }
           url="https://github.com/$repo/actions/runs/$run_id"
           echo "Consumer test run: $url"
 
-          # Poll to completion and mirror the conclusion. Timeout below the job's own
-          # 40-min budget so we report a clear message instead of a hard cancel.
-          for i in $(seq 1 200); do
-            status="$(gh run view "$run_id" --repo "$repo" --json status,conclusion --jq '.status')"
+          # Poll to completion and mirror the conclusion (~20 min budget, below the
+          # job's own 40-min cap so we report a clear message instead of a hard
+          # cancel). 120 iterations * 10s = 1200s = 20 min.
+          for i in $(seq 1 120); do
+            status="$(gh run view "$run_id" --repo "$repo" --json status --jq '.status')"
             if [ "$status" = "completed" ]; then
               conclusion="$(gh run view "$run_id" --repo "$repo" --json conclusion --jq '.conclusion')"
               echo "Consumer test concluded: $conclusion ($url)"
@@ -476,5 +504,5 @@ jobs:
             fi
             sleep 10
           done
-          echo "::error::consumer test run $url did not complete in time"
+          echo "::error::consumer test run $url did not complete within ~20 min"
           exit 1
