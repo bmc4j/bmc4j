@@ -43,9 +43,12 @@ object Bmc4jVersion {
      * principle); r6 extends the coroutine-LVT strip to drop the LocalVariableTable of ANY method
      * with a duplicate parameter-slot entry (not just invokeSuspend / Continuation-param methods),
      * so a previously-cached mirror that still carried a crash-triggering synthetic bridge
-     * ($default) is re-stripped instead of re-served.
+     * ($default) is re-stripped instead of re-served; r7 ports the four big bytecode-rewrite
+     * engines (string/concat/record, switch, lambda, config) to Kotlin (identical behavior,
+     * pinned by the unchanged Java test suite - but a rewriter-code change re-mirrors on
+     * principle).
      */
-    private const val SEMANTICS_REVISION = "r6"
+    private const val SEMANTICS_REVISION = "r7"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

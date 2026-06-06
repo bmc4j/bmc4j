@@ -6,7 +6,7 @@ import org.cprover.CProverString;
  * Sound replacements for {@code java.lang.String} content operations that JBMC's own models get
  * wrong (e.g. {@code equals} returns an unconstrained boolean — it can't even prove
  * {@code "x".equals("x")}). We rebuild them from primitives JBMC <em>does</em> handle soundly:
- * {@code String.length()} and {@code CProverString.charAt}. {@link StringBytecode} redirects the
+ * {@code String.length()} and {@code CProverString.charAt}. {@code StringBytecode} redirects the
  * matching {@code String} call sites here during analysis, so ordinary code that calls
  * {@code s.equals(t)} becomes provable with no engine fork.
  *
@@ -78,7 +78,7 @@ public final class BmcStrings {
     /**
      * Null-safe object equality with {@link java.util.Objects#equals} semantics, but routing the
      * String/String case through the sound {@link #equals} above. Used by the record-{@code equals}
-     * desugaring ({@link StringBytecode}) so a record with String components stays sound.
+     * desugaring ({@code StringBytecode}) so a record with String components stays sound.
      */
     public static boolean objEquals(Object a, Object b) {
         if (a == b) {
@@ -114,7 +114,7 @@ public final class BmcStrings {
     /**
      * Null-safe object hashCode with {@link java.util.Objects#hashCode} semantics, but routing the
      * String case through the sound {@link #hashCode(String)} above. Used by the record-{@code
-     * hashCode} desugaring ({@link StringBytecode}) so reference components hash deterministically:
+     * hashCode} desugaring ({@code StringBytecode}) so reference components hash deterministically:
      * {@code null} → 0, String → content hash, any other reference → its own {@code hashCode()}.
      */
     public static int objHashCode(Object o) {

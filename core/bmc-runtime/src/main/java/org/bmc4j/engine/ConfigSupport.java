@@ -1,7 +1,7 @@
 package org.bmc4j.engine;
 
 /**
- * Targets that {@link ConfigBytecode} redirects a {@code Bmc.*From{Env,Property}} call to when the
+ * Targets that {@code ConfigBytecode} redirects a {@code Bmc.*From{Env,Property}} call to when the
  * named variable is <b>unset or unparseable</b> for the proof run — each throws, so the proof fails
  * with a clear "required config not set" rather than silently passing. (When the variable IS set,
  * the call is replaced with the concrete value instead and these are never reached.)
