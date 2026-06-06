@@ -469,7 +469,31 @@ class JbmcOutputParserTest {
         assertTrue(r.isUnknown(), "bound-too-small must be UNKNOWN, got " + r.verdict());
         assertFalse(r.isVacuous());
         assertTrue(r.violations().isEmpty(), "an unwinding assertion is not a counterexample");
-        assertTrue(r.undecidedReason().contains("loop bound is too small"), r.undecidedReason());
+        assertTrue(r.undecidedReason().contains("unwind bound is too small"), r.undecidedReason());
+    }
+
+    @Test
+    void recursion_unwinding_assertion_is_UNKNOWN_not_refuted() {
+        // The RECURSION flavour of the same incompleteness: cbmc names a recursive-depth overrun
+        // "<function>.recursion" with description "recursion unwinding assertion" (pinned against
+        // the bundled engine: jbmc 6.9.0 emits exactly this for a depth-10 callee at --unwind 2).
+        // It must be UNKNOWN for the same reason as the loop shape — nothing was proven wrong.
+        String json = """
+            [
+              {"result":[
+                {"name":"u","status":"FAILURE","property":"java::pkg.Deep.down:(I)I.recursion",
+                 "description":"recursion unwinding assertion",
+                 "sourceLocation":{"file":"D.java","line":"4","function":"java::pkg.Deep.down:(I)I"}},
+                {"name":"m","status":"FAILURE","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"%d","function":"java::pkg.Tests.proof:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".formatted(SENTINEL);
+        JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
+        assertTrue(r.isUnknown(), "recursion bound-too-small must be UNKNOWN, got " + r.verdict());
+        assertFalse(r.isVacuous());
+        assertTrue(r.violations().isEmpty(), "a recursion unwinding assertion is not a counterexample");
+        assertTrue(r.undecidedReason().contains("unwind bound is too small"), r.undecidedReason());
     }
 
     @Test
@@ -515,6 +539,6 @@ class JbmcOutputParserTest {
         JbmcResult r = JbmcOutputParser.parse(json, ENTRY);
         assertTrue(r.isUnknown(), "bound truncation must not be mistaken for vacuity");
         assertFalse(r.isVacuous());
-        assertTrue(r.undecidedReason().contains("loop bound is too small"), r.undecidedReason());
+        assertTrue(r.undecidedReason().contains("unwind bound is too small"), r.undecidedReason());
     }
 }

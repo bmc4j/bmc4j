@@ -26,11 +26,13 @@ class StackingProofs {
     }
 
     /**
-     * FAILS at the same bound. No contracts -> the caller inlines f, which inlines g, which
-     * inlines h, each recursing to depth 10 — far past unwind 3.
+     * UNDECIDED at the same bound. No contracts -> the caller inlines f, which inlines g, which
+     * inlines h, each recursing to depth 10 — far past unwind 3, so the bound truncates
+     * exploration (incompleteness, UNKNOWN — not a counterexample).
      */
-    // Expected verdict: REFUTED - the uncontracted call stack blows the bound.
-    @BmcProof(unwind = 3, expect = Verdict.REFUTED)
+    // Expected verdict: UNKNOWN - the uncontracted call stack blows the bound
+    // (truncated exploration is incompleteness, never REFUTED).
+    @BmcProof(unwind = 3, expect = Verdict.UNKNOWN)
     void without_contracts_the_stack_is_intractable() {
         int n = Bmc.anyInt(0, 10);
         Bmc.check(ChainNaive.f(n) == n * (n + 1) * (n + 2) * (n + 3) / 24);

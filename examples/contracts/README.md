@@ -23,22 +23,25 @@ enforce proofs summarize self-recursion via the contract, so they hold at the de
 
 `Triangle.triangle(n)` is a loop, costly to inline. With a contract, a caller at `unwind = 2`
 reuses `@Ensures result >= 0` instead of unrolling the loop and passes; the identical
-`TriangleNaive` (no contract) must inline and overruns the bound. Same code, same bound, provable
-only with the summary. *(1 pass + 1 fail.)*
+`TriangleNaive` (no contract) must inline and overruns the bound — which reports **UNKNOWN**
+("bound too small": truncated exploration is incompleteness, not a counterexample). Same code,
+same bound, provable only with the summary. *(1 pass + 1 undecided-on-purpose.)*
 
 ## `recursion` — recursion as induction
 
 `@Ensures` is the loop invariant in closed form. When the enforce proof analyzes
 `Recursive.sumTo`, the recursive call is summarized by this same contract — so the proof is
 exactly the inductive step (assume it for `n-1`; show it for `n`), not a full unroll. The
-no-contract baseline must unroll all 12 levels. *(1 pass + 1 fail.)*
+no-contract baseline must unroll all 12 levels and overruns the bound (**UNKNOWN**, the recursion
+flavour of bound-too-small). *(1 pass + 1 undecided-on-purpose.)*
 
 ## `stacking` — additive cost, not multiplicative
 
 The payoff: three recursive functions chained `f → g → h`, each to depth 10. Inlined, that's an
 unwindable-at-no-modest-bound stack. With contracts, each level is proven using the contract of
 the level below — cost is additive in the number of contracts, not multiplicative with depth and
-chaining. A proof reaches only one contract deep. *(2 pass + 1 fail; plus 3 green enforce proofs.)*
+chaining. A proof reaches only one contract deep. *(2 pass + 1 undecided-on-purpose; plus 3 green
+enforce proofs.)*
 
 ## `vacuity` — an empty precondition checks nothing
 

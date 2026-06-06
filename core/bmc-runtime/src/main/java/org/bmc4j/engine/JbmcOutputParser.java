@@ -128,24 +128,29 @@ public final class JbmcOutputParser {
 
     /**
      * True if a FAILURE property is an {@code --unwinding-assertions} firing rather than a user
-     * property: cbmc names these {@code <function>.unwind.<n>} with description
-     * {@code "unwinding assertion loop <n>"}. Either signal suffices (defensive OR — the shape is
-     * pinned against the bundled engine by the parser tests).
+     * property. The bound truncates exploration in two shapes, and BOTH are incompleteness, never a
+     * counterexample: a <b>loop</b> overrun is named {@code <function>.unwind.<n>} with description
+     * {@code "unwinding assertion loop <n>"}; a <b>recursion</b> overrun is named
+     * {@code <function>.recursion} with description {@code "recursion unwinding assertion"}. Either
+     * signal suffices per shape (defensive OR — both shapes are pinned against the bundled engine by
+     * the parser tests).
      */
     private static boolean isUnwindingAssertion(JsonObject p) {
         String property = str(p, "property");
-        if (property != null && property.contains(".unwind.")) {
+        if (property != null && (property.contains(".unwind.") || property.endsWith(".recursion"))) {
             return true;
         }
         String description = str(p, "description");
-        return description != null && description.startsWith("unwinding assertion");
+        return description != null
+                && (description.startsWith("unwinding assertion")
+                        || description.startsWith("recursion unwinding assertion"));
     }
 
     /** The UNKNOWN reason for a bound-too-small run (the extension appends the remedies). */
     private static String unwindingReason(int count) {
-        return "unwinding assertion failed: the loop bound is too small to cover this proof ("
-                + count + (count == 1 ? " loop" : " loops") + " hit the bound) — exploration was"
-                + " truncated, so this is incompleteness, not a refutation";
+        return "unwinding assertion failed: the unwind bound is too small to cover this proof ("
+                + count + (count == 1 ? " loop/recursion" : " loops/recursions") + " hit the bound)"
+                + " — exploration was truncated, so this is incompleteness, not a refutation";
     }
 
     /**
