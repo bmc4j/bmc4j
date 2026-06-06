@@ -152,17 +152,20 @@ jobs:
       # protect holds and go loudly red on a drift — the root test is GREEN by design.
       # -Dbmc.timeoutSeconds=180 keeps any SAT-pathological proof failing fast as a
       # NAMED UNKNOWN instead of hanging the job (per-proof budgets like the timeout
-      # demo's 1s override it). Examples need newer javac than 17, so the full root
-      # test runs on the canonical JDK; other matrix JDKs run core + conformance.
+      # demo's 1s override it). The examples need newer javac than 17 (language
+      # features), so JDK 17 runs core + conformance only; EVERY OTHER matrix JDK
+      # runs the full root test — a matrix dispatch like "17,21,25" therefore
+      # validates the rewrite layer's unit tests on each host JDK and the full
+      # example suite (where e.g. the pattern-switch desugars live) on 21 AND 25.
       # jarModelsConformanceTest is invoked EXPLICITLY: root `test` doesn't trigger
       # `check`, so without it the as-shipped JAR rewrite path (ClasspathMirror on
       # jars - what a published consumer actually exercises) would have no CI coverage.
       - name: Root test - conformance proofs + all examples (expected-verdict demos included)
-        if: ${{ matrix.jdk == '21' }}
+        if: ${{ matrix.jdk != '17' }}
         run: ./gradlew test :model-conformance-proofs:jarModelsConformanceTest --no-daemon -Dbmc.timeoutSeconds=180
 
-      - name: Model conformance proofs (non-canonical JDKs)
-        if: ${{ matrix.jdk != '21' }}
+      - name: Model conformance proofs (JDK 17 - examples need newer javac)
+        if: ${{ matrix.jdk == '17' }}
         run: ./gradlew :model-conformance-proofs:test --no-daemon -Dbmc.timeoutSeconds=180
 
       - name: Upload test reports
