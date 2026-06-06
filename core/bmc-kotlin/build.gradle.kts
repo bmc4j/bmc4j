@@ -28,6 +28,17 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
+// The metadata pin above is necessary but NOT sufficient: KGP auto-adds kotlin-stdlib at
+// its OWN version (2.3.x) as an api dependency, so the published POM would force-upgrade
+// every consumer's stdlib to 2.3 — and a pre-2.2 kotlinc cannot read a 2.3 stdlib's
+// metadata (the Kotlin-version CI matrix caught exactly this as a FIR crash on the 2.0
+// leg). Declare the stdlib dependency at the same 1.9 FLOOR as the language/api pin:
+// newer consumers win resolution upward to their own stdlib; older consumers are never
+// dragged past their compiler.
+kotlin {
+    coreLibrariesVersion = "1.9.25"
+}
+
 dependencies {
     // Bmc (assume/assumeUnreachable) is referenced from inline bodies; the consumer already
     // has bmc-runtime via the plugin, so we only need it to compile here.

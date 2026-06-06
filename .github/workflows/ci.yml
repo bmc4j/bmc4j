@@ -10,7 +10,9 @@ name: CI
 # (expect = REFUTED / VACUOUS / TIMEOUT), so the whole run is green by design.
 # Every other platform gets a smoke job: one real proof class end-to-end, which
 # exercises that platform's engine jar assembly -> extraction -> an actual jbmc
-# run. A docs link-check job guards the README/docs/examples cross-links.
+# run. A consumer-Kotlin matrix recompiles the conformance suite + Kotlin examples
+# with older kotlinc versions (2.0/2.2) on pushes and dispatches. A docs
+# link-check job guards the README/docs/examples cross-links.
 
 on:
   push:
@@ -177,6 +179,72 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: gate-jdk${{ matrix.jdk }}-test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/test-results/**
+          if-no-files-found: ignore
+
+  # The CONSUMER-Kotlin axis: compile the consumer-side builds (the conformance suite +
+  # every Kotlin-facing example) with older kotlinc versions and run their proofs - the
+  # user's compiler emits the bytecode our rewrite layer and models must handle, and
+  # Kotlin libraries/metadata have real cross-version constraints (this matrix caught
+  # bmc-kotlin force-upgrading consumers' stdlib to 2.3 on its FIRST local run). 2.3 is
+  # the default toolchain already covered by the gate; the matrix covers the supported
+  # floor upward. Paired -PbmcKotlinJvmTarget=21 because older KGPs have no JVM-25
+  # target (and real older-Kotlin consumers run older JVMs). Runs on pushes to main and
+  # dispatches; PRs stay lean. KGP 1.9 cannot configure under Gradle 9, so the 1.9 floor
+  # claim rests on the emitted-metadata pin (bmc-kotlin languageVersion/apiVersion +
+  # coreLibrariesVersion 1.9), continuously verified from 2.0 up.
+  kotlin:
+    name: consumer kotlin ${{ matrix.kotlin }}
+    needs: plan
+    if: ${{ needs.plan.outputs.gate == 'true' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        kotlin: ['2.0.21', '2.2.21']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Distinct cache axis: a different kotlinc emits different bytecode, so these
+      # legs have their own verdict-cache lineage (content-keying handles correctness;
+      # the key only scopes WHICH snapshot gets restored).
+      - name: Restore verdict caches
+        uses: actions/cache@v5
+        with:
+          path: '**/build/bmc4j/verdict-cache'
+          key: bmc-verdict-${{ runner.os }}-kt${{ matrix.kotlin }}-${{ github.run_id }}
+          restore-keys: |
+            bmc-verdict-${{ runner.os }}-kt${{ matrix.kotlin }}-
+
+      - name: Conformance proofs + Kotlin-facing examples on kotlinc ${{ matrix.kotlin }}
+        run: >-
+          ./gradlew --no-daemon
+          -PbmcKotlinVersion=${{ matrix.kotlin }} -PbmcKotlinJvmTarget=21
+          -Dbmc.timeoutSeconds=180
+          :model-conformance-proofs:test
+          :examples:fundamentals-kotlin:test
+          :examples:language-kotlin:test
+          :examples:concurrency-kotlin:test
+          :examples:integrations:test
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kotlin-${{ matrix.kotlin }}-test-reports
           path: |
             **/build/reports/tests/**
             **/build/test-results/**
