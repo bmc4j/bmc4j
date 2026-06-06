@@ -187,4 +187,55 @@ class StringLaws {
         Bmc.check("hello".lastIndexOf('l') == 3);
         Bmc.check("hello".lastIndexOf('z') == -1);
     }
+
+    // ---- @NotBlank support: trim() probe + the charAt-loop pin --------------
+    //
+    // @NotBlank needs "non-null and not all-whitespace". The probe below records whether trim() is
+    // sound on the modeled string layer (concrete + symbolic, BOTH directions). The charAt-loop pin
+    // is what @NotBlank actually lowers to (length()/charAt are the natively-sound primitives), so it
+    // is pinned regardless of the trim outcome.
+
+    @BmcProof
+    void trim_concrete_strips_surrounding_whitespace() {
+        // Concrete, both directions: a blank string trims empty; a padded one trims to its core.
+        Bmc.check("   ".trim().isEmpty());          // all-whitespace -> empty after trim
+        Bmc.check(!"  x ".trim().isEmpty());        // has a non-blank char -> non-empty after trim
+        Bmc.check("  x ".trim().length() == 1);
+    }
+
+    @BmcProof
+    void trim_symbolic_blankness_matches_a_charAt_scan() {
+        // Symbolic, both directions: trim().isEmpty() must agree with "no char > ' '" over the
+        // sound charAt primitive. If trim were nondet/unsound this equivalence could be refuted —
+        // a green here is the conformance record that trim() is usable for @NotBlank.
+        String s = Bmc.anyString(3);
+        boolean anyNonBlank = false;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) > ' ') {
+                anyNonBlank = true;
+            }
+        }
+        Bmc.check(s.trim().isEmpty() == !anyNonBlank);
+    }
+
+    @BmcProof
+    void charAt_loop_detects_blank_vs_non_blank_both_directions() {
+        // The exact shape @NotBlank lowers to (Constraints.notBlankCharAtLoop): a bounded existential
+        // over charAt for a char > ' '. Concrete in both directions.
+        Bmc.check(notBlankByScan("  x"));    // a non-blank char exists
+        Bmc.check(!notBlankByScan("   "));   // all whitespace
+        Bmc.check(!notBlankByScan(""));      // empty is blank
+    }
+
+    private static boolean notBlankByScan(String s) {
+        if (s == null) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) > ' ') {
+                return true;
+            }
+        }
+        return false;
+    }
 }
