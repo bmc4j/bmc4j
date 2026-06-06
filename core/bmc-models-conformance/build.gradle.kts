@@ -13,6 +13,8 @@ buildscript {
 }
 
 plugins {
+    // Matches bmc-kotlin's pin: one KGP version per build (mixing versions in a single
+    // Gradle build is unsupported), and bmc-kotlin is held at 2.3 for its 1.9 floor.
     kotlin("jvm") version "2.3.21"
 }
 
