@@ -1,0 +1,204 @@
+package org.bmc4j.gradle
+
+import org.gradle.api.Action
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Nested
+
+/**
+ * The `bmc { }` DSL block.
+ *
+ * ```
+ * bmc {
+ *     unwind = 16                       // default loop bound for proofs
+ *     // jbmcPath = "/opt/cbmc/bin/jbmc" // use a local binary instead of the bundled engine
+ * }
+ * ```
+ */
+abstract class BmcExtensionConfig {
+
+    /**
+     * Optional path to an existing JBMC binary. When set, the bundled engine
+     * dependency is not added and this binary is used instead — useful for an
+     * internal mirror, a custom build, or air-gapped environments.
+     */
+    abstract val jbmcPath: Property<String>
+
+    /** Default loop/recursion unwinding bound for proofs that don't override it. */
+    abstract val unwind: Property<Int>
+
+    /**
+     * Default per-proof wall-clock budget in seconds. When a proof doesn't reach a verdict
+     * in time, its engine process tree is force-killed and the proof is reported `UNKNOWN`
+     * (undecided — still fails, but distinctly from a refutation). A proof's
+     * `@BmcProof(timeoutSeconds=…)` overrides this. Unset / `0` means no timeout (proofs run
+     * to completion). Overridable at the command line with `-Dbmc.timeoutSeconds`.
+     */
+    abstract val timeoutSeconds: Property<Int>
+
+    /**
+     * How many proofs to verify **concurrently** — each runs its own `jbmc` process, and
+     * proofs are independent, so this scales near-linearly. Defaults to the number of available
+     * processors. Set to `1` to run proofs serially (e.g. if heavy proofs strain memory).
+     */
+    abstract val parallelism: Property<Int>
+
+    /**
+     * SAT/SMT backend for JBMC. Default is JBMC's built-in MiniSat. SMT solvers (`"z3"`,
+     * `"boolector"`, `"cvc4"`, `"cvc5"`) — which must be on `PATH` — can be
+     * much faster on array/bitvector-heavy proofs; any other value is passed to `--sat-solver`
+     * (e.g. `"cadical"`, `"glucose"`).
+     */
+    abstract val solver: Property<String>
+
+    /** Path/command for an external SMT2 solver binary (used with `--smt2`); overrides
+     *  [solver]. Use when the solver isn't on `PATH`. */
+    abstract val solverCmd: Property<String>
+
+    /**
+     * Directory holding the SMT solver binary (e.g. the dir containing `z3`). It's prepended to
+     * jbmc's PATH so [solver] / `@BmcProof(solver=…)` can find the solver without it
+     * being on the global `PATH`. Keep machine-specific paths out of the repo — set it from a
+     * Gradle property, e.g. `solverPath = providers.gradleProperty("z3Path").orNull`.
+     */
+    abstract val solverPath: Property<String>
+
+    /**
+     * Show per-proof progress while the `test` task runs ("proving X", "OK/REFUTED X (Ns)")
+     * plus a final summary, at Gradle's lifecycle level so it's visible in a normal `gradlew
+     * test`. On by default — proofs can take seconds each, and silence looks like a hang. Set to
+     * `false` for quiet CI logs.
+     */
+    abstract val progress: Property<Boolean>
+
+    /**
+     * Per-proof verdict caching. When `true` (the default), a proof that
+     * **passed with a deterministic verdict** (`VERIFIED`, or `REFUTED`/`VACUOUS`
+     * for a fail-on-purpose proof whose `expect` declares exactly that) and whose inputs
+     * (bytecode, flags, engine + runtime semantics) are unchanged is skipped on the next run and
+     * reported passed from the cache under `build/bmc4j/verdict-cache/` — so "nothing changed"
+     * runs are near-free. Only expectation-matching passes are ever cached; failures always re-run
+     * live, and `TIMEOUT`/`UNKNOWN` are never cached even when expected (machine-dependent).
+     * Set `false` (or pass `-Dbmc.noCache=true`) to force full
+     * re-verification every time. The cache lives under `build/`, so `gradlew clean` clears it.
+     */
+    abstract val cache: Property<Boolean>
+
+    /**
+     * Build-wide acknowledged nondet stubs: methods every proof may rely on as havoc'd
+     * stand-ins without warning. JBMC stubs any callee it has no body for to a nondet result; bmc4j
+     * footnotes that on green proofs (and, under [strictStubs], turns an unacknowledged stub
+     * into UNKNOWN). Listing a method here silences it suite-wide; a proof can add more with
+     * `@BmcProof(allowStubs = …)`. Entries are fully-qualified method names with an optional
+     * trailing wildcard: `"java.util.Formatter.format"`, `"java.util.Formatter.*"`, or
+     * `"java.util.*"`.
+     */
+    abstract val allowStubs: ListProperty<String>
+
+    /**
+     * Strict nondet-stub mode. When `true`, any *unacknowledged* stub a proof
+     * reaches turns its verdict into UNKNOWN (`BmcUndecidedError`) — nothing was proven wrong, but
+     * the verdict rests on havoc'd stand-ins, so it isn't trustworthy. Default `false` (lenient:
+     * green + footnote). Overridable at the command line with `-Dbmc.strictStubs=true`, so flipping
+     * it re-judges from the stored stub fact *without* re-running proofs (the stub list is cached).
+     */
+    abstract val strictStubs: Property<Boolean>
+
+    /**
+     * Honest-JVM semantics for Kotlin proof parameters. By default a `@BmcProof`'s own
+     * non-null-typed Kotlin parameters are auto-assumed non-null (kotlinc's
+     * `checkNotNullParameter` prologue becomes `assume(p != null)`), so the proof ranges
+     * over the inputs the Kotlin type system admits instead of spuriously refuting on `p = null`
+     * — an input no Kotlin caller can construct. Interior calls always keep the throwing semantics.
+     * Set `true` (or pass `-Dbmc.kotlinNullableParams=true`) to restore the throwing
+     * prologue for proofs that deliberately model hostile Java callers passing `null` into
+     * Kotlin non-null parameters. Part of the verdict-cache key — flipping it re-verifies.
+     */
+    abstract val kotlinNullableParams: Property<Boolean>
+
+    /**
+     * Package prefixes of the module under test. A stub from one of these — the user's own
+     * code — is almost always a missing-dependency config bug, not a JDK modeling gap, so it is warned
+     * loudly even in lenient mode (and forces UNKNOWN in strict mode). Comma/space-separated prefixes,
+     * e.g. `userPackages = ["com.acme"]`. Overridable with `-Dbmc.userPackages`.
+     */
+    abstract val userPackages: ListProperty<String>
+
+    // --- User models: declared intent + provenance ------------------------------------------------
+
+    /**
+     * Registered user models with their declared **intent**. A class under `src/bmcModel`
+     * shadows its real counterpart on JBMC's analysis classpath; registering it here adds the trust
+     * metadata bmc4j needs to put provenance on a verdict that rests on it.
+     *
+     * ```
+     * bmc {
+     *     models {
+     *         conformant("acme.FastList")                       // claims JDK fidelity
+     *         domain("acme.NoCollisionMap", "keys are UUIDs, collision-free")  // intentional divergence
+     *     }
+     * }
+     * ```
+     *
+     * A `domain` model encodes a constraint that deliberately diverges from the JDK -- it is
+     * `Bmc.assume()` at classpath altitude -- so it requires a one-line rationale, which is
+     * footnoted on every green proof that rests on it. A `conformant` model claims JDK fidelity and
+     * can be checked by the same conformance harness as bundled models. Under [strictModels],
+     * a model present under `src/bmcModel` but NOT registered here turns the verdict into UNKNOWN.
+     */
+    @get:Nested
+    abstract val modelSpec: ModelSpec
+
+    /** Configure the registered user models -- see [modelSpec]. */
+    fun models(action: Action<in ModelSpec>) {
+        action.execute(modelSpec)
+    }
+
+    /**
+     * Strict user-model mode, the `strictStubs` analog. When `true`, a model present under
+     * `src/bmcModel` with no `bmc { models { ... } }` intent declaration turns the proof's
+     * verdict into UNKNOWN (`BmcUndecidedError`) -- no proof silently rests on an undeclared
+     * override. Default `false` (lenient: green + a loud "UNDECLARED model" footnote). Overridable
+     * at the command line with `-Dbmc.strictModels=true`; like `strictStubs` it is read-time
+     * policy, so flipping it re-judges without re-running proofs.
+     */
+    abstract val strictModels: Property<Boolean>
+
+    /**
+     * The `models { conformant(...) / domain(...) }` DSL block. A Gradle **managed** type
+     * (abstract, no fields): its one property is the abstract [entries] list, which Gradle
+     * instantiates; the `conformant` / `domain` methods append serialized declarations to it.
+     */
+    abstract class ModelSpec {
+
+        /** Serialized declarations, one per entry as `intent|fqn|rationale`; joined by the plugin. */
+        abstract val entries: ListProperty<String>
+
+        /** Register a conformant user model (claims JDK fidelity). */
+        fun conformant(className: String) {
+            requireClassName(className, "conformant")
+            entries.add("conformant|${className.trim()}|")
+        }
+
+        /**
+         * Register a domain user model (intentional divergence). `rationale` is required -- a
+         * one-line explanation of the assumed constraint, footnoted on green proofs that rest on it.
+         */
+        fun domain(className: String, rationale: String?) {
+            requireClassName(className, "domain")
+            if (rationale.isNullOrBlank()) {
+                throw IllegalArgumentException("bmc { models { domain(\"$className\", ...) } } " +
+                        "requires a rationale: a domain model intentionally diverges from the JDK " +
+                        "-- say how (e.g. \"keys are UUIDs, collision-free\").")
+            }
+            entries.add("domain|${className.trim()}|${rationale.trim()}")
+        }
+
+        private fun requireClassName(className: String?, intent: String) {
+            if (className.isNullOrBlank()) {
+                throw IllegalArgumentException(
+                        "bmc { models { $intent(...) } } requires a class name")
+            }
+        }
+    }
+}
