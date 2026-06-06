@@ -183,8 +183,33 @@ public final class Jbmc {
      * UNKNOWN} (the run was undecided, not a refutation). If {@code timeoutSeconds > 0} and the process
      * doesn't finish in time, its whole tree is force-killed (the solver is a child of jbmc) and the
      * result is UNKNOWN with a timeout reason.
+     *
+     * <p><b>Crash-class exits are retried ONCE.</b> An engine-error exit (anything other than the two
+     * verdict exits) is a process that fell over, not a verdict — and jbmc 6.9.0 has rare
+     * NONDETERMINISTIC internal aborts (observed in CI: an {@code Invariant check failed} in
+     * {@code create_parameter_names} during mid-symex lazy conversion, exit 134, on a proof that
+     * passes identically before and after). Re-running a crashed process is sound: a deterministic
+     * crash just fails twice into the same UNKNOWN, a nondeterministic one recovers a real verdict
+     * instead of failing the gate. The retry is LOUD (printed), never silent; timeouts are NOT
+     * retried (the budget is the budget), and each attempt counts as a real engine launch.
      */
     static JbmcResult exec(List<String> command, String entryFunction, int timeoutSeconds) {
+        JbmcResult first = execOnce(command, entryFunction, timeoutSeconds);
+        if (!first.isEngineCrash()) {
+            return first;
+        }
+        System.out.println("  bmc4j: engine crashed on " + entryFunction
+                + " - retrying once (a crash is not a verdict)");
+        JbmcResult second = execOnce(command, entryFunction, timeoutSeconds);
+        if (second.isEngineCrash()) {
+            return JbmcResult.unknownEngineCrash(
+                    second.undecidedReason() + "\n    (the crash persisted across a retry)",
+                    second.rawOutput());
+        }
+        return second;
+    }
+
+    private static JbmcResult execOnce(List<String> command, String entryFunction, int timeoutSeconds) {
         INVOCATIONS.incrementAndGet(); // ground-truth engine-launch counter for the verdict cache
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(false);
@@ -222,9 +247,10 @@ public final class Jbmc {
             if (exit != 0 && exit != 10) {
                 // Engine error (solver gave up / crashed / bad invocation). Undecided, not refuted:
                 // there's no counterexample, so report UNKNOWN rather than a refutation. The detail
-                // (exit code + stderr) is folded into the message for actionable diagnosis.
-                return JbmcResult.unknown(engineErrorReason(command, exit, err.text(), out.text()),
-                        out.text());
+                // (exit code + stderr) is folded into the message for actionable diagnosis. Flagged
+                // as a CRASH structurally so exec() retries it once.
+                return JbmcResult.unknownEngineCrash(
+                        engineErrorReason(command, exit, err.text(), out.text()), out.text());
             }
             return JbmcOutputParser.parse(out.text(), entryFunction);
         } catch (IOException e) {
