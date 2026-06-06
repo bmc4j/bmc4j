@@ -132,13 +132,25 @@ public final class ConfigBytecode {
      * open to a re-run). Empty when the classpath references no literal-keyed config readers.
      */
     static String resolvedConfig(String classpath) {
+        return resolveSites(scanCallSites(classpath));
+    }
+
+    /**
+     * The literal-keyed config-reader call sites reachable on {@code classpath}, each as a
+     * {@code {method, desc, key}} triple, sorted by {@code "reader KEY"} and de-duplicated. This is the
+     * <em>scan</em> half of {@link #resolvedConfig} — a pure function of the classpath's bytecode
+     * <b>content</b> (it never reads an env var or property), so callers may memoize it against the
+     * classpath and re-resolve the values cheaply per call (see {@code VerdictCache}). Fail-open per
+     * entry, like the resolve: an unreadable container contributes nothing.
+     */
+    static List<String[]> scanCallSites(String classpath) {
         if (classpath == null || classpath.isBlank()) {
-            return "";
+            return List.of();
         }
         // Keyed by "reader KEY" so two reader types on the same env/property key (which can parse to
-        // different values) stay distinct; the value is the resolved bake/<unset>. TreeMap => sorted,
-        // order-independent across classpath entries and call-site order.
-        TreeMap<String, String> resolved = new TreeMap<>();
+        // different values) stay distinct. TreeMap => sorted, order-independent across classpath
+        // entries and call-site order.
+        TreeMap<String, String[]> sites = new TreeMap<>();
         String[] entries = classpath.split(java.io.File.pathSeparator);
         List<String> sorted = new ArrayList<>(List.of(entries));
         java.util.Collections.sort(sorted);
@@ -149,12 +161,29 @@ public final class ConfigBytecode {
             Path p = Path.of(e);
             try {
                 if (Files.isDirectory(p)) {
-                    scanDir(p, resolved);
+                    scanDir(p, sites);
                 } else if (Files.isRegularFile(p) && isClassContainer(p)) {
-                    scanJar(p, resolved);
+                    scanJar(p, sites);
                 }
             } catch (IOException | RuntimeException ex) {
                 // fail-open per entry: skip an unreadable container (cache fails open to a re-run anyway)
+            }
+        }
+        return List.copyOf(sites.values());
+    }
+
+    /**
+     * The <em>resolve</em> half of {@link #resolvedConfig}: each scanned call site mapped to the value
+     * this run would bake (via {@link #resolvedValue}, the same reader logic as the rewrite), rendered
+     * as sorted {@code reader KEY=value} lines. Reads the CURRENT env/property values — deliberately
+     * not memoizable, so a config flip between calls still changes the result for unchanged bytecode.
+     */
+    static String resolveSites(List<String[]> sites) {
+        TreeMap<String, String> resolved = new TreeMap<>();
+        for (String[] s : sites) {
+            String value = resolvedValue(s[0], s[1], s[2]);
+            if (value != null) {
+                resolved.put(s[0] + ' ' + s[2], value);
             }
         }
         StringBuilder sb = new StringBuilder();
@@ -169,7 +198,7 @@ public final class ConfigBytecode {
         return name.endsWith(".jar") || name.endsWith(".zip");
     }
 
-    private static void scanDir(Path dir, TreeMap<String, String> out) throws IOException {
+    private static void scanDir(Path dir, TreeMap<String, String[]> out) throws IOException {
         try (Stream<Path> walk = Files.walk(dir)) {
             for (Path c : (Iterable<Path>) walk::iterator) {
                 if (Files.isRegularFile(c) && c.getFileName().toString().endsWith(".class")) {
@@ -183,7 +212,7 @@ public final class ConfigBytecode {
         }
     }
 
-    private static void scanJar(Path jar, TreeMap<String, String> out) throws IOException {
+    private static void scanJar(Path jar, TreeMap<String, String[]> out) throws IOException {
         try (ZipFile zf = new ZipFile(jar.toFile())) {
             var en = zf.entries();
             while (en.hasMoreElements()) {
@@ -200,10 +229,11 @@ public final class ConfigBytecode {
         }
     }
 
-    /** Visit one class's methods, recording each literal-keyed {@code Bmc.*From*} call site's resolved
-     *  value into {@code out} (keyed by "reader KEY"). Mirrors {@link ConfigMethodVisitor}'s
-     *  literal-key tracking so the scan sees exactly the call sites the rewrite bakes. */
-    private static void scanClass(byte[] bytes, TreeMap<String, String> out) {
+    /** Visit one class's methods, recording each literal-keyed {@code Bmc.*From*} call site into
+     *  {@code out} as a {@code {method, desc, key}} triple (keyed by "reader KEY"). Mirrors
+     *  {@link ConfigMethodVisitor}'s literal-key tracking so the scan sees exactly the call sites the
+     *  rewrite bakes. Records the SITE only — values are resolved later by {@link #resolveSites}. */
+    private static void scanClass(byte[] bytes, TreeMap<String, String[]> out) {
         ClassReader cr = new ClassReader(bytes);
         cr.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
@@ -220,11 +250,9 @@ public final class ConfigBytecode {
                     public void visitMethodInsn(int op, String owner, String name, String desc, boolean itf) {
                         String key = lastKey;
                         lastKey = null;
-                        if (op == Opcodes.INVOKESTATIC && BMC.equals(owner) && key != null) {
-                            String value = resolvedValue(name, desc, key);
-                            if (value != null) {
-                                out.put(name + ' ' + key, value);
-                            }
+                        if (op == Opcodes.INVOKESTATIC && BMC.equals(owner) && key != null
+                                && Reader.of(name, desc) != null) {
+                            out.put(name + ' ' + key, new String[]{name, desc, key});
                         }
                     }
 
