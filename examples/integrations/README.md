@@ -19,10 +19,34 @@ JBMC can't see through. One package per concept (the Kotlin custom-models concep
 
 If you annotate a model with Jakarta Bean Validation, those annotations already describe the
 inputs your system accepts. The `bmc-constraints-jakarta` annotation processor generates a
-reflection-free `assumeValid(obj)` from `@Min`/`@Max`/`@NotNull`/`@Size`, so a proof over a
-**symbolic** `User` parameter checks "my code handles every input my validation layer admits."
+reflection-free `assumeValid(obj)` from those annotations, so a proof over a **symbolic** model
+parameter checks "my code handles every input my validation layer admits."
 **The bug:** `@Max(120)` admits age 120, but `group()` indexes a 4-bucket array at `age / 30 == 4`.
-*(3 pass + 1 fail.)*
+
+The generated `assumeValid` covers a broad slice of `jakarta.validation.constraints.*`:
+
+- **Numeric / size / boolean / null** — `@Min`/`@Max`/`@Positive…`/`@Size`/`@NotEmpty`/`@Null`/
+  `@AssertTrue`/`@AssertFalse` (see `User`).
+- **Temporal** (`Event`) — `@Past`/`@PastOrPresent`/`@Future`/`@FutureOrPresent` over the modeled
+  `java.time` types. All temporal fields share ONE symbolic "now" (the validation moment), so e.g.
+  `signupAt <= now < expiry` is enforced relative to the *same* instant. A second
+  `assumeValidAt(obj, now)` overload lets a proof pin that moment.
+- **Decimal** (`Money`) — `@DecimalMin`/`@DecimalMax` (honoring `inclusive`) and `@Digits` over the
+  modeled `BigDecimal`.
+- **`@NotBlank`** (`Customer`) — non-null AND not all-whitespace. Unlike the numeric constraints,
+  `@NotBlank` *rejects* null (the jakarta asymmetry).
+- **Cascading `@Valid`** (`Customer` → `Address`, self-referential `Node`) — a `@Valid` bean field
+  recurses into the nested bean's own generated constraints (null-guarded). Cyclic bean graphs are
+  explored to the proof's unwind depth (a recursive `assumeValid` is bounded by JBMC's unwind, like
+  every loop in the tool).
+- **Container elements** (`Order`) — Jakarta 3.0 constraints live *inside* generics:
+  `List<@Min(1) Integer>` and `List<@Valid OrderLine>` become bounded element loops. The loop bound
+  is the field's `@Size(max=...)` when present, else a default cap (surfaced as a processor NOTE) —
+  the first thing to add when an element proof gets slow.
+
+The `null` value passes every constraint except `@NotNull`/`@NotBlank`, so the generated assume keeps
+valid-`null` objects in the proof domain. Unmodeled surfaces (regex `@Pattern`/`@Email`,
+`ZonedDateTime`, `Map` element constraints) are skipped with a processor NOTE, never silently.
 
 ## `config` — pinned to the run's real values
 
