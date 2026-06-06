@@ -2,6 +2,7 @@ package proofs.kotlinranges
 
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
+import org.bmc4j.kotlin.checkThrows
 
 /**
  * Laws of the `kotlin.ranges.RangesKt` model (`coerceAtLeast` / `coerceAtMost` / `coerceIn`),
@@ -71,12 +72,6 @@ class RangeLaws {
         val lo = Bmc.anyInt(-100, 100)
         val hi = Bmc.anyInt(-100, 100)
         Bmc.assume(lo > hi)
-        var threw = false
-        try {
-            0.coerceIn(lo, hi)
-        } catch (e: IllegalArgumentException) {
-            threw = true
-        }
-        Bmc.check(threw)
+        checkThrows<IllegalArgumentException> { 0.coerceIn(lo, hi) }
     }
 }
