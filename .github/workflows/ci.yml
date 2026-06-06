@@ -1,17 +1,22 @@
 name: CI
 
-# Runs on pushes to main (gate across the supported-JDK axis 17/21/25 + every
-# platform smoke), on pull requests (trimmed for fast feedback: one JDK-21 gate +
-# one linux-arm64 smoke), and on manual dispatch (fully scriptable via the
-# inputs). The release workflow calls it too.
+# One uniform shape: a `build` job (core build + unit tests, once, canonical JDK) and a
+# `proofs` job - a single leg-matrix where every leg is "run this proof scope at JVM N
+# (optionally with consumer-kotlinc V)". Host JDK == toolchain == bytecode target per
+# leg (-PbmcJvmTarget), so a leg named jdk17 genuinely runs the shipped-floor runtime
+# AND feeds 17-bytecode to the engine - no toolchain theater.
 #
-# The root test is the green gate: the model-conformance proof suite plus every
-# example module — the fail-on-purpose demos declare their expected verdicts
-# (expect = REFUTED / VACUOUS / TIMEOUT), so the whole run is green by design.
-# Every other platform gets a smoke job: one real proof class end-to-end, which
-# exercises that platform's engine jar assembly -> extraction -> an actual jbmc
-# run. A consumer-Kotlin matrix recompiles the conformance suite + Kotlin examples
-# with older kotlinc versions (2.0/2.2) on pushes and dispatches. A docs
+# Per-event legs (computed in `plan`):
+#   push (main)   -> jdk17-floor (conformance), jdk21 + jdk25 (full suite),
+#                    consumer-kotlin 2.0 + 2.2 (conformance + Kotlin examples, JVM 21),
+#                    ALL platform smokes
+#   pull_request  -> jdk21 full + one linux-arm64 smoke (fast feedback)
+#   dispatch/call -> from the jdks/kotlins/platforms inputs
+#
+# The proof suites are green by design: the fail-on-purpose demos declare their
+# expected verdicts (expect = REFUTED / VACUOUS / TIMEOUT / UNKNOWN). Every other
+# platform gets a smoke job: one real proof class end-to-end, exercising that
+# platform's engine jar assembly -> extraction -> an actual jbmc run. A docs
 # link-check job guards the README/docs/examples cross-links.
 
 on:
@@ -21,16 +26,19 @@ on:
   workflow_dispatch:
     inputs:
       gate:
-        description: 'Run the full gate job (linux-x64)'
+        description: 'Run the build + proof legs (false = smokes/links only)'
         type: boolean
         default: true
       platforms:
         description: 'Smoke platforms: "all", "none", or comma-separated from windows-x64,linux-arm64,macos-x64,macos-arm64'
         default: all
       jdks:
-        description: 'Comma-separated JDKs for the gate matrix (e.g. "17,21,25")'
+        description: 'Comma-separated JDK proof legs (e.g. "17,21,25"; 17 runs conformance-only - examples need newer javac)'
         default: '21'
-  # Callable from the release workflow (full gate + smokes before publishing).
+      kotlins:
+        description: 'Comma-separated consumer-kotlinc proof legs (e.g. "2.0.21,2.2.21"; empty = none)'
+        default: ''
+  # Callable from the release workflow (full verification before publishing).
   workflow_call:
     inputs:
       gate:
@@ -42,6 +50,9 @@ on:
       jdks:
         type: string
         default: '21'
+      kotlins:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -53,19 +64,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # matrix context isn't available in a job-level `if`, so the smoke-platform
-  # filter, the gate switch, and the gate JDK list are computed here and fed via
-  # fromJSON (same pattern as engine-jars.yml). Per-event defaults:
-  #   push (main)   -> gate + ALL smokes
-  #   pull_request  -> gate + linux-arm64 smoke only (fast feedback)
-  #   dispatch/call -> whatever the inputs say
+  # matrix context isn't available in a job-level `if`, so the proof legs and the
+  # smoke-platform filter are computed here and fed via fromJSON (same pattern as
+  # engine-jars.yml). Every leg is one uniform shape: {name, jdk, kotlin, flags, tasks}.
   plan:
     runs-on: ubuntu-latest
     outputs:
       include: ${{ steps.filter.outputs.include }}
       any: ${{ steps.filter.outputs.any }}
       gate: ${{ steps.filter.outputs.gate }}
-      jdks: ${{ steps.filter.outputs.jdks }}
+      legs: ${{ steps.filter.outputs.legs }}
     steps:
       - id: filter
         shell: bash
@@ -73,6 +81,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           PLATFORMS: ${{ inputs.platforms }}
           JDKS: ${{ inputs.jdks }}
+          KOTLINS: ${{ inputs.kotlins }}
           GATE_INPUT: ${{ inputs.gate }}
         run: |
           set -euo pipefail
@@ -83,19 +92,50 @@ jobs:
             {"runner":"macos-14","platform":"macos-arm64"}
           ]'
 
-          # Per-event defaults; inputs.* are empty on push/PR events. Every merge to main
-          # validates the whole supported-JDK axis: full suite on 21 and 25, core + model
-          # conformance on 17 (the shipped-floor runtime; examples need newer javac). PRs
-          # stay single-JDK for fast feedback.
+          # Proof scopes -> Gradle tasks. "conformance" is the model suite alone (the
+          # JDK-17 floor leg: examples need newer javac); "full" is everything incl.
+          # jarModelsConformanceTest (root `test` doesn't trigger `check`, and the
+          # as-shipped JAR rewrite path needs explicit coverage); "kotlin" is the
+          # conformance suite + every Kotlin-facing example.
+          conformance=":model-conformance-proofs:test"
+          full="test :model-conformance-proofs:jarModelsConformanceTest"
+          kotlin=":model-conformance-proofs:test :examples:fundamentals-kotlin:test :examples:language-kotlin:test :examples:concurrency-kotlin:test :examples:integrations:test"
+
+          # jdk_leg <jdk> / kotlin_leg <version>: one uniform leg each. Host JDK ==
+          # toolchain == bytecode target (-PbmcJvmTarget), so the leg's name is the
+          # truth. Consumer-kotlin legs run at JVM 21 (older KGPs have no JVM-25
+          # target, and real older-Kotlin consumers run older JVMs).
+          legs='[]'
+          jdk_leg() {
+            local jdk="$1" scope tasks
+            if [ "$jdk" = "17" ]; then scope="conformance"; tasks="$conformance"; else scope="full"; tasks="$full"; fi
+            legs="$(echo "$legs" | jq -c --arg j "$jdk" --arg t "$tasks" --arg s "$scope" \
+              '. + [{name: ("jdk" + $j + "-" + $s), jdk: $j, flags: ("-PbmcJvmTarget=" + $j), tasks: $t}]')"
+          }
+          kotlin_leg() {
+            legs="$(echo "$legs" | jq -c --arg v "$1" --arg t "$kotlin" \
+              '. + [{name: ("kotlin-" + $v), jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t}]')"
+          }
+
+          # Per-event defaults; inputs.* are empty on push/PR events.
           case "$EVENT" in
-            push)         gate="true"; sel_spec="all"; jdk_spec="17,21,25" ;;
-            pull_request) gate="true"; sel_spec="linux-arm64"; jdk_spec="21" ;;
-            *)            gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"; jdk_spec="${JDKS:-21}" ;;
+            push)
+              gate="true"; sel_spec="all"
+              jdk_leg 17; jdk_leg 21; jdk_leg 25
+              kotlin_leg 2.0.21; kotlin_leg 2.2.21
+              ;;
+            pull_request)
+              gate="true"; sel_spec="linux-arm64"
+              jdk_leg 21
+              ;;
+            *)
+              gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"
+              for j in $(echo "${JDKS:-21}" | tr ',' ' '); do jdk_leg "$j"; done
+              for k in $(echo "${KOTLINS:-}" | tr ',' ' '); do [ -n "$k" ] && kotlin_leg "$k"; done
+              ;;
           esac
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
-
-          jdks="$(echo "$jdk_spec" | jq -cR 'split(",") | map(gsub("\\s";"")) | map(select(length > 0))')"
-          echo "jdks=$jdks" >> "$GITHUB_OUTPUT"
+          echo "legs=$legs" >> "$GITHUB_OUTPUT"
 
           if [ "$sel_spec" = "all" ]; then
             sel="$(echo "$all" | jq -c .)"
@@ -106,105 +146,20 @@ jobs:
               '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
             [ "$sel" != "[]" ] || { echo "No platforms matched '$sel_spec'"; exit 1; }
           fi
-          echo "Event: $EVENT | gate: $gate (JDKs $jdks) | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
+          echo "Event: $EVENT | gate: $gate | legs: $(echo "$legs" | jq -r '[.[].name] | join(", ")') | smoke: $(echo "$sel" | jq -r 'if length == 0 then "(none)" else [.[].platform] | join(", ") end')"
           echo "include=$sel" >> "$GITHUB_OUTPUT"
           echo "any=$(echo "$sel" | jq 'length > 0')" >> "$GITHUB_OUTPUT"
 
-  gate:
-    name: full gate (linux-x64, JDK ${{ matrix.jdk }})
+  # Core build + unit tests: once, on the canonical JDK. The proof legs validate the
+  # runtime ON each JVM (their test processes actually run bmc-runtime at the leg's
+  # JVM); this job validates that the product BUILDS clean (compile, unit tests,
+  # javadoc/jar plumbing).
+  build:
+    name: build + unit tests
     needs: plan
     if: ${{ needs.plan.outputs.gate == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        jdk: ${{ fromJSON(needs.plan.outputs.jdks) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up JDK ${{ matrix.jdk }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ matrix.jdk }}
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      # Persist bmc4j verdict caches across runs. Safe by the cache's own design:
-      # entries are keyed on analysis-classpath CONTENT + request + engine identity +
-      # runtime semantics version, and only expectation-matching deterministic PASSES
-      # are ever served (VERIFIED, or REFUTED/VACUOUS for a demo expecting exactly
-      # that; failures and TIMEOUT/UNKNOWN always re-run) — a restored stale dir
-      # cannot produce a stale pass, it just skips re-proving what hasn't changed.
-      # Key on run_id so every run saves a fresh snapshot; restore-keys picks up the
-      # most recent prior one.
-      - name: Restore verdict caches
-        uses: actions/cache@v5
-        with:
-          path: '**/build/bmc4j/verdict-cache'
-          key: bmc-verdict-${{ runner.os }}-jdk${{ matrix.jdk }}-${{ github.run_id }}
-          restore-keys: |
-            bmc-verdict-${{ runner.os }}-jdk${{ matrix.jdk }}-
-
-      - name: Core - build + unit tests
-        run: ./gradlew -p core build --no-daemon
-
-      # The root test runs EVERYTHING: the model-conformance proof suite plus every
-      # example module. The fail-on-purpose demos all declare their expected verdict
-      # (expect = REFUTED / VACUOUS / TIMEOUT), so they pass while the guard they
-      # protect holds and go loudly red on a drift — the root test is GREEN by design.
-      # -Dbmc.timeoutSeconds=180 keeps any SAT-pathological proof failing fast as a
-      # NAMED UNKNOWN instead of hanging the job (per-proof budgets like the timeout
-      # demo's 1s override it). The examples need newer javac than 17 (language
-      # features), so JDK 17 runs core + conformance only; EVERY OTHER matrix JDK
-      # runs the full root test — a matrix dispatch like "17,21,25" therefore
-      # validates the rewrite layer's unit tests on each host JDK and the full
-      # example suite (where e.g. the pattern-switch desugars live) on 21 AND 25.
-      # jarModelsConformanceTest is invoked EXPLICITLY: root `test` doesn't trigger
-      # `check`, so without it the as-shipped JAR rewrite path (ClasspathMirror on
-      # jars - what a published consumer actually exercises) would have no CI coverage.
-      - name: Root test - conformance proofs + all examples (expected-verdict demos included)
-        if: ${{ matrix.jdk != '17' }}
-        run: ./gradlew test :model-conformance-proofs:jarModelsConformanceTest --no-daemon -Dbmc.timeoutSeconds=180
-
-      - name: Model conformance proofs (JDK 17 - examples need newer javac)
-        if: ${{ matrix.jdk == '17' }}
-        run: ./gradlew :model-conformance-proofs:test --no-daemon -Dbmc.timeoutSeconds=180
-
-      - name: Upload test reports
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-jdk${{ matrix.jdk }}-test-reports
-          path: |
-            **/build/reports/tests/**
-            **/build/test-results/**
-          if-no-files-found: ignore
-
-  # The CONSUMER-Kotlin axis: compile the consumer-side builds (the conformance suite +
-  # every Kotlin-facing example) with older kotlinc versions and run their proofs - the
-  # user's compiler emits the bytecode our rewrite layer and models must handle, and
-  # Kotlin libraries/metadata have real cross-version constraints (this matrix caught
-  # bmc-kotlin force-upgrading consumers' stdlib to 2.3 on its FIRST local run). 2.3 is
-  # the default toolchain already covered by the gate; the matrix covers the supported
-  # floor upward. Paired -PbmcKotlinJvmTarget=21 because older KGPs have no JVM-25
-  # target (and real older-Kotlin consumers run older JVMs). Runs on pushes to main and
-  # dispatches; PRs stay lean. KGP 1.9 cannot configure under Gradle 9, so the 1.9 floor
-  # claim rests on the emitted-metadata pin (bmc-kotlin languageVersion/apiVersion +
-  # coreLibrariesVersion 1.9), continuously verified from 2.0 up.
-  kotlin:
-    name: consumer kotlin ${{ matrix.kotlin }}
-    needs: plan
-    if: ${{ needs.plan.outputs.gate == 'true' && github.event_name != 'pull_request' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        kotlin: ['2.0.21', '2.2.21']
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -218,33 +173,57 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Distinct cache axis: a different kotlinc emits different bytecode, so these
-      # legs have their own verdict-cache lineage (content-keying handles correctness;
-      # the key only scopes WHICH snapshot gets restored).
+      - name: Core - build + unit tests
+        run: ./gradlew -p core build --no-daemon
+
+  # ONE uniform proof job: every leg is "run these proof tasks at this JVM with these
+  # flags". -Dbmc.timeoutSeconds=180 keeps any SAT-pathological proof failing fast as
+  # a NAMED UNKNOWN instead of hanging the job (per-proof budgets override it).
+  proofs:
+    name: proofs ${{ matrix.name }}
+    needs: plan
+    if: ${{ needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.legs) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Persist bmc4j verdict caches across runs, one lineage per leg (different JVM
+      # targets / kotlinc versions emit different bytecode -> different content keys;
+      # the cache's own content-keying handles correctness, the cache key only scopes
+      # WHICH snapshot gets restored). Key on run_id so every run saves a fresh
+      # snapshot; restore-keys picks up the most recent prior one.
       - name: Restore verdict caches
         uses: actions/cache@v5
         with:
           path: '**/build/bmc4j/verdict-cache'
-          key: bmc-verdict-${{ runner.os }}-kt${{ matrix.kotlin }}-${{ github.run_id }}
+          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}
           restore-keys: |
-            bmc-verdict-${{ runner.os }}-kt${{ matrix.kotlin }}-
+            bmc-verdict-${{ runner.os }}-${{ matrix.name }}-
 
-      - name: Conformance proofs + Kotlin-facing examples on kotlinc ${{ matrix.kotlin }}
-        run: >-
-          ./gradlew --no-daemon
-          -PbmcKotlinVersion=${{ matrix.kotlin }} -PbmcKotlinJvmTarget=21
-          -Dbmc.timeoutSeconds=180
-          :model-conformance-proofs:test
-          :examples:fundamentals-kotlin:test
-          :examples:language-kotlin:test
-          :examples:concurrency-kotlin:test
-          :examples:integrations:test
+      - name: Proofs (${{ matrix.tasks }})
+        shell: bash
+        run: ./gradlew --no-daemon -Dbmc.timeoutSeconds=180 ${{ matrix.flags }} ${{ matrix.tasks }}
 
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: kotlin-${{ matrix.kotlin }}-test-reports
+          name: proofs-${{ matrix.name }}-test-reports
           path: |
             **/build/reports/tests/**
             **/build/test-results/**

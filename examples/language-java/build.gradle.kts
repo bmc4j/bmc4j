@@ -6,5 +6,7 @@ plugins {
 }
 
 java {
-    toolchain { languageVersion.set(JavaLanguageVersion.of(25)) }
+    // Proof-leg JVM target: -PbmcJvmTarget=N (the CI proof matrix runs each leg with
+    // host JDK == toolchain == N, so the bytecode fed to the engine matches the leg).
+    toolchain { languageVersion.set(JavaLanguageVersion.of((providers.gradleProperty("bmcJvmTarget").orNull ?: "25").toInt())) }
 }
