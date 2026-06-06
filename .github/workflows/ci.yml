@@ -8,8 +8,8 @@ name: CI
 #
 # Per-event legs (computed in `plan`):
 #   push (main)   -> jdk17-floor (conformance), jdk21 + jdk25 (full suite),
-#                    consumer-kotlin 2.0 + 2.2 (conformance + Kotlin examples, JVM 21),
-#                    ALL platform smokes
+#                    consumer-kotlin 2.0 + 2.2 + 2.3 (conformance + Kotlin examples,
+#                    JVM 21), ALL platform smokes
 #   pull_request  -> jdk21 full + one linux-arm64 smoke (fast feedback)
 #   dispatch/call -> from the jdks/kotlins/platforms inputs
 #
@@ -122,7 +122,10 @@ jobs:
             push)
               gate="true"; sel_spec="all"
               jdk_leg 17; jdk_leg 21; jdk_leg 25
-              kotlin_leg 2.0.21; kotlin_leg 2.2.21
+              # 2.3 is also the default toolchain the full legs compile with, but it gets
+              # its own EXPLICIT leg so the kotlin axis is self-contained - implicit
+              # coverage would silently vanish the day the default bumps to 2.4.
+              kotlin_leg 2.0.21; kotlin_leg 2.2.21; kotlin_leg 2.3.21
               ;;
             pull_request)
               gate="true"; sel_spec="linux-arm64"
