@@ -51,17 +51,11 @@ object BundledEngine {
      */
     @JvmStatic
     fun extract(): String {
+        // Platform.current() already redirects a musl/Alpine x64 host to the musl engine jar
+        // (linux-x64-musl), so musl is now a SELECTION, not a failure: the matching musl-built
+        // jbmc is picked here. If that engine jar simply isn't on the classpath, readManifest
+        // raises the generic, actionable "add the engine dependency" error below.
         val platform = Platform.current()
-        // The bundled Linux engine is a glibc build (from CBMC's `.deb`); on a musl C library
-        // (Alpine) it can't exec and the dynamic linker emits a confusing "not found" error. The
-        // name/arch mapper in Platform.of can't see the C library, so detect musl here — at the
-        // actual selection/extraction site — and fail fast with an actionable message instead.
-        if (!platform.isWindows && !platform.isMac && isMuslLibc()) {
-            throw UnsupportedOperationException(
-                    "bmc4j's bundled Linux engine is glibc-only and cannot run on a musl/Alpine " +
-                            "system (detected " + muslEvidence() + "). Supported Linux: glibc x64/arm64. " +
-                            "Set -Dbmc.jbmc=<path to a musl-compatible jbmc> to use a local binary.")
-        }
         val root = "jbmc/" + platform.id
         val files = readManifest("$root/files.txt", platform)
         val version = readResourceAsString("$root/version.txt")
@@ -147,10 +141,6 @@ object BundledEngine {
             false
         }
     }
-
-    /** Short description of which musl signal fired, for the failure message. */
-    private fun muslEvidence(): String =
-            if (Files.exists(Path.of("/etc/alpine-release"))) "/etc/alpine-release" else "a musl ld loader"
 
     /** Best-effort recursive delete (cleanup of temp/partial extraction dirs). */
     private fun deleteRecursively(dir: Path) {

@@ -10,19 +10,31 @@ enum class Platform(
 
     WINDOWS_X64("windows-x64", true, false),
     LINUX_X64("linux-x64", false, false),
+    LINUX_X64_MUSL("linux-x64-musl", false, false),
     LINUX_ARM64("linux-arm64", false, false),
     MACOS_X64("macos-x64", false, true),
     MACOS_ARM64("macos-arm64", false, true);
 
     companion object {
 
+        /**
+         * The host's bundled-engine platform.
+         *
+         * `os.name`/`os.arch` alone can't tell a musl/Alpine x64 host from a glibc one (both report
+         * `Linux`/`amd64`), but the bundled glibc jbmc cannot exec under musl. So after the pure
+         * name/arch mapping ([of]), a musl x64 host is REDIRECTED to [LINUX_X64_MUSL] — the engine jar
+         * built against musl. The C-library probe reads the real filesystem root and so lives here, not
+         * in the pure, host-independent [of] mapper (which the unit tests pin).
+         */
         @JvmStatic
-        fun current(): Platform =
-                of(System.getProperty("os.name", ""), System.getProperty("os.arch", ""))
+        fun current(): Platform {
+            val base = of(System.getProperty("os.name", ""), System.getProperty("os.arch", ""))
+            return if (base == LINUX_X64 && BundledEngine.isMuslLibc()) LINUX_X64_MUSL else base
+        }
 
         /** Supported engine platforms, named in fail-fast messages so the error is actionable. */
         private const val SUPPORTED =
-                "windows-x64, linux-x64, linux-arm64, macos-x64, macos-arm64"
+                "windows-x64, linux-x64, linux-x64-musl, linux-arm64, macos-x64, macos-arm64"
 
         /**
          * Map raw `os.name`/`os.arch` strings to a platform (package-private for tests).
@@ -30,8 +42,11 @@ enum class Platform(
          * Fails fast on platforms with no bundled engine instead of silently selecting a wrong
          * binary. The only such case here is windows-arm64: there is no windows-arm64 engine module,
          * and handing back [WINDOWS_X64] would run the x64 binary under unverified emulation.
-         * (musl/Alpine on Linux can't be told apart from glibc by name/arch alone, so that check
-         * lives at the extraction site in [BundledEngine], not in this pure mapper.)
+         *
+         * This is the PURE name/arch mapper and is host-independent: it returns [LINUX_X64] for any
+         * Linux x64, glibc or musl, because it cannot see the C library. The musl redirect to
+         * [LINUX_X64_MUSL] is applied by [current] (which can probe the live filesystem). musl arm64
+         * has no engine yet, so arm64 always maps to [LINUX_ARM64].
          *
          * @throws UnsupportedOperationException if the OS/arch has no bundled engine
          */

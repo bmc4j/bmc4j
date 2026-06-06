@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Platforms to build: "all" or comma-separated from windows-x64,linux-x64,linux-arm64,macos-x64,macos-arm64 (avoids republishing already-published jars - GitHub Packages rejects overwrites)'
+        description: 'Platforms to build: "all" or comma-separated from windows-x64,linux-x64,linux-x64-musl,linux-arm64,macos-x64,macos-arm64 (avoids republishing already-published jars - GitHub Packages rejects overwrites)'
         default: all
       publish:
         description: 'Publish to GitHub Packages (false = build + smoke-check only)'
@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       include: ${{ steps.filter.outputs.include }}
+      musl: ${{ steps.filter.outputs.musl }}
     steps:
       - id: filter
         shell: bash
@@ -60,6 +61,11 @@ jobs:
           set -euo pipefail
           # macos-13 (the old Intel label) is retired - macos-15-intel is the
           # current GitHub-hosted Intel image. The sonoma x64 bottle runs fine on it.
+          #
+          # linux-x64-musl is NOT in this matrix: it can't be built with a runner-native
+          # toolchain (it needs a musl toolchain), so it runs in its own `engine-musl` job
+          # inside an alpine container. The musl flag below toggles that job. Everything
+          # else (a runner-native, OS-matched assembly) lives in this matrix.
           all='[
             {"runner":"windows-latest","platform":"windows-x64"},
             {"runner":"ubuntu-latest","platform":"linux-x64"},
@@ -67,19 +73,31 @@ jobs:
             {"runner":"macos-15-intel","platform":"macos-x64"},
             {"runner":"macos-14","platform":"macos-arm64"}
           ]'
-          if [ "${PLATFORMS:-all}" = "all" ]; then
+          spec="${PLATFORMS:-all}"
+          if [ "$spec" = "all" ]; then
             sel="$(echo "$all" | jq -c .)"
+            musl="true"
           else
-            sel="$(echo "$all" | jq -c --arg p "$PLATFORMS" \
+            sel="$(echo "$all" | jq -c --arg p "$spec" \
               '[ .[] | select(.platform as $x | ($p | split(",") | map(gsub("\\s";"")) | index($x)) != null) ]')"
+            # linux-x64-musl lives outside the runner matrix; select it independently.
+            if echo "$spec" | tr ',' '\n' | sed 's/[[:space:]]//g' | grep -qx 'linux-x64-musl'; then
+              musl="true"
+            else
+              musl="false"
+            fi
           fi
-          [ "$sel" != "[]" ] || { echo "No platforms matched '$PLATFORMS'"; exit 1; }
-          echo "Building: $(echo "$sel" | jq -r '[.[].platform] | join(", ")')"
+          if [ "$sel" = "[]" ] && [ "$musl" != "true" ]; then
+            echo "No platforms matched '$spec'"; exit 1
+          fi
+          echo "Building: $(echo "$sel" | jq -r '[.[].platform] | join(", ")')$([ "$musl" = "true" ] && echo ", linux-x64-musl")"
           echo "include=$sel" >> "$GITHUB_OUTPUT"
+          echo "musl=$musl" >> "$GITHUB_OUTPUT"
 
   engine:
     name: ${{ matrix.platform }}
     needs: plan
+    if: ${{ needs.plan.outputs.include != '[]' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -185,5 +203,100 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: central-staging-${{ matrix.platform }}
+          path: central-staging/
+          if-no-files-found: error
+
+  # linux-x64-musl: the engine binary must be MUSL-linked, and upstream CBMC ships
+  # only glibc artifacts, so the static musl jbmc is built (once per CBMC bump) in a
+  # dedicated builder repo (bmc4j/jbmc-musl-builds) and published there as a release
+  # asset. This module's prepareEngine then FETCHES that prebuilt tarball and
+  # SHA-256-verifies it - exactly like every other platform fetches its upstream
+  # artifact - so NO compiler runs here and assembly takes ~seconds.
+  #
+  # Because assembly is now just fetch + tar-extract, this runs on a normal
+  # ubuntu-latest runner with the marketplace setup-java/setup-gradle actions, like
+  # the rest of the matrix. The musl binary can't run on the glibc runner, so the
+  # binary `--version` smoke runs in a throwaway alpine container (`docker run`).
+  engine-musl:
+    name: linux-x64-musl
+    needs: plan
+    if: ${{ needs.plan.outputs.musl == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      BMC4J_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build musl engine jar
+        shell: bash
+        run: ./gradlew -p core :bmc-engine-linux-x64-musl:build --no-daemon
+
+      - name: Smoke-check bundled jbmc (musl, in alpine)
+        shell: bash
+        run: |
+          set -euo pipefail
+          libs="core/bmc-engine-linux-x64-musl/build/libs"
+          jarfile="$(cd "$libs" && ls bmc-engine-linux-x64-musl-*.jar | grep -vE -- '-(javadoc|sources)\.jar$' | head -n1)"
+          echo "Inspecting $libs/$jarfile"
+          work="$(mktemp -d)"
+          cp "$libs/$jarfile" "$work/"
+          (cd "$work" && jar xf "$jarfile" "jbmc/linux-x64-musl/bin/jbmc")
+          bin="$work/jbmc/linux-x64-musl/bin/jbmc"
+          chmod +x "$bin"
+          # The binary is statically musl-linked; run it in a throwaway alpine
+          # container to prove it executes under musl and reports the right version.
+          out="$(docker run --rm -v "$work:/w" alpine:3.20 /w/jbmc/linux-x64-musl/bin/jbmc --version)"
+          echo "jbmc --version => $out"
+          echo "$out" | grep -q "6.9.0" || { echo "Expected jbmc version 6.9.0, got: $out"; exit 1; }
+
+      - name: Upload engine jar artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: bmc-engine-linux-x64-musl
+          path: core/bmc-engine-linux-x64-musl/build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Publish to GitHub Packages
+        if: ${{ inputs.publish }}
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
+          mod="bmc-engine-linux-x64-musl"
+          if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
+              "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$BMC4J_VERSION/$mod-$BMC4J_VERSION.pom"; then
+            echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
+            exit 0
+          fi
+          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon
+
+      - name: Publish to Central staging artifact
+        if: ${{ inputs.centralStaging }}
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew -p core
+          -PcentralStagingDir="$GITHUB_WORKSPACE/central-staging"
+          :bmc-engine-linux-x64-musl:publishMavenPublicationToCentralStagingRepository
+          --no-daemon
+
+      - name: Upload Central staging artifact
+        if: ${{ inputs.centralStaging }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: central-staging-linux-x64-musl
           path: central-staging/
           if-no-files-found: error
