@@ -122,6 +122,10 @@ class ModelAuditGateTest : FunSpec({
     // class-level @BmcModelConforms (blanket: every implemented member mirrors-and-conforms).
     // key = name + erased-param-desc (return-agnostic). Constructors excluded (audited via real ctors
     // separately if ever needed; the real-member surface enumerates methods, not <init>).
+    val synthesizedDesc = "L${auditPkg}BmcSynthesizedLoud;"
+    fun isSynthesizedLoud(m: org.objectweb.asm.tree.MethodNode): Boolean =
+        ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())).any { it.desc == synthesizedDesc }
+
     fun conformsKeys(realFqn: String): Set<String> {
         val out = mutableSetOf<String>()
         var cur: ClassNode? = nodes[realFqn]
@@ -131,6 +135,7 @@ class ModelAuditGateTest : FunSpec({
                 if (m.name == "<clinit>" || m.name == "<init>") continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
+                if (isSynthesizedLoud(m)) continue // a loud stub is NOT a genuine model implementation
                 val methodConforms = ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList()))
                     .any { it.desc == conformsDesc }
                 if (blanket || methodConforms) out.add(m.name + paramsDesc(m.desc))
@@ -271,14 +276,21 @@ class ModelAuditGateTest : FunSpec({
                     }
                 }
             } else if (!annotated && realFqn !in WAIVED) {
-                pristine.add(realFqn)
+                // A REGISTERED (COVERED) model that bears no audit annotations FAILS — a registered model
+                // can't silently skip auditing. A genuinely-new, non-registered, non-waived model only
+                // WARNS here (CoverageGateTest is what fails on an unregistered new model).
+                if (realFqn in COVERED) {
+                    failures.add("$realFqn: registered (COVERED) but carries NO audit annotation — annotate it (at least a class-level @BmcModelConforms)")
+                } else {
+                    pristine.add(realFqn)
+                }
             }
         }
         if (pristine.isNotEmpty()) {
             println("MODEL AUDITING — pristine (un-annotated, non-registered, non-waived) model classes — " +
                 "annotate to bring them under per-member auditing:\n  " + pristine.sorted().joinToString("\n  "))
         }
-        withClue("annotated-but-unregistered models with mis-annotations:\n  ${failures.sorted().joinToString("\n  ")}") {
+        withClue("model auditing — registered-but-unannotated models and mis-annotations:\n  ${failures.sorted().joinToString("\n  ")}") {
             failures.isEmpty() shouldBe true
         }
     }

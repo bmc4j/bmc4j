@@ -71,6 +71,9 @@ tasks.named("compileTestKotlin") { dependsOn(relocateModels) }
 tasks.test {
     dependsOn(relocateModels)
     useJUnitPlatform()
+    // Forward the docs-regeneration flag to the test JVM (ModelCoverageDocsTest rewrites
+    // docs/model-coverage.md when set). Off by default: the test then just stale-checks.
+    providers.systemProperty("bmc.regenerateDocs").orNull?.let { systemProperty("bmc.regenerateDocs", it) }
 }
 
 fun relocateModelJar(inputs: Set<File>, output: File) {

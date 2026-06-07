@@ -216,6 +216,8 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
             if (node.methods.any { it.name == name && paramsDesc(it.desc) == paramsKey(params) }) return
             val desc = Type.getMethodDescriptor(ret, *params.toTypedArray())
             val mn = MethodNode(Opcodes.ACC_PUBLIC, name, desc, null, null)
+            // Mark as synthesized so the gate/docs don't count it as a genuine model implementation.
+            mn.visitAnnotation("Lorg/bmc4j/models/audit/BmcSynthesizedLoud;", false)
             val msg = "bmc4j: unmodelled member $className.$memberLabel — $reason"
             mn.instructions.apply {
                 add(TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))

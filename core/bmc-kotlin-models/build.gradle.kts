@@ -185,6 +185,7 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
 
             val access = Opcodes.ACC_PUBLIC
             val mn = MethodNode(access, name, desc, null, null)
+            mn.visitAnnotation("Lorg/bmc4j/models/audit/BmcSynthesizedLoud;", false)
             val msg = "bmc4j: unmodelled member $className.${decl.member} — ${decl.reason}"
             val iv = mn.instructions
             iv.add(org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))
