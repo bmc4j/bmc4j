@@ -118,31 +118,25 @@ Real surface: 33 members — modeled 19, not-modeled 1, not-needed 0, tail 13.
 
 ## `java.util.ArrayList`
 
-_array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)_
+_array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray()_
 
-Real surface: 42 members — modeled 12, not-modeled 4, not-needed 8, tail 18.
+Real surface: 42 members — modeled 15, not-modeled 2, not-needed 4, tail 21.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `set(int, Object)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `removeIf(Predicate)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
-| `forEach(Consumer)` | functional-arg iteration — JBMC stubs the lambda dispatch; iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
 | `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
 | `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
 
 | Not needed (exotic) | Reason |
 |---|---|
 | `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(Collection)` | bulk add — model via element-by-element add; targeted modeling tracked separately |
 | `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
-| `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-**Tail** (`@BmcModelTail`, 18 members, all loud): exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, clone, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC
+**Tail** (`@BmcModelTail`, 21 members, all loud): exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, clone, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC
 
 
 ## `java.util.Arrays`
@@ -158,27 +152,20 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 
 ## `java.util.HashMap`
 
-_parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap)_
+_parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap); incl. the modeled functional ops compute*/merge/forEach/replace_
 
-Real surface: 25 members — modeled 13, not-modeled 6, not-needed 4, tail 2.
+Real surface: 25 members — modeled 20, not-modeled 1, not-needed 2, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
-| `compute(Object, BiFunction)` | functional-arg remapping — JBMC stubs the lambda dispatch |
-| `computeIfAbsent(Object, Function)` | functional-arg remapping — JBMC stubs the lambda dispatch |
-| `computeIfPresent(Object, BiFunction)` | functional-arg remapping — JBMC stubs the lambda dispatch |
-| `forEach(BiConsumer)` | functional-arg iteration — iterate entrySet() explicitly |
-| `merge(Object, Object, BiFunction)` | functional-arg merge — JBMC stubs the lambda dispatch |
 | `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 | Not needed (exotic) | Reason |
 |---|---|
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replace(Object, Object)` | conditional replace — compose get()/put() explicitly |
-| `replace(Object, Object, Object)` | compare-and-replace — compose get()/put() explicitly |
 
 **Tail** (`@BmcModelTail`, 2 members, all loud): exotic remainder: newHashMap(int) factory and clone() — out of scope; loud under JBMC
 
@@ -212,11 +199,11 @@ Real surface: 21 members — modeled 7, not-modeled 2, not-needed 6, tail 6.
 
 _inherits the HashMap model surface; insertion order preserved by the backing arrays_
 
-Real surface: 37 members — modeled 13, not-modeled 0, not-needed 0, tail 24.
+Real surface: 37 members — modeled 20, not-modeled 0, not-needed 0, tail 17.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
-**Tail** (`@BmcModelTail`, 24 members, all loud): SequencedMap surface (firstEntry/lastEntry/pollFirstEntry/reversed/sequencedKeySet/…) and the access-order/eldest-entry LRU hooks — out of scope for this array-backed model; all loud under JBMC
+**Tail** (`@BmcModelTail`, 17 members, all loud): SequencedMap surface (firstEntry/lastEntry/pollFirstEntry/reversed/sequencedKeySet/…) and the access-order/eldest-entry LRU hooks — out of scope for this array-backed model; all loud under JBMC
 
 
 ## `java.util.LinkedHashSet`
@@ -232,44 +219,33 @@ Real surface: 29 members — modeled 7, not-modeled 0, not-needed 0, tail 22.
 
 ## `java.util.LinkedList`
 
-_inherits the ArrayList model surface; differential (LinkedList) + @BmcProof_
+_inherits the ArrayList model surface + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof_
 
-Real surface: 56 members — modeled 12, not-modeled 0, not-needed 0, tail 44.
+Real surface: 56 members — modeled 35, not-modeled 0, not-needed 0, tail 21.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `set(int, Object)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
-**Tail** (`@BmcModelTail`, 44 members, all loud): Deque/Queue surface (offer/poll/peek/push/pop/addFirst/peekLast/descendingIterator/…) and List extras not inherited from the ArrayList model — out of scope for this array-backed model; all loud under JBMC
+**Tail** (`@BmcModelTail`, 21 members, all loud): the remaining Deque/List surface not implemented (descendingIterator/descendingDuque ops, listIterator/subList/spliterator, reversed/SequencedCollection, clone) is out of scope for this array-backed model; all loud under JBMC
 
 
 ## `java.util.Optional`
 
-_present-flag model — differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)_
+_present-flag model — differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional); full surface modeled (empty/of/ofNullable/get/isPresent/isEmpty/orElse*/ifPresent*/map/filter/flatMap/or/stream)_
 
-Real surface: 17 members — modeled 12, not-modeled 4, not-needed 1, tail 0.
+Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `empty()`, `filter(Predicate)`, `get()`, `ifPresent(Consumer)`, `isEmpty()`, `isPresent()`, `map(Function)`, `of(Object)`, `ofNullable(Object)`, `orElse(Object)`, `orElseGet(Supplier)`, `orElseThrow()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `flatMap(Function)` | functional-arg flatMap returning Optional — JBMC stubs the mapper dispatch |
-| `ifPresentOrElse(Consumer, Runnable)` | functional-arg present/absent branch — JBMC stubs the lambda dispatch |
-| `or(Supplier)` | functional-arg alternative supplier — JBMC stubs the supplier dispatch |
-| `orElseThrow(Supplier)` | functional-arg exception supplier — use orElseThrow() or get() |
-
-| Not needed (exotic) | Reason |
-|---|---|
-| `stream()` | 0/1-element stream view — use isPresent()/get() directly |
+**Modeled** (`@BmcModelConforms`): `empty()`, `filter(Predicate)`, `flatMap(Function)`, `get()`, `ifPresent(Consumer)`, `ifPresentOrElse(Consumer, Runnable)`, `isEmpty()`, `isPresent()`, `map(Function)`, `of(Object)`, `ofNullable(Object)`, `or(Supplier)`, `orElse(Object)`, `orElseGet(Supplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
 
 
 ## `java.util.TreeMap`
 
 _inherits the HashMap model surface; functional results match (no key ordering imposed)_
 
-Real surface: 54 members — modeled 13, not-modeled 0, not-needed 0, tail 41.
+Real surface: 54 members — modeled 20, not-modeled 0, not-needed 0, tail 34.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
-**Tail** (`@BmcModelTail`, 41 members, all loud): NavigableMap/SortedMap ordering surface (firstKey/lastKey/ceilingEntry/floorKey/headMap/tailMap/subMap/descendingMap/pollFirstEntry/…) — this array-backed model imposes no ordering, so the ordered navigation API is out of scope; all loud under JBMC
+**Tail** (`@BmcModelTail`, 34 members, all loud): NavigableMap/SortedMap ordering surface (firstKey/lastKey/ceilingEntry/floorKey/headMap/tailMap/subMap/descendingMap/pollFirstEntry/…) — this array-backed model imposes no ordering, so the ordered navigation API is out of scope; all loud under JBMC
 
 
 ## `java.util.concurrent.ArrayBlockingQueue`
@@ -312,22 +288,22 @@ Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 
 _inherits the HashMap model surface; adds null-key/value rejection (differential + @BmcProof)_
 
-Real surface: 62 members — modeled 13, not-modeled 0, not-needed 0, tail 49.
+Real surface: 62 members — modeled 20, not-modeled 0, not-needed 0, tail 42.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
-**Tail** (`@BmcModelTail`, 49 members, all loud): the functional-arg map ops (compute*/merge/forEach/replaceAll) and the entire parallel bulk surface (forEachKey/reduce*/search*/reduceToInt/… across keys/values/entries with parallelismThreshold), plus newKeySet/mappingCount/elements/keys/contains(value-alias) — out of scope for a sequential bounded model; all loud under JBMC
+**Tail** (`@BmcModelTail`, 42 members, all loud): the functional-arg map ops (compute*/merge/forEach/replaceAll) and the entire parallel bulk surface (forEachKey/reduce*/search*/reduceToInt/… across keys/values/entries with parallelismThreshold), plus newKeySet/mappingCount/elements/keys/contains(value-alias) — out of scope for a sequential bounded model; all loud under JBMC
 
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
 _inherits the ArrayList model surface; differential (sequential semantics)_
 
-Real surface: 43 members — modeled 12, not-modeled 0, not-needed 0, tail 31.
+Real surface: 43 members — modeled 15, not-modeled 0, not-needed 0, tail 28.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `set(int, Object)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `removeIf(Predicate)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
-**Tail** (`@BmcModelTail`, 31 members, all loud): copy-on-write/atomic extras (addIfAbsent/addAllAbsent/getArray/…), Deque surface, listIterator/subList/spliterator — out of scope for this sequential array-backed model; all loud under JBMC
+**Tail** (`@BmcModelTail`, 28 members, all loud): copy-on-write/atomic extras (addIfAbsent/addAllAbsent/getArray/…), Deque surface, listIterator/subList/spliterator — out of scope for this sequential array-backed model; all loud under JBMC
 
 
 ## `java.util.concurrent.CountDownLatch`
