@@ -33,6 +33,8 @@ val COVERED: Set<String> = setOf(
     "kotlin.jvm.internal.Intrinsics",
     // Model proofs (model-conformance-proofs) — Kotlin Sequences facade (SequenceLaws).
     "kotlin.sequences.SequencesKt", "kotlin.sequences.Sequence", "kotlin.sequences.ListSequence",
+    // IndexedValue(index, value) pair produced by SequencesKt.withIndex (SequenceLaws withIndex proofs).
+    "kotlin.collections.IndexedValue",
     // Model proofs (model-conformance-proofs) — stream models (StreamLaws: mapToInt/sum/count/filter/collect).
     "java.util.stream.Stream", "java.util.stream.IntStream", "java.util.stream.ListStream",
     "java.util.stream.IntArrayStream", "java.util.stream.Collectors",
@@ -139,6 +141,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     // the same-named class on the kotlin-stdlib jar on this module's classpath; see the doc above for the
     // facade-dedup and mangled-ABI conventions.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
+    "kotlin.collections.IndexedValue",
     "kotlin.sequences.SequencesKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt",
     "kotlin.ranges.RangesKt", "kotlin.comparisons.ComparisonsKt",

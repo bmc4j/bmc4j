@@ -1567,6 +1567,19 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 </details>
 
 
+## `kotlin.collections.IndexedValue`
+
+Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
+
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getIndex()`, `getValue()`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): IndexedValue data-class auto-generated surface (copy/toString/equals/hashCode) not exercised by the bounded proofs; loud under JBMC if reached</summary>
+
+- `copy(int, Object)`
+
+</details>
+
+
 ## `kotlin.collections.MapsKt`
 
 Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
@@ -1926,9 +1939,9 @@ Real surface: 131 members — modeled 6, not-modeled 0, not-needed 107, tail 18.
 
 ## `kotlin.sequences.SequencesKt`
 
-Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102.
+Real surface: 164 members — modeled 40, not-modeled 0, not-needed 51, tail 73.
 
-**Modeled** (`@BmcModelConforms`): `count(Sequence)`, `distinct(Sequence)`, `drop(Sequence, int)`, `filter(Sequence, Function1)`, `flatMap(Sequence, Function1)`, `map(Sequence, Function1)`, `sequenceOf(Object[])`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `toList(Sequence)`, `toSet(Sequence)`
+**Modeled** (`@BmcModelConforms`): `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `count(Sequence)`, `distinct(Sequence)`, `drop(Sequence, int)`, `elementAtOrNull(Sequence, int)`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `sequenceOf(Object[])`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `toList(Sequence)`, `toSet(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1984,7 +1997,7 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 | `sumBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 102 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 73 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Sequence)`
 - `asIterable(Sequence)`
@@ -1995,24 +2008,19 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `averageOfInt(Sequence)`
 - `averageOfLong(Sequence)`
 - `averageOfShort(Sequence)`
-- `chunked(Sequence, int)`
-- `chunked(Sequence, int, Function1)`
 - `constrainOnce(Sequence)`
 - `contains(Sequence, Object)`
 - `distinctBy(Sequence, Function1)`
 - `dropWhile(Sequence, Function1)`
 - `elementAt(Sequence, int)`
 - `elementAtOrElse(Sequence, int, Function1)`
-- `elementAtOrNull(Sequence, int)`
 - `emptySequence()`
-- `filterIndexed(Sequence, Function2)`
 - `filterIsInstance(Sequence, Class)`
 - `filterIsInstanceTo(Sequence, Collection, Class)`
 - `filterNot(Sequence, Function1)`
 - `filterNotNull(Sequence)`
 - `filterNotNullTo(Sequence, Collection)`
 - `first(Sequence)`
-- `firstOrNull(Sequence)`
 - `flatMapIndexed(Sequence, Function2, Function1)`
 - `flatMapIndexedIterable(Sequence, Function2)`
 - `flatMapIndexedSequence(Sequence, Function2)`
@@ -2020,8 +2028,6 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `flatten(Sequence)`
 - `flattenSequenceOfIterable(Sequence)`
 - `generateSequence(Function0)`
-- `generateSequence(Function0, Function1)`
-- `generateSequence(Object, Function1)`
 - `ifEmpty(Sequence, Function0)`
 - `indexOf(Sequence, Object)`
 - `iterator(Function2)`
@@ -2029,8 +2035,6 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `last(Sequence)`
 - `lastIndexOf(Sequence, Object)`
-- `lastOrNull(Sequence)`
-- `mapIndexed(Sequence, Function2)`
 - `mapIndexedNotNull(Sequence, Function2)`
 - `mapNotNull(Sequence, Function1)`
 - `maxOrNull(Sequence)`
@@ -2041,17 +2045,7 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `minOrThrow(Sequence)`
 - `minWithOrNull(Sequence, Comparator)`
 - `minWithOrThrow(Sequence, Comparator)`
-- `minus(Sequence, Iterable)`
-- `minus(Sequence, Object)`
-- `minus(Sequence, Object[])`
-- `minus(Sequence, Sequence)`
 - `none(Sequence)`
-- `onEach(Sequence, Function1)`
-- `onEachIndexed(Sequence, Function2)`
-- `plus(Sequence, Iterable)`
-- `plus(Sequence, Object)`
-- `plus(Sequence, Object[])`
-- `plus(Sequence, Sequence)`
 - `requireNoNulls(Sequence)`
 - `runningFold(Sequence, Object, Function2)`
 - `runningFoldIndexed(Sequence, Object, Function3)`
@@ -2065,9 +2059,6 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `shuffled(Sequence, Random)`
 - `single(Sequence)`
 - `singleOrNull(Sequence)`
-- `sorted(Sequence)`
-- `sortedDescending(Sequence)`
-- `sortedWith(Sequence, Comparator)`
 - `sumOfByte(Sequence)`
 - `sumOfDouble(Sequence)`
 - `sumOfFloat(Sequence)`
@@ -2081,13 +2072,6 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102
 - `toSortedSet(Sequence)`
 - `toSortedSet(Sequence, Comparator)`
 - `unzip(Sequence)`
-- `windowed(Sequence, int, int, boolean)`
-- `windowed(Sequence, int, int, boolean, Function1)`
-- `withIndex(Sequence)`
-- `zip(Sequence, Sequence)`
-- `zip(Sequence, Sequence, Function2)`
-- `zipWithNext(Sequence)`
-- `zipWithNext(Sequence, Function2)`
 
 </details>
 
