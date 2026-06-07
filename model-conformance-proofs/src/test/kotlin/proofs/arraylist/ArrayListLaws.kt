@@ -140,32 +140,9 @@ class ArrayListLaws {
         Bmc.check(!changed && l.size == 1 && l[0] == a)
     }
 
-    // --- SequencedCollection head/tail ops (Java 21+) ----------------------------------------------
-
-    @BmcProof
-    fun addFirst_inserts_at_head_addLast_at_tail() {
-        val l = ArrayList<Int>()
-        val a = Bmc.anyInt()
-        val b = Bmc.anyInt()
-        val c = Bmc.anyInt()
-        l.addLast(a)        // [a]
-        l.addFirst(b)       // [b, a]
-        l.addLast(c)        // [b, a, c]
-        Bmc.check(l.size == 3 && l[0] == b && l[1] == a && l[2] == c)
-        Bmc.check(l.getFirst() == b && l.getLast() == c)
-    }
-
-    @BmcProof
-    fun removeFirst_and_removeLast_take_the_ends() {
-        val l = ArrayList<Int>()
-        val a = Bmc.anyInt()
-        val b = Bmc.anyInt()
-        val c = Bmc.anyInt()
-        l.addLast(a); l.addLast(b); l.addLast(c)  // [a, b, c]
-        val first = l.removeFirst()               // a, leaves [b, c]
-        val last = l.removeLast()                 // c, leaves [b]
-        Bmc.check(first == a && last == c && l.size == 1 && l[0] == b)
-    }
+    // SequencedCollection head/tail ops (addFirst/addLast/getFirst/getLast/removeFirst/removeLast)
+    // only resolve against java.util.List on the Java 21+ floor, so those proofs live in the
+    // jvm21+ source set (see build.gradle.kts). lastIndexOf is on List in every supported floor.
 
     @BmcProof
     fun lastIndexOf_finds_the_last_equal_element() {
