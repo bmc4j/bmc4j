@@ -50,4 +50,82 @@ class HashSetLaws {
         val s = HashSet<Int>(src)
         Bmc.check(s.size == 1 && s.contains(x))
     }
+
+    // --- stream() adapter (thin ListStream over the deduped elements) ------------------------------
+
+    @BmcProof
+    fun stream_count_equals_set_size() {
+        val s = HashSet<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        Bmc.assume(a != b)
+        s.add(a)
+        s.add(b)
+        s.add(a)   // duplicate, dropped
+        Bmc.check(s.stream().count() == 2L)
+    }
+
+    @BmcProof
+    fun stream_filter_then_count_via_lambda() {
+        // A real predicate through the set's stream must devirtualize (bmc4j desugars the lambda).
+        val s = HashSet<Int>()
+        val p = Bmc.anyInt(0, 100)    // positive
+        val n = Bmc.anyInt(-100, -1)  // negative
+        s.add(p)
+        s.add(n)
+        Bmc.check(s.stream().filter { it >= 0 }.count() == 1L)
+    }
+
+    // --- functional / bulk ops (lambdas through the set; bulk over a source collection) ------------
+
+    @BmcProof
+    fun removeIf_drops_matching_via_lambda() {
+        // A real predicate through removeIf must devirtualize (bmc4j desugars the lambda).
+        val s = HashSet<Int>()
+        val p = Bmc.anyInt(0, 100)
+        val n = Bmc.anyInt(-100, -1)
+        s.add(p)
+        s.add(n)
+        val changed = s.removeIf { it < 0 }
+        Bmc.check(changed && s.size == 1 && s.contains(p))
+    }
+
+    @BmcProof
+    fun forEach_visits_every_element_via_lambda() {
+        val s = HashSet<Int>()
+        val a = Bmc.anyInt(0, 1000)
+        val b = Bmc.anyInt(0, 1000)
+        Bmc.assume(a != b)
+        s.add(a)
+        s.add(b)
+        val sum = intArrayOf(0)
+        s.forEach { sum[0] += it }
+        Bmc.check(sum[0] == a + b)
+    }
+
+    @BmcProof
+    fun addAll_dedups_distinct_elements() {
+        val src = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        Bmc.assume(a != b)
+        src.add(a); src.add(b); src.add(a)   // duplicate of a
+        val s = HashSet<Int>()
+        s.add(a)                              // a already present
+        val changed = s.addAll(src)           // only b is new
+        Bmc.check(changed && s.size == 2 && s.contains(a) && s.contains(b))
+    }
+
+    @BmcProof
+    fun retainAll_keeps_only_the_intersection() {
+        val s = HashSet<Int>()
+        val keep = Bmc.anyInt()
+        val drop = Bmc.anyInt()
+        Bmc.assume(keep != drop)
+        s.add(keep); s.add(drop)
+        val keepSet = ArrayList<Int>()
+        keepSet.add(keep)
+        val changed = s.retainAll(keepSet)
+        Bmc.check(changed && s.size == 1 && s.contains(keep) && !s.contains(drop))
+    }
 }

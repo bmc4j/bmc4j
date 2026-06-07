@@ -428,11 +428,11 @@ Real surface: 33 members — modeled 20, not-modeled 1, not-needed 0, tail 12.
 
 ## `java.util.ArrayList`
 
-_array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray()_
+_array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray() and the SequencedCollection head/tail ops getFirst/getLast/addFirst/addLast/removeFirst/removeLast + lastIndexOf_
 
-Real surface: 42 members — modeled 18, not-modeled 2, not-needed 5, tail 17.
+Real surface: 42 members — modeled 25, not-modeled 2, not-needed 5, tail 10.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -447,19 +447,12 @@ Real surface: 42 members — modeled 18, not-modeled 2, not-needed 5, tail 17.
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 17 members, all loud): exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 10 members, all loud): exotic remainder: reversed() view, listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC</summary>
 
-- `addFirst(Object)`
-- `addLast(Object)`
 - `ensureCapacity(int)`
-- `getFirst()`
-- `getLast()`
-- `lastIndexOf(Object)`
 - `listIterator()`
 - `listIterator(int)`
 - `parallelStream()`
-- `removeFirst()`
-- `removeLast()`
 - `removeRange(int, int)`
 - `reversed()`
 - `spliterator()`
@@ -724,33 +717,24 @@ Real surface: 25 members — modeled 20, not-modeled 1, not-needed 3, tail 1.
 
 ## `java.util.HashSet`
 
-_dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset)_
+_dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
 
-Real surface: 21 members — modeled 7, not-modeled 2, not-needed 7, tail 5.
+Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `size()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC</summary>
 
 - `newHashSet(int)`
 - `parallelStream()`
 - `spliterator()`
-- `stream()`
 - `toArray(IntFunction)`
 
 </details>
@@ -795,28 +779,20 @@ Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
 
 ## `java.util.LinkedHashSet`
 
-_inherits the HashSet model surface; insertion order preserved by the backing array_
+_inherits the HashSet model surface (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); insertion order preserved by the backing array_
 
-Real surface: 29 members — modeled 7, not-modeled 2, not-needed 7, tail 13.
+Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `size()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): SequencedSet surface (addFirst/getLast/reversed/…) and spliterator — out of scope for this array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): SequencedSet surface (addFirst/getLast/reversed/…) and spliterator — out of scope for this array-backed model; all loud under JBMC</summary>
 
 - `addFirst(Object)`
 - `addLast(Object)`
@@ -829,7 +805,6 @@ Real surface: 29 members — modeled 7, not-modeled 2, not-needed 7, tail 13.
 - `removeLast()`
 - `reversed()`
 - `spliterator()`
-- `stream()`
 - `toArray(IntFunction)`
 
 </details>
@@ -837,11 +812,11 @@ Real surface: 29 members — modeled 7, not-modeled 2, not-needed 7, tail 13.
 
 ## `java.util.LinkedList`
 
-_inherits the ArrayList model surface + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof_
+_inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof_
 
-Real surface: 56 members — modeled 37, not-modeled 2, not-needed 5, tail 12.
+Real surface: 56 members — modeled 38, not-modeled 2, not-needed 5, tail 11.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -856,10 +831,9 @@ Real surface: 56 members — modeled 37, not-modeled 2, not-needed 5, tail 12.
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining Deque/List surface not implemented (descendingIterator/descendingDuque ops, listIterator/subList/spliterator, reversed/SequencedCollection, clone) is out of scope for this array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the remaining Deque/List surface not implemented (descendingIterator/descendingDeque ops, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC</summary>
 
 - `descendingIterator()`
-- `lastIndexOf(Object)`
 - `listIterator()`
 - `listIterator(int)`
 - `parallelStream()`
@@ -885,11 +859,11 @@ Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-_inherits the HashMap model surface; functional results match (no key ordering imposed)_
+_inherits the HashMap model surface; NavigableMap navigation (firstKey/lastKey/firstEntry/lastEntry/ceilingKey/floorKey/higherKey/lowerKey/comparator) by bounded sorted scan — differential (MapConformanceTest) + @BmcProof (proofs.treemap)_
 
-Real surface: 54 members — modeled 20, not-modeled 1, not-needed 3, tail 30.
+Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -901,25 +875,16 @@ Real surface: 54 members — modeled 20, not-modeled 1, not-needed 3, tail 30.
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 30 members, all loud): NavigableMap/SortedMap ordering surface (firstKey/lastKey/ceilingEntry/floorKey/headMap/tailMap/subMap/descendingMap/pollFirstEntry/…) — this array-backed model imposes no ordering, so the ordered navigation API is out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 21 members, all loud): NavigableMap/SortedMap range-view and bulk-navigation surface (ceilingEntry/floorEntry/higherEntry/lowerEntry/firstKey-as-entry variants, headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/pollFirstEntry/pollLastEntry) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC</summary>
 
 - `ceilingEntry(Object)`
-- `ceilingKey(Object)`
-- `comparator()`
 - `descendingKeySet()`
 - `descendingMap()`
-- `firstEntry()`
-- `firstKey()`
 - `floorEntry(Object)`
-- `floorKey(Object)`
 - `headMap(Object)`
 - `headMap(Object, boolean)`
 - `higherEntry(Object)`
-- `higherKey(Object)`
-- `lastEntry()`
-- `lastKey()`
 - `lowerEntry(Object)`
-- `lowerKey(Object)`
 - `navigableKeySet()`
 - `pollFirstEntry()`
 - `pollLastEntry()`
@@ -939,32 +904,23 @@ Real surface: 54 members — modeled 20, not-modeled 1, not-needed 3, tail 30.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-_bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune)_
+_bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
 
-Real surface: 31 members — modeled 16, not-modeled 2, not-needed 6, tail 7.
+Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `size()`, `take()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
 | `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): array-snapshot/stream views (toArray/toArray(IntFunction)/stream/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
 
 - `drainTo(Collection, int)`
 - `parallelStream()`
 - `spliterator()`
-- `stream()`
 - `toArray()`
 - `toArray(IntFunction)`
 - `toArray(Object[])`
@@ -1119,9 +1075,9 @@ Real surface: 62 members — modeled 20, not-modeled 1, not-needed 3, tail 38.
 
 _inherits the ArrayList model surface; differential (sequential semantics)_
 
-Real surface: 43 members — modeled 18, not-modeled 2, not-needed 5, tail 18.
+Real surface: 43 members — modeled 25, not-modeled 2, not-needed 5, tail 11.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -1136,22 +1092,15 @@ Real surface: 43 members — modeled 18, not-modeled 2, not-needed 5, tail 18.
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): copy-on-write/atomic extras (addIfAbsent/addAllAbsent/getArray/…), Deque surface, listIterator/subList/spliterator — out of scope for this sequential array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): copy-on-write/atomic extras (addIfAbsent/addAllAbsent/getArray/…), Deque surface, listIterator/subList/spliterator — out of scope for this sequential array-backed model; all loud under JBMC</summary>
 
 - `addAllAbsent(Collection)`
-- `addFirst(Object)`
 - `addIfAbsent(Object)`
-- `addLast(Object)`
-- `getFirst()`
-- `getLast()`
 - `indexOf(Object, int)`
-- `lastIndexOf(Object)`
 - `lastIndexOf(Object, int)`
 - `listIterator()`
 - `listIterator(int)`
 - `parallelStream()`
-- `removeFirst()`
-- `removeLast()`
 - `reversed()`
 - `spliterator()`
 - `subList(int, int)`
@@ -1203,32 +1152,23 @@ Real surface: 24 members — modeled 6, not-modeled 0, not-needed 0, tail 18.
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-_inherits the ArrayBlockingQueue FIFO model; unbounded-by-default logical capacity_
+_inherits the ArrayBlockingQueue FIFO model (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); unbounded-by-default logical capacity_
 
-Real surface: 31 members — modeled 16, not-modeled 2, not-needed 6, tail 7.
+Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `size()`, `take()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
 | `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): array-snapshot/stream views, bulk/functional/timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views, timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
 
 - `drainTo(Collection, int)`
 - `parallelStream()`
 - `spliterator()`
-- `stream()`
 - `toArray()`
 - `toArray(IntFunction)`
 - `toArray(Object[])`
@@ -1289,18 +1229,17 @@ Real surface: 19 members — modeled 5, not-modeled 0, not-needed 0, tail 14.
 
 _mutable-int holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
-Real surface: 35 members — modeled 20, not-modeled 0, not-needed 0, tail 15.
+Real surface: 35 members — modeled 21, not-modeled 0, not-needed 0, tail 14.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC</summary>
 
 - `byteValue()`
 - `compareAndExchange(int, int)`
 - `compareAndExchangeAcquire(int, int)`
 - `compareAndExchangeRelease(int, int)`
 - `getAcquire()`
-- `getAndAccumulate(int, IntBinaryOperator)`
 - `getOpaque()`
 - `getPlain()`
 - `setOpaque(int)`
@@ -1318,19 +1257,17 @@ Real surface: 35 members — modeled 20, not-modeled 0, not-needed 0, tail 15.
 
 _mutable-long holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
-Real surface: 35 members — modeled 17, not-modeled 0, not-needed 0, tail 18.
+Real surface: 35 members — modeled 19, not-modeled 0, not-needed 0, tail 16.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `updateAndGet(LongUnaryOperator)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `updateAndGet(LongUnaryOperator)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC</summary>
 
 - `byteValue()`
 - `compareAndExchange(long, long)`
 - `compareAndExchangeAcquire(long, long)`
 - `compareAndExchangeRelease(long, long)`
 - `getAcquire()`
-- `getAndAccumulate(long, LongBinaryOperator)`
-- `getAndUpdate(LongUnaryOperator)`
 - `getOpaque()`
 - `getPlain()`
 - `setOpaque(long)`

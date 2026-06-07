@@ -23,4 +23,7 @@ public interface Queue<E> extends Collection<E> {
 
     /** Retrieve but do not remove the head; throws NoSuchElementException if empty. */
     E element();
+
+    /** A sequential stream over the queued elements, in FIFO order. */
+    java.util.stream.Stream<E> stream();
 }

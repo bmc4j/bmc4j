@@ -7,6 +7,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
 
@@ -26,6 +28,67 @@ import org.bmc4j.BmcProof;
  * VACUOUS by the vacuity check — see {@code AwaitVacuityProbe} (kept disabled) for that confirmation.
  */
 class ConcurrentLaws {
+
+    // --- Atomic update-family (functional-arg dispatch must devirtualize) -------------------------
+    // Each op takes a REAL lambda (IntUnaryOperator / IntBinaryOperator / Long variants). bmc4j
+    // desugars the lambda so JBMC devirtualizes applyAsInt/applyAsLong onto the body — if it didn't,
+    // the result would be nondet and these symbolic-input laws would fail. getAnd* return the PRIOR
+    // value and leave the new one stored; *AndGet return and store the new value. The Map functional-op
+    // proofs (HashMapLaws) are the precedent for proving lambda dispatch through a model this way.
+
+    /** getAndUpdate applies the lambda, stores the new value, and returns the OLD one. */
+    @BmcProof
+    void atomicInteger_getAndUpdate_returns_old_stores_new() {
+        int start = Bmc.anyInt(-100, 100);
+        AtomicInteger a = new AtomicInteger(start);
+        int returned = a.getAndUpdate(v -> v + 7);   // real lambda through the model
+        Bmc.check(returned == start);                // returns the prior value
+        Bmc.check(a.get() == start + 7);             // new value stored (lambda devirtualized)
+    }
+
+    /** updateAndGet applies the lambda and returns the NEW value. */
+    @BmcProof
+    void atomicInteger_updateAndGet_returns_new() {
+        int start = Bmc.anyInt(-100, 100);
+        AtomicInteger a = new AtomicInteger(start);
+        int returned = a.updateAndGet(v -> v * 3);
+        Bmc.check(returned == start * 3 && a.get() == start * 3);
+    }
+
+    /** getAndAccumulate folds the arg via the binary lambda, returns the OLD value, stores the new. */
+    @BmcProof
+    void atomicInteger_getAndAccumulate_returns_old_stores_accumulated() {
+        int start = Bmc.anyInt(-100, 100);
+        int x = Bmc.anyInt(-100, 100);
+        AtomicInteger a = new AtomicInteger(start);
+        int returned = a.getAndAccumulate(x, (cur, arg) -> cur + arg);
+        Bmc.check(returned == start && a.get() == start + x);
+    }
+
+    /** accumulateAndGet folds the arg via the binary lambda and returns the NEW value. */
+    @BmcProof
+    void atomicInteger_accumulateAndGet_returns_accumulated() {
+        int start = Bmc.anyInt(-100, 100);
+        int x = Bmc.anyInt(-100, 100);
+        AtomicInteger a = new AtomicInteger(start);
+        int returned = a.accumulateAndGet(x, (cur, arg) -> cur + arg);
+        Bmc.check(returned == start + x && a.get() == start + x);
+    }
+
+    /** The AtomicLong update-family devirtualizes its Long lambdas the same way. */
+    @BmcProof
+    void atomicLong_update_family_devirtualizes() {
+        long start = Bmc.anyLong(-100, 100);
+        long x = Bmc.anyLong(-100, 100);
+        AtomicLong g = new AtomicLong(start);
+        Bmc.check(g.getAndUpdate(v -> v + 1) == start && g.get() == start + 1);
+        AtomicLong u = new AtomicLong(start);
+        Bmc.check(u.updateAndGet(v -> v + 1) == start + 1);
+        AtomicLong ga = new AtomicLong(start);
+        Bmc.check(ga.getAndAccumulate(x, (c, arg) -> c + arg) == start && ga.get() == start + x);
+        AtomicLong aa = new AtomicLong(start);
+        Bmc.check(aa.accumulateAndGet(x, (c, arg) -> c + arg) == start + x);
+    }
 
     // --- CountDownLatch ---------------------------------------------------------------------------
 

@@ -153,6 +153,37 @@ class ArrayListConformanceTest : FunSpec({
         }
     }
 
+    // --- ArrayList SequencedCollection head/tail ops (Java 21+) -------------------------------------
+    // getFirst/getLast/addFirst/addLast/removeFirst/removeLast + lastIndexOf over the backing array,
+    // differentially vs the JDK ArrayList — including the empty-list NoSuchElementException on the
+    // get/remove ops and the interplay with the inherited List surface (addFirst then get(0), addLast
+    // then get(last)). The LinkedList model inherits these unchanged, so this also pins LinkedList's
+    // reconciled (inherited, not overridden) head/tail behavior.
+    test("ArrayList SequencedCollection head/tail ops conform") {
+        val v: Arb<Int?> = Arb.int(-3..5).orNull(0.1)
+        val seqOp: Arb<Op> = Arb.choice(
+            v.map { Op("addFirst($it)", "addFirst", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("addLast($it)", "addLast", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("add($it)", "add", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("lastIndexOf($it)", "lastIndexOf", arrayOf(OBJECT), arrayOf(it)) },
+            Arb.constant(Op("getFirst", "getFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("getLast", "getLast", arrayOf(), arrayOf())),
+            Arb.constant(Op("removeFirst", "removeFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("removeLast", "removeLast", arrayOf(), arrayOf())),
+        )
+        checkAll(Arb.list(seqOp, 0..40)) { ops ->
+            // Run identical op sequences against the JDK ArrayList and LinkedList, and both models.
+            for ((real, model) in listOf(
+                { java.util.ArrayList<Any?>() } to { bmcref.java.util.ArrayList<Any?>() },
+                { java.util.LinkedList<Any?>() } to { bmcref.java.util.LinkedList<Any?>() },
+            )) {
+                val r = real(); val m = model()
+                ops.forEachIndexed { i, op -> assertEquivalent("op[$i]=$op", op.on(r), op.on(m)) }
+                assertSameElements(r, m)
+            }
+        }
+    }
+
     // --- bulk ops (addAll / removeAll / retainAll / removeIf / forEach / toArray) -------------------
     // Build two seed lists identically, then apply a bulk op against a source collection and compare
     // the resulting elements + the boolean "changed" return, vs the JDK ArrayList/LinkedList.

@@ -50,6 +50,59 @@ class ConcurrencyConformanceTest : FunSpec({
         }
     }
 
+    // --- Atomic update-family (functional args: getAndUpdate/updateAndGet/getAndAccumulate/accumulateAndGet)
+    // The update functions are real lambdas (IntUnaryOperator/IntBinaryOperator aren't relocated, so they
+    // pass straight through the model). Drive a sequence of update-family ops on both the JDK atomic and
+    // the model and compare each return + the final value. getAnd* return the PRIOR value, *AndGet the new.
+    test("AtomicInteger update-family conforms (lambdas devirtualize)") {
+        val n = Arb.int(-3..3)
+        val op = Arb.choice(
+            Arb.constant(0), Arb.constant(1),
+            n.map { 2 to it }, n.map { 3 to it },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicInteger(0)
+            val m = bmcref.java.util.concurrent.atomic.AtomicInteger(0)
+            for (o in ops) {
+                when (o) {
+                    0 -> r.getAndUpdate { it + 1 }.let { ro -> m.getAndUpdate { it + 1 } shouldBe ro }
+                    1 -> r.updateAndGet { it * 2 }.let { ro -> m.updateAndGet { it * 2 } shouldBe ro }
+                    is Pair<*, *> -> {
+                        val (kind, x) = o
+                        val xi = x as Int
+                        if (kind == 2) {
+                            r.getAndAccumulate(xi) { a, b -> a + b }.let { ro -> m.getAndAccumulate(xi) { a, b -> a + b } shouldBe ro }
+                        } else {
+                            r.accumulateAndGet(xi) { a, b -> a + b }.let { ro -> m.accumulateAndGet(xi) { a, b -> a + b } shouldBe ro }
+                        }
+                    }
+                }
+            }
+            m.get() shouldBe r.get()
+        }
+    }
+
+    test("AtomicLong update-family conforms (lambdas devirtualize)") {
+        val n = Arb.long(-3L..3L)
+        val op = Arb.choice(
+            Arb.constant(0L to 0L), Arb.constant(1L to 0L),
+            n.map { 2L to it }, n.map { 3L to it },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicLong(0)
+            val m = bmcref.java.util.concurrent.atomic.AtomicLong(0)
+            for ((kind, x) in ops) {
+                when (kind) {
+                    0L -> r.getAndUpdate { it + 1 }.let { ro -> m.getAndUpdate { it + 1 } shouldBe ro }
+                    1L -> r.updateAndGet { it * 2 }.let { ro -> m.updateAndGet { it * 2 } shouldBe ro }
+                    2L -> r.getAndAccumulate(x) { a, b -> a + b }.let { ro -> m.getAndAccumulate(x) { a, b -> a + b } shouldBe ro }
+                    else -> r.accumulateAndGet(x) { a, b -> a + b }.let { ro -> m.accumulateAndGet(x) { a, b -> a + b } shouldBe ro }
+                }
+            }
+            m.get() shouldBe r.get()
+        }
+    }
+
     test("AtomicLong conforms (sequential)") {
         val n = Arb.long(-3L..3L)
         val op = Arb.choice(
@@ -202,6 +255,75 @@ class ConcurrencyConformanceTest : FunSpec({
             assertEquivalent("offer1", call(r, "offer", arrayOf(OBJECT), 1), call(m, "offer", arrayOf(OBJECT), 1))
             assertEquivalent("offer2", call(r, "offer", arrayOf(OBJECT), 2), call(m, "offer", arrayOf(OBJECT), 2))
             assertEquivalent("offer3(full)", call(r, "offer", arrayOf(OBJECT), 3), call(m, "offer", arrayOf(OBJECT), 3))
+        }
+
+        // functional / bulk ops: removeIf/forEach (lambdas, FIFO), removeAll/retainAll (compact). Built
+        // identically vs the JDK queue. addAll is exercised separately (capacity-sensitive) below.
+        test("$label removeIf/forEach/removeAll/retainAll conform") {
+            checkAll(Arb.list(Arb.int(0..6), 0..5)) { seed ->
+                // removeIf / forEach via lambdas.
+                run {
+                    @Suppress("UNCHECKED_CAST")
+                    val r = makeReal(8) as java.util.Collection<Int>
+                    val m = makeModel(8)
+                    for (x in seed) { r.add(x); call(m, "offer", arrayOf(OBJECT), x) }
+                    val rChanged = r.removeIf { it % 2 == 0 }
+                    val mChanged = call(m, "removeIf", arrayOf(refClass("java.util.function.Predicate")),
+                        java.util.function.Predicate<Int> { it % 2 == 0 }).getOrThrow() as Boolean
+                    mChanged shouldBe rChanged
+                    val rSum = intArrayOf(0); r.forEach { rSum[0] += it }
+                    val mSum = intArrayOf(0)
+                    call(m, "forEach", arrayOf(refClass("java.util.function.Consumer")),
+                        java.util.function.Consumer<Int> { mSum[0] += it }).getOrThrow()
+                    mSum[0] shouldBe rSum[0]
+                }
+                // removeAll / retainAll vs a source collection.
+                for (method in listOf("removeAll", "retainAll")) {
+                    val r = makeReal(8); val m = makeModel(8)
+                    for (x in seed) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                    val rSrc = java.util.ArrayList<Any?>(listOf(0, 2, 4))
+                    val mSrc = bmcref.java.util.ArrayList<Any?>()
+                    for (x in listOf(0, 2, 4)) mSrc.add(x)
+                    assertEquivalent("$method.changed",
+                        call(r, method, arrayOf(java.util.Collection::class.java), rSrc),
+                        call(m, method, arrayOf(bmcref.java.util.Collection::class.java), mSrc))
+                    // Drain FIFO and compare.
+                    repeat(9) { assertEquivalent("drain", call(r, "poll", arrayOf()), call(m, "poll", arrayOf())) }
+                }
+            }
+        }
+
+        // addAll enqueues via add(), honoring the LOGICAL capacity: it throws IllegalStateException when
+        // the queue fills (like the JDK). Bounded ABQ at capacity 3 with a 5-element source must throw on
+        // both; an unbounded/large queue accepts all.
+        test("$label addAll honors logical capacity (throws when full, like the JDK)") {
+            val r = makeReal(3); val m = makeModel(3)
+            val rSrc = java.util.ArrayList<Any?>(listOf(1, 2, 3, 4, 5))
+            val mSrc = bmcref.java.util.ArrayList<Any?>()
+            for (x in listOf(1, 2, 3, 4, 5)) mSrc.add(x)
+            assertSameException(
+                call(r, "addAll", arrayOf(java.util.Collection::class.java), rSrc),
+                call(m, "addAll", arrayOf(bmcref.java.util.Collection::class.java), mSrc))
+        }
+
+        // stream() is a thin ListStream over the queued elements in FIFO order. count() == size, and
+        // toList() yields the elements in FIFO order (order IS modeled for these queues). Some offers
+        // may be rejected (bounded), so build both queues identically and compare the resulting stream.
+        test("$label stream() conforms (count + FIFO toList)") {
+            val v = Arb.int(0..9)
+            checkAll(Arb.list(v, 0..8)) { items ->
+                val r = makeReal(6)
+                val m = makeModel(6)
+                for (x in items) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                val rStream = call(r, "stream", arrayOf()).getOrThrow()!!
+                val mStream = call(m, "stream", arrayOf()).getOrThrow()!!
+                assertEquivalent("stream.count", call(rStream, "count", arrayOf()), call(mStream, "count", arrayOf()))
+                val rList = (call(call(r, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow() as java.util.List<*>).toList()
+                val mModelList = call(call(m, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow()!!
+                val mn = call(mModelList, "size", arrayOf()).getOrThrow() as Int
+                val mElems = (0 until mn).map { call(mModelList, "get", arrayOf(INT), it).getOrThrow() }
+                mElems shouldBe rList   // FIFO order preserved
+            }
         }
     }
 
