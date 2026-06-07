@@ -852,24 +852,21 @@ Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
+Real surface: 79 members — modeled 19, not-modeled 0, not-needed 0, tail 60.
 
-**Modeled** (`@BmcModelConforms`): `complete(Object)`, `completedFuture(Object)`, `get()`, `getNow(Object)`, `isDone()`, `join()`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenApply(Function)`, `thenCompose(Function)`, `thenRun(Runnable)`
+**Modeled** (`@BmcModelConforms`): `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `exceptionally(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenApply(Function)`, `thenCompose(Function)`, `thenRun(Runnable)`, `whenComplete(BiConsumer)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 67 members, all loud): the wide async-combinator surface not on the modeled eager path — *Async overloads taking an Executor, exceptionally*/handle*/whenComplete*, allOf/anyOf, orTimeout/completeOnTimeout, get(timeout)/getNow, cancel/obtrude*/minimalCompletionStage/newIncompleteFuture/defaultExecutor/copy — out of scope for a sequential ready-value model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 60 members, all loud): the *Async chaining/recovery overloads (then*Async/handleAsync/whenCompleteAsync/exceptionallyAsync) and every overload taking an Executor — a sequential model adds no distinct behavior over the plain sync combinator; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither), timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/toCompletableFuture/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
 
 - `acceptEither(CompletionStage, Consumer)`
 - `acceptEitherAsync(CompletionStage, Consumer)`
 - `acceptEitherAsync(CompletionStage, Consumer, Executor)`
-- `allOf(CompletableFuture[])`
-- `anyOf(CompletableFuture[])`
 - `applyToEither(CompletionStage, Function)`
 - `applyToEitherAsync(CompletionStage, Function)`
 - `applyToEitherAsync(CompletionStage, Function, Executor)`
 - `cancel(boolean)`
 - `completeAsync(Supplier)`
 - `completeAsync(Supplier, Executor)`
-- `completeExceptionally(Throwable)`
 - `completeOnTimeout(Object, long, TimeUnit)`
 - `completedStage(Object)`
 - `copy()`
@@ -877,7 +874,6 @@ Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 - `delayedExecutor(long, TimeUnit)`
 - `delayedExecutor(long, TimeUnit, Executor)`
 - `exceptionNow()`
-- `exceptionally(Function)`
 - `exceptionallyAsync(Function)`
 - `exceptionallyAsync(Function, Executor)`
 - `exceptionallyCompose(Function)`
@@ -887,11 +883,9 @@ Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 - `failedStage(Throwable)`
 - `get(long, TimeUnit)`
 - `getNumberOfDependents()`
-- `handle(BiFunction)`
 - `handleAsync(BiFunction)`
 - `handleAsync(BiFunction, Executor)`
 - `isCancelled()`
-- `isCompletedExceptionally()`
 - `minimalCompletionStage()`
 - `newIncompleteFuture()`
 - `obtrudeException(Throwable)`
@@ -922,7 +916,6 @@ Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 - `thenRunAsync(Runnable)`
 - `thenRunAsync(Runnable, Executor)`
 - `toCompletableFuture()`
-- `whenComplete(BiConsumer)`
 - `whenCompleteAsync(BiConsumer)`
 - `whenCompleteAsync(BiConsumer, Executor)`
 
