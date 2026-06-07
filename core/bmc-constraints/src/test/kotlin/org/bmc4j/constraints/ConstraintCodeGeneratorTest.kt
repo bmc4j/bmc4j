@@ -43,4 +43,56 @@ class ConstraintCodeGeneratorTest {
                 null, "CConstraints", "C", "v", emptyList())
         assertFalse(code.contains("package "))
     }
+
+    @Test
+    fun temporal_fields_share_one_symbolic_now_and_get_a_pinned_overload() {
+        val now = ConstraintCodeGenerator.NowParam(
+                "__now_LocalDate", "java.time.LocalDate",
+                "java.time.LocalDate.ofEpochDay(org.bmc4j.Bmc.anyLong())")
+        val code = ConstraintCodeGenerator.generate(
+                "com.acme", "UserConstraints", "com.acme.User", "obj",
+                listOf(ConstraintCodeGenerator.Field("obj.birth",
+                                listOf(Constraints.past("__now_LocalDate"))),
+                        ConstraintCodeGenerator.Field("obj.signup",
+                                listOf(Constraints.past("__now_LocalDate")))),
+                listOf(now))
+
+        // No-arg entry point introduces ONE symbolic now and delegates.
+        assertTrue(code.contains(
+                "java.time.LocalDate __now_LocalDate = java.time.LocalDate.ofEpochDay(org.bmc4j.Bmc.anyLong());"))
+        assertTrue(code.contains("assumeValidAt(obj, __now_LocalDate);"))
+        // Pinned-now overload is public and both fields reference the SAME now (shared-now semantics).
+        assertTrue(code.contains("public static void assumeValidAt(com.acme.User obj, java.time.LocalDate __now_LocalDate) {"))
+        assertTrue(code.contains("org.bmc4j.Bmc.assume((obj.birth == null || obj.birth.isBefore(__now_LocalDate)));"))
+        assertTrue(code.contains("org.bmc4j.Bmc.assume((obj.signup == null || obj.signup.isBefore(__now_LocalDate)));"))
+    }
+
+    @Test
+    fun mixed_temporal_types_keep_the_core_private_with_no_ambiguous_overload() {
+        val nowDate = ConstraintCodeGenerator.NowParam(
+                "__now_LocalDate", "java.time.LocalDate", "FD")
+        val nowInstant = ConstraintCodeGenerator.NowParam(
+                "__now_Instant", "java.time.Instant", "FI")
+        val code = ConstraintCodeGenerator.generate(
+                "com.acme", "EventConstraints", "com.acme.Event", "obj",
+                listOf(ConstraintCodeGenerator.Field("obj.day", listOf(Constraints.past("__now_LocalDate"))),
+                        ConstraintCodeGenerator.Field("obj.at", listOf(Constraints.future("__now_Instant")))),
+                listOf(nowDate, nowInstant))
+        // Two distinct nows declared; the core routine is PRIVATE (no single unambiguous overload).
+        assertTrue(code.contains("java.time.LocalDate __now_LocalDate = FD;"))
+        assertTrue(code.contains("java.time.Instant __now_Instant = FI;"))
+        assertTrue(code.contains("private static void assumeValidAt(com.acme.Event obj, " +
+                "java.time.LocalDate __now_LocalDate, java.time.Instant __now_Instant) {"))
+        assertFalse(code.contains("public static void assumeValidAt"))
+    }
+
+    @Test
+    fun statement_constraints_are_emitted_and_indented() {
+        val code = ConstraintCodeGenerator.generate(
+                "com.acme", "OrderConstraints", "com.acme.Order", "obj",
+                listOf(ConstraintCodeGenerator.Field("obj.address", emptyList(),
+                        listOf(Constraints.validCascade("com.acme.AddressConstraints")))))
+        assertTrue(code.contains(
+                "        if (obj.address != null) { com.acme.AddressConstraints.assumeValid(obj.address); }"))
+    }
 }

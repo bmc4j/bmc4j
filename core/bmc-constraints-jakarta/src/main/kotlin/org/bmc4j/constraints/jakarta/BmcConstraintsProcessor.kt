@@ -26,7 +26,14 @@ import javax.tools.Diagnostic
 @SupportedSourceVersion(SourceVersion.RELEASE_17)
 class BmcConstraintsProcessor : AbstractProcessor() {
 
-    private val extractor: ConstraintExtractor = JakartaConstraintExtractor()
+    // The extractor surfaces skipped/defaulted decisions (unmodeled temporal type, missing
+    // @Size(max) on a container, deferred Map elements, …) as processor NOTEs so no bound is silent.
+    // The second hook reads container type-argument annotations from the attributed source tree:
+    // javac ≤ 22 drops TYPE_USE annotations from Element.asType()'s type arguments (fixed for 23),
+    // which would otherwise silently drop element constraints on the verified JDK 17/21 toolchains.
+    private val extractor: ConstraintExtractor = JakartaConstraintExtractor(
+            { msg, element -> processingEnv.messager.printMessage(Diagnostic.Kind.NOTE, msg, element) },
+            { field, index -> TypeUseTrees.typeArgumentMirror(processingEnv, field, index) })
     private val generated = mutableSetOf<String>()
 
     override fun process(annotations: Set<TypeElement>, round: RoundEnvironment): Boolean {
@@ -50,12 +57,15 @@ class BmcConstraintsProcessor : AbstractProcessor() {
         }
 
         val fields = mutableListOf<ConstraintCodeGenerator.Field>()
+        // One shared symbolic "now" per modeled temporal type across the whole bean (the sharing IS
+        // the validation semantic): de-duplicate NowParams by variable name as fields contribute them.
+        val nowParams = LinkedHashMap<String, ConstraintCodeGenerator.NowParam>()
         for (member in type.enclosedElements) {
             if (member.kind != ElementKind.FIELD) {
                 continue
             }
-            val constraints = extractor.extract(member)
-            if (constraints.isEmpty()) {
+            val extracted = extractor.extractAll(member)
+            if (extracted.isEmpty()) {
                 continue
             }
             val accessor = accessorFor(type, member as VariableElement)
@@ -65,7 +75,10 @@ class BmcConstraintsProcessor : AbstractProcessor() {
                                 "skipping its constraints", member)
                 continue
             }
-            fields.add(ConstraintCodeGenerator.Field(accessor, constraints))
+            for (np in extracted.nowParams) {
+                nowParams.putIfAbsent(np.varName, np)
+            }
+            fields.add(ConstraintCodeGenerator.Field(accessor, extracted.constraints, extracted.statements))
         }
         if (fields.isEmpty()) {
             return
@@ -74,7 +87,8 @@ class BmcConstraintsProcessor : AbstractProcessor() {
         val packageName = processingEnv.elementUtils.getPackageOf(type).qualifiedName.toString()
         val simpleName = "${type.simpleName}Constraints"
         val generatedFqn = if (packageName.isEmpty()) simpleName else "$packageName.$simpleName"
-        val source = ConstraintCodeGenerator.generate(packageName, simpleName, targetFqn, "obj", fields)
+        val source = ConstraintCodeGenerator.generate(
+                packageName, simpleName, targetFqn, "obj", fields, nowParams.values.toList())
 
         try {
             processingEnv.filer.createSourceFile(generatedFqn, type).openWriter().use { it.write(source) }

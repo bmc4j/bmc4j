@@ -91,6 +91,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | `"x" + aDouble` | ⚠️ | `StringBuilder.append(double)` is UNSOUND in jbmc (rendered result unconstrained; even `Double.toString` refutes — double formatting isn't modeled, unlike float). The desugar still emits `append(double)`, so the result string is unconstrained — conservatively SOUND (jbmc over-refutes, never a false green), just imprecise |
 | `StringBuilder.append(...)` overloads | ✅/⚠️ | per-overload conformance pins in `proofs.strings.StringBuilderAppendLaws`: String/char/boolean/int/long/float/Object(String)/CharSequence(String) SOUND; `append(char[])` and `append(double)` UNSOUND (unconstrained), neither on the concat desugar's sound emission path (char[] routes via `append(Object)`) |
 | `substring` / `replace(char,char)` | ✅ | native jbmc string ops, confirmed sound (concrete + symbolic, `proofs.strings`) |
+| `trim` / `isBlank`-style blankness | ✅ | native (sound) — `trim().isEmpty()` agrees with a per-`charAt` blankness scan over every bounded string, concrete + symbolic both directions (`proofs.strings.StringLaws`). Backs the jakarta `@NotBlank` lowering; the `charAt`-loop formulation is pinned as the fallback |
 | `split` / `chars()` / `format` | ❌ | `split` UNSOUND (regex-metachar delimiter → unconstrained array length; caught adversarially); `chars()` returns an unconstrained IntStream; `format` not modeled |
 
 ## `java.*` standard library
