@@ -83,6 +83,39 @@ internal class ModelSliceTest {
     }
 
     @Test
+    fun slicedDir_keepsGeneratedAndNestedClassesOfAConeOwner(@TempDir dir: Path) {
+        // The rewrite chain ADDS classes the cone (walked over the pre-rewrite bytecode) never listed:
+        // LambdaBytecode desugars each lambda site into a generated `<owner>$$Lambda$N` class, and the
+        // owner has real nested classes too. The cone bounds the lambda site (it follows the
+        // LambdaMetafactory bootstrap into the owner) so the proof IS sliced — but the generated class
+        // name is not in the cone set. Pruning it would meet the engine with `new <owner>$$Lambda$N`
+        // and no body -> nondet SAM -> a WRONG verdict (REFUTED), never UNKNOWN. The slice must keep
+        // every class whose top-level owner is in the cone so the generated/nested classes survive.
+        val classes = Files.createDirectory(dir.resolve("classes"))
+        writeClass(classes, "pkg/Dep", emptyList())
+        writeClass(classes, "pkg/Entry", listOf("pkg/Dep"))
+        // Generated lambda impl + a real nested class of the cone owner Entry (cone never names them):
+        writeClass(classes, "pkg/Entry\$\$Lambda\$0", emptyList())
+        writeClass(classes, "pkg/Entry\$Inner", emptyList())
+        // A generated/nested class of an OUT-OF-CONE owner must still be pruned (not over-kept).
+        writeClass(classes, "pkg/Unrelated", emptyList())
+        writeClass(classes, "pkg/Unrelated\$\$Lambda\$0", emptyList())
+
+        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry", classes.toString())
+        val names = classNamesIn(sliced)
+
+        assertTrue(names.contains("pkg/Entry"), "the entry class is kept")
+        assertTrue(names.contains("pkg/Dep"), "a reached class is kept")
+        assertTrue(names.contains("pkg/Entry\$\$Lambda\$0"),
+                "a generated lambda class of a cone owner must survive the slice (else REFUTED, not UNKNOWN)")
+        assertTrue(names.contains("pkg/Entry\$Inner"),
+                "a nested class of a cone owner must survive the slice")
+        assertFalse(names.contains("pkg/Unrelated"), "an out-of-cone class is pruned")
+        assertFalse(names.contains("pkg/Unrelated\$\$Lambda\$0"),
+                "a generated class of an OUT-OF-cone owner is still pruned (no over-keeping)")
+    }
+
+    @Test
     fun sliceTo_withDeficientKeep_dropsAReachedClass(@TempDir dir: Path) {
         // The mechanism the soundness probe leans on: sliceTo honours an explicit keep set even when it
         // OMITS a class the proof reaches. (Normal runs can't hit this — the cone over-approximates —

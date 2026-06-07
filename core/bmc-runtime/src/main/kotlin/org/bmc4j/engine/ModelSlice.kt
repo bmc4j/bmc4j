@@ -66,12 +66,33 @@ internal object ModelSlice {
     private const val DONE_SUFFIX = ".done"
     private const val CACHE_NAME = "model-slice"
 
+    /** Identity of the [shouldKeep] policy, folded into the slice cache key so a policy change never
+     *  serves a slice built under the old rule. Bump on any [shouldKeep] semantic change. */
+    private const val KEEP_POLICY_VERSION = "keep-v2-toplevel-owner"
+
     /**
      * Slice [classpath] to the reachable cone of [entryClass], or return it unchanged when the cone
      * can't be bounded (the conservative whole-classpath fallback — a fallback proof is never sliced).
      * [originalClasspath] is the proof's pre-rewrite classpath that the cone is computed over (so the
      * slice set matches the verdict cache's cone digest, which keys on the same input); [classpath] is
      * the fully-rewritten classpath actually handed to the engine, which is what gets pruned.
+     *
+     * ## Generated-class hazard (must be kept, not pruned)
+     * The cone is computed over the **pre-rewrite** classpath, but the slice prunes the
+     * **post-rewrite** classpath — and the rewrite chain *adds classes the cone never saw*.
+     * [LambdaBytecode] desugars each lambda / method-reference `invokedynamic` into a fresh generated
+     * class named `<owner>$$Lambda$N` (and an `invokestatic` to a factory inside `<owner>`); that
+     * generated class did not exist when the cone was walked, so it is absent from the cone set. If it
+     * were pruned, the engine would meet `new <owner>$$Lambda$N` with no body, devirtualize its SAM
+     * method to nondet, and a symbolic-input law over the lambda's result would be **REFUTED, not
+     * UNKNOWN** — the exact unsoundness slicing must never produce. The cone walk *does* correctly bound
+     * the lambda site (it follows the `LambdaMetafactory` bootstrap's impl handle, all of which point
+     * inside `<owner>`), so the proof is sliced rather than falling back — which is why this hazard is
+     * the slice's responsibility, not the walk's. We close it by keeping every class whose **top-level
+     * enclosing class is in the cone** (see [shouldKeep]): a generated `<owner>$$Lambda$N` (and any real
+     * nested/anonymous class `<owner>$Inner` an inner-class edge might miss) shares its kept owner's
+     * top-level name, so it survives the slice. Over-keeping a kept owner's unreached nested classes
+     * only costs a little surface; under-keeping a reached generated class is the soundness break.
      */
     @JvmStatic
     fun sliceForCone(classpath: String, entryClass: String, originalClasspath: String): String {
@@ -163,7 +184,7 @@ internal object ModelSlice {
                     val bytes = Files.readAllBytes(src)
                     val name = internalNameOf(bytes)
                     // Drop a class outside the cone; keep an unparseable one (can't prove it's out).
-                    if (name != null && !keep.contains(name)) {
+                    if (name != null && !shouldKeep(name, keep)) {
                         continue
                     }
                     val target = tmp.resolve(rel)
@@ -203,7 +224,17 @@ internal object ModelSlice {
      */
     private fun sliceHash(dir: Path, sortedFiles: List<Path>, keep: Set<String>): String {
         val md = sha256()
-        // Fold the cone set in first (sorted + length-framed) so distinct cones never alias.
+        // Fold the keep-policy version in first: the cache hashes (content + cone) but the SLICE a
+        // given (content, cone) yields also depends on the keep RULE (see shouldKeep). When that rule
+        // changes — e.g. now retaining a cone owner's generated/nested classes — the same key must not
+        // serve a slice built under the old rule (which dropped the generated lambda classes and made
+        // a sliced proof REFUTE). Bump this whenever shouldKeep's semantics change.
+        run {
+            val v = KEEP_POLICY_VERSION.toByteArray(StandardCharsets.UTF_8)
+            md.update(intToBytes(v.size))
+            md.update(v)
+        }
+        // Fold the cone set in next (sorted + length-framed) so distinct cones never alias.
         for (name in keep.toSortedSet()) {
             val b = name.toByteArray(StandardCharsets.UTF_8)
             md.update(intToBytes(b.size))
@@ -226,6 +257,28 @@ internal object ModelSlice {
             }
         }
         return toHex(md.digest())
+    }
+
+    /**
+     * Whether the class [name] survives the slice given the cone set [keep]. A class is kept when it is
+     * itself in the cone, OR when its **top-level enclosing class** is — the latter retains the
+     * rewrite-chain's generated classes (a lambda desugar's `<owner>$$Lambda$N`) and any real
+     * nested/anonymous class (`<owner>$Inner`, `<owner>$1`) of a kept owner, neither of which the cone —
+     * computed over the *pre-rewrite* bytecode and over a constant-pool reference graph — is guaranteed
+     * to list by its own name. The top-level name is the substring before the first `$`; a generated or
+     * nested class can only exist alongside its top-level owner (same source/rewrite unit), so this is a
+     * sound over-approximation: it never keeps a class whose owner the proof can't reach, and never
+     * drops a class generated from one it can.
+     */
+    private fun shouldKeep(name: String, keep: Set<String>): Boolean {
+        if (keep.contains(name)) {
+            return true
+        }
+        val dollar = name.indexOf('$')
+        if (dollar <= 0) {
+            return false // a top-level class not itself in the cone
+        }
+        return keep.contains(name.substring(0, dollar))
     }
 
     private fun internalNameOf(bytes: ByteArray): String? = try {
