@@ -1,7 +1,7 @@
 package proofs.audit;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
@@ -19,34 +19,37 @@ import org.bmc4j.Verdict;
  * declare {@code expect = REFUTED}: the test PASSES while the loud body fires, and goes red (a loud test
  * failure naming both verdicts) if a future change ever makes one of these members silently havoc again
  * — exactly the regression this whole mechanism exists to prevent.
+ *
+ * <p>The targets are members that are genuinely unmodeled today (not on the modeled surface): if one of
+ * them later gets a real model, this probe will go red (VERIFIED), signalling "retarget me at a member
+ * that is still unmodeled" — the loud, intended failure mode.
  */
 class LoudUnmodelledProbe {
 
     /**
-     * {@code HashMap.merge} is a declared {@code @BmcNotModelled} member (functional-arg surface). The
-     * synthesized loud body throws on call, so the proof is refuted — NOT a silent nondet result.
+     * {@code ArrayList.sort(Comparator)} is a declared {@code @BmcNotModelled} member (comparator-driven
+     * sort over the bounded array). The synthesized loud body throws on call, so the proof is refuted —
+     * NOT a silent nondet result.
      */
     @BmcProof(expect = Verdict.REFUTED)
-    void reaching_an_unmodelled_map_member_is_loud() {
-        HashMap<Integer, Integer> m = new HashMap<>();
-        m.put(1, 10);
-        // merge() has no real model body; the synthesized loud AssertionError fires here.
-        m.merge(1, 5, (a, b) -> a + b);
-        Bmc.check(m.get(1) == 15); // never reached — the loud body refutes first
+    void reaching_an_unmodelled_list_member_is_loud() {
+        ArrayList<Integer> a = new ArrayList<>();
+        a.add(2);
+        a.add(1);
+        a.sort((x, y) -> x - y); // no real model body; the synthesized loud AssertionError fires here
+        Bmc.check(a.get(0) == 1); // never reached — the loud body refutes first
     }
 
     /**
-     * {@code ArrayList.addAll} is covered by the model's tail (a {@code @BmcNotNeeded} declaration here,
-     * tailed in general): reaching it is loud, not a silent stub that would let an unconstrained result
-     * through.
+     * {@code BigInteger.gcd} is in the model's tail (number-theory surface, out of scope for the
+     * long-backed bounded model): reaching it is loud, not a silent stub that would let an unconstrained
+     * result through.
      */
     @BmcProof(expect = Verdict.REFUTED)
-    void reaching_a_tailed_list_member_is_loud() {
-        ArrayList<Integer> a = new ArrayList<>();
-        a.add(1);
-        ArrayList<Integer> b = new ArrayList<>();
-        b.add(2);
-        a.addAll(b); // synthesized loud AssertionError fires here
-        Bmc.check(a.size() == 2); // never reached
+    void reaching_a_tailed_biginteger_member_is_loud() {
+        BigInteger x = BigInteger.valueOf(12);
+        BigInteger y = BigInteger.valueOf(8);
+        BigInteger g = x.gcd(y); // synthesized loud AssertionError fires here
+        Bmc.check(g.longValue() == 4); // never reached
     }
 }
