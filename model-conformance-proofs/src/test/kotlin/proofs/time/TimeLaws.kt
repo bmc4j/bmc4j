@@ -158,6 +158,13 @@ class TimeLaws {
     // seconds). plusHours/plusDays + minus mirrors are likewise differential-only past the concrete
     // pins above (their scale multiply is covered by the ofX pins and the round-trip laws).
 
+    // NOTE: the models/time-tail-2 pass added more tail members, all DIFFERENTIAL-axis only for the
+    // same constant-divisor / decomposition reasons: Duration's toMillisPart/toSecondsPart/toMinutesPart/
+    // toHoursPart/toDaysPart (div/mod the floored seconds by 1000/60/3600/86400 constants) and withSeconds
+    // (composes the floored milli part); LocalDate.of(y,m,d) (validates then the wide-constant toEpochDay
+    // decode); and LocalDateTime.plusNanos/minusNanos (mod the wide NANOS_PER_DAY for the day-wrap, the
+    // LocalTime.plusNanos precedent). TimeConformanceTest proves all of them bit-for-bit vs the real JDK.
+
     // NOTE: the LocalDate/LocalDateTime/LocalTime tail added in the time-tail pass — the calendar-field
     // accessors (getDayOfYear/lengthOfMonth/lengthOfYear/isLeapYear), ofYearDay, the with* field setters
     // (withYear/withMonth/withDayOf*/withHour/withMinute/withSecond/withNano), atTime/atDate/atStartOfDay,

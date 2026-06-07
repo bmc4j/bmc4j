@@ -143,6 +143,68 @@ public final class Duration {
         return Math.multiplyExact(millis, 1_000_000L);
     }
 
+    /**
+     * Milli-of-second part, always in {@code [0, 999]} — the millis backing's analogue of the JDK's
+     * {@code toMillisPart} (which returns the nano-of-second / 1_000_000). It is the remainder after the
+     * FLOORED seconds, so it is non-negative even for negative durations: {@code ofMillis(-1)} has
+     * floored seconds {@code -1} and a milli part of {@code 999} ({@code -1 - (-1)*1000}). Constant
+     * divisor (1000) ⇒ validated on the differential axis (TimeConformanceTest), not @BmcProof.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int toMillisPart() {
+        return (int) (millis - floorSeconds() * 1000L);
+    }
+
+    /**
+     * Seconds part within the minute, {@code (int)(totalSeconds % 60)} like the JDK — truncated toward
+     * zero on the FLOORED total seconds, so it can be negative for negative durations (e.g.
+     * {@code ofMillis(-90061500).toSecondsPart() == -2}). Constant divisor ⇒ differential-axis only.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int toSecondsPart() {
+        return (int) (floorSeconds() % 60L);
+    }
+
+    /**
+     * Minutes part within the hour, {@code (int)((totalSeconds / 60) % 60)} like the JDK (truncating
+     * the floored seconds). Constant divisor ⇒ differential-axis only.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int toMinutesPart() {
+        return (int) ((floorSeconds() / 60L) % 60L);
+    }
+
+    /**
+     * Hours part within the day, {@code (int)((totalSeconds / 3600) % 24)} like the JDK (truncating the
+     * floored seconds). Constant divisor ⇒ differential-axis only.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int toHoursPart() {
+        return (int) ((floorSeconds() / 3600L) % 24L);
+    }
+
+    /**
+     * Whole days part, {@code totalSeconds / 86400} like the JDK (truncating the floored seconds; the
+     * JDK's toDays() and toDaysPart() agree). Constant divisor ⇒ differential-axis only.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public long toDaysPart() {
+        return floorSeconds() / 86400L;
+    }
+
+    /**
+     * A copy with the seconds field replaced, keeping the sub-second part — exactly like the JDK's
+     * {@code withSeconds}, which preserves nanos. On the millis backing the sub-second part is the
+     * milli-of-second ({@link #toMillisPart()}, always {@code [0, 999]}), so the result is
+     * {@code seconds*1000 + milliOfSecond}; the seconds→millis scale routes through a checked multiply
+     * so an out-of-bound seconds count fails LOUDLY rather than wrapping. Differential-axis only (it
+     * composes the floored milli part, a constant-divisor decomposition).
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Duration withSeconds(long seconds) {
+        return new Duration(Math.addExact(Math.multiplyExact(seconds, 1000L), toMillisPart()));
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isNegative() {
         return millis < 0L;

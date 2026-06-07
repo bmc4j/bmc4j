@@ -13,8 +13,22 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * <p>Only the common methods are modeled; time zones, leap seconds and sub-milli
  * precision are out of scope (a model, not a reimplementation). {@code now()} is
  * intentionally not modeled — pass Instants as proof parameters (symbolic inputs).
+ *
+ * <p><b>Why the 20-member tail is genuinely not-modelable here (deliberate, not an oversight):</b> the
+ * epoch-millis backing carries a single {@code long} of milliseconds and NOTHING else, so the entire
+ * Instant tail falls into one of three buckets that a millis {@code long} simply cannot represent:
+ * (1) <b>sub-millisecond precision</b> — {@code getNano}/{@code plusNanos}/{@code minusNanos}/
+ * {@code ofEpochSecond(long,long)} need the nano-of-second field (declined LOUD per-member above);
+ * (2) <b>zone / offset / calendar projection</b> — {@code atZone}/{@code atOffset} and the
+ * {@code TemporalField}/{@code TemporalUnit}/{@code TemporalAdjuster}/{@code TemporalQuery} plumbing
+ * ({@code with}/{@code get}/{@code getLong}/{@code until}/{@code range}/{@code isSupported}/{@code query}/
+ * {@code adjustInto}/{@code plus}/{@code minus}(TemporalAmount/long,TemporalUnit)) all require a
+ * ZoneId/ZoneOffset or a field-enum the bounded model deliberately doesn't carry; (3) <b>external state /
+ * text</b> — {@code now(Clock)} (non-deterministic) and {@code parse}/{@code from}. None can be made
+ * sound on a millis {@code long}, so the whole tail stays LOUD under JBMC rather than forcing a
+ * lossy/wrong body — reaching any of it is an honest member-named UNKNOWN, never a silent wrong value.
  */
-@BmcModelTail(reason = "time-zone/leap-second/sub-milli precision, the Temporal interface plumbing (with/get/until/query/adjustInto/range/isSupported/plus(TemporalAmount)), atZone/atOffset, and text parse/format are out of scope for the epoch-millis model; all loud under JBMC")
+@BmcModelTail(reason = "the epoch-millis long carries no nanos, zone/offset, or field-enum, so the tail is genuinely not-modelable: sub-milli precision (nano accessors), zone/offset projection (atZone/atOffset), the TemporalField/Unit/Adjuster/Query plumbing (with/get/getLong/until/query/adjustInto/range/isSupported/plus/minus(TemporalAmount or long,TemporalUnit)), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced")
 public final class Instant {
 
     final long millis;

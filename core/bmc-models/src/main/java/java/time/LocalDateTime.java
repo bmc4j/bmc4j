@@ -327,6 +327,21 @@ public final class LocalDateTime {
         return plusDayCarryAndNanos(seconds / (24 * 60 * 60), (seconds % (24 * 60 * 60)) * NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime plusNanos(long nanos) {
+        // Split into whole-day carry + a sub-day remainder in (-DAY, DAY) so the nano counter never
+        // overflows, then reuse the exact day-carry helper. Differential-axis only: it mods by the wide
+        // NANOS_PER_DAY constant (the constant-divisor SAT-pathology, the LocalTime.plusNanos precedent).
+        return plusDayCarryAndNanos(nanos / NANOS_PER_DAY, nanos % NANOS_PER_DAY);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime minusNanos(long nanos) {
+        // Negate WITHOUT losing the whole-day carry (so minusNanos(N*DAY) shifts the date), and without
+        // -Long.MIN_VALUE overflow: negate the day-count and the sub-day remainder separately.
+        return plusDayCarryAndNanos(-(nanos / NANOS_PER_DAY), -(nanos % NANOS_PER_DAY));
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusHours(long hours) {
         return plusHours(-hours);

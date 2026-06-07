@@ -30,6 +30,32 @@ public final class LocalDate {
         return new LocalDate(epochDay);
     }
 
+    /**
+     * Build a date from year/month/day, validating each field LOUDLY like the JDK
+     * ({@link DateTimeException} for an out-of-range year/month or a day past that month's length, incl.
+     * the Feb-29 leap rule) then recomposing through the exact {@link #toEpochDay} machinery. Unlike the
+     * with-field / plus-field CLAMP path, {@code of} is STRICT: it rejects an invalid day rather than
+     * shifting it.
+     * Validated on the differential axis (TimeConformanceTest): the toEpochDay decode divides/mods by
+     * the wide proleptic-Gregorian constants (the constant-divisor SAT-pathology), so no @BmcProof.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public static LocalDate of(int year, int month, int dayOfMonth) {
+        if (year < -999_999_999 || year > 999_999_999) {
+            throw new DateTimeException("Invalid value for Year: " + year);
+        }
+        if (month < 1 || month > 12) {
+            throw new DateTimeException("Invalid value for MonthOfYear: " + month);
+        }
+        if (dayOfMonth < 1 || dayOfMonth > 31) {
+            throw new DateTimeException("Invalid value for DayOfMonth: " + dayOfMonth);
+        }
+        if (dayOfMonth > lengthOfMonth(year, month)) {
+            throw new DateTimeException("Invalid date '" + month + " " + dayOfMonth + "'");
+        }
+        return new LocalDate(toEpochDay(year, month, dayOfMonth));
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toEpochDay() {
         return epochDay;
