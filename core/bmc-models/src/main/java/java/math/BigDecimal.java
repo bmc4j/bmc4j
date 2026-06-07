@@ -12,7 +12,8 @@ package java.math;
  * those reintroduce binary floating-point error (and are discouraged in real code too). Use the
  * {@code String}/{@code long} constructors for exact values. {@code divide} requires an explicit
  * {@link RoundingMode}. String parsing handles an optional sign, digits and one decimal point (no
- * exponent notation).
+ * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
+ * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
@@ -63,7 +64,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
                 throw new NumberFormatException(val);        // non-digit (incl. whitespace, letters)
             }
             sawDigit = true;
-            u = u * 10 + (c - '0');
+            u = addExact(mul(u, 10), c - '0');   // loud on past-~18-digit overflow, never silent wrap
             if (afterDot) {
                 sc++;
             }
@@ -93,6 +94,17 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     private static long mul(long a, long b) {
         long r = a * b;
         assert b == 0 || r / b == a : "BigDecimal model overflow: value exceeds the ~18-digit bound";
+        return r;
+    }
+
+    /**
+     * Add with a loud overflow check, mirroring {@link #mul}. Used by the {@code String} constructor's
+     * digit accumulation so an over-long numeral fails loudly rather than silently wrapping the
+     * unscaled {@code long} — same "loud, never silent" contract as the arithmetic ops.
+     */
+    private static long addExact(long a, long b) {
+        long r = a + b;
+        assert ((a ^ r) & (b ^ r)) >= 0 : "BigDecimal model overflow: value exceeds the ~18-digit bound";
         return r;
     }
 
