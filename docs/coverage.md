@@ -74,6 +74,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | Interface delegation (`by`) | ✅ | confirmed (delegated properties untested) |
 | `reified` generics | ✅ | inlines `x is T`/`as? T` to a concrete `instanceof` at the call site; confirmed via `proofs.reified` |
 | Sequences (`asSequence`, `sequenceOf`) | ✅ | eager bounded model — `sequenceOf`/`asSequence`/`map`/`filter`/`toList`/`sum`/`count` + `take`/`drop`/`distinct`/`flatMap`/`toSet` (facade) and inlined `fold`/`reduce`/`sumOf{}` (`proofs.kotlinsequences`, concrete + symbolic) |
+| `Enum.entries` (1.9+) | ✅ | `kotlin.enums.EnumEntriesKt`/`EnumEntriesList` model — an enum's `<clinit>` builds `$ENTRIES` via `EnumEntriesKt.enumEntries($VALUES)`; modeled as bmc4j's bounded list over `values()`, so `entries.size`/`entries[i]`/`indexOf`/iteration are sound (`entries[i].ordinal == i`, declaration order). Model proofs in `proofs.kotlinenums`; example `proofs.enumentries`. Previously spuriously REFUTED ("no body for `java.util.List.size()`") |
 
 ## Strings
 
@@ -137,3 +138,4 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | `kotlinx.coroutines.*` | ✅ | clean models |
 | `kotlin.Pair` / `kotlin.Triple` (first/second/third/componentN) | ✅ | clean models + destructuring |
 | Sequences (`asSequence`/`sequenceOf`) | ✅ | see the Kotlin language-constructs table (eager bounded model — core ops + `take`/`drop`/`distinct`/`flatMap`/`toSet`/`fold`/`reduce`/`sumOf{}`) |
+| `kotlin.time.Duration` (+ `DurationKt`, `DurationUnit`) | ⚠️ | value-class model reproducing the real unit-discriminating bit-packed `Long` (nanos/millis ranges + saturation) and its erased ABI (`plus-LRDsOJo`/`getInWholeSeconds-impl`/…, produced by a build-time bytecode rename). Construction from `Int`/`Long` units, `+`/`-`/unary `-`, comparison, `inWhole*`, negatives, and the nanos/millis saturation boundary are **differential-verified vs the JVM `kotlin.time.Duration`** (`conformance.KotlinDurationConformanceTest`) + @BmcProof laws (`proofs.kotlintime`); example `proofs.durations`. **Holes** (unmodeled → JBMC nondet stubs): `toString`/`toIsoString`/`parse` (string formatting), the `Double` construction/arithmetic overloads (bmc4j avoids `double` — use the `Int`/`Long` unit extensions), `times`/`div`, components (`toComponents`), and `TimeSource`/`TimeMark` (wall-clock). `java.time.Duration` is the fuller-surface modeled alternative. Previously spuriously REFUTED ("no uncaught exception") |

@@ -30,6 +30,18 @@ object BundledKotlinModels {
             // compareValues — the keySelector Comparator that sortedBy { } generates delegates to it;
             // stubbed to nondet otherwise, silently unsoundening the sort order.
             "kotlin/comparisons/ComparisonsKt.class",
+            // Enum.entries (Kotlin 1.9+): an enum's <clinit> builds $ENTRIES via
+            // EnumEntriesKt.enumEntries($VALUES); the real EnumEntriesList stubs to nondet. These
+            // return bmc4j's bounded list model populated from values().
+            "kotlin/enums/EnumEntriesKt.class",
+            "kotlin/enums/EnumEntries.class",
+            "kotlin/enums/EnumEntriesList.class",
+            // kotlin.time.Duration value class (bit-packed Long ABI) + its facade + unit enum — the inline
+            // unit extensions (90.minutes) emit DurationKt.toDuration + Duration."plus-LRDsOJo"/etc., all
+            // unmodeled stdlib internals JBMC stubs today (spurious REFUTED).
+            "kotlin/time/Duration.class",
+            "kotlin/time/DurationKt.class",
+            "kotlin/time/DurationUnit.class",
             // Sequences (sequenceOf/asSequence + map/filter/toList/sumOfInt/count) — route through
             // the SequencesKt facade + stdlib internals JBMC stubs; modeled eager over a bounded
             // ListSequence.
