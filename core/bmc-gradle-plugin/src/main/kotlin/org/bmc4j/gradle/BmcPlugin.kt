@@ -203,6 +203,14 @@ class BmcPlugin : Plugin<Project> {
                                     .any { it.message?.contains("(UNKNOWN)") == true }
                         }
             })
+            // A sharded run (-Dbmc.shard.count > 1) legitimately leaves some shards with zero tests
+            // in a small module (fewer tests than shards): the hash split simply put them all
+            // elsewhere. Gradle's failOnNoDiscoveredTests would fail those shards, so relax it ONLY
+            // when sharding is active — an unsharded module with no discovered tests still fails
+            // loud. Must happen at configuration time: the property is finalized before doFirst.
+            if ((System.getProperty("bmc.shard.count")?.toIntOrNull() ?: 1) > 1) {
+                test.failOnNoDiscoveredTests.set(false)
+            }
             // The contracts processor emits enforce-@BmcProofs into the test output, so the test
             // task discovers and runs them with no extra wiring.
             test.doFirst {
