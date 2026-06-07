@@ -7,6 +7,9 @@ import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
 import java.io.File
 import java.lang.reflect.Modifier
 import java.util.jar.JarFile
@@ -117,6 +120,44 @@ class ModelAuditGateTest : FunSpec({
 
     fun classLevelConforms(node: ClassNode): Boolean = anns(node).any { it.desc == conformsDesc }
 
+    // ---- method-level NotModelled / NotNeeded stubs (the revision-2 primary form) ---------------
+    // The decision lives ON a real stub method whose loud body throws the recognized message. The gate
+    // accounts for the method's own key as declared, never requires @BmcModelConforms on it, never
+    // counts it as modeled, and verifies its body actually throws via the BmcUnmodelledReached sentinel.
+    fun methodAnns(m: MethodNode): List<AnnotationNode> =
+        (m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())
+
+    fun stubKind(m: MethodNode): String? = when {
+        methodAnns(m).any { it.desc == notModelledDesc } -> "NotModelled"
+        methodAnns(m).any { it.desc == notNeededDesc } -> "NotNeeded"
+        else -> null
+    }
+
+    /** Keys (name+params) of this class's OWN method-level NotModelled/NotNeeded stub methods. */
+    fun methodLevelStubKeys(node: ClassNode): Set<String> =
+        node.methods.filter { stubKind(it) != null }.map { it.name + paramsDesc(it.desc) }.toSet()
+
+    // The loud-body recognizer: a stub's body must (a) LDC a string starting with the recognized
+    // prefix, and (b) call the BmcUnmodelledReached sentinel (fail/reached). This is exactly what makes
+    // a reach demote to UNKNOWN naming the member; checking it here prevents real logic hiding under a
+    // not-modeled annotation, or a stub that throws without the recognized signature.
+    val loudPrefix = "bmc4j: unmodelled member "
+    val sentinelOwner = "org/bmc4j/analysis/BmcUnmodelledReached"
+    fun bodyThrowsRecognizedLoud(m: MethodNode): Boolean {
+        val insns = m.instructions ?: return false
+        var hasPrefixLdc = false
+        var callsSentinel = false
+        for (insn in insns) {
+            if (insn is LdcInsnNode) {
+                val c = insn.cst
+                if (c is String && c.startsWith(loudPrefix)) hasPrefixLdc = true
+            }
+            if (insn is MethodInsnNode && insn.owner == sentinelOwner &&
+                (insn.name == "fail" || insn.name == "reached")) callsSentinel = true
+        }
+        return hasPrefixLdc && callsSentinel
+    }
+
     // model member keys that COUNT AS CONFORMING, resolved through the model inheritance chain. A
     // member conforms if it carries a method-level @BmcModelConforms, OR its declaring class carries a
     // class-level @BmcModelConforms (blanket: every implemented member mirrors-and-conforms).
@@ -136,6 +177,7 @@ class ModelAuditGateTest : FunSpec({
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
                 if (isSynthesizedLoud(m)) continue // a loud stub is NOT a genuine model implementation
+                if (stubKind(m) != null) continue   // a method-level NotModelled/NotNeeded stub is NOT modeled
                 val methodConforms = ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList()))
                     .any { it.desc == conformsDesc }
                 if (blanket || methodConforms) out.add(m.name + paramsDesc(m.desc))
@@ -202,11 +244,12 @@ class ModelAuditGateTest : FunSpec({
                 failures.add("$realFqn: registered for per-member auditing but carries NO audit annotations")
             }
 
-            val decls = declarations(node)
+            val decls = declarations(node)                  // class-level (member=) declarations
+            val methodStubKeys = methodLevelStubKeys(node)   // method-level NotModelled/NotNeeded stubs
             val tail = tailReason(node)
             val realMembers = realAuditableKeys(real)
 
-            // (b) dangling declarations: a named member must exist on the real class.
+            // (b) dangling CLASS-LEVEL declarations: a named member must exist on the real class.
             for (d in decls) {
                 val key = declKey(d.member)
                 if (key == null) { failures.add("$realFqn: @Bmc${d.kind} member='${d.member}' is not a parseable signature"); continue }
@@ -215,29 +258,43 @@ class ModelAuditGateTest : FunSpec({
                 }
             }
 
+            // (b2) every method-level NotModelled/NotNeeded stub (1) must mirror a REAL member (else it's
+            // a typo / JDK drift), and (2) its body must actually throw the recognized loud failure via
+            // the BmcUnmodelledReached sentinel — no real logic may hide under a not-modeled annotation.
+            for (m in node.methods) {
+                val kind = stubKind(m) ?: continue
+                val key = m.name + paramsDesc(m.desc)
+                if (!realMembers.containsKey(key)) {
+                    failures.add("$realFqn: @Bmc$kind stub ${m.name}${paramsDesc(m.desc)} mirrors no real member (typo / JDK drift)")
+                }
+                if (!bodyThrowsRecognizedLoud(m)) {
+                    failures.add("$realFqn: @Bmc$kind stub ${m.name}${paramsDesc(m.desc)} body does not throw the recognized " +
+                        "loud failure (must `throw fail(\"bmc4j: unmodelled member …\")` via BmcUnmodelledReached) — " +
+                        "no real logic may hide under a not-modeled annotation")
+                }
+            }
+
             // (c) implemented-but-unannotated: every OWN public/protected model method that mirrors a
-            // real member must be covered by @BmcModelConforms — either a class-level blanket or its own
-            // method-level annotation. Constructors and bridge/synthetic excluded.
+            // real member must be accounted for — covered by @BmcModelConforms (class-level blanket or
+            // its own method-level annotation) OR be a method-level NotModelled/NotNeeded loud stub.
+            // Constructors and bridge/synthetic excluded.
             val blanket = classLevelConforms(node)
             val conformsOwn = node.methods.filter { m ->
                 ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())).any { it.desc == conformsDesc }
             }.map { it.name + paramsDesc(it.desc) }.toSet()
-            if (!blanket) {
-                for (m in node.methods) {
-                    if (m.name == "<init>" || m.name == "<clinit>") continue
-                    if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
-                    if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
-                    val isPublic = (m.access and org.objectweb.asm.Opcodes.ACC_PUBLIC) != 0
-                    val isProtected = (m.access and org.objectweb.asm.Opcodes.ACC_PROTECTED) != 0
-                    if (!isPublic && !isProtected) continue
-                    val key = m.name + paramsDesc(m.desc)
-                    // Only require coverage for methods that mirror a REAL member (model-internal helpers
-                    // that don't shadow the real surface aren't part of the audit).
-                    if (!realMembers.containsKey(key)) continue
-                    if (key !in conformsOwn) {
-                        failures.add("$realFqn: implemented model member ${m.name}${paramsDesc(m.desc)} lacks @BmcModelConforms")
-                    }
-                }
+            for (m in node.methods) {
+                if (m.name == "<init>" || m.name == "<clinit>") continue
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
+                val isPublic = (m.access and org.objectweb.asm.Opcodes.ACC_PUBLIC) != 0
+                val isProtected = (m.access and org.objectweb.asm.Opcodes.ACC_PROTECTED) != 0
+                if (!isPublic && !isProtected) continue
+                val key = m.name + paramsDesc(m.desc)
+                // Only methods that mirror a REAL member (model-internal helpers aren't part of the audit).
+                if (!realMembers.containsKey(key)) continue
+                if (key in methodStubKeys) continue            // a loud NotModelled/NotNeeded stub: accounted for
+                if (blanket || key in conformsOwn) continue    // modeled + conforming
+                failures.add("$realFqn: implemented model member ${m.name}${paramsDesc(m.desc)} lacks @BmcModelConforms")
             }
 
             // (d) completeness: every real member must be covered/declared/tailed.
@@ -246,6 +303,7 @@ class ModelAuditGateTest : FunSpec({
             for ((key, m) in realMembers) {
                 if (key in covered) continue
                 if (key in declared) continue
+                if (key in methodStubKeys) continue            // method-level loud stub accounts for it
                 if (tail != null) continue
                 failures.add("$realFqn: real member ${render(m)} is neither modeled (@BmcModelConforms), declared (@BmcNotModelled/@BmcNotNeeded), nor tail-waived (@BmcModelTail)")
             }
@@ -294,10 +352,53 @@ class ModelAuditGateTest : FunSpec({
             failures.isEmpty() shouldBe true
         }
     }
+
+    // ---- Tail no-growth RATCHET -----------------------------------------------------------------
+    // New real-class surface (e.g. a JDK bump) must NOT silently fall into the tail. The committed,
+    // generator-maintained docs/model-coverage-tail.txt enumerates EXACTLY today's tail; the gate
+    // diffs the actual tail set against it and FAILS naming any member that newly appeared — forcing
+    // an explicit decision (model it, stub it with a reason, or regenerate the file to accept it).
+    // Converting/removing a tail member just regenerates the file. Regenerate with -Dbmc.regenerateDocs=true.
+    test("tail no-growth ratchet: the committed tail enumeration matches the actual tail set") {
+        val actual = TailSet.compute(nodes)
+        val tailFile = File("../../docs/model-coverage-tail.txt").absoluteFile
+        val regenerate = System.getProperty("bmc.regenerateDocs") == "true"
+
+        val header = "# GENERATED tail enumeration — every real member that falls through to @BmcModelTail.\n" +
+            "# The tail no-growth ratchet (conformance.ModelAuditGateTest) diffs the actual tail against this.\n" +
+            "# Do NOT edit by hand: regenerate with\n" +
+            "#   gradlew -p core :bmc-models-conformance:test --tests conformance.ModelAuditGateTest -Dbmc.regenerateDocs=true\n"
+        val rendered = header + actual.joinToString("\n") + "\n"
+
+        if (regenerate || !tailFile.exists()) {
+            tailFile.parentFile.mkdirs()
+            tailFile.writeText(rendered)
+        }
+
+        val committedLines = tailFile.readText().replace("\r\n", "\n").lineSequence()
+            .filter { it.isNotBlank() && !it.startsWith("#") }.toCollection(LinkedHashSet())
+        val actualSet = actual.toCollection(LinkedHashSet())
+        val newlyTailed = (actualSet - committedLines).sorted()
+        val noLongerTailed = (committedLines - actualSet).sorted()
+
+        withClue("TAIL NO-GROWTH RATCHET — the tail set drifted from docs/model-coverage-tail.txt.\n" +
+            (if (newlyTailed.isNotEmpty()) "  NEW members fell into the tail (decide explicitly — model it, " +
+                "stub it with a reason, or regenerate to accept):\n    " + newlyTailed.joinToString("\n    ") + "\n" else "") +
+            (if (noLongerTailed.isNotEmpty()) "  members LEFT the tail (now modeled/declared — just regenerate):\n    " +
+                noLongerTailed.joinToString("\n    ") + "\n" else "") +
+            "  regenerate with -Dbmc.regenerateDocs=true and commit") {
+            (newlyTailed.isEmpty() && noLongerTailed.isEmpty()) shouldBe true
+        }
+    }
 })
 
+// Model-method param descriptor, NORMALIZED back from the relocation: a model's own param types are
+// relocated (bmcref/java/util/Collection), but the real member's are not (java/util/Collection) — strip
+// the bmcref/ prefix so a model-method key matches the reflection-derived real-member key. (Without
+// this, every model method taking another model type as a param would spuriously look like a different
+// member than its real twin.)
 private fun paramsDesc(methodDesc: String): String =
-    "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor } + ")"
+    "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor.replace("Lbmcref/", "L") } + ")"
 
 private fun render(m: java.lang.reflect.Method): String =
     m.name + "(" + m.parameterTypes.joinToString(",") { erasedName(it) } + ")"

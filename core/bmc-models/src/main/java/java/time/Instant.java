@@ -1,5 +1,7 @@
 package java.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotModelled;
@@ -13,7 +15,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * intentionally not modeled — pass Instants as proof parameters (symbolic inputs).
  */
 @BmcModelConforms("epoch-millis Instant — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
-@BmcNotModelled(member = "now()", reason = "wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters")
 @BmcModelTail(reason = "time-zone/leap-second/sub-milli precision, the Temporal interface plumbing (with/get/until/query/adjustInto/range/isSupported/plus(TemporalAmount)), atZone/atOffset, and text parse/format are out of scope for the epoch-millis model; all loud under JBMC")
 public final class Instant {
 
@@ -21,6 +22,11 @@ public final class Instant {
 
     private Instant(long millis) {
         this.millis = millis;
+    }
+
+    @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters")
+    public static Instant now() {
+        throw fail("bmc4j: unmodelled member java.time.Instant.now() — wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters");
     }
 
     public static Instant ofEpochMilli(long epochMilli) {

@@ -7,14 +7,31 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares that a named member of the real target class is deliberately <em>not</em> modeled because
+ * Declares that a member of the real target class is deliberately <em>not</em> modeled because
  * it <em>cannot</em> be soundly/practically modeled (a JBMC limitation, an unbounded/IO surface, a
  * formatting/parsing concern, double arithmetic this library avoids, etc.). This is the "we tried and
  * it can't be done well" waiver, distinct from {@link BmcNotNeeded} ("it's not worth it").
  *
- * <p>It is <b>class-level and repeatable</b> because you cannot annotate a method that does not exist
- * on the model — the whole point is that the member is absent. Each declaration names the real
- * member and the reason it is unmodeled.
+ * <h2>Prefer the method-level form</h2>
+ * Put this annotation on a real <b>stub method declaration</b> whose body throws the recognized loud
+ * failure (via {@code org.bmc4j.analysis.BmcUnmodelledReached.fail(...)}):
+ * <pre>{@code
+ * @BmcNotModelled(reason = "comparator-driven sort over the bounded array")
+ * public void sort(Comparator<? super E> c) {
+ *     throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array");
+ * }
+ * }</pre>
+ * javac validates the signature, the decision and reason live next to the surface they waive, and a
+ * future change diffs as a method with its reason. The auditing gate verifies every such stub body
+ * actually throws the recognized message (no real logic hides under a not-modeled annotation).
+ *
+ * <h2>Class-level fallback (member required)</h2>
+ * The annotation is <b>also class-level and repeatable</b> with an explicit {@link #member()} string,
+ * for the rare case where a stub method declaration is genuinely impossible — e.g. the signature
+ * references an inaccessible type, or a generic clash with a modeled superclass makes the override
+ * uncompilable. Each such declaration names the real member and the reason. Comment why the stub form
+ * couldn't be used. The build-time loud-body synthesis then gives that named member a loud body, the
+ * same as a tail member.
  *
  * <p>The model auditing gate (in {@code bmc-models-conformance}) treats every member declared here as
  * an accounted-for decision, and additionally <b>fails on a dangling declaration</b>: if the named
@@ -36,14 +53,18 @@ import java.lang.annotation.Target;
  * <p>Retention is {@link RetentionPolicy#CLASS} so the gate and the synthesis pass can read it off the
  * model bytecode; it is never needed at runtime.
  */
-@Target(ElementType.TYPE)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.CLASS)
 @Repeatable(BmcNotModelledList.class)
 public @interface BmcNotModelled {
 
-    /** Erased member signature {@code name(paramType,...)} — see the type-level doc for the format. */
-    String member();
+    /**
+     * Erased member signature {@code name(paramType,...)} — see the type-level doc for the format.
+     * REQUIRED for the class-level form; OMIT it on a method-level stub (the signature is the
+     * declaration itself, and the gate reads it off the method).
+     */
+    String member() default "";
 
-    /** Why this member cannot be modeled. Surfaces in the synthesized loud-failure body. */
+    /** Why this member cannot be modeled. Surfaces in the loud-failure body. */
     String reason();
 }

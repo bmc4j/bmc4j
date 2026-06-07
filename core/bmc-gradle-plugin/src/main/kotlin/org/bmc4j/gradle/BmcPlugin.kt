@@ -248,6 +248,8 @@ class BmcPlugin : Plugin<Project> {
                 // key — the stub FACT is cached, judged here — so a command-line flag wins over the build
                 // default and flipping either re-judges cached greens without re-running proofs.
                 forwardListOrCli(test, "bmc.allowStubs", ext.allowStubs.getOrElse(emptyList()))
+                forwardListOrCli(test, "bmc.acknowledgeUnmodelled",
+                        ext.acknowledgeUnmodelled.getOrElse(emptyList()))
                 forwardListOrCli(test, "bmc.userPackages", ext.userPackages.getOrElse(emptyList()))
                 val cliStrict = System.getProperty("bmc.strictStubs")
                 if (!cliStrict.isNullOrBlank()) {

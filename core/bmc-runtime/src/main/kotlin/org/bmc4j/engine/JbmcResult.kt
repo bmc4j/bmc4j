@@ -26,7 +26,8 @@ class JbmcResult private constructor(
         val isTimeout: Boolean,
         /** True if this UNKNOWN was caused by a non-verdict engine exit (crash/abort), not a timeout. */
         val isEngineCrash: Boolean,
-        stubbedMethods: List<String>?) {
+        stubbedMethods: List<String>?,
+        unmodelledMembers: List<String>?) {
 
     enum class Verdict {
         VERIFIED,
@@ -45,11 +46,25 @@ class JbmcResult private constructor(
     @get:JvmName("stubbedMethods")
     val stubbedMethods: List<String> = stubbedMethods?.toList() ?: emptyList()
 
+    /**
+     * The unmodelled members this run REACHED: real JDK members the model deliberately does not
+     * implement (a per-member `@BmcNotModelled` / `@BmcNotNeeded` stub, or a `@BmcModelTail` member),
+     * given a build-synthesized loud body that routes through the
+     * [org.bmc4j.analysis.BmcUnmodelledReached] sentinel. JBMC reports reaching one as an assertion
+     * failure (a would-be REFUTED), but a model gap is bmc4j's own limitation, NOT a counterexample in
+     * the user's code — so the verdict interpreter DEMOTES such a refutation to UNKNOWN, naming the
+     * member(s) here. Each entry is the offending `Class.member(params)` (dot form). Empty on a normal
+     * run. Like [stubbedMethods] this is a parallel FACT harvested at parse time; the demotion POLICY
+     * is applied by [org.bmc4j.junit.BmcProofExtension].
+     */
+    @get:JvmName("unmodelledMembers")
+    val unmodelledMembers: List<String> = unmodelledMembers?.toList() ?: emptyList()
+
     @JvmOverloads
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, false, false, emptyList())
+            null, false, false, emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -69,7 +84,20 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubs)
+                isEngineCrash, stubs, unmodelledMembers)
+    }
+
+    /**
+     * Return a copy carrying the reached-unmodelled-member list (a parallel fact, like
+     * [withStubbedMethods]). The verdict and violations are unchanged here — the demotion to UNKNOWN
+     * is a POLICY applied later by [org.bmc4j.junit.BmcProofExtension]. Returns `this` when empty.
+     */
+    fun withUnmodelledMembers(members: List<String>?): JbmcResult {
+        if (members.isNullOrEmpty()) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
+                isEngineCrash, stubbedMethods, members)
     }
 
     companion object {
@@ -85,7 +113,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknown(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, false,
-                        emptyList())
+                        emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the
@@ -95,7 +123,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknownTimeout(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, true, false,
-                        emptyList())
+                        emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused by the engine process exiting with a non-verdict code (it crashed,
@@ -107,7 +135,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknownEngineCrash(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, true,
-                        emptyList())
+                        emptyList(), emptyList())
     }
 
     /** A single refuted property, with enough detail to build a stack trace. */

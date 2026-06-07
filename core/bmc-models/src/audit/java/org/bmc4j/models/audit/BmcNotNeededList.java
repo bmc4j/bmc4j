@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * Container for repeated {@link BmcNotNeeded} declarations on a model class. Used implicitly by the
  * {@code @Repeatable} mechanism; you never write this directly.
  */
-@Target(ElementType.TYPE)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.CLASS)
 public @interface BmcNotNeededList {
     BmcNotNeeded[] value();

@@ -1,5 +1,7 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -16,10 +18,7 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * Capacity is {@value #CAPACITY}.
  */
 @BmcModelConforms("parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap); incl. the modeled functional ops compute*/merge/forEach/replace")
-@BmcNotModelled(member = "replaceAll(java.util.function.BiFunction)", reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
-@BmcNotNeeded(member = "remove(java.lang.Object,java.lang.Object)", reason = "compare-and-remove — compose get()/remove() explicitly")
-@BmcNotNeeded(member = "putAll(java.util.Map)", reason = "bulk put — put entries explicitly over the bounded model")
-@BmcModelTail(reason = "exotic remainder: newHashMap(int) factory and clone() — out of scope; loud under JBMC")
+@BmcModelTail(reason = "exotic remainder: newHashMap(int) factory — out of scope; loud under JBMC")
 public class HashMap<K, V> implements Map<K, V> {
 
     private static final int CAPACITY = 64;
@@ -264,6 +263,28 @@ public class HashMap<K, V> implements Map<K, V> {
             es.add(new Node<>((K) keys[i], (V) vals[i]));
         }
         return es;
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+
+    @BmcNotModelled(reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
+    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+        throw fail("bmc4j: unmodelled member java.util.HashMap.replaceAll(java.util.function.BiFunction) — functional-arg bulk replace — JBMC stubs the lambda dispatch");
+    }
+
+    @BmcNotNeeded(reason = "compare-and-remove — compose get()/remove() explicitly")
+    public boolean remove(Object key, Object value) {
+        throw fail("bmc4j: unmodelled member java.util.HashMap.remove(java.lang.Object,java.lang.Object) — compare-and-remove — compose get()/remove() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk put — put entries explicitly over the bounded model")
+    public void putAll(Map<? extends K, ? extends V> m) {
+        throw fail("bmc4j: unmodelled member java.util.HashMap.putAll(java.util.Map) — bulk put — put entries explicitly over the bounded model");
+    }
+
+    @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead")
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.HashMap.clone() — shallow copy of a bounded model — construct a fresh map from the entries instead");
     }
 
     /** Immutable key/value pair returned by {@link #entrySet()}. */

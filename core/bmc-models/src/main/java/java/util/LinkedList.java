@@ -41,7 +41,7 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     // --- Deque: head/tail insertion ------------------------------------------
 
     public void addFirst(E e) {
-        add(0, e);
+        insertAt(0, e);
     }
 
     public void addLast(E e) {
@@ -155,7 +155,7 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
      * — the documented loud model-bound signal, never a silent drop. Package-visible because
      * {@code ArrayList}'s backing array is private; this reuses the public List surface to stay sound.
      */
-    private void add(int index, E element) {
+    private void insertAt(int index, E element) {
         if (index < 0 || index > size()) {
             throw new IndexOutOfBoundsException();
         }

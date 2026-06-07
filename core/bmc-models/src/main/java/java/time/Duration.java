@@ -1,5 +1,7 @@
 package java.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotModelled;
@@ -9,7 +11,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * {@link #between} is the common source of "negative duration" bugs.
  */
 @BmcModelConforms("millis-backed Duration — differential (TimeConformanceTest) + @BmcProof (proofs.time): of*/plus*/minus*/multipliedBy/negated/abs/compareTo/get*/is*")
-@BmcNotModelled(member = "parse(java.lang.CharSequence)", reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
 @BmcModelTail(reason = "the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC")
 public final class Duration {
 
@@ -17,6 +18,11 @@ public final class Duration {
 
     private Duration(long millis) {
         this.millis = millis;
+    }
+
+    @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+    public static Duration parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
 
     public static Duration ofMillis(long millis) {

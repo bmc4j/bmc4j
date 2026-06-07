@@ -255,6 +255,51 @@ internal class JbmcOutputParserTest {
         assertTrue(v.counterexample.isEmpty())
     }
 
+    // --- unmodelled-member harvest (verdict honesty) ----------
+    // A FAILURE whose violated function is the BmcUnmodelledReached sentinel is a model gap, not a
+    // counterexample: the parser harvests the offending member (the sentinel's CALLER) so the
+    // interpreter can demote the would-be REFUTED to a member-named UNKNOWN.
+
+    @Test
+    fun reaching_the_unmodelled_sentinel_harvests_the_caller_member() {
+        val json = """
+            [
+              {"result":[
+                {"name":"s.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"BmcUnmodelledReached.java","line":"40",
+                   "function":"java::org.bmc4j.analysis.BmcUnmodelledReached.reached:(Ljava/lang/String;)V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"5"}},
+                   {"stepType":"function-call","function":{"identifier":"java::java.util.ArrayList.sort:(Ljava/util/Comparator;)V"},
+                    "sourceLocation":{"file":"Tests.java","line":"7"}},
+                   {"stepType":"function-call","function":{"identifier":"java::org.bmc4j.analysis.BmcUnmodelledReached.reached:(Ljava/lang/String;)V"},
+                    "sourceLocation":{"file":"ArrayList.java","line":"1"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::org.bmc4j.analysis.BmcUnmodelledReached.reached:(Ljava/lang/String;)V","file":"BmcUnmodelledReached.java","line":"40"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        // The engine reports a would-be refutation, but the harvested fact names the reached member.
+        assertFalse(r.isVerified)
+        assertEquals(listOf("java.util.ArrayList.sort(Comparator)"), r.unmodelledMembers)
+    }
+
+    @Test
+    fun a_plain_assertion_not_via_the_sentinel_harvests_nothing() {
+        val json = """
+            [
+              {"result":[
+                {"name":"f.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"12","function":"java::pkg.Example.f:(I)V"}}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertTrue(r.unmodelledMembers.isEmpty())
+    }
+
     // --- vacuity check: the injected reachability marker ----------
     // The marker is identified by the sentinel source line BmcReachability.SENTINEL_LINE.
 

@@ -1,5 +1,7 @@
 package java.util.concurrent;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -36,14 +38,6 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * models — never a silent wrong answer.
  */
 @BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
-@BmcNotModelled(member = "forEach(java.util.function.Consumer)", reason = "functional-arg iteration — iterate explicitly")
-@BmcNotModelled(member = "removeIf(java.util.function.Predicate)", reason = "functional-arg filter — JBMC stubs the predicate dispatch")
-@BmcNotNeeded(member = "addAll(java.util.Collection)", reason = "bulk add — add elements explicitly over the bounded model")
-@BmcNotNeeded(member = "containsAll(java.util.Collection)", reason = "bulk membership — compose contains() explicitly")
-@BmcNotNeeded(member = "removeAll(java.util.Collection)", reason = "bulk remove — compose remove() explicitly")
-@BmcNotNeeded(member = "retainAll(java.util.Collection)", reason = "bulk retain — exotic over a bounded model")
-@BmcNotNeeded(member = "offer(java.lang.Object,long,java.util.concurrent.TimeUnit)", reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
-@BmcNotNeeded(member = "poll(long,java.util.concurrent.TimeUnit)", reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
 @BmcModelTail(reason = "array-snapshot/stream views (toArray/toArray(IntFunction)/stream/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
@@ -221,6 +215,48 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
             c.add(poll());
         }
         return n;
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+
+    @BmcNotModelled(reason = "functional-arg iteration — iterate explicitly")
+    public void forEach(java.util.function.Consumer<? super E> action) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.forEach(java.util.function.Consumer) — functional-arg iteration — iterate explicitly");
+    }
+
+    @BmcNotModelled(reason = "functional-arg filter — JBMC stubs the predicate dispatch")
+    public boolean removeIf(java.util.function.Predicate<? super E> filter) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.removeIf(java.util.function.Predicate) — functional-arg filter — JBMC stubs the predicate dispatch");
+    }
+
+    @BmcNotNeeded(reason = "bulk add — add elements explicitly over the bounded model")
+    public boolean addAll(Collection<? extends E> c) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.addAll(java.util.Collection) — bulk add — add elements explicitly over the bounded model");
+    }
+
+    @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    public boolean containsAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk remove — compose remove() explicitly")
+    public boolean removeAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.removeAll(java.util.Collection) — bulk remove — compose remove() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk retain — exotic over a bounded model")
+    public boolean retainAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.retainAll(java.util.Collection) — bulk retain — exotic over a bounded model");
+    }
+
+    @BmcNotNeeded(reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
+    public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.offer(java.lang.Object,long,java.util.concurrent.TimeUnit) — timed offer — timeout is a scheduling concern; use offer()/put() assume-prune");
+    }
+
+    @BmcNotNeeded(reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
+    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.poll(long,java.util.concurrent.TimeUnit) — timed poll — timeout is a scheduling concern; use poll()/take() assume-prune");
     }
 
     private final class Itr implements Iterator<E> {

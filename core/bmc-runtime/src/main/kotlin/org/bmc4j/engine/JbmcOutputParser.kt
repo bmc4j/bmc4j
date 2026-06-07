@@ -28,7 +28,9 @@ object JbmcOutputParser {
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
         // computed verdict below via withStubbedMethods (a no-op when empty).
-        return parseVerdict(root, json, entryFunctionFqn).withStubbedMethods(harvestStubs(root))
+        return parseVerdict(root, json, entryFunctionFqn)
+                .withStubbedMethods(harvestStubs(root))
+                .withUnmodelledMembers(harvestUnmodelledMembers(root))
     }
 
     private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?): JbmcResult {
@@ -152,6 +154,148 @@ object JbmcOutputParser {
      * engine identity is in the verdict-cache key, so a bump forces re-validation).
      */
     private const val OPAQUE_MARKER = "new opaque symbol: method '"
+
+    /**
+     * The internal id of the unmodelled-member sentinel ([org.bmc4j.analysis.BmcUnmodelledReached]).
+     * The bmc-models loud-body synthesis routes every unmodelled (declared / tail) member through it,
+     * so a proof that reaches such a member trips an assertion JBMC reports against THIS function. We
+     * recognize it to demote that would-be REFUTED to UNKNOWN — a model gap is bmc4j's own limitation,
+     * never a counterexample in the user's code. Robust by FQN (the assertion's constant message is
+     * discarded by JBMC; the violated function is the reliable signal — cf. the residual-indy marker).
+     */
+    private const val UNMODELLED_SENTINEL = "java::org.bmc4j.analysis.BmcUnmodelledReached.reached:"
+
+    /** Any function in the unmodelled-member sentinel class (reached / fail) — skipped when recovering
+     *  the offending MEMBER, which is the first caller OUTSIDE the sentinel class. */
+    private const val UNMODELLED_SENTINEL_CLASS = "java::org.bmc4j.analysis.BmcUnmodelledReached."
+
+    /**
+     * Harvest the unmodelled MEMBERS this run reached: for every FAILURE property whose violated
+     * function is the [UNMODELLED_SENTINEL], recover the offending member from the property's trace —
+     * the user/model function that CALLED the sentinel (e.g. `java.util.ArrayList.sort(Comparator)`),
+     * rendered in dot form. Deduped, first-seen order. Empty on a normal run. Pure; never throws.
+     *
+     * The fact is parallel to [harvestStubs]; the POLICY (demote REFUTED -> UNKNOWN naming the member)
+     * is applied by [org.bmc4j.junit.BmcProofExtension], exactly like the nondet-stub footnote/strict
+     * ladder and the residual-indy demotion.
+     */
+    internal fun harvestUnmodelledMembers(root: JsonArray): List<String> {
+        var resultArray: JsonArray? = null
+        for (e in root) {
+            if (e.isJsonObject && e.asJsonObject.has("result")) {
+                resultArray = e.asJsonObject.getAsJsonArray("result")
+            }
+        }
+        if (resultArray == null) {
+            return emptyList()
+        }
+        val members = LinkedHashSet<String>()
+        for (pe in resultArray) {
+            val p = pe.asJsonObject
+            if (str(p, "status") != "FAILURE") {
+                continue
+            }
+            if (!violatedFunctionIsSentinel(p)) {
+                continue
+            }
+            val member = callerOfSentinel(p)
+            if (member != null) {
+                members.add(member)
+            }
+        }
+        return members.toList()
+    }
+
+    /** True when [property]'s violated function is the unmodelled-member sentinel. */
+    private fun violatedFunctionIsSentinel(property: JsonObject): Boolean {
+        val sl = if (property.has("sourceLocation")) property.getAsJsonObject("sourceLocation") else null
+        val fn = if (sl != null) str(sl, "function") else null
+        return fn != null && fn.startsWith(UNMODELLED_SENTINEL)
+    }
+
+    /**
+     * The model member that called the sentinel in this property's trace: walk the function-call /
+     * function-return steps, and when the sentinel is entered return the function active just below it
+     * (its caller). Rendered in `pkg.Class.method(p1,p2)` dot form. Falls back to the sentinel-call
+     * source location's function when no trace caller is recoverable.
+     */
+    private fun callerOfSentinel(property: JsonObject): String? {
+        if (!property.has("trace")) {
+            return null
+        }
+        val active = ArrayDeque<String>() // ids of open java:: frames, top = innermost
+        for (se in property.getAsJsonArray("trace")) {
+            val step = se.asJsonObject
+            when (str(step, "stepType")) {
+                "function-call" -> {
+                    val id = funcId(step) ?: continue
+                    if (id.startsWith("java::") && !id.contains("<clinit")) {
+                        if (id.startsWith(UNMODELLED_SENTINEL)) {
+                            // The offending MEMBER is the first open frame OUTSIDE the sentinel class —
+                            // a hand-written stub reaches reached() via the fail() helper (both in the
+                            // sentinel class), so skip every sentinel frame, not just the innermost.
+                            val caller = active.firstOrNull { !it.startsWith(UNMODELLED_SENTINEL_CLASS) }
+                            if (caller != null) {
+                                return renderMember(caller)
+                            }
+                        }
+                        active.push(id)
+                    }
+                }
+                "function-return" -> {
+                    val id = funcId(step) ?: continue
+                    if (id.startsWith("java::") && !id.contains("<clinit") && !active.isEmpty()
+                            && !id.startsWith(UNMODELLED_SENTINEL)) {
+                        active.pop()
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    /** `java::pkg.Class.method:(Lp1;Lp2;)V` -> `pkg.Class.method(p1, p2)` dot form. */
+    private fun renderMember(funcId: String): String {
+        var s = funcId.removePrefix("java::")
+        val sig = s.indexOf(":(")
+        var params = ""
+        if (sig >= 0) {
+            val desc = s.substring(sig + 1)
+            s = s.substring(0, sig)
+            params = renderParams(desc)
+        }
+        return "$s($params)"
+    }
+
+    /** Render a method descriptor's argument types as a comma-separated simple-name list. */
+    private fun renderParams(methodDesc: String): String {
+        val open = methodDesc.indexOf('(')
+        val close = methodDesc.indexOf(')')
+        if (open < 0 || close < open) {
+            return ""
+        }
+        val out = mutableListOf<String>()
+        var i = open + 1
+        var arr = 0
+        while (i < close) {
+            when (val c = methodDesc[i]) {
+                '[' -> { arr++; i++ }
+                'L' -> {
+                    val semi = methodDesc.indexOf(';', i)
+                    val internal = methodDesc.substring(i + 1, semi)
+                    out.add(internal.substringAfterLast('/') + "[]".repeat(arr)); arr = 0; i = semi + 1
+                }
+                else -> {
+                    val prim = when (c) {
+                        'I' -> "int"; 'J' -> "long"; 'Z' -> "boolean"; 'B' -> "byte"; 'C' -> "char"
+                        'S' -> "short"; 'F' -> "float"; 'D' -> "double"; 'V' -> "void"; else -> c.toString()
+                    }
+                    out.add(prim + "[]".repeat(arr)); arr = 0; i++
+                }
+            }
+        }
+        return out.joinToString(", ")
+    }
 
     /**
      * Harvest the methods JBMC analyzed as nondet stubs: scan every message for the engine's

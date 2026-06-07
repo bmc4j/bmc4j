@@ -90,17 +90,21 @@ tasks.withType<Javadoc>().configureEach {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Loud-body synthesis (Upgrade A): give a LOUD-failing body to every member the REAL JDK class has
-// but the model lacks AND has accounted for via @BmcNotModelled / @BmcNotNeeded (named) or
-// @BmcModelTail (the whole exotic remainder). A synthesized body throws
+// Loud-body synthesis: give a LOUD-failing body to every member of the @BmcModelTail exotic
+// remainder — the real members the model neither implements nor declares with a method-level stub.
+// (Per-member @BmcNotModelled / @BmcNotNeeded waivers are now HAND-WRITTEN stub methods in the model
+// source, so the gate can verify their bodies; the rare class-level member= escape hatch is still
+// read here too, but in practice none survive — synthesis is effectively TAIL-ONLY.) The synthesized
+// body routes through the BmcUnmodelledReached sentinel and throws
 //   AssertionError("bmc4j: unmodelled member <Class.member> — <reason>")
-// so a proof that REACHES an unmodeled member fails NAMED AND LOUD under JBMC instead of silently
-// havocking to a nondet stub. Implemented model methods are NEVER touched. Mirrors bmc-kotlin-models'
-// build-time ASM rename pass. Reflection-driven: these are java.* models whose real twin is always
+// so reaching an unmodeled member trips the sentinel — the verdict interpreter then demotes the
+// would-be refutation to an honest member-named UNKNOWN (a model gap), never a silent havoc, never a
+// false REFUTED. Implemented model methods (incl. the hand-written stubs) are NEVER touched. Mirrors
+// bmc-kotlin-models' build-time ASM pass. Reflection-driven: these java.* models' real twin is always
 // loadable from the bootstrap loader in this build JVM, so we read the real surface + descriptors
 // directly (correct return types), rather than guessing from the signature string.
 val synthesizeLoudBodies by tasks.registering {
-    description = "Synthesize loud-failing bodies for unmodelled (declared/tail) real members."
+    description = "Synthesize loud-failing bodies for the @BmcModelTail exotic remainder."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
     inputs.dir(classesDir)
     outputs.dir(classesDir)
@@ -220,6 +224,15 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
             mn.visitAnnotation("Lorg/bmc4j/models/audit/BmcSynthesizedLoud;", false)
             val msg = "bmc4j: unmodelled member $className.$memberLabel — $reason"
             mn.instructions.apply {
+                // Route through the BmcUnmodelledReached sentinel so the violated JBMC property's
+                // `function` is org.bmc4j.analysis.BmcUnmodelledReached.reached — a deterministic
+                // signature the verdict interpreter recognizes to DEMOTE the refutation to UNKNOWN
+                // (a model gap is OUR limitation, not the user's counterexample). The sentinel's
+                // assert(false) never returns; the trailing throw keeps the synthesized method
+                // well-formed for any (incl. non-void) return type and remains the loud fallback.
+                add(LdcInsnNode(msg))
+                add(MethodInsnNode(Opcodes.INVOKESTATIC, "org/bmc4j/analysis/BmcUnmodelledReached",
+                    "reached", "(Ljava/lang/String;)V", false))
                 add(TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))
                 add(InsnNode(Opcodes.DUP))
                 add(LdcInsnNode(msg))

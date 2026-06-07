@@ -1,5 +1,7 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotModelled;
@@ -11,15 +13,7 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
 @BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
-@BmcNotModelled(member = "forEach(java.util.function.Consumer)", reason = "functional-arg iteration — iterate explicitly")
-@BmcNotModelled(member = "removeIf(java.util.function.Predicate)", reason = "functional-arg filter — JBMC stubs the predicate dispatch")
-@BmcNotNeeded(member = "addAll(java.util.Collection)", reason = "bulk add — add elements explicitly over the bounded model")
-@BmcNotNeeded(member = "containsAll(java.util.Collection)", reason = "bulk membership — compose contains() explicitly")
-@BmcNotNeeded(member = "removeAll(java.util.Collection)", reason = "bulk remove — compose remove() explicitly")
-@BmcNotNeeded(member = "retainAll(java.util.Collection)", reason = "bulk retain — exotic over a bounded model")
-@BmcNotNeeded(member = "toArray()", reason = "array snapshot — iterate the model instead")
-@BmcNotNeeded(member = "toArray(java.lang.Object[])", reason = "typed array snapshot — iterate the model instead")
-@BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, clone(), spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
     private static final int CAPACITY = 64;
@@ -101,6 +95,53 @@ public class HashSet<E> implements Set<E> {
     @Override
     public Iterator<E> iterator() {
         return new Itr();
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+
+    @BmcNotModelled(reason = "functional-arg iteration — iterate explicitly")
+    public void forEach(java.util.function.Consumer<? super E> action) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.forEach(java.util.function.Consumer) — functional-arg iteration — iterate explicitly");
+    }
+
+    @BmcNotModelled(reason = "functional-arg filter — JBMC stubs the predicate dispatch")
+    public boolean removeIf(java.util.function.Predicate<? super E> filter) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.removeIf(java.util.function.Predicate) — functional-arg filter — JBMC stubs the predicate dispatch");
+    }
+
+    @BmcNotNeeded(reason = "bulk add — add elements explicitly over the bounded model")
+    public boolean addAll(Collection<? extends E> c) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.addAll(java.util.Collection) — bulk add — add elements explicitly over the bounded model");
+    }
+
+    @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    public boolean containsAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk remove — compose remove() explicitly")
+    public boolean removeAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.removeAll(java.util.Collection) — bulk remove — compose remove() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk retain — exotic over a bounded model")
+    public boolean retainAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.retainAll(java.util.Collection) — bulk retain — exotic over a bounded model");
+    }
+
+    @BmcNotNeeded(reason = "array snapshot — iterate the model instead")
+    public Object[] toArray() {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
+    }
+
+    @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    public <T> T[] toArray(T[] a) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
+    }
+
+    @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.clone() — shallow copy of a bounded model — construct a fresh set from the elements instead");
     }
 
     private final class Itr implements Iterator<E> {

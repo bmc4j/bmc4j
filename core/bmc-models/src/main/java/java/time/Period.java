@@ -1,5 +1,7 @@
 package java.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotModelled;
@@ -18,7 +20,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
  */
 @BmcModelConforms("(years,months,days) Period — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
-@BmcNotModelled(member = "parse(java.lang.CharSequence)", reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
 @BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), multipliedBy/the ofWeeks-rollups and toString are out of scope; all loud under JBMC")
 public final class Period {
 
@@ -32,6 +33,11 @@ public final class Period {
         this.years = years;
         this.months = months;
         this.days = days;
+    }
+
+    @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+    public static Period parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.Period.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
 
     private static Period create(int years, int months, int days) {

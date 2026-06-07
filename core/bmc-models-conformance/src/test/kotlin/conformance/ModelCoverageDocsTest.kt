@@ -136,6 +136,14 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         return seen.values.sortedBy { render(it) }
     }
     val synthesizedDesc = "L${auditPkg}BmcSynthesizedLoud;"
+    fun methodAnns(m: org.objectweb.asm.tree.MethodNode) =
+        (m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())
+    // A method-level NotModelled/NotNeeded loud stub is NOT a genuine model implementation.
+    fun methodStubKind(m: org.objectweb.asm.tree.MethodNode): String? = when {
+        methodAnns(m).any { it.desc == notModelledDesc } -> "NotModelled"
+        methodAnns(m).any { it.desc == notNeededDesc } -> "NotNeeded"
+        else -> null
+    }
     fun conformsKeys(realFqn: String): Set<String> {
         val out = mutableSetOf<String>()
         var cur: ClassNode? = nodes[realFqn]
@@ -144,10 +152,28 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
             for (m in cur.methods) {
                 if (m.name == "<init>" || m.name == "<clinit>") continue
                 if ((m.access and Opcodes.ACC_SYNTHETIC) != 0 || (m.access and Opcodes.ACC_BRIDGE) != 0) continue
-                val isSynth = ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())).any { it.desc == synthesizedDesc }
+                val isSynth = methodAnns(m).any { it.desc == synthesizedDesc }
                 if (isSynth) continue // loud stub, not a genuine model implementation
-                val mc = ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())).any { it.desc == conformsDesc }
+                if (methodStubKind(m) != null) continue // method-level NotModelled/NotNeeded stub: not modeled
+                val mc = methodAnns(m).any { it.desc == conformsDesc }
                 if (blanket || mc) out.add(m.name + paramsDescDoc(m.desc))
+            }
+            val sup = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
+            cur = if (sup != null && nodes.containsKey(sup)) nodes[sup] else null
+        }
+        return out
+    }
+    // Method-level stub (name+params) -> (kind, reason), resolved through the model inheritance chain.
+    fun methodStubs(realFqn: String): Map<String, Pair<String, String>> {
+        val out = LinkedHashMap<String, Pair<String, String>>()
+        var cur: ClassNode? = nodes[realFqn]
+        while (cur != null) {
+            for (m in cur.methods) {
+                val kind = methodStubKind(m) ?: continue
+                val reason = methodAnns(m).firstOrNull { it.desc == notModelledDesc || it.desc == notNeededDesc }
+                    ?.let { a -> val v = a.values ?: emptyList<Any?>(); var i = 0; var r: String? = null
+                        while (i + 1 < v.size) { if (v[i] == "reason") r = v[i + 1] as? String; i += 2 }; r } ?: ""
+                out.putIfAbsent(m.name + paramsDescDoc(m.desc), kind to reason)
             }
             val sup = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
             cur = if (sup != null && nodes.containsKey(sup)) nodes[sup] else null
@@ -172,9 +198,13 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     sb.append("`gradlew -p core :bmc-models-conformance:test --tests conformance.ModelCoverageDocsTest -Dbmc.regenerateDocs=true`. -->\n\n")
     sb.append("Every public/protected member of each per-member-audited model's real JDK target is ")
     sb.append("accounted for below: **modeled** (sound under BMC), **not-modeled** (cannot be), ")
-    sb.append("**not-needed** (exotic), or in the **tail** (the bulk exotic remainder). Tail and ")
-    sb.append("not-modeled/not-needed members all carry a build-synthesized loud-failing body, so ")
-    sb.append("reaching one fails named-and-loud under JBMC rather than silently havocking.\n")
+    sb.append("**not-needed** (exotic), or in the **tail** (the exotic remainder, enumerated in full). ")
+    sb.append("Not-modeled/not-needed members carry a hand-written loud body (a real stub method whose ")
+    sb.append("decision and reason live next to the surface it waives); tail members get a ")
+    sb.append("build-synthesized loud body. Reaching ANY of them trips the BmcUnmodelledReached ")
+    sb.append("sentinel, so the verdict is an honest member-named **UNKNOWN** (a bmc4j model gap), never ")
+    sb.append("a false REFUTED and never a silent havoc — unless explicitly acknowledged via ")
+    sb.append("`acknowledgeUnmodelled`, which degrades it to a footnoted nondet stub.\n")
 
     for (realFqn in PER_MEMBER_ENFORCED.sorted()) {
         val node = nodes[realFqn] ?: continue
@@ -184,7 +214,8 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         val tail = tailReason(node)
         val covered = conformsKeys(realFqn)
         val declaredByKind = HashMap<String, Decl>()
-        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }
+        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }   // class-level member= form
+        val stubByKey = methodStubs(realFqn)                                 // method-level stub form
 
         val members = realAuditable(real)
         val modeled = ArrayList<String>()
@@ -195,6 +226,10 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
             val key = m.name + "(" + m.parameterTypes.joinToString("") { Type.getType(it).descriptor } + ")"
             when {
                 key in covered -> modeled.add(render(m))
+                stubByKey.containsKey(key) -> {
+                    val (kind, reason) = stubByKey[key]!!
+                    if (kind == "NotModelled") notModelled.add(render(m) to reason) else notNeeded.add(render(m) to reason)
+                }
                 declaredByKind.containsKey(key) -> {
                     val d = declaredByKind[key]!!
                     if (d.kind == "NotModelled") notModelled.add(render(m) to d.reason) else notNeeded.add(render(m) to d.reason)
@@ -222,7 +257,15 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
             sb.append("\n")
         }
         if (tail != null) {
-            sb.append("**Tail** (`@BmcModelTail`, ${tailed.size} members, all loud): ").append(tail).append("\n\n")
+            // ENUMERATE every tail member — nothing summarized away. (Compact, collapsible.)
+            sb.append("<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, ${tailed.size} members, all loud): ")
+            sb.append(tail).append("</summary>\n\n")
+            if (tailed.isEmpty()) {
+                sb.append("_(none — the real surface is fully modeled/declared)_\n")
+            } else {
+                tailed.sorted().forEach { sb.append("- `").append(it).append("`\n") }
+            }
+            sb.append("\n</details>\n\n")
         }
     }
     return sb.toString().replace("\r\n", "\n")
@@ -232,8 +275,10 @@ private fun render(m: java.lang.reflect.Method): String =
     m.name + "(" + m.parameterTypes.joinToString(", ") { erasedNameDoc(it) } + ")"
 private fun erasedNameDoc(c: Class<*>): String =
     if (c.isArray) erasedNameDoc(c.componentType) + "[]" else (c.simpleName)
+// Normalized back from the relocation (bmcref/java/... -> java/...) so a model-method key matches the
+// reflection-derived real-member key (see the gate's paramsDesc for the rationale).
 private fun paramsDescDoc(methodDesc: String): String =
-    "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor } + ")"
+    "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor.replace("Lbmcref/", "L") } + ")"
 private fun erasedDesc(s: String): String? {
     if (s.isEmpty()) return null
     if (s.endsWith("[]")) { val e = erasedDesc(s.removeSuffix("[]")) ?: return null; return "[$e" }
