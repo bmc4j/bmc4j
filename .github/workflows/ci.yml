@@ -384,10 +384,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Find every shard tarball REGARDLESS of how download-artifact laid it out. This is
+          # load-bearing: download-artifact@v6 nests each artifact under its own subdir ONLY when
+          # it downloads MORE THAN ONE - a SINGLE artifact (every unsharded leg: jdk17-conformance,
+          # kotlin-2.0/2.2/2.3/2.4) is extracted FLAT, straight into `shard-artifacts/`. The old
+          # loop globbed `shard-artifacts/verdict-cache-*/` and required a directory, so single-
+          # artifact legs found nothing, unioned 0 entries, skipped the save, and ran cold forever
+          # (the #104 regression). Locating `verdict-cache-shard.tgz` by `find` handles both layouts.
+          mapfile -t tgzs < <(find shard-artifacts -type f -name 'verdict-cache-shard.tgz' 2>/dev/null || true)
+          # How many shard artifacts actually came down (each holds exactly one tarball), so we can
+          # tell "no artifacts at all" (legitimate: a leg whose proofs all failed pre-cache) apart
+          # from "artifacts present but yielded nothing" (a real regression - fail loud below).
+          arts="$(find shard-artifacts -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
           found=0
-          for art in shard-artifacts/verdict-cache-*; do
-            [ -d "$art" ] || continue
-            tgz="$art/verdict-cache-shard.tgz"
+          for tgz in "${tgzs[@]}"; do
             [ -f "$tgz" ] || continue
             tmp="$(mktemp -d)"
             tar -xzf "$tgz" -C "$tmp" || true
@@ -397,7 +407,14 @@ jobs:
             rm -rf "$tmp"
           done
           entries="$(find "$GITHUB_WORKSPACE" -type f -path '*/build/bmc4j/verdict-cache/*' 2>/dev/null | wc -l | tr -d ' ')"
-          echo "leg '${{ matrix.leg }}': unioned $entries verdict-cache entries (found=$found)"
+          echo "leg '${{ matrix.leg }}': downloaded $arts shard artifact(s), ${#tgzs[@]} tarball(s); unioned $entries verdict-cache entries (found=$found)"
+          # Loud guard so this can't silently regress again: if shard artifacts were present but
+          # produced ZERO verdict entries, the union is broken (e.g. another layout change) - the
+          # save would no-op and the leg would run cold. Fail the merge so it's visible, not silent.
+          if [ "$arts" != "0" ] && [ "$entries" = "0" ]; then
+            echo "::error::leg '${{ matrix.leg }}': $arts shard artifact(s) downloaded but unioned 0 verdict-cache entries - the merge union is broken (check the download-artifact layout / tarball paths). Refusing to save an empty snapshot."
+            exit 1
+          fi
           # Only save when there's something to save (an empty save would clobber the lineage).
           echo "entries=$entries" >> "$GITHUB_OUTPUT"
 
