@@ -16,7 +16,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * Zones, formatters and sub-nano precision are out of scope (a model, not a reimplementation);
  * {@code now()} is intentionally not modeled — pass LocalTimes as proof parameters.
  */
-@BmcModelTail(reason = "the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining LocalTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC")
 public final class LocalTime {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
@@ -159,6 +159,46 @@ public final class LocalTime {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime minusSeconds(long seconds) {
         return plusSeconds(-(seconds % (24 * 60 * 60)));
+    }
+
+    // --- with* field setters: rebuild from the fields, keeping the others, with the JDK's loud
+    //     field validation (a fast-path returns this when the field is unchanged).
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalTime withHour(int hour) {
+        if (getHour() == hour) {
+            return this;
+        }
+        return of(hour, getMinute(), getSecond(), getNano());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalTime withMinute(int minute) {
+        if (getMinute() == minute) {
+            return this;
+        }
+        return of(getHour(), minute, getSecond(), getNano());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalTime withSecond(int second) {
+        if (getSecond() == second) {
+            return this;
+        }
+        return of(getHour(), getMinute(), second, getNano());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalTime withNano(int nanoOfSecond) {
+        if (getNano() == nanoOfSecond) {
+            return this;
+        }
+        return of(getHour(), getMinute(), getSecond(), nanoOfSecond);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atDate(LocalDate date) {
+        return LocalDateTime.of(date, this);
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")

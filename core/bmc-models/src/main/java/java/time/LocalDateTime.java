@@ -20,7 +20,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * unchanged; it is validated bit-for-bit by the differential suite vs the real JDK. Zones, formatters
  * and sub-nano precision are out of scope; {@code now()} is not modeled.
  */
-@BmcModelTail(reason = "the wide LocalDateTime/Temporal surface (with*/truncatedTo/until/atZone/atOffset/toLocalDate/toLocalTime/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getDayOfYear and the of(...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining LocalDateTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atZone/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
 public final class LocalDateTime {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
@@ -184,6 +184,12 @@ public final class LocalDateTime {
         return ymd()[2];
     }
 
+    /** 1-based day-of-year of the date part — delegates to the epoch-day LocalDate model. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int getDayOfYear() {
+        return LocalDate.ofEpochDay(epochDay).getDayOfYear();
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getHour() {
         return (int) (nanoOfDay / NANOS_PER_HOUR);
@@ -224,6 +230,18 @@ public final class LocalDateTime {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusDays(long days) {
         return new LocalDateTime(epochDay - days, nanoOfDay);
+    }
+
+    // A week is exactly 7 days; route the *7 through a checked multiply (like the JDK) so a week count
+    // past the long/7 bound fails LOUDLY rather than silently wrapping.
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime plusWeeks(long weeks) {
+        return new LocalDateTime(epochDay + Math.multiplyExact(weeks, 7L), nanoOfDay);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime minusWeeks(long weeks) {
+        return new LocalDateTime(epochDay - Math.multiplyExact(weeks, 7L), nanoOfDay);
     }
 
     // --- calendar-month arithmetic on the date part; time part (nanoOfDay) unchanged ---
@@ -324,7 +342,56 @@ public final class LocalDateTime {
         return plusSeconds(-seconds);
     }
 
+    // --- with* field setters: the date-part setters delegate to the epoch-day LocalDate model (whose
+    //     withYear/withMonth CLAMP the day and withDayOfMonth/withDayOfYear validate strictly), the
+    //     time-part setters to the nano-of-day LocalTime model; the other part is carried untouched.
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withYear(int year) {
+        return new LocalDateTime(LocalDate.ofEpochDay(epochDay).withYear(year).toEpochDay(), nanoOfDay);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withMonth(int month) {
+        return new LocalDateTime(LocalDate.ofEpochDay(epochDay).withMonth(month).toEpochDay(), nanoOfDay);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withDayOfMonth(int dayOfMonth) {
+        return new LocalDateTime(LocalDate.ofEpochDay(epochDay).withDayOfMonth(dayOfMonth).toEpochDay(), nanoOfDay);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withDayOfYear(int dayOfYear) {
+        return new LocalDateTime(LocalDate.ofEpochDay(epochDay).withDayOfYear(dayOfYear).toEpochDay(), nanoOfDay);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withHour(int hour) {
+        return new LocalDateTime(epochDay, LocalTime.ofNanoOfDay(nanoOfDay).withHour(hour).toNanoOfDay());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withMinute(int minute) {
+        return new LocalDateTime(epochDay, LocalTime.ofNanoOfDay(nanoOfDay).withMinute(minute).toNanoOfDay());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withSecond(int second) {
+        return new LocalDateTime(epochDay, LocalTime.ofNanoOfDay(nanoOfDay).withSecond(second).toNanoOfDay());
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime withNano(int nanoOfSecond) {
+        return new LocalDateTime(epochDay, LocalTime.ofNanoOfDay(nanoOfDay).withNano(nanoOfSecond).toNanoOfDay());
+    }
+
     // --- ordering: lexicographic (date, then time) ---
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public boolean isEqual(LocalDateTime other) {
+        return this.epochDay == other.epochDay && this.nanoOfDay == other.nanoOfDay;
+    }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isBefore(LocalDateTime other) {
