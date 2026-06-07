@@ -64,3 +64,11 @@ include(
 include(
     "model-conformance-proofs",
 )
+
+// Verdict-cache soundness smoke: a tiny dedicated proof module the `cache-soundness`
+// CI job drives through the four cache phases (cold green -> unchanged HIT -> mutated
+// RE-SOLVE+FAIL -> unrelated-touch still-HIT). Kept out of the main proof matrix; it
+// runs only in its own workflow. See .github/workflows/cache-soundness.yml.
+include(
+    "cache-soundness-smoke",
+)

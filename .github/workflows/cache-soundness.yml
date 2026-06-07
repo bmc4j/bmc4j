@@ -1,0 +1,63 @@
+name: cache-soundness
+
+# A cheap (~1-2 min) end-to-end soundness smoke for the verdict cache (plugin -> cache ->
+# cone key -> engine), on the tiny dedicated `cache-soundness-smoke` module. Four phases,
+# each asserting on real proof output and failing loud with which phase broke:
+#   1. cold run            -> GREEN, a live engine solve (cache empty)
+#   2. unchanged re-run    -> CACHE HIT (the proof is served, not re-solved)
+#   3. mutate to violate   -> RE-SOLVES and FAILS (a stale green must never be served)
+#   4. restore + touch an UNRELATED class -> still a HIT (the cone-key promise)
+#
+# The cache-HIT signal is the plugin's per-proof progress line carrying the literal
+# "cached verdict" marker (BmcPlugin's afterTest listener); its absence means the engine ran.
+# Independent of model slicing (the module's one proof reaches a sound cone either way).
+
+on:
+  workflow_dispatch:
+    inputs:
+      jdk:
+        description: 'JDK / bytecode target for the smoke module (host JDK == toolchain == target)'
+        default: '21'
+  pull_request:
+    paths:
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/VerdictCache.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/ReachableCone.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/junit/BmcProofExtension.kt'
+      - 'core/bmc-gradle-plugin/src/main/kotlin/org/bmc4j/gradle/BmcPlugin.kt'
+      - 'cache-soundness-smoke/**'
+      - '.github/workflows/cache-soundness.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-soundness-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    name: verdict-cache soundness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Host JDK == toolchain == bytecode target, so the bytecode fed to the engine matches the
+      # JDK this leg runs on (same convention as ci.yml's proof legs).
+      JDK: ${{ inputs.jdk || '21' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ env.JDK }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JDK }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Verdict-cache soundness smoke (4 phases)
+        shell: bash
+        env:
+          BMC_FLAGS: -PbmcJvmTarget=${{ env.JDK }}
+        run: bash cache-soundness-smoke/smoke.sh
