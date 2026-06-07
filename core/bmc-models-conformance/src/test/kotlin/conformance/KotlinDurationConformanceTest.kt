@@ -39,6 +39,8 @@ class KotlinDurationConformanceTest : FunSpec({
     val mPlus = mGet("plus-LRDsOJo", java.lang.Long.TYPE, java.lang.Long.TYPE)
     val mMinus = mGet("minus-LRDsOJo", java.lang.Long.TYPE, java.lang.Long.TYPE)
     val mUnaryMinus = mGet("unaryMinus-UwyO8pc", java.lang.Long.TYPE)
+    val mTimes = mGet("times-UwyO8pc", java.lang.Long.TYPE, java.lang.Integer.TYPE)
+    val mDiv = mGet("div-UwyO8pc", java.lang.Long.TYPE, java.lang.Integer.TYPE)
     val mCompareTo = mGet("compareTo-LRDsOJo", java.lang.Long.TYPE, java.lang.Long.TYPE)
     val mInWholeSeconds = mGet("getInWholeSeconds-impl", java.lang.Long.TYPE)
     val mInWholeMillis = mGet("getInWholeMilliseconds-impl", java.lang.Long.TYPE)
@@ -85,6 +87,36 @@ class KotlinDurationConformanceTest : FunSpec({
             (mPlus.invoke(null, ma, mb) as Long) shouldBe realRaw(ra + rb)
             (mMinus.invoke(null, ma, mb) as Long) shouldBe realRaw(ra - rb)
             (mUnaryMinus.invoke(null, ma) as Long) shouldBe realRaw(-ra)
+        }
+    }
+
+    test("times / div by an Int scalar conform (nanos + millis ranges, incl. negatives)") {
+        val scale = Arb.int(-1000..1000)
+        // nanos-range durations (seconds counts that stay in the nanos range)
+        checkAll(secs, scale) { a, s ->
+            val ra = a.seconds
+            val ma = modelFromSeconds(a)
+            (mTimes.invoke(null, ma, s) as Long) shouldBe realRaw(ra * s)
+            if (s != 0) (mDiv.invoke(null, ma, s) as Long) shouldBe realRaw(ra / s)
+        }
+        // millis-range durations (large second counts past the nanos boundary) exercise the millis
+        // branch + the overflow-saturates-to-infinity path.
+        val bigSecs = Arb.long(4_000_000_000L..9_000_000_000L)
+        checkAll(bigSecs, scale) { a, s ->
+            val ra = a.seconds
+            val ma = modelFromSeconds(a)
+            (mTimes.invoke(null, ma, s) as Long) shouldBe realRaw(ra * s)
+            if (s != 0) (mDiv.invoke(null, ma, s) as Long) shouldBe realRaw(ra / s)
+        }
+    }
+
+    test("times / div by zero conform (saturation / undefined-result parity)") {
+        // times(d, 0) == ZERO for finite d; div(d, 0) saturates to (NEG_)INFINITE for non-zero d.
+        checkAll(secs) { a ->
+            val ra = a.seconds
+            val ma = modelFromSeconds(a)
+            (mTimes.invoke(null, ma, 0) as Long) shouldBe realRaw(ra * 0)
+            if (a != 0L) (mDiv.invoke(null, ma, 0) as Long) shouldBe realRaw(ra / 0)
         }
     }
 

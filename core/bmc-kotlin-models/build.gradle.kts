@@ -69,6 +69,10 @@ val durationAbiRenames: Map<String, String> = mapOf(
     "compareTo(JJ)I" to "compareTo-LRDsOJo",
     "unaryMinus(J)J" to "unaryMinus-UwyO8pc",
     "getAbsoluteValue(J)J" to "getAbsoluteValue-UwyO8pc",
+    // Int-scalar times/div (the Double overloads stay JBMC nondet stubs — no-double policy). Both
+    // value-class-returning ops share the -UwyO8pc value-type mangle suffix.
+    "times(JI)J" to "times-UwyO8pc",
+    "div(JI)J" to "div-UwyO8pc",
     "isNegative(J)Z" to "isNegative-impl",
     "isPositive(J)Z" to "isPositive-impl",
     "isInfinite(J)Z" to "isInfinite-impl",
