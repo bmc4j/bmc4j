@@ -80,6 +80,34 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    public boolean containsValue(Object value) {
+        for (int i = 0; i < size; i++) {
+            if (value == null ? vals[i] == null : value.equals(vals[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public V putIfAbsent(K key, V value) {
+        int i = indexOfKey(key);
+        if (i >= 0 && vals[i] != null) {
+            return (V) vals[i];     // present + non-null: leave it, return current (JDK semantics)
+        }
+        // absent, or present-but-null: install the new value
+        if (i >= 0) {
+            vals[i] = value;
+            return null;
+        }
+        keys[size] = key;
+        vals[size] = value;
+        size++;
+        return null;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public V remove(Object key) {
         int i = indexOfKey(key);

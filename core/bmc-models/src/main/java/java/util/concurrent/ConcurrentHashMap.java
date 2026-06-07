@@ -45,6 +45,14 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
     }
 
     @Override
+    public boolean containsValue(Object value) {
+        if (value == null) {
+            throw new NullPointerException();
+        }
+        return super.containsValue(value);
+    }
+
+    @Override
     public V remove(Object key) {
         if (key == null) {
             throw new NullPointerException();
@@ -60,6 +68,7 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
         return super.getOrDefault(key, defaultValue);
     }
 
+    @Override
     public V putIfAbsent(K key, V value) {
         if (key == null || value == null) {
             throw new NullPointerException();
