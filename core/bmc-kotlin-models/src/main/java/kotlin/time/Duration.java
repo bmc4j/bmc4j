@@ -16,12 +16,15 @@ import org.bmc4j.models.audit.BmcModelConforms;
  *
  * <p><b>Representation:</b> the model reproduces the real bit-packing faithfully (same nanos/millis split,
  * same normalization, same {@code coerceIn(-MAX_MILLIS, MAX_MILLIS)} saturation at the boundary), so
- * conformance is exact rather than approximate: construction from units, {@code +}/{@code -}, comparison,
- * {@code inWhole*}, negatives, and the nanos/millis saturation boundary all match the JVM
- * {@code kotlin.time.Duration} (verified differentially in {@code TimeConformanceTest}).
+ * conformance is exact rather than approximate: construction from units, {@code +}/{@code -},
+ * {@code times}/{@code div} by an {@code Int} scalar (incl. the overflow-saturates-to-infinity path),
+ * comparison, {@code inWhole*}, negatives, and the nanos/millis saturation boundary all match the JVM
+ * {@code kotlin.time.Duration} (verified differentially in {@code KotlinDurationConformanceTest}).
  *
  * <p><b>Documented holes:</b> {@code toString}/{@code toIsoString}/{@code parse} (decimal/string formatting —
- * out of scope for a bounded model, same as {@code java.time}), the {@code Double} construction/arithmetic
+ * out of scope for a bounded model, same as {@code java.time}), the {@code Double} {@code times}/{@code div}
+ * overloads and the {@code Duration / Duration -> Double} ratio (bmc4j avoids {@code double}; use the
+ * {@code Int}-scalar {@code times}/{@code div}), the {@code Double} construction/arithmetic
  * overloads (bmc4j avoids {@code double}; use the {@code Int}/{@code Long} unit extensions), and
  * {@code TimeSource}/{@code TimeMark} (wall-clock, external world). Infinite durations
  * ({@code Duration.INFINITE}) are representable and compare/saturate correctly, but the {@code INVALID}
@@ -212,6 +215,86 @@ public final class Duration {
 
     public static long minus(long a, long b) {
         return plus(a, unaryMinus(b));
+    }
+
+    // ---- scalar multiply / divide by an Int (the Double overloads stay declined: no-double policy) ----
+    //
+    // Faithful port of the stdlib's value-class times(Int)/div(Int), including the same
+    // overflow-saturates-to-infinity behavior and the nanos<->millis range handling, so the bit-packed
+    // result matches kotlin.time.Duration exactly (differentially verified). The Int-returning sign is
+    // -1/0/1 like kotlin's .sign.
+
+    private static int signOf(long v) {
+        return v < 0 ? -1 : (v > 0 ? 1 : 0);
+    }
+
+    private static int signOf(int v) {
+        return v < 0 ? -1 : (v > 0 ? 1 : 0);
+    }
+
+    public static long times(long raw, int scale) {
+        if (isInfinite(raw)) {
+            if (scale == 0) {
+                throw new IllegalArgumentException(
+                        "Multiplying infinite duration by zero yields an undefined result.");
+            }
+            return scale > 0 ? raw : unaryMinus(raw);
+        }
+        if (scale == 0) {
+            return durationOfNanos(0L);   // ZERO
+        }
+        long value = value(raw);
+        long result = value * scale;
+        if (isInNanos(raw)) {
+            // (MAX_NANOS / Int.MIN_VALUE) .. (-MAX_NANOS / Int.MIN_VALUE): the band where no scale can
+            // overflow the nanos range. Int.MIN_VALUE is negative, so the low bound is negative.
+            long lo = MAX_NANOS / Integer.MIN_VALUE;
+            long hi = -MAX_NANOS / Integer.MIN_VALUE;
+            if (value >= lo && value <= hi) {
+                return durationOfNanos(result);
+            }
+            if (result / scale == value) {
+                return durationOfNanosNormalized(result);
+            }
+            long millis = nanosToMillis(value);
+            long remNanos = value - millisToNanos(millis);
+            long resultMillis = millis * scale;
+            long totalMillis = resultMillis + nanosToMillis(remNanos * scale);
+            if (resultMillis / scale == millis && (totalMillis ^ resultMillis) >= 0) {
+                return durationOfMillis(coerceIn(totalMillis, -MAX_MILLIS, MAX_MILLIS));
+            }
+            return signOf(value) * signOf(scale) > 0 ? INFINITE_RAW : NEG_INFINITE_RAW;
+        }
+        if (result / scale == value) {
+            return durationOfMillis(coerceIn(result, -MAX_MILLIS, MAX_MILLIS));
+        }
+        return signOf(value) * signOf(scale) > 0 ? INFINITE_RAW : NEG_INFINITE_RAW;
+    }
+
+    public static long div(long raw, int scale) {
+        if (scale == 0) {
+            if (isPositive(raw)) {
+                return INFINITE_RAW;
+            }
+            if (isNegative(raw)) {
+                return NEG_INFINITE_RAW;
+            }
+            throw new IllegalArgumentException(
+                    "Dividing zero duration by zero yields an undefined result.");
+        }
+        long value = value(raw);
+        if (isInNanos(raw)) {
+            return durationOfNanos(value / scale);
+        }
+        if (isInfinite(raw)) {
+            return times(raw, signOf(scale));
+        }
+        long result = value / scale;
+        if (result >= -MAX_NANOS_IN_MILLIS && result <= MAX_NANOS_IN_MILLIS) {
+            long rem = millisToNanos(value - (result * scale)) / scale;
+            return durationOfNanos(millisToNanos(result) + rem);
+        }
+        return durationOfMillis(result);
     }
 
     // ---- predicates ----

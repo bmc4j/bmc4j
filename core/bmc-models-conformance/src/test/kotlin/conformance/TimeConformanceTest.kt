@@ -46,16 +46,60 @@ class TimeConformanceTest : FunSpec({
             val ma = bmcref.java.time.Duration.ofMillis(a); val mb = bmcref.java.time.Duration.ofMillis(b)
             ra.toMillis() shouldBe ma.toMillis()
             ra.seconds shouldBe ma.getSeconds()                // floor vs truncate for negatives
+            // toSeconds FLOORS (== getSeconds); toMinutes/toHours/toDays then TRUNCATE the floored
+            // seconds toward zero — the exact floor-vs-truncate split the harness caught on getSeconds.
+            ra.toSeconds() shouldBe ma.toSeconds()
+            ra.toMinutes() shouldBe ma.toMinutes()
+            ra.toHours() shouldBe ma.toHours()
+            ra.toDays() shouldBe ma.toDays()
             ra.isNegative shouldBe ma.isNegative()
+            ra.isPositive shouldBe ma.isPositive()
             ra.isZero shouldBe ma.isZero()
             ra.plus(rb).toMillis() shouldBe ma.plus(mb).toMillis()
             ra.minus(rb).toMillis() shouldBe ma.minus(mb).toMillis()
+            ra.plusMillis(b).toMillis() shouldBe ma.plusMillis(b).toMillis()
+            ra.minusMillis(b).toMillis() shouldBe ma.minusMillis(b).toMillis()
+            ra.plusSeconds(b / 1000).toMillis() shouldBe ma.plusSeconds(b / 1000).toMillis()
+            ra.minusSeconds(b / 1000).toMillis() shouldBe ma.minusSeconds(b / 1000).toMillis()
+            ra.plusMinutes(b / 60_000).toMillis() shouldBe ma.plusMinutes(b / 60_000).toMillis()
+            ra.minusMinutes(b / 60_000).toMillis() shouldBe ma.minusMinutes(b / 60_000).toMillis()
+            ra.plusHours(b / 3_600_000).toMillis() shouldBe ma.plusHours(b / 3_600_000).toMillis()
+            ra.minusHours(b / 3_600_000).toMillis() shouldBe ma.minusHours(b / 3_600_000).toMillis()
+            ra.plusDays(b / 86_400_000).toMillis() shouldBe ma.plusDays(b / 86_400_000).toMillis()
+            ra.minusDays(b / 86_400_000).toMillis() shouldBe ma.minusDays(b / 86_400_000).toMillis()
+            // multipliedBy: keep the multiplier small so the *millis result stays in range (the
+            // out-of-bound saturation path is the loud-failure test below).
+            ra.multipliedBy(b % 1000).toMillis() shouldBe ma.multipliedBy(b % 1000).toMillis()
             ra.negated().toMillis() shouldBe ma.negated().toMillis()
+            ra.abs().toMillis() shouldBe ma.abs().toMillis()
             Integer.signum(ra.compareTo(rb)) shouldBe Integer.signum(ma.compareTo(mb))   // contract is sign
+            ra.equals(rb) shouldBe ma.equals(mb)
+            // factories that scale a unit count into millis
+            java.time.Duration.ofSeconds(a).toMillis() shouldBe bmcref.java.time.Duration.ofSeconds(a).toMillis()
+            java.time.Duration.ofMinutes(a / 60).toMillis() shouldBe bmcref.java.time.Duration.ofMinutes(a / 60).toMillis()
+            java.time.Duration.ofHours(a / 3600).toMillis() shouldBe bmcref.java.time.Duration.ofHours(a / 3600).toMillis()
+            java.time.Duration.ofDays(a / 86400).toMillis() shouldBe bmcref.java.time.Duration.ofDays(a / 86400).toMillis()
             // between(start, end)
             val rBetween = java.time.Duration.between(java.time.Instant.ofEpochMilli(a), java.time.Instant.ofEpochMilli(b))
             val mBetween = bmcref.java.time.Duration.between(bmcref.java.time.Instant.ofEpochMilli(a), bmcref.java.time.Instant.ofEpochMilli(b))
             rBetween.toMillis() shouldBe mBetween.toMillis()
+        }
+    }
+
+    // --- Duration OUT-OF-DOMAIN: unit→millis scaling and multipliedBy past the millis bound --------
+    //
+    // ofMinutes/ofHours/ofDays/plus*/multipliedBy route their scale through Math.multiplyExact, so a
+    // count whose *millis leaves the long range fails LOUDLY (the millis backing is narrower than the
+    // real seconds+nanos Duration). This is bounded-model loud-failure, NOT JDK parity.
+    test("Duration unit factories fail LOUDLY past the millis bound") {
+        // ofDays: *86_400_000 overflows a long for day counts past ~1.067e11; the seconds-backed JDK
+        // accepts these (Duration.ofDays(Long.MAX/86400) is fine). Stay below the JDK's own
+        // ofSeconds-overflow so this is a MODEL-only out-of-bound band.
+        val bigDays = Arb.long(Long.MAX_VALUE / 86_400_000L + 1L..Long.MAX_VALUE / 86_400L)
+        checkAll(bigDays) { d ->
+            java.time.Duration.ofDays(d)   // JDK (seconds-backed) succeeds
+            runCatching { bmcref.java.time.Duration.ofDays(d) }
+                .exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
         }
     }
 
@@ -108,6 +152,10 @@ class TimeConformanceTest : FunSpec({
             Integer.signum(ra.compareTo(rb)) shouldBe Integer.signum(ma.compareTo(mb))   // contract is sign
             ra.plusDays(b).toEpochDay() shouldBe ma.plusDays(b).toEpochDay()
             ra.minusDays(b).toEpochDay() shouldBe ma.minusDays(b).toEpochDay()
+            // weeks = 7 days; keep the week count small enough that *7 stays in range (the loud
+            // overflow path past long/7 is a separate bounded-model concern, not JDK parity).
+            ra.plusWeeks(b / 7).toEpochDay() shouldBe ma.plusWeeks(b / 7).toEpochDay()
+            ra.minusWeeks(b / 7).toEpochDay() shouldBe ma.minusWeeks(b / 7).toEpochDay()
             ra.equals(rb) shouldBe ma.equals(mb)
         }
     }

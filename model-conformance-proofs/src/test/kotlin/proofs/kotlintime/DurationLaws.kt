@@ -74,4 +74,26 @@ class DurationLaws {
         Bmc.assume(a < b)
         Bmc.check(a.seconds < b.seconds)
     }
+
+    /**
+     * Int-scalar times: scaling a.seconds by k whole-seconds-multiplies (range kept tight — the
+     * faithful nanos<->millis packing makes the scalar multiply solver-heavy; exact bit-for-bit parity
+     * incl. the overflow-saturation path is in conformance.KotlinDurationConformanceTest).
+     */
+    @BmcProof
+    fun times_scales_seconds() {
+        val a = Bmc.anyInt(0, 100)
+        val k = Bmc.anyInt(0, 10)
+        Bmc.check((a.seconds * k).inWholeSeconds == (a.toLong() * k))
+    }
+
+    /** Int-scalar div: a.seconds / k floors toward zero in whole seconds for a clean multiple. */
+    @BmcProof
+    fun div_then_times_recovers_for_multiples() {
+        val k = Bmc.anyInt(1, 10)
+        // a is a multiple of k seconds, so /k then *k recovers exactly.
+        val a = Bmc.anyInt(0, 60)
+        val d = (a * k).seconds
+        Bmc.check((d / k).inWholeSeconds == a.toLong())
+    }
 }

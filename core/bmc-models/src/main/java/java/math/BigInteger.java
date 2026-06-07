@@ -14,8 +14,9 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
-@BmcModelConforms("long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
-@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, number-theory (modInverse/modPow/gcd-variants/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
+@BmcModelConforms("long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger); "
+    + "valueOf/add/subtract/multiply/divide/mod/remainder/negate/abs/gcd/pow/signum/compareTo/min/max/intValue")
+@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);
@@ -93,6 +94,45 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public BigInteger remainder(BigInteger other) {
         return new BigInteger(value % other.value);
+    }
+
+    /**
+     * Euclidean GCD on the {@code long} backing. The JDK's {@code gcd} is the non-negative greatest
+     * common divisor, with {@code gcd(0, 0) == 0} and {@code gcd(x, 0) == abs(x)}; sign of the
+     * operands is irrelevant. Euclid's {@code %} loop preserves that over signed longs, so we run it
+     * on the raw values and take the absolute value of the result.
+     *
+     * <p>Loud, never silent at the bound: the only value whose absolute value leaves the {@code long}
+     * range is {@code abs(Long.MIN_VALUE)} (= {@code gcd(Long.MIN_VALUE, 0)}), which the
+     * arbitrary-precision JDK returns; {@code Math.absExact} makes the bounded model throw there rather
+     * than wrap. Every other gcd fits, because a gcd never exceeds {@code max(|a|, |b|)}.
+     */
+    public BigInteger gcd(BigInteger val) {
+        long a = value;
+        long b = val.value;
+        while (b != 0L) {
+            long t = a % b;
+            a = b;
+            b = t;
+        }
+        return new BigInteger(Math.absExact(a));
+    }
+
+    /**
+     * {@code this} raised to {@code exponent}, by repeated checked multiplication. Mirrors the JDK:
+     * {@code pow(0) == ONE} (even for {@code ZERO}), and a negative exponent throws
+     * {@link ArithmeticException}. Loud, never silent: an intermediate product that leaves the
+     * {@code long} range fails via {@code Math.multiplyExact} rather than wrapping.
+     */
+    public BigInteger pow(int exponent) {
+        if (exponent < 0) {
+            throw new ArithmeticException("Negative exponent");
+        }
+        long r = 1L;
+        for (int i = 0; i < exponent; i++) {
+            r = Math.multiplyExact(r, value);
+        }
+        return new BigInteger(r);
     }
 
     public BigInteger negate() {

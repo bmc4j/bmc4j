@@ -61,13 +61,13 @@ Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 
 ## `java.math.BigInteger`
 
-_long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)_
+_long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger); valueOf/add/subtract/multiply/divide/mod/remainder/negate/abs/gcd/pow/signum/compareTo/min/max/intValue_
 
-Real surface: 50 members — modeled 17, not-modeled 0, not-needed 0, tail 33.
+Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `doubleValue()`, `floatValue()`, `intValue()`, `longValue()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `doubleValue()`, `floatValue()`, `gcd(BigInteger)`, `intValue()`, `longValue()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `pow(int)`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, number-theory (modInverse/modPow/gcd-variants/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 31 members, all loud): bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
 
 - `and(BigInteger)`
 - `andNot(BigInteger)`
@@ -78,7 +78,6 @@ Real surface: 50 members — modeled 17, not-modeled 0, not-needed 0, tail 33.
 - `clearBit(int)`
 - `divideAndRemainder(BigInteger)`
 - `flipBit(int)`
-- `gcd(BigInteger)`
 - `getLowestSetBit()`
 - `intValueExact()`
 - `isProbablePrime(int)`
@@ -89,7 +88,6 @@ Real surface: 50 members — modeled 17, not-modeled 0, not-needed 0, tail 33.
 - `not()`
 - `or(BigInteger)`
 - `parallelMultiply(BigInteger)`
-- `pow(int)`
 - `probablePrime(int, Random)`
 - `setBit(int)`
 - `shiftLeft(int)`
@@ -108,19 +106,19 @@ Real surface: 50 members — modeled 17, not-modeled 0, not-needed 0, tail 33.
 
 ## `java.time.Duration`
 
-_millis-backed Duration — differential (TimeConformanceTest) + @BmcProof (proofs.time): of*/plus*/minus*/multipliedBy/negated/abs/compareTo/get*/is*_
+_millis-backed Duration — differential (TimeConformanceTest) + @BmcProof (proofs.time): ofMillis/ofSeconds/ofMinutes/ofHours/ofDays, plus/minus(Duration), plusMillis/plusSeconds/plusMinutes/plusHours/plusDays + minus* mirror, multipliedBy(long), negated/abs/isPositive/isNegative/isZero, toMillis/toSeconds/toMinutes/toHours/toDays + getSeconds, compareTo/equals/hashCode/between(Instant,Instant)_
 
-Real surface: 57 members — modeled 10, not-modeled 1, not-needed 0, tail 46.
+Real surface: 57 members — modeled 30, not-modeled 2, not-needed 0, tail 25.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(Duration)`, `getSeconds()`, `isNegative()`, `isZero()`, `minus(Duration)`, `negated()`, `ofMillis(long)`, `ofSeconds(long)`, `plus(Duration)`, `toMillis()`
+**Modeled** (`@BmcModelConforms`): `abs()`, `compareTo(Duration)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toHours()`, `toMillis()`, `toMinutes()`, `toSeconds()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
+| `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 46 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
 
-- `abs()`
 - `addTo(Temporal)`
 - `between(Temporal, Temporal)`
 - `dividedBy(Duration)`
@@ -129,39 +127,19 @@ Real surface: 57 members — modeled 10, not-modeled 1, not-needed 0, tail 46.
 - `get(TemporalUnit)`
 - `getNano()`
 - `getUnits()`
-- `isPositive()`
 - `minus(long, TemporalUnit)`
-- `minusDays(long)`
-- `minusHours(long)`
-- `minusMillis(long)`
-- `minusMinutes(long)`
 - `minusNanos(long)`
-- `minusSeconds(long)`
-- `multipliedBy(long)`
 - `of(long, TemporalUnit)`
-- `ofDays(long)`
-- `ofHours(long)`
-- `ofMinutes(long)`
-- `ofNanos(long)`
 - `ofSeconds(long, long)`
 - `plus(long, TemporalUnit)`
-- `plusDays(long)`
-- `plusHours(long)`
-- `plusMillis(long)`
-- `plusMinutes(long)`
 - `plusNanos(long)`
-- `plusSeconds(long)`
 - `subtractFrom(Temporal)`
-- `toDays()`
 - `toDaysPart()`
-- `toHours()`
 - `toHoursPart()`
 - `toMillisPart()`
-- `toMinutes()`
 - `toMinutesPart()`
 - `toNanos()`
 - `toNanosPart()`
-- `toSeconds()`
 - `toSecondsPart()`
 - `truncatedTo(TemporalUnit)`
 - `withNanos(int)`
@@ -174,15 +152,19 @@ Real surface: 57 members — modeled 10, not-modeled 1, not-needed 0, tail 46.
 
 _epoch-millis Instant — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
 
-Real surface: 36 members — modeled 11, not-modeled 1, not-needed 0, tail 24.
+Real surface: 36 members — modeled 11, not-modeled 5, not-needed 0, tail 20.
 
 **Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `getEpochSecond()`, `isAfter(Instant)`, `isBefore(Instant)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plusMillis(long)`, `plusSeconds(long)`, `toEpochMilli()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
+| `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing |
+| `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 | `now()` | wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters |
+| `ofEpochSecond(long, long)` | the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks |
+| `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): time-zone/leap-second/sub-milli precision, the Temporal interface plumbing (with/get/until/query/adjustInto/range/isSupported/plus(TemporalAmount)), atZone/atOffset, and text parse/format are out of scope for the epoch-millis model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 20 members, all loud): time-zone/leap-second/sub-milli precision, the Temporal interface plumbing (with/get/until/query/adjustInto/range/isSupported/plus(TemporalAmount)), atZone/atOffset, and text parse/format are out of scope for the epoch-millis model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
@@ -190,18 +172,14 @@ Real surface: 36 members — modeled 11, not-modeled 1, not-needed 0, tail 24.
 - `from(TemporalAccessor)`
 - `get(TemporalField)`
 - `getLong(TemporalField)`
-- `getNano()`
 - `isSupported(TemporalField)`
 - `isSupported(TemporalUnit)`
 - `minus(TemporalAmount)`
 - `minus(long, TemporalUnit)`
-- `minusNanos(long)`
 - `now(Clock)`
-- `ofEpochSecond(long, long)`
 - `parse(CharSequence)`
 - `plus(TemporalAmount)`
 - `plus(long, TemporalUnit)`
-- `plusNanos(long)`
 - `query(TemporalQuery)`
 - `range(TemporalField)`
 - `truncatedTo(TemporalUnit)`
@@ -216,11 +194,11 @@ Real surface: 36 members — modeled 11, not-modeled 1, not-needed 0, tail 24.
 
 _epoch-day LocalDate with proleptic-Gregorian field decode — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
 
-Real surface: 65 members — modeled 11, not-modeled 0, not-needed 0, tail 54.
+Real surface: 65 members — modeled 13, not-modeled 0, not-needed 0, tail 52.
 
-**Modeled** (`@BmcModelConforms`): `getDayOfMonth()`, `getMonthValue()`, `getYear()`, `minusDays(long)`, `minusMonths(long)`, `minusYears(long)`, `ofEpochDay(long)`, `plusDays(long)`, `plusMonths(long)`, `plusYears(long)`, `toEpochDay()`
+**Modeled** (`@BmcModelConforms`): `getDayOfMonth()`, `getMonthValue()`, `getYear()`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `ofEpochDay(long)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `toEpochDay()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 54 members, all loud): the wide ChronoLocalDate/Temporal surface (with*/getDayOfWeek/getDayOfYear/lengthOfMonth/isLeapYear/until/atStartOfDay/atTime/format/datesUntil/range/query/get(TemporalField)/plus(TemporalAmount)/isAfter-Before-Equal/the of(y,m,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 52 members, all loud): the wide ChronoLocalDate/Temporal surface (with*/getDayOfWeek/getDayOfYear/lengthOfMonth/isLeapYear/until/atStartOfDay/atTime/format/datesUntil/range/query/get(TemporalField)/plus(TemporalAmount)/isAfter-Before-Equal/the of(y,m,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atStartOfDay()`
@@ -252,7 +230,6 @@ Real surface: 65 members — modeled 11, not-modeled 0, not-needed 0, tail 54.
 - `lengthOfYear()`
 - `minus(TemporalAmount)`
 - `minus(long, TemporalUnit)`
-- `minusWeeks(long)`
 - `now()`
 - `now(Clock)`
 - `now(ZoneId)`
@@ -264,7 +241,6 @@ Real surface: 65 members — modeled 11, not-modeled 0, not-needed 0, tail 54.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `plus(long, TemporalUnit)`
-- `plusWeeks(long)`
 - `query(TemporalQuery)`
 - `range(TemporalField)`
 - `toEpochSecond(LocalTime, ZoneOffset)`

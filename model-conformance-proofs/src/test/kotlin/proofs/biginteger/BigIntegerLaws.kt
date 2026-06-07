@@ -62,6 +62,28 @@ class BigIntegerLaws {
         Bmc.check(BigInteger("-1000") == BigInteger.valueOf(-1000L))
     }
 
+    // --- gcd / pow: CONCRETE pins (the Euclid loop and pow's repeated-multiply loop are over a
+    // symbolic count, which JBMC must unwind — a symbolic axis is loop-unbounded and SAT-pathological,
+    // the division/loop lesson. The wide symbolic axis + sign-agnosticism + the loud overflow boundary
+    // are covered differentially in BigIntegerConformanceTest; these pin the algebra concretely.) ----
+
+    @BmcProof
+    fun gcd_pins() {
+        Bmc.check(BigInteger.valueOf(12).gcd(BigInteger.valueOf(18)) == BigInteger.valueOf(6))
+        Bmc.check(BigInteger.valueOf(-12).gcd(BigInteger.valueOf(18)) == BigInteger.valueOf(6))  // sign-agnostic
+        Bmc.check(BigInteger.valueOf(0).gcd(BigInteger.valueOf(5)) == BigInteger.valueOf(5))      // gcd(0,x)=|x|
+        Bmc.check(BigInteger.valueOf(0).gcd(BigInteger.ZERO) == BigInteger.ZERO)                  // gcd(0,0)=0
+        Bmc.check(BigInteger.valueOf(7).gcd(BigInteger.valueOf(7)) == BigInteger.valueOf(7))
+    }
+
+    @BmcProof
+    fun pow_pins() {
+        Bmc.check(BigInteger.valueOf(2).pow(10) == BigInteger.valueOf(1024))
+        Bmc.check(BigInteger.valueOf(-3).pow(3) == BigInteger.valueOf(-27))
+        Bmc.check(BigInteger.valueOf(5).pow(0) == BigInteger.ONE)   // x^0 == 1
+        Bmc.check(BigInteger.ZERO.pow(0) == BigInteger.ONE)         // 0^0 == 1, per the JDK
+    }
+
     @BmcProof
     fun divide_multiply_remainder_reconstructs_dividend() {
         // Euclidean identity a == (a/b)*b + (a%b). Tight range keeps the divider circuit small

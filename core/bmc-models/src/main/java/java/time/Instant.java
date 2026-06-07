@@ -29,6 +29,30 @@ public final class Instant {
         throw fail("bmc4j: unmodelled member java.time.Instant.now() — wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters");
     }
 
+    // The epoch-millis backing has no sub-millisecond resolution, so the nanosecond surface
+    // (getNano / plusNanos / minusNanos / ofEpochSecond(long, nanoAdjustment)) cannot be modeled
+    // soundly — declined LOUD rather than silently dropping precision.
+
+    @BmcNotModelled(reason = "sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing")
+    public int getNano() {
+        throw fail("bmc4j: unmodelled member java.time.Instant.getNano() — sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing");
+    }
+
+    @BmcNotModelled(reason = "sub-millisecond resolution — nanos can't be represented on the epoch-millis backing")
+    public Instant plusNanos(long nanosToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.plusNanos(long) — sub-millisecond resolution — nanos can't be represented on the epoch-millis backing");
+    }
+
+    @BmcNotModelled(reason = "sub-millisecond resolution — nanos can't be represented on the epoch-millis backing")
+    public Instant minusNanos(long nanosToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.minusNanos(long) — sub-millisecond resolution — nanos can't be represented on the epoch-millis backing");
+    }
+
+    @BmcNotModelled(reason = "the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks")
+    public static Instant ofEpochSecond(long epochSecond, long nanoAdjustment) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.ofEpochSecond(long,long) — the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks");
+    }
+
     public static Instant ofEpochMilli(long epochMilli) {
         return new Instant(epochMilli);
     }
