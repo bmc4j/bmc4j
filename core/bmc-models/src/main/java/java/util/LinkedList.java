@@ -26,7 +26,7 @@ import org.bmc4j.models.audit.BmcModelTail;
 // (addFirst/addLast/getFirst/getLast/removeFirst/removeLast/offer*/poll*/peek*/push/pop, plus the
 // Queue offer/poll/peek/remove/element) is implemented here. Blanket-conforms covers both; the tail
 // is the remaining Deque/List surface still unmodeled.
-@BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator/descendingDeque ops, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC")
 public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
 
     public LinkedList() {
@@ -120,5 +120,25 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E element() {
         return getFirst();
+    }
+
+    // --- Deque: occurrence removal -------------------------------------------
+    // removeFirstOccurrence removes the FIRST element equal to o (head→tail), removeLastOccurrence the
+    // LAST (tail→head); each returns whether a removal happened, like the JDK Deque. The first/last
+    // split is exactly indexOf vs lastIndexOf over the inherited bounded backing array.
+
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
+    public boolean removeFirstOccurrence(Object o) {
+        return remove(o);
+    }
+
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
+    public boolean removeLastOccurrence(Object o) {
+        int i = lastIndexOf(o);
+        if (i < 0) {
+            return false;
+        }
+        remove(i);
+        return true;
     }
 }

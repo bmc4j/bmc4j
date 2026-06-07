@@ -81,4 +81,60 @@ class TreeMapLaws {
         val m = TreeMap<Int, Int>()
         Bmc.check(m.comparator() == null)
     }
+
+    // The entry-returning navigation family mirrors the *Key family but carries the value too: the
+    // navigated key's CURRENT mapping. Same inclusive/exclusive bounds, same null-when-none split.
+    @BmcProof
+    fun ceiling_and_floor_entry_carry_the_navigated_mapping() {
+        val m = TreeMap<Int, Int>()
+        m[2] = 20
+        m[4] = 40
+        m[6] = 60
+        val ceil = m.ceilingEntry(3)          // rounds up to key 4
+        val floor = m.floorEntry(5)           // rounds down to key 4
+        Bmc.check(ceil.key == 4 && ceil.value == 40)
+        Bmc.check(floor.key == 4 && floor.value == 40)
+        Bmc.check(m.ceilingEntry(4).key == 4) // inclusive: exact key qualifies
+    }
+
+    @BmcProof
+    fun higher_and_lower_entry_are_strict_and_null_at_the_ends() {
+        val m = TreeMap<Int, Int>()
+        m[2] = 20
+        m[4] = 40
+        m[6] = 60
+        Bmc.check(m.higherEntry(4).key == 6 && m.higherEntry(4).value == 60)  // strictly greater
+        Bmc.check(m.lowerEntry(4).key == 2 && m.lowerEntry(4).value == 20)    // strictly less
+        Bmc.check(m.higherEntry(6) == null && m.lowerEntry(2) == null)        // nothing past the ends
+    }
+
+    @BmcProof
+    fun entry_navigation_on_empty_map_is_null() {
+        val m = TreeMap<Int, Int>()
+        val k = Bmc.anyInt()
+        Bmc.check(m.ceilingEntry(k) == null && m.floorEntry(k) == null)
+        Bmc.check(m.higherEntry(k) == null && m.lowerEntry(k) == null)
+    }
+
+    // pollFirstEntry returns the MIN entry and removes it; pollLastEntry the MAX. After polling both
+    // ends of a 3-key map only the middle key remains, and a re-poll sees the new extreme.
+    @BmcProof
+    fun pollFirst_and_pollLast_remove_the_extremes() {
+        val m = TreeMap<Int, Int>()
+        m[1] = 10
+        m[2] = 20
+        m[3] = 30
+        val first = m.pollFirstEntry()
+        val last = m.pollLastEntry()
+        Bmc.check(first.key == 1 && first.value == 10)
+        Bmc.check(last.key == 3 && last.value == 30)
+        Bmc.check(m.size == 1 && m.firstKey() == 2 && m.lastKey() == 2)
+    }
+
+    @BmcProof
+    fun poll_on_empty_map_is_null() {
+        val m = TreeMap<Int, Int>()
+        Bmc.check(m.pollFirstEntry() == null && m.pollLastEntry() == null)
+        Bmc.check(m.isEmpty())
+    }
 }

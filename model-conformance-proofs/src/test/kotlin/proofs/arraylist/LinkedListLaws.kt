@@ -66,4 +66,42 @@ class LinkedListLaws {
         val l = LinkedList<Int>()
         Bmc.check(l.peek() == null && l.poll() == null && l.peekFirst() == null && l.peekLast() == null)
     }
+
+    // removeFirstOccurrence drops the FIRST element equal to the arg (head->tail); with a duplicate
+    // present, the later copy survives and the earlier one is gone — the index shifts down by one.
+    @BmcProof
+    fun removeFirstOccurrence_removes_the_earliest_match() {
+        val l = LinkedList<Int>()
+        val x = Bmc.anyInt()
+        val y = Bmc.anyInt()
+        Bmc.assume(x != y)
+        l.addLast(x); l.addLast(y); l.addLast(x)   // [x, y, x]
+        val removed = l.removeFirstOccurrence(x)
+        Bmc.check(removed && l.size == 2 && l[0] == y && l[1] == x)   // first x gone
+    }
+
+    // removeLastOccurrence drops the LAST element equal to the arg (tail->head); the earlier copy
+    // survives in place.
+    @BmcProof
+    fun removeLastOccurrence_removes_the_latest_match() {
+        val l = LinkedList<Int>()
+        val x = Bmc.anyInt()
+        val y = Bmc.anyInt()
+        Bmc.assume(x != y)
+        l.addLast(x); l.addLast(y); l.addLast(x)   // [x, y, x]
+        val removed = l.removeLastOccurrence(x)
+        Bmc.check(removed && l.size == 2 && l[0] == x && l[1] == y)   // last x gone
+    }
+
+    // Absent element: neither occurrence-removal changes the list, and both report false.
+    @BmcProof
+    fun removeOccurrence_of_absent_is_false_and_noop() {
+        val l = LinkedList<Int>()
+        val a = Bmc.anyInt()
+        val missing = Bmc.anyInt()
+        Bmc.assume(a != missing)
+        l.addLast(a)
+        Bmc.check(!l.removeFirstOccurrence(missing) && !l.removeLastOccurrence(missing))
+        Bmc.check(l.size == 1 && l[0] == a)
+    }
 }
