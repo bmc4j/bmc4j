@@ -78,6 +78,96 @@ public final class RangesKt {
         return value;
     }
 
+    // ---- first / last over an Int/Long/Char progression: the Kotlin compiler emits
+    //   RangesKt.first:(Lkotlin/ranges/IntProgression;)I   (and Long/Char twins)
+    //   RangesKt.last:(Lkotlin/ranges/IntProgression;)I     (and Long/Char twins)
+    // Kotlin contract: first() returns the progression's start (getFirst), last() its end (getLast),
+    // each throwing NoSuchElementException on an empty progression. The progression itself is unmodeled
+    // (real stdlib IntProgression is a tiny int-field class JBMC analyzes), so we read its start/end
+    // accessors directly. The real facade routes through internal builders nondet-stubbed — probed
+    // REFUTED — so these stay modeled, NOT @BmcNotNeeded. (random/randomOrNull stay tail: a Random draw
+    // is nondeterministic by nature — no sound bounded model exists.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int first(kotlin.ranges.IntProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long first(kotlin.ranges.LongProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char first(kotlin.ranges.CharProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int last(kotlin.ranges.IntProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getLast();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long last(kotlin.ranges.LongProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getLast();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char last(kotlin.ranges.CharProgression progression) {
+        if (progression.isEmpty()) {
+            throw new java.util.NoSuchElementException("Progression is empty.");
+        }
+        return progression.getLast();
+    }
+
+    // ---- firstOrNull / lastOrNull over a progression: same as first/last but return a boxed null on
+    //   RangesKt.firstOrNull:(Lkotlin/ranges/IntProgression;)Ljava/lang/Integer;  (and Long/Char twins)
+    // an empty progression instead of throwing.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Integer firstOrNull(kotlin.ranges.IntProgression progression) {
+        return progression.isEmpty() ? null : progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Long firstOrNull(kotlin.ranges.LongProgression progression) {
+        return progression.isEmpty() ? null : progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Character firstOrNull(kotlin.ranges.CharProgression progression) {
+        return progression.isEmpty() ? null : progression.getFirst();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Integer lastOrNull(kotlin.ranges.IntProgression progression) {
+        return progression.isEmpty() ? null : progression.getLast();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Long lastOrNull(kotlin.ranges.LongProgression progression) {
+        return progression.isEmpty() ? null : progression.getLast();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Character lastOrNull(kotlin.ranges.CharProgression progression) {
+        return progression.isEmpty() ? null : progression.getLast();
+    }
+
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
     @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
     public static void byteRangeContains(kotlin.ranges.ClosedRange a0, int a1) {

@@ -1324,9 +1324,9 @@ Real surface: 3 members — modeled 1, not-modeled 0, not-needed 0, tail 2.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131.
+Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109.
 
-**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asSequence(Iterable)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `mutableListOf(Object[])`, `sorted(Iterable)`, `sortedWith(Iterable, Comparator)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `toMutableList(Collection)`, `toSet(Iterable)`, `zip(Iterable, Iterable)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asSequence(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `sorted(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `toList(Iterable)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `union(Iterable, Iterable)`, `zip(Iterable, Iterable)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1430,7 +1430,7 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 131 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 109 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `addAll(Collection, Object[])`
 - `addAll(Collection, Sequence)`
@@ -1442,8 +1442,6 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 - `averageOfByte(Iterable)`
 - `averageOfDouble(Iterable)`
 - `averageOfFloat(Iterable)`
-- `averageOfInt(Iterable)`
-- `averageOfLong(Iterable)`
 - `averageOfShort(Iterable)`
 - `binarySearch(List, Comparable, int, int)`
 - `binarySearch(List, Object, Comparator, int, int)`
@@ -1470,7 +1468,6 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 - `flatten(Iterable)`
 - `getIndices(Collection)`
 - `getLastIndex(List)`
-- `intersect(Iterable, Iterable)`
 - `iterator(Enumeration)`
 - `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
@@ -1484,19 +1481,10 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 - `minOrThrow(Iterable)`
 - `minWithOrNull(Iterable, Comparator)`
 - `minWithOrThrow(Iterable, Comparator)`
-- `minus(Iterable, Iterable)`
-- `minus(Iterable, Object)`
-- `minus(Iterable, Object[])`
 - `minus(Iterable, Sequence)`
 - `none(Iterable)`
 - `optimizeReadOnlyList(List)`
-- `plus(Collection, Iterable)`
-- `plus(Collection, Object)`
-- `plus(Collection, Object[])`
 - `plus(Collection, Sequence)`
-- `plus(Iterable, Iterable)`
-- `plus(Iterable, Object)`
-- `plus(Iterable, Object[])`
 - `plus(Iterable, Sequence)`
 - `random(Collection, Random)`
 - `randomOrNull(Collection, Random)`
@@ -1517,22 +1505,16 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 - `retainAll(Iterable, Function1)`
 - `retainAll(List, Function1)`
 - `reverse(List)`
-- `reversed(Iterable)`
 - `shuffle(List, Random)`
 - `shuffled(Iterable)`
 - `shuffled(Iterable, Random)`
 - `shuffled(Iterable, Random)`
-- `single(Iterable)`
-- `single(List)`
-- `singleOrNull(Iterable)`
-- `singleOrNull(List)`
 - `slice(List, IntRange)`
 - `slice(List, Iterable)`
 - `sort(List)`
 - `sortDescending(List)`
 - `sortWith(List, Comparator)`
 - `sortedDescending(Iterable)`
-- `subtract(Iterable, Iterable)`
 - `sumOfByte(Iterable)`
 - `sumOfFloat(Iterable)`
 - `sumOfShort(Iterable)`
@@ -1548,14 +1530,10 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131
 - `toFloatArray(Collection)`
 - `toHashSet(Iterable)`
 - `toIntArray(Collection)`
-- `toList(Iterable)`
 - `toLongArray(Collection)`
-- `toMutableList(Iterable)`
-- `toMutableSet(Iterable)`
 - `toShortArray(Collection)`
 - `toSortedSet(Iterable)`
 - `toSortedSet(Iterable, Comparator)`
-- `union(Iterable, Iterable)`
 - `unzip(Iterable)`
 - `windowed(Iterable, int, int, boolean)`
 - `windowed(Iterable, int, int, boolean, Function1)`
@@ -1582,9 +1560,9 @@ Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
+Real surface: 75 members — modeled 14, not-modeled 0, not-needed 28, tail 33.
 
-**Modeled** (`@BmcModelConforms`): `emptyMap()`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `mutableMapOf(Pair[])`
+**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1617,7 +1595,7 @@ Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
 | `onEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 42 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Map)`
 - `asSequence(Map)`
@@ -1626,27 +1604,18 @@ Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
 - `createMapBuilder()`
 - `createMapBuilder(int)`
 - `getOrImplicitDefaultNullable(Map, Object)`
-- `getValue(Map, Object)`
 - `hashMapOf(Pair[])`
 - `linkedMapOf(Pair[])`
 - `mapEntryOf(Object, Object)`
-- `minus(Map, Iterable)`
-- `minus(Map, Object)`
-- `minus(Map, Object[])`
 - `minus(Map, Sequence)`
 - `none(Map)`
 - `optimizeReadOnlyMap(Map)`
-- `plus(Map, Iterable)`
-- `plus(Map, Map)`
-- `plus(Map, Pair)`
-- `plus(Map, Pair[])`
 - `plus(Map, Sequence)`
 - `putAll(Map, Iterable)`
 - `putAll(Map, Pair[])`
 - `putAll(Map, Sequence)`
 - `sortedMapOf(Comparator, Pair[])`
 - `sortedMapOf(Pair[])`
-- `toList(Map)`
 - `toMap(Iterable)`
 - `toMap(Iterable, Map)`
 - `toMap(Map)`
@@ -1667,25 +1636,19 @@ Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
 
 ## `kotlin.collections.SetsKt`
 
-Real surface: 22 members — modeled 4, not-modeled 0, not-needed 0, tail 18.
+Real surface: 22 members — modeled 10, not-modeled 0, not-needed 0, tail 12.
 
-**Modeled** (`@BmcModelConforms`): `emptySet()`, `mutableSetOf(Object[])`, `setOf(Object)`, `setOf(Object[])`
+**Modeled** (`@BmcModelConforms`): `emptySet()`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `build(Set)`
 - `createSetBuilder()`
 - `createSetBuilder(int)`
 - `hashSetOf(Object[])`
 - `linkedSetOf(Object[])`
-- `minus(Set, Iterable)`
-- `minus(Set, Object)`
-- `minus(Set, Object[])`
 - `minus(Set, Sequence)`
 - `optimizeReadOnlySet(Set)`
-- `plus(Set, Iterable)`
-- `plus(Set, Object)`
-- `plus(Set, Object[])`
 - `plus(Set, Sequence)`
 - `setOfNotNull(Object)`
 - `setOfNotNull(Object[])`
@@ -1799,9 +1762,9 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `kotlin.ranges.RangesKt`
 
-Real surface: 131 members — modeled 6, not-modeled 0, not-needed 107, tail 18.
+Real surface: 131 members — modeled 18, not-modeled 0, not-needed 107, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`
+**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1913,20 +1876,8 @@ Real surface: 131 members — modeled 6, not-modeled 0, not-needed 107, tail 18.
 | `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
-- `first(CharProgression)`
-- `first(IntProgression)`
-- `first(LongProgression)`
-- `firstOrNull(CharProgression)`
-- `firstOrNull(IntProgression)`
-- `firstOrNull(LongProgression)`
-- `last(CharProgression)`
-- `last(IntProgression)`
-- `last(LongProgression)`
-- `lastOrNull(CharProgression)`
-- `lastOrNull(IntProgression)`
-- `lastOrNull(LongProgression)`
 - `random(CharRange, Random)`
 - `random(IntRange, Random)`
 - `random(LongRange, Random)`
