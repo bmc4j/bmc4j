@@ -164,4 +164,49 @@ class SetConformanceTest : FunSpec({
         val model = runCatching { bmcref.java.util.HashSet<Any?>(-1) }
         model.exceptionOrNull()?.javaClass shouldBe real.exceptionOrNull()?.javaClass
     }
+
+    // --- LinkedHashSet SequencedSet surface (insertion-ordered ends + (re)positioning) -------------
+    // The model's backing array preserves insertion order, so getFirst/getLast/addFirst/addLast/
+    // removeFirst/removeLast must match the JDK LinkedHashSet exactly. Drive an add-sequence (with
+    // repeats so addFirst/addLast exercise the "present element is MOVED" case), then compare the ends
+    // and the resulting ordered element list (via iterator) vs the JDK. Empty-set getFirst/getLast/
+    // removeFirst/removeLast must throw NoSuchElementException on both.
+    test("LinkedHashSet SequencedSet surface conforms (getFirst/getLast/addFirst/addLast/removeFirst/removeLast)") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { items ->
+            val r = java.util.LinkedHashSet<Any?>(); val m = bmcref.java.util.LinkedHashSet<Any?>()
+            for (x in items) { r.add(x); m.add(x) }
+            // Ends agree (value or the same NoSuchElementException when empty).
+            assertEquivalent("getFirst", call(r, "getFirst", arrayOf()), call(m, "getFirst", arrayOf()))
+            assertEquivalent("getLast", call(r, "getLast", arrayOf()), call(m, "getLast", arrayOf()))
+            // addFirst on a present and an absent element, addLast likewise — then ordered list matches.
+            for ((op, e) in listOf("addFirst" to 2, "addLast" to -1, "addFirst" to 9)) {
+                call(r, op, arrayOf(OBJECT), e); call(m, op, arrayOf(OBJECT), e)
+            }
+            val rList = r.toList()
+            val mIt = call(m, "iterator", arrayOf()).getOrThrow()!!
+            val mList = (0 until r.size).map { call(mIt, "next", arrayOf()).getOrThrow() }
+            mList shouldBe rList
+            // removeFirst/removeLast pop the ends in lockstep.
+            assertEquivalent("removeFirst", call(r, "removeFirst", arrayOf()), call(m, "removeFirst", arrayOf()))
+            assertEquivalent("removeLast", call(r, "removeLast", arrayOf()), call(m, "removeLast", arrayOf()))
+            assertEquivalent("size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+        }
+    }
+
+    test("LinkedHashSet getFirst/removeFirst on empty throw NoSuchElementException like the JDK") {
+        val r = java.util.LinkedHashSet<Any?>(); val m = bmcref.java.util.LinkedHashSet<Any?>()
+        assertSameException(runCatching { call(r, "getFirst", arrayOf()).getOrThrow() }, runCatching { call(m, "getFirst", arrayOf()).getOrThrow() })
+        assertSameException(runCatching { call(r, "removeLast", arrayOf()).getOrThrow() }, runCatching { call(m, "removeLast", arrayOf()).getOrThrow() })
+    }
+
+    // parallelStream() is observably the sequential stream() on one thread: count + element multiset.
+    test("HashSet parallelStream() matches stream()") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { items ->
+            val r = java.util.HashSet<Any?>(); val m = bmcref.java.util.HashSet<Any?>()
+            for (x in items) { r.add(x); m.add(x) }
+            assertEquivalent("parallelStream.count",
+                call(call(r, "parallelStream", arrayOf()).getOrThrow()!!, "count", arrayOf()),
+                call(call(m, "parallelStream", arrayOf()).getOrThrow()!!, "count", arrayOf()))
+        }
+    }
 })

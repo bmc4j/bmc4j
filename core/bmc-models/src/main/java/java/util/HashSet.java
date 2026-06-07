@@ -12,7 +12,7 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder: newHashSet(int) presizing factory, spliterator (parallel-decomposition view), toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
     private static final int CAPACITY = 64;
@@ -46,6 +46,63 @@ public class HashSet<E> implements Set<E> {
             }
         }
         return -1;
+    }
+
+    // --- protected ordered-storage access (for the insertion-ordered SequencedSet subclass) --------
+    // The backing array preserves insertion order, so the LinkedHashSet model's SequencedSet surface
+    // (addFirst/addLast/getFirst/getLast/removeFirst/removeLast) is built over these. Not part of the
+    // audited real-class surface.
+
+    /** The element stored at insertion index {@code i} (0-based, in insertion order). */
+    @SuppressWarnings("unchecked")
+    protected final E elementAt(int i) {
+        return (E) elements[i];
+    }
+
+    /**
+     * Add {@code e} at the FRONT; if already present, move it to the front (matching
+     * LinkedHashSet.addFirst). Shifts existing elements right.
+     */
+    protected final void addAtFront(E e) {
+        remove(e);
+        for (int j = size; j > 0; j--) {
+            elements[j] = elements[j - 1];
+        }
+        elements[0] = e;
+        size++;
+    }
+
+    /**
+     * Add {@code e} at the BACK; if already present, move it to the back (matching
+     * LinkedHashSet.addLast).
+     */
+    protected final void addAtBack(E e) {
+        remove(e);
+        elements[size] = e;
+        size++;
+    }
+
+    /** Remove and return the front element; throws {@link NoSuchElementException} when empty. */
+    protected final E removeAtFront() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        E first = elementAt(0);
+        for (int j = 0; j < size - 1; j++) {
+            elements[j] = elements[j + 1];
+        }
+        size--;
+        return first;
+    }
+
+    /** Remove and return the back element; throws {@link NoSuchElementException} when empty. */
+    protected final E removeAtBack() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        E last = elementAt(size - 1);
+        size--;
+        return last;
     }
 
     @Override
@@ -186,6 +243,12 @@ public class HashSet<E> implements Set<E> {
         }
         size = w;
         return changed;
+    }
+
+    /** Sequential BMC has one thread, so a parallel stream is observably the sequential {@link #stream()}. */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
+    public java.util.stream.Stream<E> parallelStream() {
+        return stream();
     }
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------

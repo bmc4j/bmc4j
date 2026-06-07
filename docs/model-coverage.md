@@ -586,9 +586,9 @@ Real surface: 25 members — modeled 20, not-modeled 1, not-needed 3, tail 1.
 
 ## `java.util.HashSet`
 
-Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
+Real surface: 21 members — modeled 14, not-modeled 0, not-needed 4, tail 3.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -597,10 +597,9 @@ Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 3 members, all loud): exotic remainder: newHashSet(int) presizing factory, spliterator (parallel-decomposition view), toArray(IntFunction) — out of scope; all loud under JBMC</summary>
 
 - `newHashSet(int)`
-- `parallelStream()`
 - `spliterator()`
 - `toArray(IntFunction)`
 
@@ -609,9 +608,9 @@ Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 
 ## `java.util.LinkedHashMap`
 
-Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
+Real surface: 37 members — modeled 29, not-modeled 1, not-needed 4, tail 3.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -622,31 +621,22 @@ Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
+| `removeEldestEntry(Entry)` | access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): SequencedMap surface (firstEntry/lastEntry/pollFirstEntry/reversed/sequencedKeySet/…) and the access-order/eldest-entry LRU hooks — out of scope for this array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 3 members, all loud): the reversed() live view, the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor), and the newHashMap/newLinkedHashMap presizing factories — out of scope for this insertion-ordered array-backed model; all loud under JBMC</summary>
 
-- `firstEntry()`
-- `lastEntry()`
 - `newHashMap(int)`
 - `newLinkedHashMap(int)`
-- `pollFirstEntry()`
-- `pollLastEntry()`
-- `putFirst(Object, Object)`
-- `putLast(Object, Object)`
-- `removeEldestEntry(Entry)`
 - `reversed()`
-- `sequencedEntrySet()`
-- `sequencedKeySet()`
-- `sequencedValues()`
 
 </details>
 
 
 ## `java.util.LinkedHashSet`
 
-Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
+Real surface: 29 members — modeled 20, not-modeled 0, not-needed 4, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -655,17 +645,10 @@ Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): SequencedSet surface (addFirst/getLast/reversed/…) and spliterator — out of scope for this array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): the reversed() live view, the spliterator parallel-decomposition view, the newHashSet/newLinkedHashSet presizing factories, and toArray(IntFunction) — out of scope for this insertion-ordered array-backed model; all loud under JBMC</summary>
 
-- `addFirst(Object)`
-- `addLast(Object)`
-- `getFirst()`
-- `getLast()`
 - `newHashSet(int)`
 - `newLinkedHashSet(int)`
-- `parallelStream()`
-- `removeFirst()`
-- `removeLast()`
 - `reversed()`
 - `spliterator()`
 - `toArray(IntFunction)`
@@ -716,9 +699,9 @@ Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 35, not-modeled 1, not-needed 3, tail 15.
+Real surface: 54 members — modeled 37, not-modeled 1, not-needed 3, tail 13.
 
-**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -730,15 +713,13 @@ Real surface: 54 members — modeled 35, not-modeled 1, not-needed 3, tail 15.
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): NavigableMap/SortedMap range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): the NavigableMap/SortedMap LIVE range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC</summary>
 
 - `descendingKeySet()`
 - `descendingMap()`
 - `headMap(Object)`
 - `headMap(Object, boolean)`
 - `navigableKeySet()`
-- `putFirst(Object, Object)`
-- `putLast(Object, Object)`
 - `reversed()`
 - `sequencedEntrySet()`
 - `sequencedKeySet()`
@@ -849,9 +830,9 @@ Real surface: 79 members — modeled 19, not-modeled 0, not-needed 0, tail 60.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 20, not-modeled 1, not-needed 3, tail 38.
+Real surface: 62 members — modeled 55, not-modeled 1, not-needed 3, tail 3.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -863,46 +844,11 @@ Real surface: 62 members — modeled 20, not-modeled 1, not-needed 3, tail 38.
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 38 members, all loud): the functional-arg map ops (compute*/merge/forEach/replaceAll) and the entire parallel bulk surface (forEachKey/reduce*/search*/reduceToInt/… across keys/values/entries with parallelismThreshold), plus newKeySet/mappingCount/elements/keys/contains(value-alias) — out of scope for a sequential bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 3 members, all loud): the live KeySetView views (keySet(defaultValue)) and the Enumeration views (keys()/elements()) — view/iterator-exotic, out of scope for the bounded model; all loud under JBMC</summary>
 
-- `contains(Object)`
 - `elements()`
-- `forEach(long, BiConsumer)`
-- `forEach(long, BiFunction, Consumer)`
-- `forEachEntry(long, Consumer)`
-- `forEachEntry(long, Function, Consumer)`
-- `forEachKey(long, Consumer)`
-- `forEachKey(long, Function, Consumer)`
-- `forEachValue(long, Consumer)`
-- `forEachValue(long, Function, Consumer)`
 - `keySet(Object)`
 - `keys()`
-- `mappingCount()`
-- `newKeySet()`
-- `newKeySet(int)`
-- `reduce(long, BiFunction, BiFunction)`
-- `reduceEntries(long, BiFunction)`
-- `reduceEntries(long, Function, BiFunction)`
-- `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`
-- `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`
-- `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`
-- `reduceKeys(long, BiFunction)`
-- `reduceKeys(long, Function, BiFunction)`
-- `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`
-- `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`
-- `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`
-- `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`
-- `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`
-- `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`
-- `reduceValues(long, BiFunction)`
-- `reduceValues(long, Function, BiFunction)`
-- `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`
-- `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`
-- `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`
-- `search(long, BiFunction)`
-- `searchEntries(long, Function)`
-- `searchKeys(long, Function)`
-- `searchValues(long, Function)`
 
 </details>
 
