@@ -21,7 +21,23 @@ public interface List<E> extends Collection<E> {
 
     int indexOf(Object o);
 
+    int lastIndexOf(Object o);
+
     E remove(int index);
+
+    // SequencedCollection (Java 21+) head/tail ops — modeled over the backing array.
+
+    E getFirst();
+
+    E getLast();
+
+    void addFirst(E e);
+
+    void addLast(E e);
+
+    E removeFirst();
+
+    E removeLast();
 
     void clear();
 
