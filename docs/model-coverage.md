@@ -6,15 +6,15 @@ Every public/protected member of each per-member-audited model's real JDK target
 
 ## `java.math.BigDecimal`
 
-Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
+Real surface: 60 members — modeled 26, not-modeled 1, not-needed 0, tail 33.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `compareTo(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `doubleValue()`, `floatValue()`, `intValue()`, `longValue()`, `max(BigDecimal)`, `min(BigDecimal)`, `multiply(BigDecimal)`, `negate()`, `scale()`, `setScale(int, RoundingMode)`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `compareTo(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `doubleValue()`, `floatValue()`, `intValue()`, `longValue()`, `max(BigDecimal)`, `min(BigDecimal)`, `movePointLeft(int)`, `movePointRight(int)`, `multiply(BigDecimal)`, `negate()`, `scale()`, `setScale(int)`, `setScale(int, RoundingMode)`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `toBigIntegerExact()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
 
 | Not modeled (cannot) | Reason |
 |---|---|
 | `valueOf(double)` | double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 37 members, all loud): MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/movePoint/scaleByPowerOfTen, the *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/scaleByPowerOfTen, the int/long/byte/short *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC</summary>
 
 - `abs(MathContext)`
 - `add(BigDecimal, MathContext)`
@@ -30,8 +30,6 @@ Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 - `divideToIntegralValue(BigDecimal, MathContext)`
 - `intValueExact()`
 - `longValueExact()`
-- `movePointLeft(int)`
-- `movePointRight(int)`
 - `multiply(BigDecimal, MathContext)`
 - `negate(MathContext)`
 - `plus()`
@@ -43,13 +41,11 @@ Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 - `remainder(BigDecimal, MathContext)`
 - `round(MathContext)`
 - `scaleByPowerOfTen(int)`
-- `setScale(int)`
 - `setScale(int, int)`
 - `shortValue()`
 - `shortValueExact()`
 - `sqrt(MathContext)`
 - `subtract(BigDecimal, MathContext)`
-- `toBigIntegerExact()`
 - `toEngineeringString()`
 - `toPlainString()`
 - `ulp()`
@@ -59,11 +55,11 @@ Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 
 ## `java.math.BigInteger`
 
-Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
+Real surface: 50 members — modeled 22, not-modeled 0, not-needed 0, tail 28.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `doubleValue()`, `floatValue()`, `gcd(BigInteger)`, `intValue()`, `longValue()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `pow(int)`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `divideAndRemainder(BigInteger)`, `doubleValue()`, `floatValue()`, `gcd(BigInteger)`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `pow(int)`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 31 members, all loud): bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 28 members, all loud): bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the byte/short *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
 
 - `and(BigInteger)`
 - `andNot(BigInteger)`
@@ -72,12 +68,9 @@ Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
 - `byteValue()`
 - `byteValueExact()`
 - `clearBit(int)`
-- `divideAndRemainder(BigInteger)`
 - `flipBit(int)`
 - `getLowestSetBit()`
-- `intValueExact()`
 - `isProbablePrime(int)`
-- `longValueExact()`
 - `modInverse(BigInteger)`
 - `modPow(BigInteger, BigInteger)`
 - `nextProbablePrime()`
@@ -102,21 +95,20 @@ Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
 
 ## `java.time.Duration`
 
-Real surface: 57 members — modeled 30, not-modeled 2, not-needed 0, tail 25.
+Real surface: 57 members — modeled 32, not-modeled 2, not-needed 0, tail 23.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `compareTo(Duration)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toHours()`, `toMillis()`, `toMinutes()`, `toSeconds()`
+**Modeled** (`@BmcModelConforms`): `abs()`, `compareTo(Duration)`, `dividedBy(long)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toHours()`, `toMillis()`, `toMinutes()`, `toNanos()`, `toSeconds()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
 | `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration division (dividedBy(Duration)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
 
 - `addTo(Temporal)`
 - `between(Temporal, Temporal)`
 - `dividedBy(Duration)`
-- `dividedBy(long)`
 - `from(TemporalAmount)`
 - `get(TemporalUnit)`
 - `getNano()`
@@ -132,7 +124,6 @@ Real surface: 57 members — modeled 30, not-modeled 2, not-needed 0, tail 25.
 - `toHoursPart()`
 - `toMillisPart()`
 - `toMinutesPart()`
-- `toNanos()`
 - `toNanosPart()`
 - `toSecondsPart()`
 - `truncatedTo(TemporalUnit)`
@@ -314,15 +305,15 @@ Real surface: 76 members — modeled 25, not-modeled 1, not-needed 0, tail 50.
 
 ## `java.time.LocalTime`
 
-Real surface: 52 members — modeled 20, not-modeled 1, not-needed 0, tail 31.
+Real surface: 52 members — modeled 22, not-modeled 1, not-needed 0, tail 29.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`
+**Modeled** (`@BmcModelConforms`): `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 31 members, all loud): the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 29 members, all loud): the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atDate(LocalDate)`
@@ -335,7 +326,6 @@ Real surface: 52 members — modeled 20, not-modeled 1, not-needed 0, tail 31.
 - `isSupported(TemporalUnit)`
 - `minus(TemporalAmount)`
 - `minus(long, TemporalUnit)`
-- `minusNanos(long)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `ofInstant(Instant, ZoneId)`
@@ -343,7 +333,6 @@ Real surface: 52 members — modeled 20, not-modeled 1, not-needed 0, tail 31.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `plus(long, TemporalUnit)`
-- `plusNanos(long)`
 - `query(TemporalQuery)`
 - `range(TemporalField)`
 - `toEpochSecond(LocalDate, ZoneOffset)`

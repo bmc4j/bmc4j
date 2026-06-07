@@ -109,4 +109,46 @@ class BigDecimalLaws {
         Bmc.check(BigDecimal.valueOf(7).divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_EVEN)
                 .compareTo(BigDecimal.valueOf(4)) == 0)
     }
+
+    // --- setScale(int) (RoundingMode.UNNECESSARY): widen is exact, narrow throws unless exact --------
+    // Symbolic widening is a rescale (multiply), cheap and a real law; the narrow-with-rounding path is
+    // covered concretely + on the differential axis (the wide rounding-divider stays off this proof).
+
+    @BmcProof
+    fun setScale_widen_is_value_preserving() {
+        val a = anyBd(2, bound = 1_000)
+        Bmc.check(a.setScale(4).compareTo(a) == 0)   // widen never rounds, value unchanged
+    }
+
+    @BmcProof
+    fun setScale_narrow_exact_pins() {
+        // 12.300 -> scale 1 is exact (dropped digits zero); the trailing-zero case the JDK allows.
+        Bmc.check(BigDecimal.valueOf(12300, 3).setScale(1).compareTo(BigDecimal.valueOf(123, 1)) == 0)
+        Bmc.check(BigDecimal.valueOf(500, 2).setScale(0).compareTo(BigDecimal.valueOf(5)) == 0)   // 5.00 -> 5
+    }
+
+    // --- movePointRight / movePointLeft: shift the point, round-trip is identity --------------------
+
+    @BmcProof
+    fun movePoint_round_trips() {
+        val a = anyBd(2, bound = 1_000)
+        Bmc.check(a.movePointRight(2).movePointLeft(2).compareTo(a) == 0)
+        Bmc.check(a.movePointLeft(2).movePointRight(2).compareTo(a) == 0)
+    }
+
+    @BmcProof
+    fun movePoint_pins() {
+        // 1.23 << right 2 = 123 ; 123 << left 2 = 1.23
+        Bmc.check(BigDecimal.valueOf(123, 2).movePointRight(2).compareTo(BigDecimal.valueOf(123)) == 0)
+        Bmc.check(BigDecimal.valueOf(123).movePointLeft(2).compareTo(BigDecimal.valueOf(123, 2)) == 0)
+    }
+
+    // --- toBigIntegerExact: exact-or-throw ----------------------------------------------------------
+
+    @BmcProof
+    fun toBigIntegerExact_pins() {
+        Bmc.check(BigDecimal.valueOf(12300, 2).toBigIntegerExact().toLong() == 123L)   // 123.00 -> 123
+        Bmc.check(BigDecimal.valueOf(123).toBigIntegerExact().toLong() == 123L)
+        Bmc.check(BigDecimal.valueOf(-500, 1).toBigIntegerExact().toLong() == -50L)    // -50.0 -> -50
+    }
 }

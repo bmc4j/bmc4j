@@ -14,7 +14,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
-@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
+@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the byte/short *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);
@@ -99,6 +99,15 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger remainder(BigInteger other) {
         return new BigInteger(value % other.value);
+    }
+
+    /**
+     * {@code {this/val, this%val}} in one shot, like the JDK — the same quotient as {@link #divide} and
+     * remainder as {@link #remainder}. A zero divisor throws {@link ArithmeticException}, like the JDK.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger[] divideAndRemainder(BigInteger val) {
+        return new BigInteger[] {new BigInteger(value / val.value), new BigInteger(value % val.value)};
     }
 
     /**
@@ -194,6 +203,25 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     @Override
     @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public long longValue() {
+        return value;
+    }
+
+    /**
+     * The exact {@code int} value, throwing {@link ArithmeticException} if it doesn't fit — exactly the
+     * JDK contract. On the {@code long} backing this is the {@code Math.toIntExact} range check.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public int intValueExact() {
+        return Math.toIntExact(value);
+    }
+
+    /**
+     * The exact {@code long} value. The {@code long}-backed model can only hold values that fit a
+     * {@code long}, so within the bound this never throws (the arbitrary-precision JDK throws here only
+     * for magnitudes past the {@code long} range, which this bounded model cannot represent anyway).
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public long longValueExact() {
         return value;
     }
 

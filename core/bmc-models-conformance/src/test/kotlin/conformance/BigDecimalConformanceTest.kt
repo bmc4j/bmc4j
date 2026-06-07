@@ -88,6 +88,54 @@ class BigDecimalConformanceTest : FunSpec({
         }
     }
 
+    // setScale(int) (the no-rounding overload): widening is exact; narrowing throws "Rounding
+    // necessary" (ArithmeticException) unless the dropped digits are all zero. Exception parity + value.
+    test("setScale(int) conforms (RoundingMode.UNNECESSARY semantics)") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val target = Arb.int(0..4)
+        checkAll(u, s, target) { uA, sA, ns ->
+            val rA = RealBD.valueOf(uA, sA)
+            val mA = ModelBD.valueOf(uA, sA)
+            val r = runCatching { rA.setScale(ns) }
+            val m = runCatching { mA.setScale(ns) }
+            withClue("$uA@$sA setScale($ns)  real=${r.exceptionOrNull()?.javaClass?.simpleName ?: r.getOrNull()?.let { obs(it) }}  model=${m.exceptionOrNull()?.javaClass?.simpleName ?: m.getOrNull()?.let { obs(it) }}") {
+                m.exceptionOrNull()?.javaClass shouldBe r.exceptionOrNull()?.javaClass
+                if (r.isSuccess && m.isSuccess) obs(m.getOrThrow()) shouldBe obs(r.getOrThrow())
+            }
+        }
+    }
+
+    // movePointRight/movePointLeft: shift the decimal point n places, absorbing the surplus power of
+    // ten into the unscaled value once the scale would go negative. Compare (unscaled, scale) exactly.
+    test("movePointRight / movePointLeft conform") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val n = Arb.int(-4..4)
+        checkAll(u, s, n) { uA, sA, k ->
+            val rA = RealBD.valueOf(uA, sA)
+            val mA = ModelBD.valueOf(uA, sA)
+            withClue("$uA@$sA movePointRight($k)") { obs(mA.movePointRight(k)) shouldBe obs(rA.movePointRight(k)) }
+            withClue("$uA@$sA movePointLeft($k)") { obs(mA.movePointLeft(k)) shouldBe obs(rA.movePointLeft(k)) }
+        }
+    }
+
+    // toBigIntegerExact: exact integer value, throwing ArithmeticException on a nonzero fractional part.
+    test("toBigIntegerExact conforms (exact-or-throw)") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        checkAll(u, s) { uA, sA ->
+            val rA = RealBD.valueOf(uA, sA)
+            val mA = ModelBD.valueOf(uA, sA)
+            val r = runCatching { rA.toBigIntegerExact().toLong() }
+            val m = runCatching { mA.toBigIntegerExact().longValueExact() }
+            withClue("$uA@$sA toBigIntegerExact  real=${r.exceptionOrNull()?.javaClass?.simpleName ?: r.getOrNull()}  model=${m.exceptionOrNull()?.javaClass?.simpleName ?: m.getOrNull()}") {
+                m.exceptionOrNull()?.javaClass?.name?.removePrefix("bmcref.") shouldBe r.exceptionOrNull()?.javaClass?.name
+                if (r.isSuccess && m.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+            }
+        }
+    }
+
     // Divergence ledger — "everything else is a bug": the String constructor must accept exactly
     // what the JDK accepts and throw NumberFormatException on the rest (the silent-parse bug).
     test("BigDecimal(String) conforms for valid and invalid inputs") {

@@ -48,6 +48,9 @@ class BigIntegerConformanceTest : FunSpec({
             cmp("multiply", { rx.multiply(ry).toLong() }, { mx.multiply(my).toLong() })
             cmp("divide", { rx.divide(ry).toLong() }, { mx.divide(my).toLong() })          // y==0 -> ArithmeticException
             cmp("remainder", { rx.remainder(ry).toLong() }, { mx.remainder(my).toLong() })
+            // divideAndRemainder: {quotient, remainder} pair (y==0 throws ArithmeticException both sides).
+            cmp("divAndRem[0]", { rx.divideAndRemainder(ry)[0].toLong() }, { mx.divideAndRemainder(my)[0].toLong() })
+            cmp("divAndRem[1]", { rx.divideAndRemainder(ry)[1].toLong() }, { mx.divideAndRemainder(my)[1].toLong() })
             cmp("negate", { rx.negate().toLong() }, { mx.negate().toLong() })
             cmp("abs", { rx.abs().toLong() }, { mx.abs().toLong() })
 
@@ -61,6 +64,27 @@ class BigIntegerConformanceTest : FunSpec({
             rx.signum() shouldBe mx.signum()
             rx.compareTo(ry) shouldBe mx.compareTo(my)
             rx.equals(ry) shouldBe mx.equals(my)
+        }
+    }
+
+    // intValueExact / longValueExact: exact narrowing with JDK exception parity. longValueExact always
+    // succeeds on the long backing; intValueExact throws ArithmeticException when the value leaves the
+    // int range — driven across a band straddling Integer.MIN/MAX so both the fit and the throw fire.
+    test("intValueExact / longValueExact conform (exact narrowing parity)") {
+        val band = Arb.long(Integer.MIN_VALUE.toLong() - 5L..Integer.MAX_VALUE.toLong() + 5L)
+        checkAll(band) { x ->
+            val rx = java.math.BigInteger.valueOf(x)
+            val mx = bmcref.java.math.BigInteger.valueOf(x)
+            rx.longValueExact() shouldBe mx.longValueExact()
+            val realI = runCatching { rx.intValueExact() }
+            val modelI = runCatching { mx.intValueExact() }
+            assertSameException(realI, modelI)
+            if (realI.isSuccess) modelI.getOrThrow() shouldBe realI.getOrThrow()
+            // out of int range -> both throw ArithmeticException
+            if (x < Integer.MIN_VALUE.toLong() || x > Integer.MAX_VALUE.toLong()) {
+                realI.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+                modelI.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+            }
         }
     }
 

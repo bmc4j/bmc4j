@@ -119,6 +119,27 @@ class TimeLaws {
         Bmc.check(Duration.ofMinutes(-3).toMillis() == -180_000L)
     }
 
+    @BmcProof
+    fun duration_toNanos_scales_millis() {
+        // toNanos == millis * 1_000_000 (loud past the bound). Pin the scale concretely under JBMC; the
+        // differential axis covers the symbolic range + the overflow boundary.
+        Bmc.check(Duration.ofMillis(5).toNanos() == 5_000_000L)
+        Bmc.check(Duration.ofMillis(-5).toNanos() == -5_000_000L)
+        Bmc.check(Duration.ofMillis(0).toNanos() == 0L)
+        Bmc.check(Duration.ofSeconds(1).toNanos() == 1_000_000_000L)
+    }
+
+    @BmcProof
+    fun duration_dividedBy_pins() {
+        // dividedBy(long) truncates toward zero; a zero divisor throws. Concrete pins keep the symbolic
+        // divider off the proof axis (the division-cost lesson) — the wide symbolic range + the zero-
+        // divisor exception are covered differentially (TimeConformanceTest).
+        Bmc.check(Duration.ofMillis(100).dividedBy(4L) == Duration.ofMillis(25))
+        Bmc.check(Duration.ofMillis(-100).dividedBy(4L) == Duration.ofMillis(-25))
+        Bmc.check(Duration.ofMillis(7).dividedBy(2L) == Duration.ofMillis(3))   // truncates toward zero
+        Bmc.check(Duration.ofMillis(-7).dividedBy(2L) == Duration.ofMillis(-3))
+    }
+
     // NOTE: Duration.toMinutes/toHours/toDays divide the floored second count by the fixed constants
     // 60/3600/86400 — a wide-DIVISOR division inherently SAT-slow on the @BmcProof axis regardless of
     // input range (the LocalTime precedent: tightening inputs doesn't shrink a constant divisor). They
@@ -208,6 +229,10 @@ class TimeLaws {
     // hovered right at CI's 180s budget, passing or timing out by runner luck). The differential
     // suite covers of()/getHour/getMinute/getSecond/ofSecondOfDay/toSecondOfDay and
     // plusHours/minusHours/plusMinutes/minusMinutes/plusSeconds/minusSeconds vs the real JDK.
+    //
+    // plusNanos/minusNanos likewise mod by the wide constant NANOS_PER_DAY (8.64e13) for the day-wrap,
+    // so they are differential-only for the same constant-divisor reason — TimeConformanceTest proves
+    // them (incl. the sub-second and many-wrap bands) bit-for-bit vs the real JDK.
 
     // --- LocalDateTime ---
     // The y/m/d conversion divides/mods, so keep the year tight; arithmetic uses a fixed valid date.

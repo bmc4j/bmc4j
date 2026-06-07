@@ -114,13 +114,21 @@ public final class LocalTime {
     }
 
     // plus* wrap within the day (mod 24h), exactly like the real LocalTime, which has no overflow.
-    private LocalTime plusNanos(long nanos) {
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    public LocalTime plusNanos(long nanos) {
         if (nanos == 0) {
             return this;
         }
         long dayNanos = nanos % NANOS_PER_DAY;             // reduce to (-DAY, DAY)
         long newNod = (nanoOfDay + dayNanos + NANOS_PER_DAY) % NANOS_PER_DAY;
         return new LocalTime(newNod);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    public LocalTime minusNanos(long nanos) {
+        // Subtracting nanos == adding the negation, with the day-wrap; reduce first so -Long.MIN_VALUE
+        // can't overflow (the % NANOS_PER_DAY keeps the magnitude well inside the long range).
+        return plusNanos(-(nanos % NANOS_PER_DAY));
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
