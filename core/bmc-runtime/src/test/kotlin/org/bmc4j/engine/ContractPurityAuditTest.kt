@@ -426,6 +426,47 @@ internal class ContractPurityAuditTest {
     }
 
     @Test
+    fun certifies_reading_a_kotlin_object_self_singleton(@TempDir dir: Path) {
+        // Older kotlinc (<2.4) lowers a `suspend` loop body that calls a `@JvmStatic` member of its own
+        // `object` as a dead `GETSTATIC Owner.INSTANCE; POP` before the static call — newer kotlinc
+        // elides it. INSTANCE is the object's `public static final` self-singleton: its reference is set
+        // once in <clinit> and is identical in every run and in the enforce-proof, so reading it is a
+        // constant read, not run-varying state. The audit must CERTIFY it (the bytecode-shape divergence
+        // that refuted the suspend Calc enforce-proof on the kotlin 2.0.21 CI leg).
+        emit(dir, "pkg/Obj") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_FINAL,
+                    "INSTANCE", "Lpkg/Obj;", null, null).visitEnd()
+            method(cw, "f", "()I") { mv ->
+                mv.visitFieldInsn(Opcodes.GETSTATIC, "pkg/Obj", "INSTANCE", "Lpkg/Obj;") // self-singleton
+                mv.visitInsn(Opcodes.POP)                                                // ...dead, popped
+                mv.visitInsn(Opcodes.ICONST_0)
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        assertCertifies(dir, "pkg/Obj", "f", "()I")
+    }
+
+    @Test
+    fun rejects_reading_a_non_final_reference_static(@TempDir dir: Path) {
+        // The soundness boundary of the static-final allowance: a NON-final reference static can be
+        // reassigned at runtime, so its read IS run-varying and must still REJECT (only `static final`
+        // is a constant). Mirrors rejects_read_of_a_mutable_static but pins the final-vs-non-final line
+        // directly on a self-typed holder field.
+        emit(dir, "pkg/Holder2") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, // NOT final
+                    "current", "Lpkg/Holder2;", null, null).visitEnd()
+            method(cw, "f", "()I") { mv ->
+                mv.visitFieldInsn(Opcodes.GETSTATIC, "pkg/Holder2", "current", "Lpkg/Holder2;")
+                mv.visitInsn(Opcodes.POP)
+                mv.visitInsn(Opcodes.ICONST_0)
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        val msg = assertRejects(dir, "pkg/Holder2", "f", "()I")
+        assertTrue(msg.contains("reads mutable static pkg/Holder2.current"), msg)
+    }
+
+    @Test
     fun rejects_receiver_mutation_inside_a_suspend_body(@TempDir dir: Path) {
         // The soundness pin: the coroutine allowance must NOT let real `this`-mutation through. A
         // suspend body's lowered invokeSuspend writes the RECEIVER's field (owner = the receiver class,
