@@ -30,9 +30,27 @@ import org.bmc4j.BmcProof;
  *       first-char lexicographic ordering pinned symbolically.</li>
  *   <li>{@code indexOf(String)} / {@code indexOf(int)} / {@code lastIndexOf(int)} — SOUND (native):
  *       exact hit position and {@code -1} miss pinned (indexOf was already flagged native-sound).</li>
+ *   <li>{@code toLowerCase()} / {@code toUpperCase()} — SOUND (native). Concrete + symbolic
+ *       (length-preserving + idempotent). ASCII case folding probed (the common case).</li>
+ *   <li>{@code concat(String)} — SOUND (native): result length = sum of lengths, content pinned;
+ *       concrete + symbolic.</li>
+ *   <li>{@code replace(CharSequence,CharSequence)} — SOUND (native): concrete substring replacement
+ *       + symbolic identity replace.</li>
+ *   <li>{@code charAt(int)} — SOUND (native primitive): pinned concretely.</li>
+ *   <li>{@code indexOf(String,int)} (fromIndex) / {@code lastIndexOf(String)} — SOUND (native):
+ *       exact hit position pinned.</li>
+ *   <li>{@code valueOf(int)} — SOUND (native): routes through {@code Integer.toString}; multi-digit
+ *       content + length pinned (the {@code Integer.toString(0)} length quirk applies to a {@code 0}).</li>
  *   <li>{@code split(...)} — UNSOUND (regex-based): a regex-metachar delimiter returns an
  *       UNCONSTRAINED array length. NOT shipped / NOT modeled.</li>
  *   <li>{@code chars()} — UNSOUND: returns an unconstrained IntStream. NOT shipped / NOT modeled.</li>
+ *   <li><b>{@code repeat(int)} — UNSOUND.</b> The result is UNCONSTRAINED ({@code "ab".repeat(3)}
+ *       refutes on both length and content; the call links to a nondet stub). NOT shipped — documented
+ *       so the limitation stays visible; conservatively over-refutes (no false green).</li>
+ *   <li><b>{@code strip()} / {@code isBlank()} (Java 11) — UNSOUND.</b> Unlike the Java-1.0
+ *       {@code trim()} (native-sound above), the Java-11 {@code strip}/{@code isBlank} are NOT modeled
+ *       by JBMC: {@code strip()} even trips spurious null-pointer checks and {@code isBlank()} returns
+ *       an unconstrained boolean. NOT shipped — use {@code trim()} (sound) for blankness instead.</li>
  * </ul>
  *
  * <p>Because every method above verifies natively, this needed NO new {@code BmcStrings} shims
@@ -50,7 +68,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'e' && s.charAt(1) == 'l' && s.charAt(2) == 'l' && s.charAt(3) == 'o');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void substring_from_symbolic() {
         String s = Bmc.anyString(4);
         int begin = Bmc.anyInt(0, s.length());
@@ -70,7 +88,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'e' && s.charAt(1) == 'l');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void substring_range_symbolic() {
         String s = Bmc.anyString(4);
         int begin = Bmc.anyInt(0, s.length());
@@ -92,7 +110,7 @@ class StringLaws {
                 && s.charAt(3) == 'o' && s.charAt(4) == 'n' && s.charAt(5) == 'o');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void replace_char_symbolic() {
         String s = Bmc.anyString(4);
         String r = s.replace('a', 'o');
@@ -112,7 +130,7 @@ class StringLaws {
         Bmc.check(!"x".isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void isEmpty_symbolic_tracks_length() {
         // isEmpty() == (length()==0) in BOTH directions: a nondet result could not satisfy this.
         String s = Bmc.anyString(4);
@@ -127,7 +145,7 @@ class StringLaws {
         Bmc.check(!"ABC".equalsIgnoreCase("abd"));  // false: a nondet result could be true
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void equalsIgnoreCase_symbolic_reflexive() {
         // Reflexive over every bounded string: a nondet equalsIgnoreCase could refute this.
         String s = Bmc.anyString(4);
@@ -143,7 +161,7 @@ class StringLaws {
         Bmc.check("b".compareTo("a") > 0);
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void compareTo_symbolic_reflexive() {
         String s = Bmc.anyString(4);
         Bmc.check(s.compareTo(s) == 0);            // reflexive: 0 for every string
@@ -188,6 +206,112 @@ class StringLaws {
         Bmc.check("hello".lastIndexOf('z') == -1);
     }
 
+    // ---- toLowerCase / toUpperCase ----------------------------------------
+
+    @BmcProof
+    void toLowerCase_concrete() {
+        String s = "ABc".toLowerCase();
+        Bmc.check(s.length() == 3);
+        Bmc.check(s.charAt(0) == 'a' && s.charAt(1) == 'b' && s.charAt(2) == 'c');
+    }
+
+    @BmcProof
+    void toUpperCase_concrete() {
+        String s = "aBc".toUpperCase();
+        Bmc.check(s.length() == 3);
+        Bmc.check(s.charAt(0) == 'A' && s.charAt(1) == 'B' && s.charAt(2) == 'C');
+    }
+
+    @BmcProof(maxStringLength = 4)
+    void toLowerCase_symbolic_length_preserving() {
+        // Length-preserving for every bounded string: a nondet result could refute this.
+        String s = Bmc.anyString(4);
+        Bmc.check(s.toLowerCase().length() == s.length());
+    }
+
+    @BmcProof
+    void toLowerCase_concrete_idempotent() {
+        // Idempotence (a second fold is a no-op) is inherently heavy over a FULL symbolic string —
+        // it builds and string-equals two whole-string case folds. Pinned concretely here; the
+        // exhaustive case-fold semantics live on the differential axis (DifferentialProofs runs the
+        // native op against the model over a value set), not as a whole-string symbolic proof.
+        String lo = "aBc".toLowerCase();
+        Bmc.check(lo.toLowerCase().equals(lo));
+        Bmc.check(lo.equals("abc"));
+    }
+
+    // ---- concat(String) ----------------------------------------------------
+
+    @BmcProof
+    void concat_concrete() {
+        String s = "ab".concat("cd");
+        Bmc.check(s.length() == 4);
+        Bmc.check(s.charAt(0) == 'a' && s.charAt(1) == 'b' && s.charAt(2) == 'c' && s.charAt(3) == 'd');
+    }
+
+    @BmcProof(maxStringLength = 4)
+    void concat_symbolic_length_adds_and_prefix_preserved() {
+        // Both operands are symbolic by necessity (length additivity + left-operand prefix); each is
+        // bounded to 3 so the concatenated result stays small.
+        String a = Bmc.anyString(3);
+        String b = Bmc.anyString(3);
+        String r = a.concat(b);
+        Bmc.check(r.length() == a.length() + b.length());   // length is additive
+        if (a.length() > 0) {
+            Bmc.check(r.charAt(0) == a.charAt(0));           // the left operand is the prefix
+        }
+    }
+
+    // ---- replace(CharSequence, CharSequence) ------------------------------
+
+    @BmcProof
+    void replace_charseq_concrete() {
+        String s = "ababab".replace("ab", "X");
+        Bmc.check(s.length() == 3);
+        Bmc.check(s.charAt(0) == 'X' && s.charAt(1) == 'X' && s.charAt(2) == 'X');
+    }
+
+    @BmcProof(maxStringLength = 4)
+    void replace_charseq_symbolic_identity_is_noop() {
+        // Replacing "a" with "a" leaves every bounded string unchanged: a nondet replace could not.
+        String s = Bmc.anyString(4);
+        Bmc.check(s.replace("a", "a").equals(s));
+    }
+
+    // ---- charAt(int) ------------------------------------------------------
+
+    @BmcProof
+    void charAt_concrete() {
+        Bmc.check("hello".charAt(0) == 'h');
+        Bmc.check("hello".charAt(4) == 'o');
+    }
+
+    // ---- indexOf(String, fromIndex) / lastIndexOf(String) -----------------
+
+    @BmcProof
+    void indexOf_string_fromIndex_concrete() {
+        // The first "ab" at 0 is skipped by fromIndex=1, so the next hit at 2 is returned.
+        Bmc.check("ababab".indexOf("ab", 1) == 2);
+        Bmc.check("ababab".indexOf("zz", 0) == -1);   // miss
+    }
+
+    @BmcProof
+    void lastIndexOf_string_concrete() {
+        Bmc.check("ababab".lastIndexOf("ab") == 4);    // rightmost hit
+        Bmc.check("ababab".lastIndexOf("zz") == -1);   // miss
+    }
+
+    // ---- valueOf(int) -----------------------------------------------------
+
+    @BmcProof
+    void valueOf_int_concrete() {
+        // Routes through Integer.toString; multi-digit content + length are sound (the
+        // Integer.toString(0) length quirk only bites an exact-length claim about "0").
+        String s = String.valueOf(42);
+        Bmc.check(s.length() == 2);
+        Bmc.check(s.charAt(0) == '4' && s.charAt(1) == '2');
+    }
+
     // ---- @NotBlank support: trim() probe + the charAt-loop pin --------------
     //
     // @NotBlank needs "non-null and not all-whitespace". The probe below records whether trim() is
@@ -203,7 +327,7 @@ class StringLaws {
         Bmc.check("  x ".trim().length() == 1);
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void trim_symbolic_blankness_matches_a_charAt_scan() {
         // Symbolic, both directions: trim().isEmpty() must agree with "no char > ' '" over the
         // sound charAt primitive. If trim were nondet/unsound this equivalence could be refuted —
