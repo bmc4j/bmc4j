@@ -5,10 +5,8 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnNode
-import org.objectweb.asm.tree.LdcInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.TypeInsnNode
 
 buildscript {
     repositories { mavenCentral() }
@@ -211,10 +209,9 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         // erased param descriptor (return-type agnostic). Inherited ones must never be overridden with
         // a loud body — that would shadow a working inherited implementation.
         val implemented = node.methods.map { it.name + paramsDesc(it.desc) }.toSet() + inheritedKeys(node)
-        val className = node.name.replace('/', '.')
         var changed = false
 
-        fun synthesize(name: String, params: List<Type>, ret: Type, memberLabel: String, reason: String) {
+        fun synthesize(name: String, params: List<Type>, ret: Type) {
             val key = name + paramsKey(params)
             if (implemented.contains(key)) return // never touch implemented methods
             if (node.methods.any { it.name == name && paramsDesc(it.desc) == paramsKey(params) }) return
@@ -222,22 +219,24 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
             val mn = MethodNode(Opcodes.ACC_PUBLIC, name, desc, null, null)
             // Mark as synthesized so the gate/docs don't count it as a genuine model implementation.
             mn.visitAnnotation("Lorg/bmc4j/models/audit/BmcSynthesizedLoud;", false)
-            val msg = "bmc4j: unmodelled member $className.$memberLabel — $reason"
             mn.instructions.apply {
                 // Route through the BmcUnmodelledReached sentinel so the violated JBMC property's
                 // `function` is org.bmc4j.analysis.BmcUnmodelledReached.reached — a deterministic
                 // signature the verdict interpreter recognizes to DEMOTE the refutation to UNKNOWN
                 // (a model gap is OUR limitation, not the user's counterexample). The sentinel's
-                // assert(false) never returns; the trailing throw keeps the synthesized method
-                // well-formed for any (incl. non-void) return type and remains the loud fallback.
-                add(LdcInsnNode(msg))
+                // assert(false) never returns; the trailing `athrow null` keeps the synthesized method
+                // well-formed for any (incl. non-void) return type and is the unreachable loud fallback.
+                //
+                // The body carries NO message string: the verdict interpreter recovers the offending
+                // member from the property's TRACE CALL-CHAIN (the caller of the sentinel), never from
+                // a constant — JBMC discards assertion messages anyway. A unique long string constant
+                // per synthesized method was the measured loud-body proof-time tax (JBMC must intern
+                // every constant in the symbol table even on unreached paths); dropping it recovers it
+                // while keeping member-named UNKNOWN demotion identical (see LoudUnmodelledProbe).
+                add(InsnNode(Opcodes.ACONST_NULL))
                 add(MethodInsnNode(Opcodes.INVOKESTATIC, "org/bmc4j/analysis/BmcUnmodelledReached",
                     "reached", "(Ljava/lang/String;)V", false))
-                add(TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))
-                add(InsnNode(Opcodes.DUP))
-                add(LdcInsnNode(msg))
-                add(MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/AssertionError",
-                    "<init>", "(Ljava/lang/Object;)V", false))
+                add(InsnNode(Opcodes.ACONST_NULL))
                 add(InsnNode(Opcodes.ATHROW))
             }
             node.methods.add(mn)
@@ -250,17 +249,15 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
             val parsed = parseMemberSignature(d.member) ?: continue
             val (name, params) = parsed
             val ret = realReturnType(real, name, params) ?: Type.VOID_TYPE
-            synthesize(name, params, ret, d.member, d.reason)
+            synthesize(name, params, ret)
         }
 
         // Tail: every real public/protected member the model neither implements nor named, gets a loud
         // body too (so the WHOLE remainder is loud, never a silent stub).
-        val tr = tailReason
-        if (tr != null && real != null) {
+        if (tailReason != null && real != null) {
             for (m in realAuditableMethods(real)) {
                 val params = m.parameterTypes.map { Type.getType(it) }
-                synthesize(m.name, params, Type.getType(m.returnType),
-                    m.name + "(" + m.parameterTypes.joinToString(",") { erasedName(it) } + ")", tr)
+                synthesize(m.name, params, Type.getType(m.returnType))
             }
         }
 
@@ -288,8 +285,6 @@ fun realReturnType(real: Class<*>?, name: String, params: List<Type>): Type? {
     val m = real.methods.firstOrNull { it.name == name && paramsKey(it.parameterTypes.map { p -> Type.getType(p) }) == want }
     return m?.let { Type.getType(it.returnType) }
 }
-
-fun erasedName(c: Class<*>): String = if (c.isArray) erasedName(c.componentType) + "[]" else (c.canonicalName ?: c.name)
 
 /** name + erased-param descriptor of a method descriptor, e.g. "(ILjava/lang/Object;)" — return-agnostic. */
 fun paramsDesc(methodDesc: String): String = "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor } + ")"
