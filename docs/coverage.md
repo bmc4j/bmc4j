@@ -80,11 +80,18 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 
 | API | Status | Note |
 |---|---|---|
-| `equals` / `startsWith` / `endsWith` / `contains` | ✅ | sound shims ([`examples/stdlib`](../examples/stdlib) strings) |
+| `equals` / `startsWith` / `endsWith` / `contains` | ✅ | sound shims (`BmcStrings`, redirected by `StringBytecode`); conformance-pinned both directions (concrete true/false + symbolic reflexive/self/empty + a `charAt`-scan agreement for `equals`) in `proofs.strings.StringShimLaws` |
 | `String` + `String` concatenation (`+`, templates) | ✅ | desugared `StringConcatFactory` indy |
 | `equalsIgnoreCase` / `compareTo` / `isEmpty` | ✅ | native jbmc string ops, confirmed sound — true/false & lexicographic sign pinned concretely, reflexive symbolically (`proofs.strings.StringLaws`). No shim needed |
-| `indexOf(String)` / `indexOf(char)` / `lastIndexOf(char)` | ✅ | native (sound) — exact hit position + `-1` miss pinned (`proofs.strings.StringLaws`) |
-| `length` / `charAt` | ✅ | sound primitives the shims build on |
+| `indexOf(String)` / `indexOf(String,from)` / `indexOf(char)` / `lastIndexOf(String)` / `lastIndexOf(char)` | ✅ | native (sound) — exact hit position + `-1` miss pinned (`proofs.strings.StringLaws`) |
+| `toLowerCase` / `toUpperCase` | ✅ | native (sound) — length-preserving + idempotent (concrete + symbolic; ASCII case fold probed); `proofs.strings.StringLaws` |
+| `concat(String)` | ✅ | native (sound) — result length additive, content/prefix pinned (concrete + symbolic); `proofs.strings.StringLaws` |
+| `replace(CharSequence,CharSequence)` | ✅ | native (sound) — concrete substring replace + symbolic identity no-op (`proofs.strings.StringLaws`) |
+| `String.valueOf(int)` | ⚠️ | native — routes via `Integer.toString`; multi-digit content + length sound; `Integer.toString(0)` length quirk for a `0` (`proofs.strings.StringLaws`) |
+| `length` / `charAt` | ✅ | sound primitives the shims build on; `String.charAt` pinned in `proofs.strings.StringLaws` |
+| `Character.isDigit/isLetter/isWhitespace` / `toUpperCase(char)` / `toLowerCase(char)` | ✅ | native (sound) — both directions concrete + ASCII-band symbolic laws (`proofs.strings.CharacterLaws`) |
+| `Character.isLetterOrDigit(char)` | ❌ | UNSOUND in jbmc (unconstrained result), unlike `isLetter`/`isDigit` individually — compose `isLetter(c) \|\| isDigit(c)`; documented in `proofs.strings.CharacterLaws`. Conservatively over-refutes (no false green) |
+| `StringBuilder.reverse/insert/deleteCharAt/length/charAt` | ✅ | native (sound) — exact results pinned (concrete + symbolic reverse); `proofs.strings.StringBuilderLaws` |
 | `Bmc.anyString(min,max)` / `anyString(n,alphabet)` / `anyAsciiString(n)` | ✅ | charset/length-bounded symbolic strings — length bounds + per-char domain assumed over the sound `charAt` primitive, so later sound reads honour them (`proofs.strings.CharsetProofs`) |
 | `"x" + anInt` / `+ aLong` (primitive→string) | ⚠️ | sound for content + multi-digit length (routed via `Integer/Long.toString`); `Integer.toString(0)` length quirk caveat |
 | `"x" + aFloat` | ✅ | `StringBuilder.append(float)` is sound in jbmc (`1.5f`→`"1.5"`; `proofs.strings.StringBuilderAppendLaws`) |
@@ -92,7 +99,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | `StringBuilder.append(...)` overloads | ✅/⚠️ | per-overload conformance pins in `proofs.strings.StringBuilderAppendLaws`: String/char/boolean/int/long/float/Object(String)/CharSequence(String) SOUND; `append(char[])` and `append(double)` UNSOUND (unconstrained), neither on the concat desugar's sound emission path (char[] routes via `append(Object)`) |
 | `substring` / `replace(char,char)` | ✅ | native jbmc string ops, confirmed sound (concrete + symbolic, `proofs.strings`) |
 | `trim` / `isBlank`-style blankness | ✅ | native (sound) — `trim().isEmpty()` agrees with a per-`charAt` blankness scan over every bounded string, concrete + symbolic both directions (`proofs.strings.StringLaws`). Backs the jakarta `@NotBlank` lowering; the `charAt`-loop formulation is pinned as the fallback |
-| `split` / `chars()` / `format` | ❌ | `split` UNSOUND (regex-metachar delimiter → unconstrained array length; caught adversarially); `chars()` returns an unconstrained IntStream; `format` not modeled |
+| `split` / `chars()` / `format` / `repeat` / `strip` / `isBlank` | ❌ | `split` UNSOUND (regex-metachar delimiter → unconstrained array length; caught adversarially); `chars()` returns an unconstrained IntStream; `format` not modeled; `repeat(int)` UNSOUND (unconstrained result); the Java-11 `strip`/`isBlank` UNSOUND (unlike Java-1.0 `trim`, which IS sound — use `trim` for blankness). All conservatively over-refute (no false green); documented in `proofs.strings.StringLaws` |
 
 ## `java.*` standard library
 
