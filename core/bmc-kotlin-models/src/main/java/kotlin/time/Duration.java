@@ -1,6 +1,7 @@
 package kotlin.time;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of Kotlin's {@code kotlin.time.Duration} value class. Like the real type, {@code Duration}
@@ -30,7 +31,19 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * ({@code Duration.INFINITE}) are representable and compare/saturate correctly, but the {@code INVALID}
  * sentinel and parsing are not modeled. Members not modeled here remain JBMC nondet stubs — the same
  * facade-replacement caveat as every other Kotlin model.
+ *
+ * <p><b>Per-member audit + mangled ABI convention:</b> the per-member auditing gate enumerates the real
+ * {@code kotlin.time.Duration} surface by reflection over kotlin-stdlib, whose value-class members carry
+ * the kotlinc-mangled ABI names ({@code plus-LRDsOJo}, {@code getInWholeSeconds-impl}, …). Because the
+ * model is authored with legal Java placeholder names that the build's {@code renameDurationAbi} pass
+ * rewrites to those exact dashed names — carrying the {@code @BmcModelConforms} annotation along with the
+ * renamed method — a modeled member keys against its real twin by the mangled name directly (no special
+ * casing in the gate). The mangled-but-unmodeled members (toString/parse/Double overloads) fall into the
+ * {@link BmcModelTail} below, enumerated under their mangled names in {@code docs/model-coverage.md}.
  */
+@BmcModelTail(reason = "exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — "
+        + "toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), "
+        + "TimeSource/TimeMark wall-clock; loud under JBMC if reached")
 public final class Duration {
 
     // The ranges mirror the real kotlin.time.Duration: symmetric about zero, non-overlapping but adjacent

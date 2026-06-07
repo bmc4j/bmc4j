@@ -1,6 +1,7 @@
 package kotlin.ranges;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of the {@code kotlin.ranges.RangesKt} facade members bmc4j needs. Kotlin's INLINE
@@ -16,6 +17,9 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * ({@code coerceIn(0, 0, 95) == 96}) the moment an example used it. Other primitive overloads
  * (double/float/Comparable) remain stubs until something needs them.
  */
+@BmcModelTail(reason = "exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce "
+        + "primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not "
+        + "exercise; loud under JBMC if reached")
 public final class RangesKt {
 
     private RangesKt() {

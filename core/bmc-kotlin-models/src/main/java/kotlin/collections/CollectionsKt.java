@@ -1,6 +1,7 @@
 package kotlin.collections;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -20,7 +21,15 @@ import kotlin.sequences.Sequence;
  * real chain never reaches a modeled list. This replacement returns bmc4j's bounded {@code
  * ArrayList} model directly. Only the {@code listOf}/{@code emptyList} members are provided; other
  * {@code CollectionsKt} members remain JBMC stubs (as they already were).
+ *
+ * <p>The modeled members return bmc4j's bounded {@code java.util} collection models (audited on the
+ * JDK side); the per-member audit here covers only the Kotlin-visible {@code CollectionsKt} surface, so
+ * those java.util members are not double-counted. The vast remainder of this multifile facade
+ * (~230 stdlib extension functions: aggregation, windowing, grouping, set ops, etc.) is the tail.
  */
+@BmcModelTail(reason = "exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/"
+        + "Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded "
+        + "proofs do not exercise; loud under JBMC if reached")
 public final class CollectionsKt {
 
     private CollectionsKt() {

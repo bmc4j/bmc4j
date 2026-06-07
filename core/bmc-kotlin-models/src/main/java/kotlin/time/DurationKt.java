@@ -1,6 +1,7 @@
 package kotlin.time;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of Kotlin's {@code kotlin.time.DurationKt} top-level facade — the duration-construction
@@ -13,6 +14,8 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * <p>Only the {@code Int}/{@code Long} construction surface is modeled (bmc4j avoids {@code double}); the
  * {@code Double} overloads remain JBMC stubs, consistent with the model's documented holes.
  */
+@BmcModelTail(reason = "DurationKt Double-valued toDuration overload (no-double policy) plus the mangled "
+        + "extension-property getters; loud under JBMC if reached")
 public final class DurationKt {
 
     private DurationKt() {

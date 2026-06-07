@@ -1,6 +1,7 @@
 package kotlin.collections;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -10,6 +11,8 @@ import java.util.Set;
  * mutableSetOf}/{@code emptySet}), returning bmc4j's bounded {@code HashSet} model directly instead
  * of routing through kotlin-stdlib internals JBMC stubs. Other members remain JBMC stubs.
  */
+@BmcModelTail(reason = "exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation "
+        + "extensions the bounded proofs do not exercise; loud under JBMC if reached")
 public final class SetsKt {
 
     private SetsKt() {

@@ -1,6 +1,7 @@
 package kotlin.comparisons;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of the {@code kotlin.comparisons.ComparisonsKt} facade members bmc4j needs. The
@@ -12,6 +13,8 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * nulls ordered first (a null is "less than" any non-null, two nulls are equal). Sound for boxed
  * primitives and Strings' lexicographic compareTo.
  */
+@BmcModelTail(reason = "exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/"
+        + "nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached")
 public final class ComparisonsKt {
 
     private ComparisonsKt() {
