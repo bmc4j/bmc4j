@@ -4,12 +4,22 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcNotNeeded;
+
 /**
  * Clean BMC model of {@link java.util.HashMap}: parallel fixed-capacity key/value arrays with
  * linear lookup. Sound and bounded — lookups unwind to the current size, so keep maps within the
  * proof's {@code unwind} bound. Key equality uses {@code equals} (sound for boxed primitives).
  * Capacity is {@value #CAPACITY}.
  */
+@BmcModelConforms("parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap); incl. the modeled functional ops compute*/merge/forEach/replace")
+@BmcNotModelled(member = "replaceAll(java.util.function.BiFunction)", reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
+@BmcNotNeeded(member = "remove(java.lang.Object,java.lang.Object)", reason = "compare-and-remove — compose get()/remove() explicitly")
+@BmcNotNeeded(member = "putAll(java.util.Map)", reason = "bulk put — put entries explicitly over the bounded model")
+@BmcModelTail(reason = "exotic remainder: newHashMap(int) factory and clone() — out of scope; loud under JBMC")
 public class HashMap<K, V> implements Map<K, V> {
 
     private static final int CAPACITY = 64;

@@ -1,7 +1,12 @@
 package java.util;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /** BMC model of {@link java.util.LinkedHashMap} — same array-backed behaviour as {@link HashMap}
  *  (insertion order is preserved by the backing arrays). */
+@BmcModelConforms("inherits the HashMap model surface; insertion order preserved by the backing arrays")
+@BmcModelTail(reason = "SequencedMap surface (firstEntry/lastEntry/pollFirstEntry/reversed/sequencedKeySet/…) and the access-order/eldest-entry LRU hooks — out of scope for this array-backed model; all loud under JBMC")
 public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     public LinkedHashMap() {

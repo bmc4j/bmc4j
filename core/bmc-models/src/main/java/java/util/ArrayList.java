@@ -1,5 +1,10 @@
 package java.util;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcNotNeeded;
+
 /**
  * Clean BMC model of {@link java.util.ArrayList}: a fixed-capacity backing array plus a size.
  * All operations are plain array reads/writes — sound in CBMC and trivially bounded. Lookup loops
@@ -10,6 +15,16 @@ package java.util;
  * primitives (modeled). String elements use JBMC's native {@code String.equals}; prefer the
  * dedicated string support for string-keyed lookups.
  */
+@BmcModelConforms("array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray()")
+// Remaining Collection surface not modeled (functional-arg or positional ops over the bounded
+// array): reachable in real code, so declared explicitly (loud body, not silent stub).
+@BmcNotModelled(member = "replaceAll(java.util.function.UnaryOperator)", reason = "functional-arg map — JBMC stubs the operator dispatch")
+@BmcNotModelled(member = "sort(java.util.Comparator)", reason = "comparator-driven sort over the bounded array — not modeled")
+@BmcNotNeeded(member = "addAll(int,java.util.Collection)", reason = "positional bulk add — exotic; add elements explicitly")
+@BmcNotNeeded(member = "containsAll(java.util.Collection)", reason = "bulk membership — compose contains() explicitly")
+@BmcNotNeeded(member = "add(int,java.lang.Object)", reason = "positional insert — exotic; append + shift not modeled")
+@BmcNotNeeded(member = "toArray(java.lang.Object[])", reason = "typed array snapshot — iterate the model instead")
+@BmcModelTail(reason = "exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, clone, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
 public class ArrayList<E> implements List<E> {
 
     private static final int CAPACITY = 64;

@@ -1,5 +1,8 @@
 package java.util;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * BMC model of {@link java.util.LinkedList} as an array-backed list — behaviourally equivalent for
  * proofs (the linked structure doesn't affect functional results, only performance). The full
@@ -19,6 +22,12 @@ package java.util;
  * Capacity is the inherited {@value ArrayList#CAPACITY}; inserting past it is out of bounds (loud
  * backing-array write), never a silent drop.
  */
+// The List/Collection surface is inherited from the ArrayList model; the Deque/Queue surface
+// (addFirst/addLast/getFirst/getLast/removeFirst/removeLast/offer*/poll*/peek*/push/pop, plus the
+// Queue offer/poll/peek/remove/element) is implemented here. Blanket-conforms covers both; the tail
+// is the remaining Deque/List surface still unmodeled.
+@BmcModelConforms("inherits the ArrayList model surface + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof")
+@BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator/descendingDuque ops, listIterator/subList/spliterator, reversed/SequencedCollection, clone) is out of scope for this array-backed model; all loud under JBMC")
 public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
 
     public LinkedList() {

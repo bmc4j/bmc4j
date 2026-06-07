@@ -14,12 +14,19 @@
 // extend/implement are needed only to compile, hence `compileOnly`.
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
 import org.objectweb.asm.commons.ClassRemapper
 import org.objectweb.asm.commons.Remapper
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.MethodNode
 
 buildscript {
     repositories { mavenCentral() }
-    dependencies { classpath("org.ow2.asm:asm-commons:9.7") }
+    dependencies {
+        classpath("org.ow2.asm:asm-commons:9.7")
+        classpath("org.ow2.asm:asm-tree:9.7")
+    }
 }
 
 plugins {
@@ -35,9 +42,19 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
 }
 
+// Pull ONLY the audit annotation classes from bmc-models (not its java.* model classes), so these
+// kotlin.* / kotlinx.* models can carry the same @BmcModelConforms / @BmcNotModelled / @BmcNotNeeded
+// audit annotations. The annotations are CLASS-retention, so compileOnly is right.
+val auditAnnotations by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    auditAnnotations(project(path = ":bmc-models", configuration = "auditAnnotations"))
+    compileOnly(files(auditAnnotations))
 }
 
 // kotlin.time.Duration is a @JvmInline value class: its erased JVM ABI names members whose signatures
@@ -95,3 +112,132 @@ val renameDurationAbi by tasks.registering {
 }
 
 tasks.named("classes") { dependsOn(renameDurationAbi) }
+
+// ---------------------------------------------------------------------------------------------
+// Loud-body synthesis (Upgrade A), mirroring bmc-models: synthesize AssertionError-throwing bodies
+// for every @BmcNotModelled / @BmcNotNeeded member these models declare but do not implement, so a
+// proof reaching an unmodeled member fails NAMED AND LOUD under JBMC instead of silently havocking.
+val synthesizeLoudBodies by tasks.registering {
+    description = "Synthesize loud-failing bodies for @BmcNotModelled/@BmcNotNeeded members."
+    val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
+    inputs.dir(classesDir)
+    outputs.dir(classesDir)
+    mustRunAfter(renameDurationAbi)
+    doLast {
+        synthesizeLoudUnmodelledBodies(classesDir.get().asFile)
+    }
+}
+tasks.named("classes") { dependsOn(synthesizeLoudBodies) }
+
+fun synthesizeLoudUnmodelledBodies(classesDir: File) {
+    val notModelledDesc = "Lorg/bmc4j/models/audit/BmcNotModelled;"
+    val notModelledListDesc = "Lorg/bmc4j/models/audit/BmcNotModelledList;"
+    val notNeededDesc = "Lorg/bmc4j/models/audit/BmcNotNeeded;"
+    val notNeededListDesc = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
+
+    classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { classFile ->
+        val node = ClassNode()
+        ClassReader(classFile.readBytes()).accept(node, 0)
+
+        data class Decl(val member: String, val reason: String)
+        val decls = mutableListOf<Decl>()
+        fun readDecl(values: List<Any?>?): Decl? {
+            if (values == null) return null
+            var member: String? = null
+            var reason: String? = null
+            var i = 0
+            while (i + 1 < values.size) {
+                val k = values[i] as? String
+                val v = values[i + 1]
+                if (k == "member") member = v as? String
+                if (k == "reason") reason = v as? String
+                i += 2
+            }
+            return if (member != null && reason != null) Decl(member, reason) else null
+        }
+        for (ann in (node.invisibleAnnotations ?: emptyList())) {
+            when (ann.desc) {
+                notModelledDesc, notNeededDesc -> readDecl(ann.values)?.let { decls.add(it) }
+                notModelledListDesc, notNeededListDesc -> {
+                    val vals = ann.values ?: continue
+                    var j = 0
+                    while (j + 1 < vals.size) {
+                        if (vals[j] == "value") {
+                            @Suppress("UNCHECKED_CAST")
+                            val list = vals[j + 1] as? List<org.objectweb.asm.tree.AnnotationNode>
+                            list?.forEach { inner -> readDecl(inner.values)?.let { decls.add(it) } }
+                        }
+                        j += 2
+                    }
+                }
+            }
+        }
+        if (decls.isEmpty()) return@forEach
+
+        val className = node.name.replace('/', '.')
+        var changed = false
+        for (decl in decls) {
+            val parsed = parseMemberSignature(decl.member) ?: continue
+            val (name, paramTypes) = parsed
+            val desc = Type.getMethodDescriptor(Type.VOID_TYPE, *paramTypes.toTypedArray())
+            if (node.methods.any { it.name == name && it.desc == desc }) continue
+            if (node.methods.any { it.name == name && Type.getArgumentTypes(it.desc).toList() == paramTypes }) continue
+
+            val access = Opcodes.ACC_PUBLIC
+            val mn = MethodNode(access, name, desc, null, null)
+            val msg = "bmc4j: unmodelled member $className.${decl.member} — ${decl.reason}"
+            val iv = mn.instructions
+            iv.add(org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))
+            iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.DUP))
+            iv.add(org.objectweb.asm.tree.LdcInsnNode(msg))
+            iv.add(org.objectweb.asm.tree.MethodInsnNode(Opcodes.INVOKESPECIAL,
+                "java/lang/AssertionError", "<init>", "(Ljava/lang/Object;)V", false))
+            iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.ATHROW))
+            mn.maxStack = 3
+            mn.maxLocals = run {
+                var slots = 1
+                for (p in paramTypes) slots += p.size
+                slots
+            }
+            node.methods.add(mn)
+            changed = true
+        }
+        if (changed) {
+            val cw = ClassWriter(ClassWriter.COMPUTE_MAXS)
+            node.accept(cw)
+            classFile.writeBytes(cw.toByteArray())
+        }
+    }
+}
+
+fun parseMemberSignature(sig: String): Pair<String, List<Type>>? {
+    val open = sig.indexOf('(')
+    val close = sig.lastIndexOf(')')
+    if (open < 0 || close < open) return null
+    val name = sig.substring(0, open).trim()
+    val params = sig.substring(open + 1, close).trim()
+    val types = if (params.isEmpty()) emptyList() else params.split(',').map { erasedTypeToAsm(it.trim()) }
+    if (types.any { it == null }) return null
+    @Suppress("UNCHECKED_CAST")
+    return name to (types as List<Type>)
+}
+
+fun erasedTypeToAsm(s: String): Type? {
+    if (s.isEmpty()) return null
+    if (s.endsWith("[]")) {
+        val elem = erasedTypeToAsm(s.removeSuffix("[]")) ?: return null
+        return Type.getType("[" + elem.descriptor)
+    }
+    return when (s) {
+        "int" -> Type.INT_TYPE
+        "long" -> Type.LONG_TYPE
+        "boolean" -> Type.BOOLEAN_TYPE
+        "byte" -> Type.BYTE_TYPE
+        "char" -> Type.CHAR_TYPE
+        "short" -> Type.SHORT_TYPE
+        "float" -> Type.FLOAT_TYPE
+        "double" -> Type.DOUBLE_TYPE
+        "void" -> Type.VOID_TYPE
+        else -> Type.getObjectType(s.replace('.', '/'))
+    }
+}
