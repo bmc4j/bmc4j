@@ -1,5 +1,9 @@
 package java.util;
 
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 /**
  * Minimal BMC model of {@link java.util.Map} — flattened interface declaring the members our
  * {@link HashMap} model supports. Omitted members fall back to JBMC's nondet stub.
@@ -29,6 +33,39 @@ public interface Map<K, V> {
     void clear();
 
     V getOrDefault(Object key, V defaultValue);
+
+    /**
+     * If {@code key} has no present (non-null) mapping, compute one with {@code mappingFunction} and
+     * install it unless the result is null. A null result leaves the key absent and returns null.
+     */
+    V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction);
+
+    /**
+     * If {@code key} is present (non-null), recompute with {@code remappingFunction}; a null result
+     * removes the mapping. Absent keys are left untouched (returns null).
+     */
+    V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
+
+    /**
+     * Recompute the mapping for {@code key} (passing the current value, or null if absent); a null
+     * result removes the mapping (and returns null), otherwise installs and returns the new value.
+     */
+    V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
+
+    /**
+     * If absent (or null) install {@code value}; otherwise merge the existing value with {@code value}
+     * via {@code remappingFunction}. A null merge result removes the mapping.
+     */
+    V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction);
+
+    /** Apply {@code action} to each mapping, in iteration order. */
+    void forEach(BiConsumer<? super K, ? super V> action);
+
+    /** Replace the value for {@code key} only if it is currently present; returns the prior value. */
+    V replace(K key, V value);
+
+    /** Replace only if {@code key} currently maps to {@code oldValue}; returns whether it replaced. */
+    boolean replace(K key, V oldValue, V newValue);
 
     /** Snapshot of the keys (a {@code HashSet}). Read views; mutation-through-view isn't modeled. */
     Set<K> keySet();

@@ -1,6 +1,8 @@
 package java.util.concurrent;
 
 import java.util.HashMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Sequential BMC model of {@link java.util.concurrent.ConcurrentHashMap} — functionally a HashMap
@@ -78,5 +80,58 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
         }
         put(key, value);
         return null;
+    }
+
+    // The functional-arg ops: ConcurrentHashMap rejects null keys and null mapping functions (NPE),
+    // and (unlike HashMap) never stores null — a null function result removes the mapping. The
+    // superclass logic is otherwise correct here because CHM never holds a null value, so its
+    // "present" test (get != null) coincides with containsKey. We only add the null guards.
+
+    @Override
+    public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+        if (key == null || mappingFunction == null) {
+            throw new NullPointerException();
+        }
+        return super.computeIfAbsent(key, mappingFunction);
+    }
+
+    @Override
+    public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        if (key == null || remappingFunction == null) {
+            throw new NullPointerException();
+        }
+        return super.computeIfPresent(key, remappingFunction);
+    }
+
+    @Override
+    public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        if (key == null || remappingFunction == null) {
+            throw new NullPointerException();
+        }
+        return super.compute(key, remappingFunction);
+    }
+
+    @Override
+    public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        if (key == null || value == null || remappingFunction == null) {
+            throw new NullPointerException();
+        }
+        return super.merge(key, value, remappingFunction);
+    }
+
+    @Override
+    public V replace(K key, V value) {
+        if (key == null || value == null) {
+            throw new NullPointerException();
+        }
+        return super.replace(key, value);
+    }
+
+    @Override
+    public boolean replace(K key, V oldValue, V newValue) {
+        if (key == null || oldValue == null || newValue == null) {
+            throw new NullPointerException();
+        }
+        return super.replace(key, oldValue, newValue);
     }
 }
