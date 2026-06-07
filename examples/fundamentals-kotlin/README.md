@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 20
+proofs: 23
 proof-execution: 380s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -18,8 +18,12 @@ in both languages, including Kotlin's null-safety operators.
 
 ## `arraybounds`
 `Grades.label(score)` indexes a 5-element band array and breaks at `score == 100` (index 5) —
-the off-by-one, in Kotlin. `labelSafe` clamps the index and is proven over 1..100.
-*(1 fail + 1 pass.)*
+the off-by-one, in Kotlin. `labelSafe` clamps the index and is proven over 1..100. The same
+package also carries the README's headline value-class shape: a `Score` value class
+(`init { require(value in 1..100) }`) whose invariant is verified under BMC, and `gradeBand`
+proven to never throw for any `Score` — `assumeValid { Score(anyInt()) }` folds the `require`
+range into the proof domain, with a refute-pinned proof confirming the domain really is 1..100.
+*(2 fail + 3 pass.)*
 
 ## `integeroverflow`
 `Numbers.abs(x) = if (x < 0) -x else x` overflows: Kotlin `Int` arithmetic wraps just like
