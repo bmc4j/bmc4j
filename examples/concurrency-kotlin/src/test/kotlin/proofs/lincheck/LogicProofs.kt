@@ -5,6 +5,7 @@ import example.lincheck.RacyAccount
 import example.lincheck.SafeAccount
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
+import org.bmc4j.Shard
 import org.bmc4j.Verdict
 
 /**
@@ -18,6 +19,9 @@ import org.bmc4j.Verdict
 class LogicProofs {
 
     // Sound guard → proven for every balance and amount.
+    // These three ~73s proofs share the concurrency-kotlin module with CoroutineProofTests; pin them
+    // so the module's heavy proofs spread across shards instead of hash-clustering.
+    @Shard(2)
     @BmcProof
     fun racy_withdraw_never_overdraws() {
         val a = RacyAccount()
@@ -29,6 +33,7 @@ class LogicProofs {
     // INTENDED FAILURE: no overdraft guard. BMC finds an amount that goes negative —
     // the bug Lincheck stays green on (OverdraftAccount is thread-safe).
     // Expected verdict: REFUTED - the seeded logic bug allows a negative balance.
+    @Shard(3)
     @BmcProof(expect = Verdict.REFUTED)
     fun overdraft_withdraw_can_go_negative() {
         val a = OverdraftAccount()
@@ -38,6 +43,7 @@ class LogicProofs {
     }
 
     // Both protections present → proven.
+    @Shard(3)
     @BmcProof
     fun safe_withdraw_never_overdraws() {
         val a = SafeAccount()

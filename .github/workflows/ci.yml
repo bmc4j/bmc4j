@@ -130,6 +130,9 @@ jobs:
           # per-proof verdict cache makes the slices' results mergeable: each entry is keyed by
           # content, so the union of the shards' caches is sound by construction (a merge job below
           # unions them into a shared snapshot every shard restores next run). 1 shard = unsharded.
+          # The hash balances by COUNT, not COST: annotate a known-slow proof (or class) @org.bmc4j.Shard(N)
+          # to pin it to shard N so the expensive proofs spread one-per-shard instead of hash-clustering
+          # (out-of-range N folds back into range; never a silent skip). See ShardFilter / @Shard.
           legs='[]'
           # jdk_leg <jdk> [shards]: emits one matrix entry per shard. base/name is the leg; each
           # entry carries shardIndex/shardCount, and the proofs job adds -Dbmc.shard.* from them.

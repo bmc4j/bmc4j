@@ -4,6 +4,7 @@ import example.records.Point;
 import example.records.User;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
+import org.bmc4j.Shard;
 import org.bmc4j.Verdict;
 
 /**
@@ -57,6 +58,10 @@ class RecordHashCodeProofs {
     // PASS over symbolic String + int components: equal records with a reference (String) component
     // still hash equal. Exercises the BmcStrings.hashCode (length + charAt) path in the desugar, which
     // is the sound part JBMC's own String.hashCode cannot deliver. unwind covers the bounded name.
+    // The suite's single slowest proof (~105s): the symbolic-String hashCode fold. Pin it so the
+    // shard split places it deliberately rather than letting the hash co-locate it with another
+    // heavy proof. (See @Shard.)
+    @Shard(2)
     @BmcProof(unwind = 8)
     void equal_users_with_string_component_have_equal_hashCode() {
         int id = Bmc.anyInt(0, 1000);
