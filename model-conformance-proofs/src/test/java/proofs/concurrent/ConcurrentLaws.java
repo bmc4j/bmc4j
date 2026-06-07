@@ -1,6 +1,7 @@
 package proofs.concurrent;
 
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,6 +89,140 @@ class ConcurrentLaws {
         Bmc.check(ga.getAndAccumulate(x, (c, arg) -> c + arg) == start && ga.get() == start + x);
         AtomicLong aa = new AtomicLong(start);
         Bmc.check(aa.accumulateAndGet(x, (c, arg) -> c + arg) == start + x);
+    }
+
+    // --- CompletableFuture (sequential ready-value / ready-failure) -------------------------------
+    // A future is "a value that is ready" or "a failure that is ready". These laws pin the trust-
+    // critical sequential semantics: the right combinator runs on a normal completion, and on an
+    // exceptional completion the dependent actions SHORT-CIRCUIT (propagate) while exceptionally/handle
+    // RECOVER. Lambdas devirtualize through the model exactly like the atomic update-family above.
+
+    /** A completed future carries its value through thenApply (lambda devirtualized) to join. */
+    @BmcProof
+    void completablefuture_thenApply_runs_on_value() {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.completedFuture(v);
+        int r = f.thenApply(x -> x + 7).join();
+        Bmc.check(r == v + 7);
+        Bmc.check(f.isDone() && !f.isCompletedExceptionally());
+    }
+
+    /** thenCompose flattens a future-returning lambda; the composed value reaches join. */
+    @BmcProof
+    void completablefuture_thenCompose_flattens() {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.completedFuture(v);
+        int r = f.thenCompose(x -> CompletableFuture.completedFuture(x * 2)).join();
+        Bmc.check(r == v * 2);
+    }
+
+    // NOTE: thenCombine is NOT proved here. The JDK declares thenCombine(CompletionStage, BiFunction);
+    // the model implements thenCombine(CompletableFuture, BiFunction) (a narrower, JVM-callable
+    // overload). On a real JVM the reflective differential test drives the modeled overload directly
+    // (ConcurrencyConformanceTest covers it), but javac/JBMC bind a source-level fa.thenCombine(fb, …)
+    // call to the CompletionStage overload, which is in the tail (loud). So thenCombine stays on the
+    // DIFFERENTIAL axis only — the established pattern for a JBMC dispatch quirk (see the memory note on
+    // Duration.between / LocalDate.isBefore staying differential-only).
+
+    /** supplyAsync runs the supplier eagerly (single-threaded) and the value reaches get(). */
+    @BmcProof
+    void completablefuture_supplyAsync_runs_eagerly() throws Exception {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.supplyAsync(() -> v + 1);
+        Bmc.check(f.isDone());
+        Bmc.check(f.get() == v + 1);
+    }
+
+    /**
+     * EXCEPTION FLOW — propagation: a future completed exceptionally short-circuits thenApply (the
+     * dependent action must NOT run) and the RESULT future is itself exceptional. We assert this on the
+     * model's own decidable state ({@code isCompletedExceptionally} on the chained result), NOT by
+     * catching the join() throw and inspecting the real-JDK CompletionException internals — those
+     * wrapper classes are unmodeled real types whose getCause() JBMC cannot reason about (it can on a
+     * real JVM, which the differential test checks). This is the core short-circuit property a proof
+     * relies on: the failure flows past the combinator untouched.
+     */
+    @BmcProof
+    void completablefuture_exceptional_thenApply_short_circuits() {
+        CompletableFuture<Integer> f = new CompletableFuture<>();
+        f.completeExceptionally(new RuntimeException());
+        Bmc.check(f.isCompletedExceptionally());
+
+        // The dependent action records whether it ran; on an exceptional source it must NOT.
+        AtomicInteger ran = new AtomicInteger(0);
+        CompletableFuture<Integer> g = f.thenApply(x -> {
+            ran.incrementAndGet();
+            return x + 1;
+        });
+        Bmc.check(ran.get() == 0);            // short-circuited: the action never ran
+        Bmc.check(g.isCompletedExceptionally()); // and the failure propagated to the result
+    }
+
+    /**
+     * EXCEPTION FLOW — recovery via exceptionally: a failed future is recovered to a normal value; the
+     * recovered value reaches join with no exception, and the recovered future is no longer
+     * exceptional. The companion to short-circuit: this is the "catch" of the future world.
+     */
+    @BmcProof
+    void completablefuture_exceptionally_recovers() {
+        int fallback = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = new CompletableFuture<>();
+        f.completeExceptionally(new RuntimeException());
+        CompletableFuture<Integer> recovered = f.exceptionally(cause -> fallback);
+        Bmc.check(!recovered.isCompletedExceptionally());
+        Bmc.check(recovered.join() == fallback); // recovered: no throw
+    }
+
+    /** exceptionally on a NORMAL future passes the value through unchanged (the fn is not invoked). */
+    @BmcProof
+    void completablefuture_exceptionally_passthrough_on_normal() {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.completedFuture(v);
+        int r = f.exceptionally(cause -> -1).join();
+        Bmc.check(r == v);
+    }
+
+    /**
+     * EXCEPTION FLOW — recovery via handle: handle sees (null, cause) on failure and (value, null) on
+     * success, and its return becomes the result either way. Proves both arms of the BiFunction.
+     */
+    @BmcProof
+    void completablefuture_handle_recovers_and_passes() {
+        int v = Bmc.anyInt(0, 100);
+
+        // failure arm: value is null, cause is present -> recover to a sentinel.
+        CompletableFuture<Integer> failed = new CompletableFuture<>();
+        failed.completeExceptionally(new RuntimeException());
+        int rf = failed.handle((value, cause) -> cause != null ? -1 : value).join();
+        Bmc.check(rf == -1);
+
+        // success arm: value present, cause null -> transform the value.
+        CompletableFuture<Integer> ok = CompletableFuture.completedFuture(v);
+        int ro = ok.handle((value, cause) -> cause != null ? -1 : value + 1).join();
+        Bmc.check(ro == v + 1);
+    }
+
+    /** whenComplete observes but does NOT recover: the result future stays exceptional. */
+    @BmcProof
+    void completablefuture_whenComplete_does_not_recover() {
+        CompletableFuture<Integer> f = new CompletableFuture<>();
+        f.completeExceptionally(new RuntimeException());
+        AtomicInteger observed = new AtomicInteger(0);
+        CompletableFuture<Integer> g = f.whenComplete((value, cause) -> observed.incrementAndGet());
+        Bmc.check(observed.get() == 1);          // the observer DID run (unlike thenApply)
+        Bmc.check(g.isCompletedExceptionally()); // but the failure is NOT recovered
+    }
+
+    /** allOf over all-normal futures completes normally; a single failure makes the result exceptional. */
+    @BmcProof
+    void completablefuture_allOf_propagates_a_failure() {
+        int a = Bmc.anyInt(-50, 50);
+        CompletableFuture<Integer> ok = CompletableFuture.completedFuture(a);
+        CompletableFuture<Integer> bad = new CompletableFuture<>();
+        bad.completeExceptionally(new RuntimeException());
+
+        Bmc.check(!CompletableFuture.allOf(ok).isCompletedExceptionally());     // all normal
+        Bmc.check(CompletableFuture.allOf(ok, bad).isCompletedExceptionally()); // one failed: propagates
     }
 
     // --- CountDownLatch ---------------------------------------------------------------------------

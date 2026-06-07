@@ -151,8 +151,141 @@ class ConcurrencyConformanceTest : FunSpec({
             r.get() shouldBe call(m, "get", arrayOf()).getOrThrow()
             r.join() shouldBe call(m, "join", arrayOf()).getOrThrow()
             r.isDone shouldBe call(m, "isDone", arrayOf()).getOrThrow()
+            r.isCompletedExceptionally shouldBe call(m, "isCompletedExceptionally", arrayOf()).getOrThrow()
             r.getNow(-1) shouldBe call(m, "getNow", arrayOf(OBJECT), -1).getOrThrow()
         }
+    }
+
+    // --- CompletableFuture chaining (normal path) --------------------------------------------------
+    // The dependent-action combinators run their lambda on a ready value (single-threaded). Drive each
+    // against a real completed future and the model and compare the realized value via join().
+    // NOTE: java.util.function.* is NOT relocated (see bmc-models-conformance build script), so the
+    // model methods take the REAL functional interfaces — a plain Kotlin SAM lambda passes to both sides.
+    test("CompletableFuture chaining conforms on a normal completion") {
+        checkAll(Arb.int(0..9)) { v ->
+            val r = java.util.concurrent.CompletableFuture.completedFuture(v)
+            val m = bmcref.java.util.concurrent.CompletableFuture.completedFuture(v)
+
+            // thenApply
+            val fnApply = java.util.function.Function<Int, Int> { it + 100 }
+            r.thenApply(fnApply).join() shouldBe
+                modelJoin(call(m, "thenApply", arrayOf(FUNCTION), fnApply))
+
+            // thenCompose -> another completed future (the lambda must return the SAME-typed future as
+            // its callee, so build a model future for the model call and a real one for the real call)
+            val rComposed = r.thenCompose { java.util.concurrent.CompletableFuture.completedFuture(it * 2) }.join()
+            val mCompose = java.util.function.Function<Int, Any?> { bmcref.java.util.concurrent.CompletableFuture.completedFuture(it * 2) }
+            val mComposed = modelJoin(call(m, "thenCompose", arrayOf(FUNCTION), mCompose))
+            mComposed shouldBe rComposed
+
+            // thenCombine with another completed future
+            val rOther = java.util.concurrent.CompletableFuture.completedFuture(7)
+            val mOther = bmcref.java.util.concurrent.CompletableFuture.completedFuture(7)
+            val combine = java.util.function.BiFunction<Int, Int, Int> { a, b -> a + b }
+            val rComb = r.thenCombine(rOther, combine).join()
+            val mComb = modelJoin(call(m, "thenCombine", arrayOf(CF, BIFUNCTION), mOther, combine))
+            mComb shouldBe rComb
+
+            // handle (normal): cause is null
+            val handler = java.util.function.BiFunction<Int?, Throwable?, Int> { value, _ -> (value ?: -1) + 1 }
+            val rHandled = r.handle(handler).join()
+            val mHandled = modelJoin(call(m, "handle", arrayOf(BIFUNCTION), handler))
+            mHandled shouldBe rHandled
+
+            // exceptionally on a normal future passes the value through unchanged
+            val recover = java.util.function.Function<Throwable, Int> { -999 }
+            val rExc = r.exceptionally(recover).join()
+            val mExc = modelJoin(call(m, "exceptionally", arrayOf(FUNCTION), recover))
+            mExc shouldBe rExc
+
+            // whenComplete observes without altering a normal completion
+            val observer = java.util.function.BiConsumer<Int?, Throwable?> { _, _ -> }
+            val rWhen = r.whenComplete(observer).join()
+            val mWhen = modelJoin(call(m, "whenComplete", arrayOf(BICONSUMER), observer))
+            mWhen shouldBe rWhen
+        }
+    }
+
+    // --- CompletableFuture EXCEPTION FLOW (the trust-critical path) --------------------------------
+    // A future completed exceptionally must: surface ExecutionException from get and CompletionException
+    // from join/getNow; short-circuit the dependent-action combinators (propagate the cause); and let
+    // exceptionally/handle RECOVER. Compared against a real exceptionally-completed CompletableFuture.
+    test("CompletableFuture exceptional completion conforms (get/join wrapping)") {
+        val r = java.util.concurrent.CompletableFuture<Int>()
+        r.completeExceptionally(RuntimeException("boom"))
+        val m = bmcref.java.util.concurrent.CompletableFuture<Int>()
+        call(m, "completeExceptionally", arrayOf(THROWABLE), RuntimeException("boom")).getOrThrow()
+
+        call(m, "isDone", arrayOf()).getOrThrow() shouldBe r.isDone
+        call(m, "isCompletedExceptionally", arrayOf()).getOrThrow() shouldBe r.isCompletedExceptionally
+
+        // get throws ExecutionException on both
+        assertSameException(runCatching { r.get() }, call(m, "get", arrayOf()))
+        // join throws CompletionException on both
+        assertSameException(runCatching { r.join() }, call(m, "join", arrayOf()))
+        // getNow on a failed future also throws CompletionException (not the absent value)
+        assertSameException(runCatching { r.getNow(-1) }, call(m, "getNow", arrayOf(OBJECT), -1))
+    }
+
+    test("CompletableFuture exceptional completion: combinators short-circuit, exceptionally/handle recover") {
+        val r = java.util.concurrent.CompletableFuture<Int>()
+        r.completeExceptionally(IllegalStateException("x"))
+        val m = bmcref.java.util.concurrent.CompletableFuture<Int>()
+        call(m, "completeExceptionally", arrayOf(THROWABLE), IllegalStateException("x")).getOrThrow()
+
+        // thenApply does NOT run the fn; the result is exceptional -> join throws CompletionException.
+        val applyFn = java.util.function.Function<Int, Int> { it + 1 }
+        val rApplied = r.thenApply(applyFn)
+        val mApplied = call(m, "thenApply", arrayOf(FUNCTION), applyFn).getOrThrow()!!
+        assertSameException(runCatching { rApplied.join() }, call(mApplied, "join", arrayOf()))
+
+        // exceptionally RECOVERS: fn receives the raw cause, result completes normally.
+        val recover = java.util.function.Function<Throwable, Int> { -1 }
+        val rRecovered = r.exceptionally(recover).join()
+        val mRecovered = modelJoin(call(m, "exceptionally", arrayOf(FUNCTION), recover))
+        mRecovered shouldBe rRecovered
+
+        // handle RECOVERS: receives (null value, cause), result completes normally.
+        val handler = java.util.function.BiFunction<Int?, Throwable?, Int> { _, cause -> if (cause != null) -2 else 0 }
+        val rHandled = r.handle(handler).join()
+        val mHandled = modelJoin(call(m, "handle", arrayOf(BIFUNCTION), handler))
+        mHandled shouldBe rHandled
+
+        // whenComplete does NOT recover: result stays exceptional.
+        val observer = java.util.function.BiConsumer<Int?, Throwable?> { _, _ -> }
+        val rWhen = r.whenComplete(observer)
+        val mWhen = call(m, "whenComplete", arrayOf(BICONSUMER), observer).getOrThrow()!!
+        assertSameException(runCatching { rWhen.join() }, call(mWhen, "join", arrayOf()))
+    }
+
+    test("CompletableFuture allOf/anyOf conform (sequential)") {
+        checkAll(Arb.int(0..9), Arb.int(0..9)) { a, b ->
+            // allOf: all normal -> result join is null (Void)
+            val r1 = java.util.concurrent.CompletableFuture.completedFuture(a)
+            val r2 = java.util.concurrent.CompletableFuture.completedFuture(b)
+            val m1 = bmcref.java.util.concurrent.CompletableFuture.completedFuture(a)
+            val m2 = bmcref.java.util.concurrent.CompletableFuture.completedFuture(b)
+            val rAll = java.util.concurrent.CompletableFuture.allOf(r1, r2).join()
+            val mArr = makeRefCfArray(m1, m2)
+            val mAll = modelJoin(staticCall(CF, "allOf", arrayOf(CF_ARRAY), mArr))
+            mAll shouldBe rAll
+
+            // anyOf: first arg's value
+            val rAny = java.util.concurrent.CompletableFuture.anyOf(r1, r2).join()
+            val mAny = modelJoin(staticCall(CF, "anyOf", arrayOf(CF_ARRAY), mArr))
+            mAny shouldBe rAny
+        }
+    }
+
+    test("CompletableFuture allOf surfaces a failure (sequential)") {
+        val r1 = java.util.concurrent.CompletableFuture.completedFuture(1)
+        val r2 = java.util.concurrent.CompletableFuture<Int>().also { it.completeExceptionally(RuntimeException("f")) }
+        val m1 = bmcref.java.util.concurrent.CompletableFuture.completedFuture(1)
+        val m2 = bmcref.java.util.concurrent.CompletableFuture<Int>()
+        call(m2, "completeExceptionally", arrayOf(THROWABLE), RuntimeException("f")).getOrThrow()
+        val rAll = java.util.concurrent.CompletableFuture.allOf(r1, r2)
+        val mAll = staticCall(CF, "allOf", arrayOf(CF_ARRAY), makeRefCfArray(m1, m2)).getOrThrow()!!
+        assertSameException(runCatching { rAll.join() }, call(mAll, "join", arrayOf()))
     }
 
     // --- CountDownLatch (sequential) ---------------------------------------------------------------
@@ -400,6 +533,30 @@ private class QOp(val desc: String, val invoke: (Any) -> Result<Any?>) {
 }
 
 private fun refClass(name: String): Class<*> = Class.forName(name)
+
+// Functional-interface arg types for reflective model calls. java.util.function.* is NOT relocated, so
+// these are the REAL JDK interfaces — a plain Kotlin SAM lambda is a valid instance for both impls.
+private val FUNCTION: Class<*> = java.util.function.Function::class.java
+private val BIFUNCTION: Class<*> = java.util.function.BiFunction::class.java
+private val BICONSUMER: Class<*> = java.util.function.BiConsumer::class.java
+private val THROWABLE: Class<*> = java.lang.Throwable::class.java
+
+// The relocated CompletableFuture type + its array (allOf/anyOf take a CompletableFuture[] vararg).
+private val CF: Class<*> = bmcref.java.util.concurrent.CompletableFuture::class.java
+private val CF_ARRAY: Class<*> = java.lang.reflect.Array.newInstance(CF, 0).javaClass
+
+/** Build a relocated-model CompletableFuture[] for the allOf/anyOf vararg parameter. */
+private fun makeRefCfArray(vararg fs: bmcref.java.util.concurrent.CompletableFuture<*>): Any {
+    val arr = java.lang.reflect.Array.newInstance(CF, fs.size)
+    fs.forEachIndexed { i, f -> java.lang.reflect.Array.set(arr, i, f) }
+    return arr
+}
+
+/** Unwrap a Result holding a relocated-model CompletableFuture and reflectively join() it. */
+private fun modelJoin(result: Result<Any?>): Any? {
+    val f = result.getOrThrow()!!
+    return call(f, "join", arrayOf()).getOrThrow()
+}
 
 /** (label, realFactory(capacity), modelFactory(capacity)) for each BlockingQueue impl. */
 private fun blockingQueueFactories(): List<Triple<String, (Int) -> Any, (Int) -> Any>> = listOf(
