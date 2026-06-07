@@ -93,10 +93,18 @@ this single-thread idealization, the same boundary the `runBlocking { }` proofs 
 for Lincheck (see [limits](limits.md)).
 
 The purity audit (below) applies unchanged: it allows the benign per-call coroutine plumbing a suspend
-body unavoidably contains — writes to its own fresh state-machine (continuation) fields and the
-`COROUTINE_SUSPENDED` sentinel read — but **still rejects** a real `this`-mutation or any other genuine
-effect, so an impure suspend method is not a legal contract target either (the `suspendcontracts`
-concept ships exactly such a rejected contract).
+body unavoidably contains — writes to its own fresh state-machine (continuation) fields, the
+`COROUTINE_SUSPENDED` sentinel read, and the read of any `static final` constant (notably a Kotlin
+`object`'s own `INSTANCE` self-singleton) — but **still rejects** a real `this`-mutation or any other
+genuine effect, so an impure suspend method is not a legal contract target either (the
+`suspendcontracts` concept ships exactly such a rejected contract).
+
+**Supported kotlinc versions.** Suspend contracts are validated across kotlinc 2.0–2.4 (the consumer
+proof matrix). The coroutine state-machine codegen differs across these versions — e.g. kotlinc < 2.4
+emits a dead `GETSTATIC <object>.INSTANCE; POP` of the `@JvmStatic` owner's self-singleton inside a
+suspend loop body that kotlinc 2.4 elides — but the immediate-dispatch analysis and the purity
+allowance for `static final` constant reads make the enforce-proof's verdict identical on every
+version. No minimum kotlinc is required for suspend contracts.
 
 ## Java
 

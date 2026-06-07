@@ -392,7 +392,18 @@ internal object ContractPurityAudit {
     private fun scan(body: MethodBody, index: ClasspathIndex): ScanResult {
         val v = PurityMethodVisitor(
                 isStateMachineField = { owner -> isCoroutineStateMachine(owner, index) },
-                isAllowedStaticRead = { owner, name -> ALLOWED_COROUTINE_STATICS.contains("$owner.$name") })
+                isAllowedStaticRead = { owner, name ->
+                    // The named coroutine suspension sentinels (whose declaring class may not be on the
+                    // analysis classpath as a resolvable static-final field), OR any field that resolves
+                    // to `static final` on the classpath: its reference is assigned once in `<clinit>`
+                    // and is identical in every run and in the enforce-proof, so reading it is a constant
+                    // read, not run-varying state. This admits a Kotlin `object`'s own `INSTANCE`
+                    // singleton — which older kotlinc (<2.4) emits as a dead `GETSTATIC …INSTANCE; POP`
+                    // before a `@JvmStatic` call inside a suspend state machine's loop body, where newer
+                    // kotlinc elides it — without admitting any genuinely mutable static.
+                    ALLOWED_COROUTINE_STATICS.contains("$owner.$name") ||
+                            index.isStaticFinalField(owner, name)
+                })
         ClassReader(body.classBytes).accept(SingleMethodVisitor(body.name, body.descriptor, v), 0)
         return ScanResult(v.impurity, v.calls)
     }
@@ -550,6 +561,32 @@ internal object ContractPurityAudit {
             } catch (e: RuntimeException) {
                 null
             }
+        }
+
+        /** True when class [owner] declares a `static final` field named [name]. A `static final`
+         *  field's reference is assigned once in `<clinit>` and is identical in every run (and in the
+         *  enforce-proof), so a `GETSTATIC` of it reads a fixed constant, not run-varying state. Used to
+         *  allow reading a Kotlin `object`'s own `INSTANCE` singleton (and any other `static final`
+         *  constant) — exactly the constant-read justification the COROUTINE_SUSPENDED sentinel uses.
+         *  Returns false when [owner] isn't on the classpath (the conservative, reject-leaning default). */
+        fun isStaticFinalField(owner: String, name: String): Boolean {
+            val bytes = classes[owner] ?: return false
+            var found = false
+            try {
+                ClassReader(bytes).accept(object : ClassVisitor(Opcodes.ASM9) {
+                    override fun visitField(a: Int, n: String?, d: String?, s: String?,
+                                            value: Any?): org.objectweb.asm.FieldVisitor? {
+                        val wanted = Opcodes.ACC_STATIC or Opcodes.ACC_FINAL
+                        if (n == name && (a and wanted) == wanted) {
+                            found = true
+                        }
+                        return null
+                    }
+                }, ClassReader.SKIP_CODE)
+            } catch (e: RuntimeException) {
+                return false
+            }
+            return found
         }
 
         private fun anyDesc(bytes: ByteArray, name: String): String? {
@@ -724,17 +761,22 @@ internal object ContractPurityAudit {
                 Opcodes.PUTSTATIC ->
                     flag("writes static $owner.$name (a heap write to pre-existing global state)")
                 Opcodes.GETSTATIC -> {
-                    // GETSTATIC: only a static-final constable constant is pure to read. We can't see
-                    // the field's modifiers from the call site here, so treat a read of a likely
-                    // non-constant static conservatively. Primitive / String typed reads of a field
-                    // that the compiler did NOT inline (it still emits GETSTATIC) are flagged unless
-                    // they're known constant-ish; to stay sound without over-rejecting every enum/
-                    // bundled-model constant, we only flag GETSTATIC whose descriptor is a mutable
-                    // reference type (collections, arrays, holders). A final-primitive/String is
-                    // inlined by javac (no GETSTATIC) or is an interface constant (effectively final).
-                    // ALLOWANCE: the COROUTINE_SUSPENDED suspension sentinel is a fixed runtime constant
-                    // (a static-final enum singleton compared by identity), identical in the enforce-proof
-                    // and at every call site — reading it is not run-varying state.
+                    // GETSTATIC: only a static-final constable constant is pure to read. Primitive /
+                    // String typed reads of a field that the compiler did NOT inline (it still emits
+                    // GETSTATIC) are fine; to stay sound without over-rejecting every enum/bundled-model
+                    // constant, we only consider flagging a GETSTATIC whose descriptor is a mutable
+                    // reference type (collections, arrays, holders). A final-primitive/String is inlined
+                    // by javac (no GETSTATIC) or is an interface constant (effectively final).
+                    // ALLOWANCE ([isAllowedStaticRead]): a read is permitted when it is a fixed runtime
+                    // constant — the COROUTINE_SUSPENDED suspension sentinel (a static-final enum
+                    // singleton compared by identity), OR any field that resolves to `static final` on
+                    // the analysis classpath. A `static final` field's reference is assigned once in
+                    // `<clinit>`, identical in the enforce-proof and at every call site, so reading it is
+                    // not run-varying state. This admits a Kotlin `object`'s own `INSTANCE` singleton,
+                    // which older kotlinc (<2.4) emits as a dead `GETSTATIC …INSTANCE; POP` before a
+                    // `@JvmStatic` call inside a suspend state machine — without admitting any genuinely
+                    // mutable static (a non-final static is still flagged; a mutation THROUGH a constant
+                    // reference is caught separately as a PUTFIELD/array-store on non-fresh state).
                     if (isMutableStaticType(descriptor) && !isAllowedStaticRead(owner ?: "", name ?: "")) {
                         flag(mutableStaticReadImpurity(owner, name))
                     }
