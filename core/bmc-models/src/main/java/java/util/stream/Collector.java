@@ -17,10 +17,12 @@ public final class Collector<T, A, R> {
     static final int GROUPING_BY = 3;
     static final int JOINING = 4;
     static final int PARTITIONING_BY = 5;
+    static final int COUNTING = 6;
+    static final int MAPPING = 7;
 
     final int kind;
 
-    /** For {@link #TO_MAP}: key mapper. For {@link #GROUPING_BY}: the classifier. */
+    /** For {@link #TO_MAP}: key mapper. For {@link #GROUPING_BY}: the classifier. For {@link #MAPPING}: the per-element mapper. */
     final Function<?, ?> keyFn;
 
     /** For {@link #TO_MAP}: value mapper. Unused by {@link #GROUPING_BY}. */
@@ -32,8 +34,11 @@ public final class Collector<T, A, R> {
     /** For {@link #PARTITIONING_BY}: the predicate that splits elements into the true/false buckets. */
     final Predicate<?> predicate;
 
+    /** For {@link #MAPPING}: the downstream collector the mapped elements are fed into. */
+    final Collector<?, ?, ?> downstream;
+
     Collector(int kind) {
-        this(kind, null, null);
+        this(kind, (Function<?, ?>) null, (Function<?, ?>) null);
     }
 
     Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn) {
@@ -42,6 +47,7 @@ public final class Collector<T, A, R> {
         this.valueFn = valueFn;
         this.delimiter = "";
         this.predicate = null;
+        this.downstream = null;
     }
 
     Collector(int kind, CharSequence delimiter) {
@@ -50,6 +56,7 @@ public final class Collector<T, A, R> {
         this.valueFn = null;
         this.delimiter = delimiter;
         this.predicate = null;
+        this.downstream = null;
     }
 
     Collector(int kind, Predicate<?> predicate) {
@@ -58,5 +65,20 @@ public final class Collector<T, A, R> {
         this.valueFn = null;
         this.delimiter = "";
         this.predicate = predicate;
+        this.downstream = null;
+    }
+
+    /**
+     * For {@link #MAPPING}: the downstream collector plus the per-element mapper it feeds. The
+     * downstream param comes FIRST so this signature is unambiguous against the
+     * {@code (int, Function, Function)} TO_MAP/GROUPING_BY constructor under {@code null} args.
+     */
+    Collector(int kind, Collector<?, ?, ?> downstream, Function<?, ?> mapper) {
+        this.kind = kind;
+        this.keyFn = mapper;
+        this.valueFn = null;
+        this.delimiter = "";
+        this.predicate = null;
+        this.downstream = downstream;
     }
 }

@@ -1,6 +1,7 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
@@ -95,6 +96,178 @@ public final class ListStream<T> implements Stream<T> {
             }
         }
         return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> limit(long maxSize) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            if (i < maxSize) {
+                out.add(data.get(i));
+            }
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> takeWhile(Predicate<? super T> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            T v = data.get(i);
+            if (!predicate.test(v)) {
+                break;
+            }
+            out.add(v);
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> dropWhile(Predicate<? super T> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        boolean dropping = true;
+        for (int i = 0; i < data.size(); i++) {
+            T v = data.get(i);
+            if (dropping && predicate.test(v)) {
+                continue;
+            }
+            dropping = false;
+            out.add(v);
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> peek(Consumer<? super T> action) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            T v = data.get(i);
+            action.accept(v);
+            out.add(v);
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> sorted(Comparator<? super T> comparator) {
+        // Stable selection sort over a snapshot, appending in order (no positional ArrayList.add —
+        // that's an unmodeled ArrayList op). Tiny lists only. Marks consumed slots to stay stable.
+        int n = data.size();
+        ArrayList<T> snap = new ArrayList<>();
+        boolean[] used = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            snap.add(data.get(i));
+        }
+        ArrayList<T> out = new ArrayList<>();
+        for (int k = 0; k < n; k++) {
+            int best = -1;
+            for (int i = 0; i < n; i++) {
+                if (used[i]) {
+                    continue;
+                }
+                if (best == -1 || comparator.compare(snap.get(i), snap.get(best)) < 0) {
+                    best = i;
+                }
+            }
+            used[best] = true;
+            out.add(snap.get(best));
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream flatMapToInt(Function<? super T, ? extends IntStream> mapper) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < data.size(); i++) {
+            IntStream inner = mapper.apply(data.get(i));
+            int[] arr = inner.toArray();
+            for (int j = 0; j < arr.length; j++) {
+                s.add(arr[j]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream flatMapToLong(Function<? super T, ? extends LongStream> mapper) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < data.size(); i++) {
+            LongStream inner = mapper.apply(data.get(i));
+            long[] arr = inner.toArray();
+            for (int j = 0; j < arr.length; j++) {
+                s.add(arr[j]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public boolean noneMatch(Predicate<? super T> predicate) {
+        for (int i = 0; i < data.size(); i++) {
+            if (predicate.test(data.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Optional<T> findFirst() {
+        if (data.size() == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(data.get(0));
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Optional<T> findAny() {
+        // For an ordered eager model, findAny is allowed to (and does) return the first element.
+        if (data.size() == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(data.get(0));
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Optional<T> min(Comparator<? super T> comparator) {
+        if (data.size() == 0) {
+            return Optional.empty();
+        }
+        T best = data.get(0);
+        for (int i = 1; i < data.size(); i++) {
+            T v = data.get(i);
+            if (comparator.compare(v, best) < 0) {
+                best = v;
+            }
+        }
+        return Optional.of(best);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Optional<T> max(Comparator<? super T> comparator) {
+        if (data.size() == 0) {
+            return Optional.empty();
+        }
+        T best = data.get(0);
+        for (int i = 1; i < data.size(); i++) {
+            T v = data.get(i);
+            if (comparator.compare(v, best) > 0) {
+                best = v;
+            }
+        }
+        return Optional.of(best);
     }
 
     @Override
@@ -246,6 +419,20 @@ public final class ListStream<T> implements Stream<T> {
                 bucket.add(v);
             }
             return (R) m;
+        }
+        if (collector.kind == Collector.COUNTING) {
+            return (R) Long.valueOf(data.size());
+        }
+        if (collector.kind == Collector.MAPPING) {
+            // Apply the per-element mapper, then collect the mapped elements with the downstream
+            // collector over a fresh bounded stream (sound for toList/toSet/counting/joining).
+            Function<? super T, ?> mapper = (Function<? super T, ?>) collector.keyFn;
+            ArrayList<Object> mapped = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                mapped.add(mapper.apply(data.get(i)));
+            }
+            Collector<Object, Object, R> down = (Collector<Object, Object, R>) collector.downstream;
+            return new ListStream<>(mapped).collect(down);
         }
         return (R) toList();
     }

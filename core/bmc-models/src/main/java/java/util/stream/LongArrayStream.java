@@ -1,8 +1,11 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.function.LongBinaryOperator;
+import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
+import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
 
 import org.bmc4j.models.audit.BmcModelConforms;
@@ -66,6 +69,176 @@ final class LongArrayStream implements LongStream {
             }
         }
         return false;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public boolean allMatch(LongPredicate predicate) {
+        for (int i = 0; i < size; i++) {
+            if (!predicate.test(data[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public boolean noneMatch(LongPredicate predicate) {
+        for (int i = 0; i < size; i++) {
+            if (predicate.test(data[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream limit(long maxSize) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (i < maxSize) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream skip(long n) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (i >= n) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream takeWhile(LongPredicate predicate) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (!predicate.test(data[i])) {
+                break;
+            }
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream dropWhile(LongPredicate predicate) {
+        LongArrayStream s = new LongArrayStream();
+        boolean dropping = true;
+        for (int i = 0; i < size; i++) {
+            if (dropping && predicate.test(data[i])) {
+                continue;
+            }
+            dropping = false;
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream distinct() {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            boolean seen = false;
+            for (int j = 0; j < i; j++) {
+                if (data[j] == data[i]) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream sorted() {
+        // Natural-order stable insertion sort over the bounded array. Tiny lengths only.
+        LongArrayStream s = new LongArrayStream();
+        long[] out = new long[size];
+        int n = 0;
+        for (int i = 0; i < size; i++) {
+            long v = data[i];
+            int pos = n;
+            for (int j = 0; j < n; j++) {
+                if (v < out[j]) {
+                    pos = j;
+                    break;
+                }
+            }
+            for (int k = n; k > pos; k--) {
+                out[k] = out[k - 1];
+            }
+            out[pos] = v;
+            n++;
+        }
+        for (int i = 0; i < n; i++) {
+            s.add(out[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream peek(LongConsumer action) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public void forEach(LongConsumer action) {
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+        }
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public long reduce(long identity, LongBinaryOperator op) {
+        long result = identity;
+        for (int i = 0; i < size; i++) {
+            result = op.applyAsLong(result, data[i]);
+        }
+        return result;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public long[] toArray() {
+        long[] out = new long[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = data[i];
+        }
+        return out;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream mapToInt(LongToIntFunction mapper) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(mapper.applyAsInt(data[i]));
+        }
+        return s;
     }
 
     @Override

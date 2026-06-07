@@ -16,7 +16,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * audit tail + loud-body synthesis, reaching an unmodeled collector now fails loudly under JBMC
  * naming the member, rather than silently falling back to a nondet stub.
  */
-@BmcModelTail(reason = "the broad Collectors surface (counting/summing*/averaging*/reducing/mapping/filtering/flatMapping/collectingAndThen/teeing/toUnmodifiable*/toCollection, the concurrent variants groupingByConcurrent/toConcurrentMap, summarizing*) is out of scope for the minimal eager model; loud under JBMC")
+@BmcModelTail(reason = "the remaining Collectors surface (summing*/averaging*/summarizing* — need double; reducing/filtering/flatMapping/collectingAndThen/teeing/toCollection, the comparator-driven minBy/maxBy, the multi-arg toMap/groupingBy/joining(prefix,suffix) and concurrent variants groupingByConcurrent/toConcurrentMap) is out of scope for the minimal eager model; loud under JBMC")
 public final class Collectors {
 
     private Collectors() {
@@ -35,6 +35,33 @@ public final class Collectors {
     @BmcModelConforms("@BmcProof (proofs.stream CollectorsLaws)")
     public static <T> Collector<T, ?, Set<T>> toSet() {
         return new Collector<>(Collector.TO_SET);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsTailLaws)")
+    public static <T> Collector<T, ?, Set<T>> toUnmodifiableSet() {
+        return new Collector<>(Collector.TO_SET);
+    }
+
+    /**
+     * Counts the elements. Mirrors {@link java.util.stream.Collectors#counting()}: yields a
+     * {@link Long}. {@link ListStream#collect} interprets the {@code COUNTING} tag.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsTailLaws)")
+    public static <T> Collector<T, ?, Long> counting() {
+        return new Collector<>(Collector.COUNTING);
+    }
+
+    /**
+     * Adapts {@code downstream} by applying {@code mapper} to each element first. Mirrors
+     * {@link java.util.stream.Collectors#mapping(Function, Collector)}. {@link ListStream#collect}
+     * maps each element through {@code mapper}, then collects the mapped stream with {@code downstream}
+     * (which the model supports for {@code toList}/{@code toSet}/{@code counting}/{@code joining}).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsTailLaws)")
+    public static <T, U, A, R> Collector<T, ?, R> mapping(
+            Function<? super T, ? extends U> mapper,
+            Collector<? super U, A, R> downstream) {
+        return new Collector<>(Collector.MAPPING, downstream, mapper);
     }
 
     /**

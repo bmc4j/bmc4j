@@ -1,8 +1,11 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.function.IntBinaryOperator;
+import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntToLongFunction;
 import java.util.function.IntUnaryOperator;
 
 import org.bmc4j.models.audit.BmcModelConforms;
@@ -66,6 +69,186 @@ final class IntArrayStream implements IntStream {
             }
         }
         return false;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public boolean allMatch(IntPredicate predicate) {
+        for (int i = 0; i < size; i++) {
+            if (!predicate.test(data[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public boolean noneMatch(IntPredicate predicate) {
+        for (int i = 0; i < size; i++) {
+            if (predicate.test(data[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream limit(long maxSize) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (i < maxSize) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream skip(long n) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (i >= n) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream takeWhile(IntPredicate predicate) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            if (!predicate.test(data[i])) {
+                break;
+            }
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream dropWhile(IntPredicate predicate) {
+        IntArrayStream s = new IntArrayStream();
+        boolean dropping = true;
+        for (int i = 0; i < size; i++) {
+            if (dropping && predicate.test(data[i])) {
+                continue;
+            }
+            dropping = false;
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream distinct() {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            boolean seen = false;
+            for (int j = 0; j < i; j++) {
+                if (data[j] == data[i]) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                s.add(data[i]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream sorted() {
+        // Natural-order stable insertion sort over the bounded array. Tiny lengths only.
+        IntArrayStream s = new IntArrayStream();
+        int[] out = new int[size];
+        int n = 0;
+        for (int i = 0; i < size; i++) {
+            int v = data[i];
+            int pos = n;
+            for (int j = 0; j < n; j++) {
+                if (v < out[j]) {
+                    pos = j;
+                    break;
+                }
+            }
+            for (int k = n; k > pos; k--) {
+                out[k] = out[k - 1];
+            }
+            out[pos] = v;
+            n++;
+        }
+        for (int i = 0; i < n; i++) {
+            s.add(out[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream peek(IntConsumer action) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public void forEach(IntConsumer action) {
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+        }
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public int reduce(int identity, IntBinaryOperator op) {
+        int result = identity;
+        for (int i = 0; i < size; i++) {
+            result = op.applyAsInt(result, data[i]);
+        }
+        return result;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public int[] toArray() {
+        int[] out = new int[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = data[i];
+        }
+        return out;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream mapToLong(IntToLongFunction mapper) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(mapper.applyAsLong(data[i]));
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream asLongStream() {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(data[i]);
+        }
+        return s;
     }
 
     @Override
