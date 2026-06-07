@@ -67,8 +67,10 @@ internal object ModelSlice {
     private const val CACHE_NAME = "model-slice"
 
     /** Identity of the [shouldKeep] policy, folded into the slice cache key so a policy change never
-     *  serves a slice built under the old rule. Bump on any [shouldKeep] semantic change. */
-    private const val KEEP_POLICY_VERSION = "keep-v2-toplevel-owner"
+     *  serves a slice built under the old rule, AND into the verdict-cache key ([VerdictCache.computeKey])
+     *  so a verdict computed under a different slicing policy (or none) is never served either.
+     *  Bump on any [shouldKeep] semantic change. */
+    internal const val KEEP_POLICY_VERSION = "keep-v2-toplevel-owner"
 
     /**
      * Slice [classpath] to the reachable cone of [entryClass], or return it unchanged when the cone

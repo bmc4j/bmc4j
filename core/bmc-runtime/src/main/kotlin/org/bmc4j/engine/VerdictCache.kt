@@ -253,7 +253,12 @@ object VerdictCache {
      * Visible for unit testing (each input must perturb the digest).
      */
     @JvmStatic
-    fun computeKey(request: BmcRequest, engineIdentity: String?): String {
+    @JvmOverloads
+    fun computeKey(
+            request: BmcRequest,
+            engineIdentity: String?,
+            slicePolicy: String = ModelSlice.KEEP_POLICY_VERSION,
+    ): String {
         val md = sha256()
         // 1) runtime semantics identity
         update(md, "runtime", Bmc4jVersion.IDENTITY)
@@ -289,6 +294,12 @@ object VerdictCache {
         //    pairs (scanned from the same reachable classpath, incl. user models) in here, or a
         //    config-pinned proof keeps its cached green after its config flips to a violating value.
         update(md, "config", resolvedConfig(request.classpath, userModels))
+        // 8) model-slicing policy — ModelSlice prunes the analysis classpath AFTER this key is
+        //    built (same shape as 6/7: the inputs the key hashed don't change when the slicing
+        //    policy does). Fold the policy identity in, or a verdict computed under a different
+        //    slicing rule — including a pre-slicing run — would satisfy this proof's lookup.
+        //    (The parameter exists as a test seam; production callers use the real policy.)
+        update(md, "slicePolicy", slicePolicy)
         return toHex(md.digest())
     }
 
