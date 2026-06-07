@@ -230,6 +230,12 @@ class BmcPlugin : Plugin<Project> {
                 } else if (ext.timeoutSeconds.isPresent) {
                     test.systemProperty("bmc.timeoutSeconds", ext.timeoutSeconds.get().toString())
                 }
+                // Proof sharding (CI fan-out): -Dbmc.shard.count / -Dbmc.shard.index select 1/N of the
+                // suite via the ServiceLoader PostDiscoveryFilter in bmc-runtime. The forked test JVM
+                // doesn't inherit the Gradle JVM's -D props, so forward them through; both are pure
+                // pass-through (no build default — unset means "no sharding", the filter stays inert).
+                forwardCli(test, "bmc.shard.count", null)
+                forwardCli(test, "bmc.shard.index", null)
                 // Verdict cache. Default ON; bmc { cache = false } disables it by setting
                 // bmc.noCache=true for the test JVM. A command-line -Dbmc.noCache wins over the build
                 // flag (so a one-off full re-verification doesn't need an edit), same precedence as

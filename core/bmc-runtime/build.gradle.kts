@@ -62,6 +62,13 @@ configurations.named("testImplementation") { extendsFrom(shaded) }
 dependencies {
     // Consumers write @BmcProof methods, so they need the JUnit API transitively.
     api("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    // The proof-sharding PostDiscoveryFilter (ServiceLoader-registered) implements a
+    // junit-platform-launcher SPI. compileOnly: the launcher is already on every proof leg's test
+    // RUNTIME classpath (the Gradle plugin adds junit-platform-launcher to testRuntimeOnly), so it
+    // must not become a POM/runtime dep here — it is purely a test-time presence.
+    compileOnly("org.junit.platform:junit-platform-launcher:1.10.2")
+    // The filter is unit-tested directly, so the launcher must be on bmc-runtime's OWN test classpath.
+    testImplementation("org.junit.platform:junit-platform-launcher:1.10.2")
     // Internal: parsing JBMC's --json-ui output. Shaded + relocated (see below).
     shaded("com.google.code.gson:gson:2.11.0")
     // Internal: LVT-stripping coroutine bytecode for JBMC (see CoroutineBytecode). Shaded.

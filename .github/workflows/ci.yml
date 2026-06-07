@@ -38,6 +38,9 @@ on:
       kotlins:
         description: 'Comma-separated consumer-kotlinc proof legs (e.g. "2.0.21,2.2.21"; empty = none)'
         default: ''
+      shards:
+        description: 'Shards per slow proof leg (runners to fan each leg across; 1 = unsharded)'
+        default: '3'
       snapshot:
         description: 'Run the snapshot-publish + consumer-test legs (the push-to-main flow) for testing this branch'
         type: boolean
@@ -57,6 +60,9 @@ on:
       kotlins:
         type: string
         default: ''
+      shards:
+        type: string
+        default: '3'
 
 permissions:
   contents: read
@@ -79,6 +85,7 @@ jobs:
       alpine: ${{ steps.filter.outputs.alpine }}
       gate: ${{ steps.filter.outputs.gate }}
       legs: ${{ steps.filter.outputs.legs }}
+      legNames: ${{ steps.filter.outputs.legNames }}
     steps:
       - id: filter
         shell: bash
@@ -88,8 +95,13 @@ jobs:
           JDKS: ${{ inputs.jdks }}
           KOTLINS: ${{ inputs.kotlins }}
           GATE_INPUT: ${{ inputs.gate }}
+          SHARDS_INPUT: ${{ inputs.shards }}
         run: |
           set -euo pipefail
+          # How many runners to fan each slow proof leg across (1 = unsharded). Default 3:
+          # ~2.3x faster than a single leg, past which fixed runner setup floors the gain.
+          SHARDS="${SHARDS_INPUT:-3}"
+          [ -n "$SHARDS" ] || SHARDS=3
           all='[
             {"runner":"windows-latest","platform":"windows-x64"},
             {"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},
@@ -110,27 +122,50 @@ jobs:
           # toolchain == bytecode target (-PbmcJvmTarget), so the leg's name is the
           # truth. Consumer-kotlin legs run at JVM 21 (older KGPs have no JVM-25
           # target, and real older-Kotlin consumers run older JVMs).
+          # SHARDS: split a leg's proof suite across N runners. Proofs are embarrassingly
+          # parallel (each spawns its own engine process; per-proof process cost dominates), so
+          # more runners shrink a leg's wall-clock near-linearly. A ServiceLoader PostDiscoveryFilter
+          # in bmc-runtime keeps 1/N of the suite per shard, balanced at the METHOD level by a hash of
+          # each test's unique id (so a 55-proof class and a 1-proof class split evenly). The
+          # per-proof verdict cache makes the slices' results mergeable: each entry is keyed by
+          # content, so the union of the shards' caches is sound by construction (a merge job below
+          # unions them into a shared snapshot every shard restores next run). 1 shard = unsharded.
           legs='[]'
+          # jdk_leg <jdk> [shards]: emits one matrix entry per shard. base/name is the leg; each
+          # entry carries shardIndex/shardCount, and the proofs job adds -Dbmc.shard.* from them.
           jdk_leg() {
-            local jdk="$1" scope tasks
+            local jdk="$1" shards="${2:-1}" scope tasks base i
             if [ "$jdk" = "17" ]; then scope="conformance"; tasks="$conformance"; else scope="full"; tasks="$full"; fi
-            legs="$(echo "$legs" | jq -c --arg j "$jdk" --arg t "$tasks" --arg s "$scope" \
-              '. + [{name: ("jdk" + $j + "-" + $s), jdk: $j, flags: ("-PbmcJvmTarget=" + $j), tasks: $t}]')"
+            base="jdk${jdk}-${scope}"
+            for i in $(seq 1 "$shards"); do
+              legs="$(echo "$legs" | jq -c \
+                --arg b "$base" --arg j "$jdk" --arg t "$tasks" \
+                --argjson si "$i" --argjson sc "$shards" \
+                '. + [{
+                  name: (if $sc > 1 then ($b + " (shard " + ($si|tostring) + "/" + ($sc|tostring) + ")") else $b end),
+                  leg: $b, jdk: $j, flags: ("-PbmcJvmTarget=" + $j), tasks: $t,
+                  shardIndex: $si, shardCount: $sc
+                }]')"
+            done
           }
           kotlin_leg() {
             # language-kotlin24 holds the 2.4-only syntax (context parameters, collection
             # literals) - older consumer compilers cannot build it, so only 2.4+ legs get it.
+            # Kotlin legs stay single-shard: they're off the PR critical path and each also drives
+            # the Kotlin example builds, which don't benefit from proof-method fan-out.
             local t="$kotlin"
             case "$1" in 2.[4-9]*|2.[1-9][0-9]*|[3-9].*) t="$t :examples:language-kotlin24:test";; esac
             legs="$(echo "$legs" | jq -c --arg v "$1" --arg t "$t" \
-              '. + [{name: ("kotlin-" + $v), jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t}]')"
+              '. + [{name: ("kotlin-" + $v), leg: ("kotlin-" + $v), jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t, shardIndex: 1, shardCount: 1}]')"
           }
 
           # Per-event defaults; inputs.* are empty on push/PR events.
           case "$EVENT" in
             push)
               gate="true"; sel_spec="all"
-              jdk_leg 17; jdk_leg 21; jdk_leg 25
+              # 17 is conformance-only and already fast (~1.5 min); the full 21/25 legs are the
+              # slow ones, so fan those out across SHARDS while 17 stays single.
+              jdk_leg 17; jdk_leg 21 "$SHARDS"; jdk_leg 25 "$SHARDS"
               # 2.4 is also the default toolchain the full legs compile with, but it gets
               # its own EXPLICIT leg so the kotlin axis is self-contained - implicit
               # coverage would silently vanish the day the default bumps to 2.5.
@@ -138,19 +173,23 @@ jobs:
               ;;
             pull_request)
               gate="true"; sel_spec="linux-arm64"
-              jdk_leg 21
+              # The PR critical path is this one full leg, so shard it for fast feedback.
+              jdk_leg 21 "$SHARDS"
               # Kotlin-first: PRs also prove the Kotlin examples/conformance on the
               # newest consumer compiler (the full version matrix stays on main pushes).
               kotlin_leg 2.4.0
               ;;
             *)
               gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"
-              for j in $(echo "${JDKS:-21}" | tr ',' ' '); do jdk_leg "$j"; done
+              for j in $(echo "${JDKS:-21}" | tr ',' ' '); do jdk_leg "$j" "$SHARDS"; done
               for k in $(echo "${KOTLINS:-}" | tr ',' ' '); do [ -n "$k" ] && kotlin_leg "$k"; done
               ;;
           esac
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
           echo "legs=$legs" >> "$GITHUB_OUTPUT"
+          # Distinct leg names (one merged verdict-cache snapshot per leg, regardless of shard count).
+          legNames="$(echo "$legs" | jq -c '[.[].leg] | unique')"
+          echo "legNames=$legNames" >> "$GITHUB_OUTPUT"
 
           # linux-x64-musl smokes in an alpine CONTAINER (it needs a musl toolchain to
           # assemble + run its engine), so it's tracked by a separate `alpine` flag, not
@@ -230,24 +269,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Persist bmc4j verdict caches across runs, one lineage per leg (different JVM
-      # targets / kotlinc versions emit different bytecode -> different content keys;
-      # the cache's own content-keying handles correctness, the cache key only scopes
-      # WHICH snapshot gets restored). Key on run_id + run_attempt so every attempt
-      # saves a fresh snapshot; restore-keys picks up the most recent prior one.
-      #
-      # Split restore/save (instead of actions/cache) so the snapshot is saved even
-      # when the leg FAILS: the verdict cache only ever stores expectation-matching
-      # verdicts (a flaky/failed/timed-out proof is never written), so a red leg's
-      # cache holds exactly the proofs that did pass - the re-run restores it and
-      # re-solves only what actually failed, instead of starting cold.
+      # Restore the per-LEG verdict cache (one lineage per leg, shared by all its shards):
+      # different JVM targets / kotlinc versions emit different bytecode -> different content
+      # keys, so the cache key scopes WHICH snapshot is restored; the cache's own content-keying
+      # handles correctness. Every shard restores the SAME leg snapshot - the UNION the prior
+      # run's merge job saved - so each shard starts from every shard's proven proofs and only
+      # re-solves its own slice + whatever changed. restore-only (no save here): the merge job
+      # below produces the next snapshot from the shard artifacts.
       - name: Restore verdict caches
         uses: actions/cache/restore@v5
         with:
           path: '**/build/bmc4j/verdict-cache'
-          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
           restore-keys: |
-            bmc-verdict-${{ runner.os }}-${{ matrix.name }}-
+            bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-
+            bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-
 
       # --no-build-cache: Gradle's task cache would REPLAY test results for legs whose
       # inputs match another leg (it formally deduped the kotlin-2.3-default leg against
@@ -256,29 +292,118 @@ jobs:
       # from the right layer: the per-proof verdict cache (restored above) skips the
       # SOLVES for anything unchanged, which also keeps that cache continuously
       # exercised in CI. Dependency caching (setup-gradle) is unaffected.
+      #
+      # -Dbmc.shard.* select this shard's slice of the suite (the bmc-runtime
+      # PostDiscoveryFilter keeps 1/N of the proofs); shardCount=1 is a no-op (full suite).
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
-        run: ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 ${{ matrix.flags }} ${{ matrix.tasks }}
+        run: |
+          ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 \
+            -Dbmc.shard.count=${{ matrix.shardCount }} -Dbmc.shard.index=${{ matrix.shardIndex }} \
+            ${{ matrix.flags }} ${{ matrix.tasks }}
 
-      # always(): save the snapshot on failure too (see the restore step's comment) -
-      # only expectation-matching verdicts are ever in it, so this is sound by
-      # construction and lets a re-run continue from the failed proof.
-      - name: Save verdict caches
+      # always(): upload this shard's verdict-cache tree even when the leg FAILS - the cache
+      # only ever stores expectation-matching verdicts (a flaky/failed/timed-out proof is never
+      # written), so a red shard's cache holds exactly the proofs that did pass. The merge job
+      # unions all shards' trees into the next leg snapshot, so a re-run continues from there.
+      # One artifact per shard (per leg), tar-preserving the relative module paths so the merge
+      # can splice them back. Sanitize the leg name for the artifact name (no "/", spaces).
+      - name: Pack verdict cache for merge
         if: always()
-        uses: actions/cache/save@v5
+        shell: bash
+        run: |
+          set -euo pipefail
+          # tar every '<module>/build/bmc4j/verdict-cache' dir (workspace-relative, so it extracts
+          # back to the same layout). Always produce a (possibly empty) tarball so upload never
+          # no-ops away the artifact the merge job expects.
+          find . -type d -path '*/build/bmc4j/verdict-cache' -print0 > dirs.0 || true
+          if [ -s dirs.0 ]; then
+            tar --null -czf verdict-cache-shard.tgz -T dirs.0
+          else
+            tar -czf verdict-cache-shard.tgz --files-from /dev/null
+          fi
+          rm -f dirs.0
+
+      - name: Upload verdict cache shard
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          path: '**/build/bmc4j/verdict-cache'
-          key: bmc-verdict-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: verdict-cache-${{ matrix.leg }}-${{ matrix.shardIndex }}-of-${{ matrix.shardCount }}
+          path: verdict-cache-shard.tgz
+          if-no-files-found: ignore
 
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: proofs-${{ matrix.name }}-test-reports
+          name: proofs-${{ matrix.shardIndex }}-of-${{ matrix.shardCount }}-${{ matrix.leg }}-test-reports
           path: |
             **/build/reports/tests/**
             **/build/test-results/**
           if-no-files-found: ignore
+
+  # Union each leg's shard verdict-caches into one snapshot, saved under the leg's
+  # `-merged-<run_id>` key that every shard restores next run. One matrix entry per leg, so a
+  # static actions/cache/save step (stock actions only) handles exactly one leg's snapshot.
+  #
+  # The union is sound by construction: every cache entry is a file named by a content digest of
+  # its full inputs, so two shards' caches are disjoint sets of files and identically-named files
+  # are byte-identical (same inputs -> same verdict). `cp -n` (no-clobber) is therefore a safe set
+  # union - it never overwrites, so it can never replace a verdict, only add missing ones. The
+  # merge is OPAQUE file-copy: it treats keys as filenames and never parses them, so it works
+  # unchanged whether the key is the coarse whole-classpath digest or a per-proof reachable-cone
+  # digest. always() + a red shard still contributed its passing proofs (only passes are ever in
+  # the cache), so merging after a failure stays sound.
+  #
+  # The shards uploaded their verdict-cache trees as tgz preserving the module-relative paths
+  # (`<module>/build/bmc4j/verdict-cache/<key>`); extracting them at the workspace root recreates
+  # exactly the layout the proofs job's restore (`path: '**/build/bmc4j/verdict-cache'`) expects.
+  merge-verdict-cache:
+    name: merge verdict caches (${{ matrix.leg }})
+    needs: [plan, proofs]
+    if: ${{ always() && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJSON(needs.plan.outputs.legNames) }}
+    steps:
+      - name: Download this leg's shard caches
+        uses: actions/download-artifact@v6
+        with:
+          path: shard-artifacts
+          pattern: verdict-cache-${{ matrix.leg }}-*
+          merge-multiple: false
+
+      - name: Union shards into the workspace tree
+        id: union
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          for art in shard-artifacts/verdict-cache-*; do
+            [ -d "$art" ] || continue
+            tgz="$art/verdict-cache-shard.tgz"
+            [ -f "$tgz" ] || continue
+            tmp="$(mktemp -d)"
+            tar -xzf "$tgz" -C "$tmp" || true
+            # No-clobber copy: each '<module>/build/bmc4j/verdict-cache/<key>' file lands at the
+            # same workspace-relative path, unioning the shards without ever overwriting an entry.
+            if cp -rn "$tmp/." "$GITHUB_WORKSPACE/" 2>/dev/null; then found=1; fi
+            rm -rf "$tmp"
+          done
+          entries="$(find "$GITHUB_WORKSPACE" -type f -path '*/build/bmc4j/verdict-cache/*' 2>/dev/null | wc -l | tr -d ' ')"
+          echo "leg '${{ matrix.leg }}': unioned $entries verdict-cache entries (found=$found)"
+          # Only save when there's something to save (an empty save would clobber the lineage).
+          echo "entries=$entries" >> "$GITHUB_OUTPUT"
+
+      - name: Save merged snapshot
+        if: ${{ steps.union.outputs.entries != '0' }}
+        uses: actions/cache/save@v5
+        with:
+          path: '**/build/bmc4j/verdict-cache'
+          key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
 
   smoke:
     name: smoke ${{ matrix.platform }}
