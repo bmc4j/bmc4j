@@ -109,8 +109,12 @@ gradeBand_never_throws_for_valid_scores()  FAILED
     at proofs.GradeBandProofTests.gradeBand_never_throws_for_valid_scores(GradeBandProofTests.java:20)
 ```
 
-The counterexample renders as concrete Java you can paste into a scratch test and step
-through in a debugger — and bmc4j drops a ready-to-run `@Test` scaffold next to it.
+The counterexample renders as concrete source you can paste into a scratch test and step
+through in a debugger — and bmc4j drops a ready-to-run `@Test` scaffold next to it. The
+scaffold matches the language of the proof: a Kotlin proof class gets a `.kt` replay
+(`val` bindings, Kotlin literals), a Java proof class gets a `.java` one. Pin the language
+with `bmc { replayLanguage = "kotlin" }` (or `"java"` / `"auto"`, the default), overridable
+per run with `-Pbmc.replayLanguage=...`.
 
 ## What is bounded model checking?
 
@@ -239,7 +243,7 @@ verdict cache means the expensive solve happens once per change, not once per ru
 
 | | |
 |---|---|
-| Engine | CBMC 6.9.0 / JBMC, bundled per platform: windows-x64, linux-x64/arm64 (glibc), macos-x64/arm64. Windows-arm64 and Alpine/musl Linux are unsupported (fail fast) |
+| Engine | CBMC 6.9.0 / JBMC, bundled per platform: windows-x64, linux-x64/arm64 (glibc), linux-x64 (musl/Alpine), macos-x64/arm64. Windows-arm64 is unsupported (fail fast) |
 | Kotlin | 2.0 – 2.4 verified on every merge via a consumer-compiler matrix (null-safety, data classes, collections, `runBlocking` logic); 1.9 supported via the artifacts' 1.9 metadata/stdlib floor |
 | Java | 17 – 25 verified on every merge (full suite on 21/25, core + conformance on the 17 floor) |
 | CI | per-platform engine jars + a proof gate on every platform, every supported JDK, and consumer-Kotlin 2.0/2.2/2.3/2.4 |

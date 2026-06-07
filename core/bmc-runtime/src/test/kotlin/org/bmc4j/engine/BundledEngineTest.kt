@@ -162,7 +162,9 @@ internal class BundledEngineTest {
         assertEquals("fake-cbmc-test-0.0.0", BundledEngine.version())
     }
 
-    // --- musl/Alpine detection (the bundled Linux engine is glibc-only) ---
+    // --- musl/Alpine detection (drives selection of the linux-x64-musl engine) ---
+    // A musl x64 host reports the same Linux/amd64 as glibc, so the C-library probe below is what
+    // Platform.current() uses to REDIRECT to the musl-built engine jar instead of the glibc one.
 
     @Test
     fun musl_detected_via_alpine_release_marker(@TempDir fsRoot: Path) {

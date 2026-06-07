@@ -57,6 +57,10 @@ private val COVERED = setOf(
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt", "kotlin.ranges.RangesKt",
     "kotlin.comparisons.ComparisonsKt",
+    // Enum.entries facade + bounded list wrapper (EnumEntriesLaws).
+    "kotlin.enums.EnumEntriesKt", "kotlin.enums.EnumEntries", "kotlin.enums.EnumEntriesList",
+    // kotlin.time.Duration value-class model + its facade/unit enum (DurationLaws + differential).
+    "kotlin.time.Duration", "kotlin.time.DurationKt", "kotlin.time.DurationUnit",
     // Model proofs (model-conformance-proofs) — Kotlin Sequences facade (SequenceLaws).
     "kotlin.sequences.SequencesKt", "kotlin.sequences.Sequence", "kotlin.sequences.ListSequence",
     // Model proofs (model-conformance-proofs) — stream models (StreamLaws: mapToInt/sum/count/filter/collect).

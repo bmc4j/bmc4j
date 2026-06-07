@@ -45,6 +45,24 @@ internal class PlatformTest {
     }
 
     @Test
+    fun of_is_the_pure_name_arch_mapper_and_never_returns_the_musl_variant() {
+        // of() can't see the C library: musl/Alpine x64 reports the same Linux/amd64 as glibc, so the
+        // PURE mapper returns LINUX_X64 for both. The musl redirect to LINUX_X64_MUSL is applied by
+        // current() (which probes the live filesystem), NOT here. This keeps of() host-independent.
+        assertEquals(Platform.LINUX_X64, Platform.of("Linux", "x86_64"))
+        assertEquals("linux-x64", Platform.of("Linux", "amd64").id)
+    }
+
+    @Test
+    fun musl_engine_id_is_distinct_and_well_formed() {
+        // The musl engine is a separate bundled artifact (jbmc built against musl); its id is the
+        // resource-path/artifact-name suffix the runtime selects on a musl host.
+        assertEquals("linux-x64-musl", Platform.LINUX_X64_MUSL.id)
+        assertFalse(Platform.LINUX_X64_MUSL.isWindows)
+        assertFalse(Platform.LINUX_X64_MUSL.isMac)
+    }
+
+    @Test
     fun is_case_insensitive() {
         assertEquals(Platform.WINDOWS_X64, Platform.of("WINDOWS", "AMD64"))
         assertEquals(Platform.MACOS_ARM64, Platform.of("MAC OS X", "ARM64"))
@@ -65,7 +83,8 @@ internal class PlatformTest {
 
     @Test
     fun current_returns_a_platform() {
-        // Smoke: on this host it must resolve to one of the known platforms.
-        assertTrue(Platform.current().id.matches(Regex("(windows|linux|macos)-(x64|arm64)")))
+        // Smoke: on this host it must resolve to one of the known platforms
+        // (incl. the musl variant when run on Alpine).
+        assertTrue(Platform.current().id.matches(Regex("(windows|linux|macos)-(x64|arm64)(-musl)?")))
     }
 }
