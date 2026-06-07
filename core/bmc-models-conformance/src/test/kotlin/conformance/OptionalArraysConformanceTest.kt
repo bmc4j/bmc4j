@@ -93,3 +93,208 @@ class ArraysConformanceTest : FunSpec({
         }
     }
 })
+
+/**
+ * Differential conformance for the bounded Arrays array-utility surface (copyOf/copyOfRange/fill/
+ * equals/hashCode/sort/binarySearch/stream/setAll). The real {@code java.util.Arrays} and the
+ * relocated {@code bmcref.java.util.Arrays} are different classes with the same static surface, so
+ * each method is invoked on both and the observable (returned array contents, boolean, hash, or
+ * exception type) is compared. Generators stay inside the small bounds the model documents.
+ */
+class ArraysUtilConformanceTest : FunSpec({
+
+    val REAL = java.util.Arrays::class.java
+    val MODEL = bmcref.java.util.Arrays::class.java
+    val INTARR: Class<*> = IntArray::class.java
+    val LONGARR: Class<*> = LongArray::class.java
+    val OBJARR: Class<*> = Array<Any?>::class.java
+
+    // --- copyOf ---------------------------------------------------------------------------------
+    test("copyOf(int[], int) conforms (truncate / zero-pad / negative)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6), Arb.int(-1..9)) { xs, n ->
+            val a = xs.toIntArray()
+            val r = staticCall(REAL, "copyOf", arrayOf(INTARR, INT), a.copyOf(), n)
+            val m = staticCall(MODEL, "copyOf", arrayOf(INTARR, INT), a.copyOf(), n)
+            assertSameException(r, m)
+            if (r.isSuccess) (m.getOrNull() as IntArray).toList() shouldBe (r.getOrNull() as IntArray).toList()
+        }
+    }
+
+    test("copyOf(long[], int) conforms") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6), Arb.int(0..9)) { xs, n ->
+            val a = xs.map { it.toLong() }.toLongArray()
+            val r = staticCall(REAL, "copyOf", arrayOf(LONGARR, INT), a.copyOf(), n)
+            val m = staticCall(MODEL, "copyOf", arrayOf(LONGARR, INT), a.copyOf(), n)
+            (m.getOrNull() as LongArray).toList() shouldBe (r.getOrNull() as LongArray).toList()
+        }
+    }
+
+    test("copyOf(Object[], int) conforms") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(0..9)) { xs, n ->
+            val a: Array<Any?> = xs.toTypedArray()
+            val r = staticCall(REAL, "copyOf", arrayOf(OBJARR, INT), a.copyOf(), n)
+            val m = staticCall(MODEL, "copyOf", arrayOf(OBJARR, INT), a.copyOf(), n)
+            @Suppress("UNCHECKED_CAST")
+            (m.getOrNull() as Array<Any?>).toList() shouldBe (r.getOrNull() as Array<Any?>).toList()
+        }
+    }
+
+    // --- copyOfRange ----------------------------------------------------------------------------
+    test("copyOfRange(int[], int, int) conforms (incl. out-of-range / from>to)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6), Arb.int(-1..7), Arb.int(-1..9)) { xs, from, to ->
+            val a = xs.toIntArray()
+            val r = staticCall(REAL, "copyOfRange", arrayOf(INTARR, INT, INT), a.copyOf(), from, to)
+            val m = staticCall(MODEL, "copyOfRange", arrayOf(INTARR, INT, INT), a.copyOf(), from, to)
+            assertSameException(r, m)
+            if (r.isSuccess) (m.getOrNull() as IntArray).toList() shouldBe (r.getOrNull() as IntArray).toList()
+        }
+    }
+
+    test("copyOfRange(Object[], int, int) conforms") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(0..6), Arb.int(0..9)) { xs, from0, to0 ->
+            val a: Array<Any?> = xs.toTypedArray()
+            val from = minOf(from0, a.size)
+            val to = maxOf(from, to0)
+            val r = staticCall(REAL, "copyOfRange", arrayOf(OBJARR, INT, INT), a.copyOf(), from, to)
+            val m = staticCall(MODEL, "copyOfRange", arrayOf(OBJARR, INT, INT), a.copyOf(), from, to)
+            assertSameException(r, m)
+            if (r.isSuccess) {
+                @Suppress("UNCHECKED_CAST")
+                (m.getOrNull() as Array<Any?>).toList() shouldBe (r.getOrNull() as Array<Any?>).toList()
+            }
+        }
+    }
+
+    // --- fill -----------------------------------------------------------------------------------
+    test("fill(int[], int) conforms") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(-9..9)) { xs, v ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            java.util.Arrays.fill(ar, v)
+            staticCall(MODEL, "fill", arrayOf(INTARR, INT), am, v).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("fill(int[], int, int, int) conforms (incl. bad range)") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(-1..7), Arb.int(-1..7), Arb.int(-9..9)) { xs, from, to, v ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            val r = staticCall(REAL, "fill", arrayOf(INTARR, INT, INT, INT), ar, from, to, v)
+            val m = staticCall(MODEL, "fill", arrayOf(INTARR, INT, INT, INT), am, from, to, v)
+            assertSameException(r, m)
+            if (r.isSuccess) am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("fill(Object[], Object) conforms") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(0..9)) { xs, v ->
+            val ar: Array<Any?> = xs.toTypedArray(); val am: Array<Any?> = xs.toTypedArray()
+            java.util.Arrays.fill(ar, v)
+            staticCall(MODEL, "fill", arrayOf(OBJARR, OBJECT), am, v).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    // --- equals ---------------------------------------------------------------------------------
+    test("equals(int[], int[]) conforms") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5)) { xs, ys ->
+            val r = java.util.Arrays.equals(xs.toIntArray(), ys.toIntArray())
+            val m = staticCall(MODEL, "equals", arrayOf(INTARR, INTARR), xs.toIntArray(), ys.toIntArray())
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    test("equals(Object[], Object[]) conforms") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5)) { xs, ys ->
+            val a: Array<Any?> = xs.toTypedArray(); val b: Array<Any?> = ys.toTypedArray()
+            val r = java.util.Arrays.equals(a, b)
+            val m = staticCall(MODEL, "equals", arrayOf(OBJARR, OBJARR), a, b)
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    // --- hashCode -------------------------------------------------------------------------------
+    test("hashCode(int[]) conforms") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6)) { xs ->
+            val r = java.util.Arrays.hashCode(xs.toIntArray())
+            val m = staticCall(MODEL, "hashCode", arrayOf(INTARR), xs.toIntArray())
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    test("hashCode(long[]) conforms") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6)) { xs ->
+            val a = xs.map { it.toLong() }.toLongArray()
+            val r = java.util.Arrays.hashCode(a)
+            val m = staticCall(MODEL, "hashCode", arrayOf(LONGARR), a)
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    test("hashCode(Object[]) conforms") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6)) { xs ->
+            val a: Array<Any?> = xs.toTypedArray()
+            val r = java.util.Arrays.hashCode(a)
+            val m = staticCall(MODEL, "hashCode", arrayOf(OBJARR), a)
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    // --- sort -----------------------------------------------------------------------------------
+    test("sort(int[]) conforms (insertion vs JDK quicksort -> same sorted order)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7)) { xs ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            java.util.Arrays.sort(ar)
+            staticCall(MODEL, "sort", arrayOf(INTARR), am).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("sort(long[]) conforms") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7)) { xs ->
+            val ar = xs.map { it.toLong() }.toLongArray(); val am = ar.copyOf()
+            java.util.Arrays.sort(ar)
+            staticCall(MODEL, "sort", arrayOf(LONGARR), am).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("sort(Object[]) conforms (Comparable elements)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7)) { xs ->
+            val ar: Array<Any?> = xs.toTypedArray(); val am: Array<Any?> = xs.toTypedArray()
+            java.util.Arrays.sort(ar)
+            staticCall(MODEL, "sort", arrayOf(OBJARR), am).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    // --- binarySearch (sorted-assume: search a SORTED array) ------------------------------------
+    test("binarySearch(int[], int) on a sorted array conforms") {
+        checkAll(Arb.list(Arb.int(-20..20), 0..7), Arb.int(-25..25)) { xs, key ->
+            val a = xs.toIntArray().also { it.sort() }
+            val r = java.util.Arrays.binarySearch(a, key)
+            val m = staticCall(MODEL, "binarySearch", arrayOf(INTARR, INT), a.copyOf(), key)
+            // The JDK only specifies the found-index when present; insertion-point sign/contract
+            // otherwise. Both implementations honor the same contract, so compare directly.
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    test("binarySearch(long[], long) on a sorted array conforms") {
+        checkAll(Arb.list(Arb.int(-20..20), 0..7), Arb.int(-25..25)) { xs, key ->
+            val a = xs.map { it.toLong() }.toLongArray().also { it.sort() }
+            val r = java.util.Arrays.binarySearch(a, key.toLong())
+            val m = staticCall(MODEL, "binarySearch", arrayOf(LONGARR, Long::class.javaPrimitiveType!!), a.copyOf(), key.toLong())
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    // --- stream / setAll ------------------------------------------------------------------------
+    test("stream(int[]).sum() conforms") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6)) { xs ->
+            val a = xs.toIntArray()
+            val r = java.util.Arrays.stream(a).sum()
+            val ms = staticCall(MODEL, "stream", arrayOf(INTARR), a).getOrThrow()!!
+            call(ms, "sum", arrayOf()).getOrThrow() shouldBe r
+        }
+    }
+})

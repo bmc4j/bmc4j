@@ -413,11 +413,11 @@ Real surface: 42 members — modeled 25, not-modeled 2, not-needed 5, tail 10.
 
 ## `java.util.Arrays`
 
-Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
+Real surface: 214 members — modeled 41, not-modeled 0, not-needed 0, tail 173.
 
-**Modeled** (`@BmcModelConforms`): `asList(Object[])`
+**Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(int[], int)`, `binarySearch(long[], long)`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `equals(Object[], Object[])`, `equals(boolean[], boolean[])`, `equals(byte[], byte[])`, `equals(char[], char[])`, `equals(int[], int[])`, `equals(long[], long[])`, `fill(Object[], Object)`, `fill(boolean[], boolean)`, `fill(byte[], byte)`, `fill(char[], char)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], long)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `setAll(Object[], IntFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(int[])`, `sort(long[])`, `stream(Object[])`, `stream(int[])`, `stream(long[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 213 members, all loud): the broad Arrays utility surface (sort/binarySearch/fill/copyOf/copyOfRange/equals/hashCode/stream/setAll/parallel*/toString/deep*/… across every primitive + Object overload) is out of scope for a bounded model; only asList is modeled. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 173 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, parallelSort/parallelPrefix/parallelSetAll, spliterator, mismatch/compare, float/double overloads with NaN/-0.0 total-order quirks, Comparator-based sort/binarySearch, and the long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC</summary>
 
 - `binarySearch(Object[], Object)`
 - `binarySearch(Object[], Object, Comparator)`
@@ -431,10 +431,8 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 - `binarySearch(double[], int, int, double)`
 - `binarySearch(float[], float)`
 - `binarySearch(float[], int, int, float)`
-- `binarySearch(int[], int)`
 - `binarySearch(int[], int, int, int)`
 - `binarySearch(long[], int, int, long)`
-- `binarySearch(long[], long)`
 - `binarySearch(short[], int, int, short)`
 - `binarySearch(short[], short)`
 - `compare(Comparable[], Comparable[])`
@@ -465,75 +463,46 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 - `compareUnsigned(long[], long[])`
 - `compareUnsigned(short[], int, int, short[], int, int)`
 - `compareUnsigned(short[], short[])`
-- `copyOf(Object[], int)`
 - `copyOf(Object[], int, Class)`
-- `copyOf(boolean[], int)`
-- `copyOf(byte[], int)`
-- `copyOf(char[], int)`
 - `copyOf(double[], int)`
 - `copyOf(float[], int)`
-- `copyOf(int[], int)`
-- `copyOf(long[], int)`
-- `copyOf(short[], int)`
-- `copyOfRange(Object[], int, int)`
 - `copyOfRange(Object[], int, int, Class)`
 - `copyOfRange(boolean[], int, int)`
 - `copyOfRange(byte[], int, int)`
 - `copyOfRange(char[], int, int)`
 - `copyOfRange(double[], int, int)`
 - `copyOfRange(float[], int, int)`
-- `copyOfRange(int[], int, int)`
-- `copyOfRange(long[], int, int)`
 - `copyOfRange(short[], int, int)`
 - `deepEquals(Object[], Object[])`
 - `deepHashCode(Object[])`
 - `deepToString(Object[])`
-- `equals(Object[], Object[])`
 - `equals(Object[], Object[], Comparator)`
 - `equals(Object[], int, int, Object[], int, int)`
 - `equals(Object[], int, int, Object[], int, int, Comparator)`
-- `equals(boolean[], boolean[])`
 - `equals(boolean[], int, int, boolean[], int, int)`
-- `equals(byte[], byte[])`
 - `equals(byte[], int, int, byte[], int, int)`
-- `equals(char[], char[])`
 - `equals(char[], int, int, char[], int, int)`
 - `equals(double[], double[])`
 - `equals(double[], int, int, double[], int, int)`
 - `equals(float[], float[])`
 - `equals(float[], int, int, float[], int, int)`
 - `equals(int[], int, int, int[], int, int)`
-- `equals(int[], int[])`
 - `equals(long[], int, int, long[], int, int)`
-- `equals(long[], long[])`
 - `equals(short[], int, int, short[], int, int)`
 - `equals(short[], short[])`
-- `fill(Object[], Object)`
 - `fill(Object[], int, int, Object)`
-- `fill(boolean[], boolean)`
 - `fill(boolean[], int, int, boolean)`
-- `fill(byte[], byte)`
 - `fill(byte[], int, int, byte)`
-- `fill(char[], char)`
 - `fill(char[], int, int, char)`
 - `fill(double[], double)`
 - `fill(double[], int, int, double)`
 - `fill(float[], float)`
 - `fill(float[], int, int, float)`
-- `fill(int[], int)`
-- `fill(int[], int, int, int)`
 - `fill(long[], int, int, long)`
-- `fill(long[], long)`
 - `fill(short[], int, int, short)`
 - `fill(short[], short)`
-- `hashCode(Object[])`
-- `hashCode(boolean[])`
-- `hashCode(byte[])`
-- `hashCode(char[])`
 - `hashCode(double[])`
 - `hashCode(float[])`
-- `hashCode(int[])`
-- `hashCode(long[])`
 - `hashCode(short[])`
 - `mismatch(Object[], Object[])`
 - `mismatch(Object[], Object[], Comparator)`
@@ -585,11 +554,7 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 - `parallelSort(long[], int, int)`
 - `parallelSort(short[])`
 - `parallelSort(short[], int, int)`
-- `setAll(Object[], IntFunction)`
 - `setAll(double[], IntToDoubleFunction)`
-- `setAll(int[], IntUnaryOperator)`
-- `setAll(long[], IntToLongFunction)`
-- `sort(Object[])`
 - `sort(Object[], Comparator)`
 - `sort(Object[], int, int)`
 - `sort(Object[], int, int, Comparator)`
@@ -601,9 +566,7 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 - `sort(double[], int, int)`
 - `sort(float[])`
 - `sort(float[], int, int)`
-- `sort(int[])`
 - `sort(int[], int, int)`
-- `sort(long[])`
 - `sort(long[], int, int)`
 - `sort(short[])`
 - `sort(short[], int, int)`
@@ -615,13 +578,10 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 - `spliterator(int[], int, int)`
 - `spliterator(long[])`
 - `spliterator(long[], int, int)`
-- `stream(Object[])`
 - `stream(Object[], int, int)`
 - `stream(double[])`
 - `stream(double[], int, int)`
-- `stream(int[])`
 - `stream(int[], int, int)`
-- `stream(long[])`
 - `stream(long[], int, int)`
 - `toString(Object[])`
 - `toString(boolean[])`
