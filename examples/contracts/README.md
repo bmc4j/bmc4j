@@ -58,3 +58,15 @@ A `@Ensures` is a *claim*. This concept ships a **false** contract on purpose: `
 is annotated `result >= 0`, which is a lie when `a < b`. There's no hand-written proof — the
 auto-generated `enforce__delta` *is* the test, and it goes red (counterexample `a = 0, b = 1`)
 before any caller can rely on the false summary. `absDelta` is honest and passes. *(1 pass + 1 fail.)*
+
+## `purity` — contracts must be pure (and that's audited)
+
+A contract summarizes only a method's *return value*, so a contract on an **impure** method would
+silently drop its side effects at every redirected call site — and its `@Ensures` could still be
+true, so the enforce-proof would pass. `Ledger.record(amount)` is exactly that trap: it returns the
+running total *and* mutates the static `Ledger.total`. bmc4j's **purity audit** rejects the contract
+before any proof can reuse it, failing the build with a `ContractPurityError` that names the
+`PUTSTATIC Ledger.total` instruction — an unconditional error (no `@ExpectEnforce` can bless an impure
+target). The contract's enforce-proof is therefore excluded from the suite (removing that exclusion in
+`build.gradle.kts` is itself the regression check); `PurityAuditDemoTest` documents, in plain Java, the
+caller-observable effect a stub would erase. *(1 plain test; the impure enforce-proof is rejected, not run.)*
