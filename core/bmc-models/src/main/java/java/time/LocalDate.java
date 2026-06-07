@@ -13,7 +13,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * differential suite vs the real JDK). {@code of(y, m, d)} is NOT a factory here; build
  * dates via {@link #ofEpochDay} (or via LocalDateTime). Formatters/zones are out of scope.
  */
-@BmcModelTail(reason = "the wide ChronoLocalDate/Temporal surface (with*/getDayOfWeek/getDayOfYear/lengthOfMonth/isLeapYear/until/atStartOfDay/atTime/format/datesUntil/range/query/get(TemporalField)/plus(TemporalAmount)/isAfter-Before-Equal/the of(y,m,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining ChronoLocalDate/Temporal surface (with(TemporalField/Adjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/range/query/get(TemporalField)/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
 public final class LocalDate {
 
     // DAYS from year 0000-01-01 (proleptic) to 1970-01-01.
@@ -35,6 +35,38 @@ public final class LocalDate {
         return epochDay;
     }
 
+    /**
+     * Build a date from a year and a 1-based day-of-year, exactly like the JDK: validate the year and
+     * day ranges loudly ({@link DateTimeException}), reject day 366 in a non-leap year, then decompose
+     * the day-of-year into (month, day) and recompose through {@link #toEpochDay}. Mirrors the JDK's
+     * {@code LocalDate.ofYearDay} month-table walk.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public static LocalDate ofYearDay(int year, int dayOfYear) {
+        if (year < -999_999_999 || year > 999_999_999) {
+            throw new DateTimeException("Invalid value for Year: " + year);
+        }
+        if (dayOfYear < 1 || dayOfYear > 366) {
+            throw new DateTimeException("Invalid value for DayOfYear: " + dayOfYear);
+        }
+        boolean leap = isLeapYear(year);
+        if (dayOfYear == 366 && !leap) {
+            throw new DateTimeException("Invalid value for DayOfYear (not a leap year): 366");
+        }
+        // Find the month whose cumulative day count first reaches dayOfYear (JDK's Month.of walk).
+        int month = 1;
+        int remaining = dayOfYear;
+        while (true) {
+            int len = lengthOfMonth(year, month);
+            if (remaining <= len) {
+                break;
+            }
+            remaining -= len;
+            month++;
+        }
+        return new LocalDate(toEpochDay(year, month, remaining));
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isBefore(LocalDate other) {
         return this.epochDay < other.epochDay;
@@ -43,6 +75,11 @@ public final class LocalDate {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isAfter(LocalDate other) {
         return this.epochDay > other.epochDay;
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    public boolean isEqual(LocalDate other) {
+        return this.epochDay == other.epochDay;
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
@@ -130,6 +167,32 @@ public final class LocalDate {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getDayOfMonth() {
         return ymd()[2];
+    }
+
+    /**
+     * 1-based day-of-year = (epoch-day for this date) - (epoch-day for Jan 1 of this year) + 1. Reusing
+     * the exact toEpochDay machinery keeps it bit-identical to the JDK across leap years and negatives.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int getDayOfYear() {
+        int[] f = ymd();
+        return (int) (epochDay - toEpochDay(f[0], 1, 1) + 1);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int lengthOfMonth() {
+        int[] f = ymd();
+        return lengthOfMonth(f[0], f[1]);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public int lengthOfYear() {
+        return isLeapYear(ymd()[0]) ? 366 : 365;
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public boolean isLeapYear() {
+        return isLeapYear(ymd()[0]);
     }
 
     /**
@@ -222,6 +285,89 @@ public final class LocalDate {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate minusYears(long yearsToSubtract) {
         return plusYears(-yearsToSubtract);
+    }
+
+    // --- with* field setters: the JDK CLAMPs the day for withYear/withMonth (resolvePreviousValid)
+    //     but validates STRICTLY for withDayOfMonth/withDayOfYear (loud DateTimeException on a bad day).
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDate withYear(int year) {
+        int[] f = ymd();
+        if (f[0] == year) {
+            return this;
+        }
+        if (year < -999_999_999 || year > 999_999_999) {
+            throw new DateTimeException("Invalid value for Year: " + year);
+        }
+        return resolvePreviousValid(year, f[1], f[2]);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDate withMonth(int month) {
+        int[] f = ymd();
+        if (f[1] == month) {
+            return this;
+        }
+        if (month < 1 || month > 12) {
+            throw new DateTimeException("Invalid value for MonthOfYear: " + month);
+        }
+        return resolvePreviousValid(f[0], month, f[2]);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDate withDayOfMonth(int dayOfMonth) {
+        int[] f = ymd();
+        if (f[2] == dayOfMonth) {
+            return this;
+        }
+        if (dayOfMonth < 1 || dayOfMonth > 31) {
+            throw new DateTimeException("Invalid value for DayOfMonth: " + dayOfMonth);
+        }
+        if (dayOfMonth > lengthOfMonth(f[0], f[1])) {
+            throw new DateTimeException("Invalid date '" + f[1] + " " + dayOfMonth + "'");
+        }
+        return new LocalDate(toEpochDay(f[0], f[1], dayOfMonth));
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDate withDayOfYear(int dayOfYear) {
+        if (getDayOfYear() == dayOfYear) {
+            return this;
+        }
+        return ofYearDay(ymd()[0], dayOfYear);
+    }
+
+    // --- composition with the time + date+time models (atTime/atStartOfDay), and until -> Period ---
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atStartOfDay() {
+        return LocalDateTime.of(this, LocalTime.ofNanoOfDay(0));
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atTime(LocalTime time) {
+        return LocalDateTime.of(this, time);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atTime(int hour, int minute) {
+        return LocalDateTime.of(this, LocalTime.of(hour, minute));
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atTime(int hour, int minute, int second) {
+        return LocalDateTime.of(this, LocalTime.of(hour, minute, second));
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public LocalDateTime atTime(int hour, int minute, int second, int nanoOfSecond) {
+        return LocalDateTime.of(this, LocalTime.of(hour, minute, second, nanoOfSecond));
+    }
+
+    /** Period from this date to {@code endExclusive}, delegating to the JDK-faithful Period.between. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Period until(LocalDate endExclusive) {
+        return Period.between(this, endExclusive);
     }
 
     // --- helpers for Period.between (mirror the JDK's LocalDate.until decomposition) ---

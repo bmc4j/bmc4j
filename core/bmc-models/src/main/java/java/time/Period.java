@@ -19,7 +19,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * bit-for-bit by the differential suite vs the real JDK across month-ends, leap days and negatives.
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
  */
-@BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), multipliedBy/the ofWeeks-rollups and toString are out of scope; all loud under JBMC")
+@BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), plus/minus(TemporalAmount) and toString are out of scope; all loud under JBMC")
 public final class Period {
 
     public static final Period ZERO = new Period(0, 0, 0);
@@ -168,9 +168,45 @@ public final class Period {
         return plusDays(-daysToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Period withYears(int years) {
+        if (years == this.years) {
+            return this;
+        }
+        return create(years, months, days);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Period withMonths(int months) {
+        if (months == this.months) {
+            return this;
+        }
+        return create(years, months, days);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Period withDays(int days) {
+        if (days == this.days) {
+            return this;
+        }
+        return create(years, months, days);
+    }
+
+    /** Each field scaled by {@code scalar}, with LOUD int overflow (Math.multiplyExact), like the JDK. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Period multipliedBy(int scalar) {
+        if (this == ZERO || scalar == 1) {
+            return this;
+        }
+        return create(
+            Math.multiplyExact(years, scalar),
+            Math.multiplyExact(months, scalar),
+            Math.multiplyExact(days, scalar));
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period negated() {
-        return create(Math.negateExact(years), Math.negateExact(months), Math.negateExact(days));
+        return multipliedBy(-1);
     }
 
     /**

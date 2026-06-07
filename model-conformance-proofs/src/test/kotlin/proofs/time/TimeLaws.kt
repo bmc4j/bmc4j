@@ -130,6 +130,16 @@ class TimeLaws {
     }
 
     @BmcProof
+    fun duration_dividedBy_duration_pins() {
+        // dividedBy(Duration) = how many times the divisor fits, truncated toward zero; zero divisor
+        // throws. Concrete pins keep the symbolic divider off the proof axis (the division-cost lesson)
+        // — the wide symbolic range + the zero-divisor exception are covered differentially.
+        Bmc.check(Duration.ofMillis(100).dividedBy(Duration.ofMillis(30)) == 3L)
+        Bmc.check(Duration.ofMillis(-100).dividedBy(Duration.ofMillis(30)) == -3L)   // truncates toward zero
+        Bmc.check(Duration.ofMillis(7).dividedBy(Duration.ofMillis(7)) == 1L)
+    }
+
+    @BmcProof
     fun duration_dividedBy_pins() {
         // dividedBy(long) truncates toward zero; a zero divisor throws. Concrete pins keep the symbolic
         // divider off the proof axis (the division-cost lesson) — the wide symbolic range + the zero-
@@ -147,6 +157,18 @@ class TimeLaws {
     // floor-vs-truncate behavior for negatives (toSeconds floors, toMinutes truncates the floored
     // seconds). plusHours/plusDays + minus mirrors are likewise differential-only past the concrete
     // pins above (their scale multiply is covered by the ofX pins and the round-trip laws).
+
+    // NOTE: the LocalDate/LocalDateTime/LocalTime tail added in the time-tail pass — the calendar-field
+    // accessors (getDayOfYear/lengthOfMonth/lengthOfYear/isLeapYear), ofYearDay, the with* field setters
+    // (withYear/withMonth/withDayOf*/withHour/withMinute/withSecond/withNano), atTime/atDate/atStartOfDay,
+    // until(LocalDate), plusWeeks/minusWeeks, isEqual, and Period's withYears/withMonths/withDays/
+    // multipliedBy — are validated on the DIFFERENTIAL axis (TimeConformanceTest) only. They either
+    // (a) decode the epoch-day to y/m/d (div/mod by the wide 146097/etc. constants — the constant-divisor
+    // SAT-pathology, same as LocalTime's nano-of-day getters), (b) route through java.lang.Math
+    // *Exact/floor* intrinsics for loud overflow (unmodeled by JBMC — refutes spuriously, the Period
+    // NOTE family), or (c) touch a symbolic backing field whose ordering/equality trips the JBMC
+    // "Dynamic cast check" artifact (the LocalDate.isBefore precedent). The differential suite proves
+    // them bit-for-bit vs the real JDK across month-ends, leap days and negatives.
 
     // --- LocalDate ---
 

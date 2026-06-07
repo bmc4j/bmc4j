@@ -25,7 +25,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * JBMC, so the floor is inlined with explicit sign handling.
  */
 @BmcModelTail(reason = "the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, "
-    + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration division (dividedBy(Duration)), and ISO "
+    + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO "
     + "formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC")
 public final class Duration {
 
@@ -236,6 +236,19 @@ public final class Duration {
             throw new ArithmeticException("Duration overflow");   // loud, never silent wrap
         }
         return new Duration(this.millis / divisor);
+    }
+
+    /**
+     * Number of times {@code divisor} fits in this duration, truncated toward zero — exactly like the
+     * JDK (which divides the total nanos; on the millis backing millis/millis is identical for any
+     * millis-representable pair). A zero-length divisor throws {@link ArithmeticException} like the JDK.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public long dividedBy(Duration divisor) {
+        if (divisor.millis == 0L) {
+            throw new ArithmeticException("Cannot divide by zero");
+        }
+        return this.millis / divisor.millis;
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")

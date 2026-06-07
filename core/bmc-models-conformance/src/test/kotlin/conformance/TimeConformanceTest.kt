@@ -75,6 +75,9 @@ class TimeConformanceTest : FunSpec({
             // dividedBy(long): truncates toward zero; use a nonzero divisor derived from b.
             val divisor = (b % 1000) + (if (b % 1000 == 0L) 1L else 0L)   // never zero
             ra.dividedBy(divisor).toMillis() shouldBe ma.dividedBy(divisor).toMillis()
+            // dividedBy(Duration): how many times rb fits in ra, truncated toward zero (rb nonzero)
+            val rbNz = java.time.Duration.ofMillis(divisor); val mbNz = bmcref.java.time.Duration.ofMillis(divisor)
+            ra.dividedBy(rbNz) shouldBe ma.dividedBy(mbNz)
             ra.negated().toMillis() shouldBe ma.negated().toMillis()
             ra.abs().toMillis() shouldBe ma.abs().toMillis()
             Integer.signum(ra.compareTo(rb)) shouldBe Integer.signum(ma.compareTo(mb))   // contract is sign
@@ -156,6 +159,15 @@ class TimeConformanceTest : FunSpec({
         }
     }
 
+    test("Duration.dividedBy(ZERO Duration) throws ArithmeticException (JDK parity)") {
+        checkAll(ms) { a ->
+            val real = runCatching { java.time.Duration.ofMillis(a).dividedBy(java.time.Duration.ZERO) }
+            val model = runCatching { bmcref.java.time.Duration.ofMillis(a).dividedBy(bmcref.java.time.Duration.ofMillis(0L)) }
+            real.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
     test("LocalDate conforms") {
         checkAll(days, days) { a, b ->
             val ra = java.time.LocalDate.ofEpochDay(a); val rb = java.time.LocalDate.ofEpochDay(b)
@@ -171,6 +183,80 @@ class TimeConformanceTest : FunSpec({
             ra.plusWeeks(b / 7).toEpochDay() shouldBe ma.plusWeeks(b / 7).toEpochDay()
             ra.minusWeeks(b / 7).toEpochDay() shouldBe ma.minusWeeks(b / 7).toEpochDay()
             ra.equals(rb) shouldBe ma.equals(mb)
+            ra.isEqual(rb) shouldBe ma.isEqual(mb)
+            // calendar fields decoded from the epoch-day (day-of-year, month/year lengths, leap flag)
+            ra.dayOfYear shouldBe ma.getDayOfYear()
+            ra.lengthOfMonth() shouldBe ma.lengthOfMonth()
+            ra.lengthOfYear() shouldBe ma.lengthOfYear()
+            ra.isLeapYear shouldBe ma.isLeapYear()
+        }
+    }
+
+    // --- LocalDate.ofYearDay + with* field setters (clamp on with{Year,Month}, strict elsewhere) -----
+    //
+    // ofYearDay decomposes a 1-based day-of-year (incl. day 366 in leap years) into y/m/d; the with*
+    // setters clamp the day for withYear/withMonth (resolvePreviousValid) but validate strictly for
+    // withDayOfMonth/withDayOfYear. Drive symbolic years (covering leap cycles) + out-of-range fields so
+    // both the value parity AND the loud-exception parity are tested vs the real JDK.
+    val yearAny = Arb.int(1900..2100)
+    val doyLike = Arb.int(-1..367)          // out of bounds to test exception parity
+    val monthSet = Arb.int(0..13)
+    val domSet = Arb.int(0..32)
+
+    test("LocalDate.ofYearDay exception parity + value (leap day 366)") {
+        checkAll(yearAny, doyLike) { y, doy ->
+            val real = runCatching { java.time.LocalDate.ofYearDay(y, doy) }
+            val model = runCatching { bmcref.java.time.LocalDate.ofYearDay(y, doy) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                real.getOrThrow().toEpochDay() shouldBe (model.getOrThrow() as bmcref.java.time.LocalDate).toEpochDay()
+            }
+        }
+    }
+
+    test("LocalDate.with* conforms (clamp + strict validation parity)") {
+        checkAll(days, yearAny, monthSet, domSet) { e, y, mo, dom ->
+            val ra = java.time.LocalDate.ofEpochDay(e)
+            val ma = bmcref.java.time.LocalDate.ofEpochDay(e)
+            // withYear / withMonth clamp the day-of-month; compare resulting epoch-day, with exception parity
+            assertEquivalent("withYear", runCatching { ra.withYear(y).toEpochDay() }, runCatching { ma.withYear(y).toEpochDay() })
+            assertEquivalent("withMonth", runCatching { ra.withMonth(mo).toEpochDay() }, runCatching { ma.withMonth(mo).toEpochDay() })
+            // withDayOfMonth / withDayOfYear validate strictly (throw on a day past the month/year length)
+            assertEquivalent("withDayOfMonth", runCatching { ra.withDayOfMonth(dom).toEpochDay() }, runCatching { ma.withDayOfMonth(dom).toEpochDay() })
+        }
+    }
+
+    test("LocalDate.withDayOfYear conforms (strict; 366 only in leap years)") {
+        checkAll(days, doyLike) { e, doy ->
+            val ra = java.time.LocalDate.ofEpochDay(e)
+            val ma = bmcref.java.time.LocalDate.ofEpochDay(e)
+            assertEquivalent("withDayOfYear", runCatching { ra.withDayOfYear(doy).toEpochDay() }, runCatching { ma.withDayOfYear(doy).toEpochDay() })
+        }
+    }
+
+    test("LocalDate.atTime / atStartOfDay / until composition conforms") {
+        val validH = Arb.int(0..23); val validM = Arb.int(0..59); val validS = Arb.int(0..59)
+        checkAll(days, days, validH, validM) { a, b, h, mi ->
+            val ra = java.time.LocalDate.ofEpochDay(a); val rb = java.time.LocalDate.ofEpochDay(b)
+            val ma = bmcref.java.time.LocalDate.ofEpochDay(a); val mb = bmcref.java.time.LocalDate.ofEpochDay(b)
+            // atStartOfDay: same date, time = 00:00
+            ra.atStartOfDay().let { r -> ma.atStartOfDay().let { m ->
+                r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
+                r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
+            } }
+            // atTime(h, mi)
+            ra.atTime(h, mi).let { r -> ma.atTime(h, mi).let { m ->
+                r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
+                r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
+            } }
+            // atTime(LocalTime)
+            val rt = java.time.LocalTime.of(h, mi); val mt = bmcref.java.time.LocalTime.of(h, mi)
+            ra.atTime(rt).toLocalTime().toNanoOfDay() shouldBe ma.atTime(mt).toLocalTime().toNanoOfDay()
+            // until(endExclusive) -> Period (delegates to Period.between)
+            val rp = ra.until(rb); val mp = ma.until(mb)
+            rp.years shouldBe mp.getYears()
+            rp.months shouldBe mp.getMonths()
+            rp.days shouldBe mp.getDays()
         }
     }
 
@@ -269,6 +355,33 @@ class TimeConformanceTest : FunSpec({
         }
     }
 
+    test("LocalTime.with* conforms (field validation parity) + atDate") {
+        val validH = Arb.int(0..23); val validM = Arb.int(0..59); val validS = Arb.int(0..59)
+        val nanoValid = Arb.int(0..999_999_999)
+        checkAll(validH, validM, validS, hourLike) { h, mi, s, newH ->
+            val rt = java.time.LocalTime.of(h, mi, s, 123)
+            val mt = bmcref.java.time.LocalTime.of(h, mi, s, 123)
+            // withHour ranges out of bounds -> exception parity; the others stay valid
+            assertEquivalent("withHour", runCatching { rt.withHour(newH).toNanoOfDay() }, runCatching { mt.withHour(newH).toNanoOfDay() })
+            rt.withMinute(mi).toNanoOfDay() shouldBe mt.withMinute(mi).toNanoOfDay()
+            rt.withSecond(s).toNanoOfDay() shouldBe mt.withSecond(s).toNanoOfDay()
+            // atDate composes with a fixed date
+            val rd = java.time.LocalDate.ofEpochDay(0L); val md = bmcref.java.time.LocalDate.ofEpochDay(0L)
+            rt.atDate(rd).toLocalTime().toNanoOfDay() shouldBe mt.atDate(md).toLocalTime().toNanoOfDay()
+        }
+        checkAll(validH, validM, validS, nanoValid) { h, mi, s, n ->
+            val rt = java.time.LocalTime.of(h, mi, s)
+            val mt = bmcref.java.time.LocalTime.of(h, mi, s)
+            rt.withNano(n).toNanoOfDay() shouldBe mt.withNano(n).toNanoOfDay()
+        }
+        // out-of-range nano -> loud exception parity
+        checkAll(Arb.int(1_000_000_000..1_000_000_010)) { n ->
+            val r = runCatching { java.time.LocalTime.of(0, 0).withNano(n) }
+            val m = runCatching { bmcref.java.time.LocalTime.of(0, 0).withNano(n) }
+            assertSameException(r, m)
+        }
+    }
+
     // --- LocalDateTime ---
 
     val yearLike = Arb.int(1900..2100)          // a wide-but-fast range covering leap-year edge cases
@@ -291,7 +404,38 @@ class TimeConformanceTest : FunSpec({
                 r.second shouldBe m.getSecond()
                 r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
                 r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
+                r.dayOfYear shouldBe m.getDayOfYear()
             }
+        }
+    }
+
+    test("LocalDateTime.plusWeeks/minusWeeks + isEqual + with* conforms") {
+        val validH = Arb.int(0..23); val validM = Arb.int(0..59)
+        val newDom = Arb.int(0..32)
+        checkAll(yearLike, validH, validM, shift) { y, h, mi, sh ->
+            val r = java.time.LocalDateTime.of(y, 6, 15, h, mi, 30)
+            val m = bmcref.java.time.LocalDateTime.of(y, 6, 15, h, mi, 30)
+            // plusWeeks/minusWeeks == plusDays(*7) on the date part, time unchanged
+            r.plusWeeks(sh / 7).toLocalDate().toEpochDay() shouldBe m.plusWeeks(sh / 7).toLocalDate().toEpochDay()
+            r.minusWeeks(sh / 7).toLocalDate().toEpochDay() shouldBe m.minusWeeks(sh / 7).toLocalDate().toEpochDay()
+            r.plusWeeks(sh / 7).toLocalTime().toNanoOfDay() shouldBe m.plusWeeks(sh / 7).toLocalTime().toNanoOfDay()
+            // isEqual against a shifted instance
+            val r2 = r.plusMinutes(sh % 1440); val m2 = m.plusMinutes(sh % 1440)
+            r.isEqual(r2) shouldBe m.isEqual(m2)
+            // time-part with* (validated; keep in range here)
+            r.withHour(h).toLocalTime().toNanoOfDay() shouldBe m.withHour(h).toLocalTime().toNanoOfDay()
+            r.withMinute(mi).toLocalTime().toNanoOfDay() shouldBe m.withMinute(mi).toLocalTime().toNanoOfDay()
+            r.withSecond(0).toLocalTime().toNanoOfDay() shouldBe m.withSecond(0).toLocalTime().toNanoOfDay()
+            r.withNano(7).toLocalTime().toNanoOfDay() shouldBe m.withNano(7).toLocalTime().toNanoOfDay()
+            // date-part with* (clamp on year/month, strict on day) — compare resulting epoch-day + exception parity
+            r.withYear(y).toLocalDate().toEpochDay() shouldBe m.withYear(y).toLocalDate().toEpochDay()
+        }
+        // date-part with* clamp + strict validation across symbolic month/day, driven from Jan 31 (clamp source)
+        checkAll(Arb.int(1..12), newDom) { mo, dom ->
+            val r = java.time.LocalDateTime.of(2024, 1, 31, 8, 0, 0)
+            val m = bmcref.java.time.LocalDateTime.of(2024, 1, 31, 8, 0, 0)
+            assertEquivalent("ldt.withMonth", runCatching { r.withMonth(mo).toLocalDate().toEpochDay() }, runCatching { m.withMonth(mo).toLocalDate().toEpochDay() })
+            assertEquivalent("ldt.withDayOfMonth", runCatching { r.withDayOfMonth(dom).toLocalDate().toEpochDay() }, runCatching { m.withDayOfMonth(dom).toLocalDate().toEpochDay() })
         }
     }
 
@@ -376,9 +520,31 @@ class TimeConformanceTest : FunSpec({
             rn.years shouldBe mn.getYears()
             rn.months shouldBe mn.getMonths()
             rn.days shouldBe mn.getDays()
+            // with* field setters (replace one field, keep the others)
+            rp.withYears(k % 1000).years shouldBe mp.withYears(k % 1000).getYears()
+            rp.withMonths(k % 1000).months shouldBe mp.withMonths(k % 1000).getMonths()
+            rp.withDays(k % 1000).days shouldBe mp.withDays(k % 1000).getDays()
+            // multipliedBy a small scalar (keep the product well inside int so this is JDK parity, not
+            // the loud-overflow path); each field scales
+            val scalar = (k % 10).toInt()
+            rp.multipliedBy(scalar).years shouldBe mp.multipliedBy(scalar).getYears()
+            rp.multipliedBy(scalar).months shouldBe mp.multipliedBy(scalar).getMonths()
+            rp.multipliedBy(scalar).days shouldBe mp.multipliedBy(scalar).getDays()
             // equals + factories
             java.time.Period.ofDays(d).days shouldBe bmcref.java.time.Period.ofDays(d).getDays()
             java.time.Period.ofWeeks(k % 1000).days shouldBe bmcref.java.time.Period.ofWeeks(k % 1000).getDays()
+        }
+    }
+
+    // Period.multipliedBy loud-overflow parity: a field * scalar that leaves the int range must throw
+    // ArithmeticException on BOTH sides (the JDK uses Math.multiplyExact too).
+    test("Period.multipliedBy fails LOUDLY on int overflow (JDK parity)") {
+        checkAll(Arb.int(2..1000)) { s ->
+            val big = Integer.MAX_VALUE / s + 1
+            val real = runCatching { java.time.Period.ofDays(big).multipliedBy(s) }
+            val model = runCatching { bmcref.java.time.Period.ofDays(big).multipliedBy(s) }
+            assertSameException(real, model)
+            real.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
         }
     }
 })
