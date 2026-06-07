@@ -139,4 +139,41 @@ class ArrayListLaws {
         val changed = l.removeIf { it < 0 }         // a >= 0, nothing removed
         Bmc.check(!changed && l.size == 1 && l[0] == a)
     }
+
+    // --- SequencedCollection head/tail ops (Java 21+) ----------------------------------------------
+
+    @BmcProof
+    fun addFirst_inserts_at_head_addLast_at_tail() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val c = Bmc.anyInt()
+        l.addLast(a)        // [a]
+        l.addFirst(b)       // [b, a]
+        l.addLast(c)        // [b, a, c]
+        Bmc.check(l.size == 3 && l[0] == b && l[1] == a && l[2] == c)
+        Bmc.check(l.getFirst() == b && l.getLast() == c)
+    }
+
+    @BmcProof
+    fun removeFirst_and_removeLast_take_the_ends() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val c = Bmc.anyInt()
+        l.addLast(a); l.addLast(b); l.addLast(c)  // [a, b, c]
+        val first = l.removeFirst()               // a, leaves [b, c]
+        val last = l.removeLast()                 // c, leaves [b]
+        Bmc.check(first == a && last == c && l.size == 1 && l[0] == b)
+    }
+
+    @BmcProof
+    fun lastIndexOf_finds_the_last_equal_element() {
+        val l = ArrayList<Int>()
+        val x = Bmc.anyInt()
+        l.add(x)            // index 0
+        l.add(x + 1)        // index 1
+        l.add(x)            // index 2 (duplicate of index 0)
+        Bmc.check(l.indexOf(x) == 0 && l.lastIndexOf(x) == 2)
+    }
 }

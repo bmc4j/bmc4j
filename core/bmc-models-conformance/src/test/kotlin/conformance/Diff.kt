@@ -95,6 +95,28 @@ fun assertSameException(real: Result<*>, model: Result<*>) {
     }
 }
 
+/**
+ * Both outcomes must agree on a Map.Entry result (e.g. TreeMap firstEntry/lastEntry): a conforming
+ * exception, both null (no qualifying entry), or both non-null with equal key AND value. The entry
+ * types differ by the {@code bmcref.} relocation, so key/value are read reflectively via getKey/getValue.
+ */
+fun assertSameEntry(label: String, real: Result<Any?>, model: Result<Any?>) {
+    val re = real.exceptionOrNull()
+    val me = model.exceptionOrNull()
+    withClue("$label  ->  real=${re?.javaClass?.name ?: real.getOrNull()}  model=${me?.javaClass?.name ?: model.getOrNull()}") {
+        excMatches(re, me) shouldBe true
+        if (re == null && me == null) {
+            val rEntry = real.getOrNull()
+            val mEntry = model.getOrNull()
+            (mEntry == null) shouldBe (rEntry == null)
+            if (rEntry != null && mEntry != null) {
+                assertEquivalent("$label.key", call(rEntry, "getKey", arrayOf()), call(mEntry, "getKey", arrayOf()))
+                assertEquivalent("$label.value", call(rEntry, "getValue", arrayOf()), call(mEntry, "getValue", arrayOf()))
+            }
+        }
+    }
+}
+
 /** Both outcomes must agree: conforming exception (or both succeeded), and on success, equal value. */
 fun assertEquivalent(label: String, real: Result<Any?>, model: Result<Any?>) {
     val re = real.exceptionOrNull()

@@ -17,8 +17,8 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * primitives (modeled). String elements use JBMC's native {@code String.equals}; prefer the
  * dedicated string support for string-keyed lookups.
  */
-@BmcModelConforms("array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray()")
-@BmcModelTail(reason = "exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
+@BmcModelConforms("array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray() and the SequencedCollection head/tail ops getFirst/getLast/addFirst/addLast/removeFirst/removeLast + lastIndexOf")
+@BmcModelTail(reason = "exotic remainder: reversed() view, listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
 public class ArrayList<E> implements List<E> {
 
     private static final int CAPACITY = 64;
@@ -103,6 +103,72 @@ public class ArrayList<E> implements List<E> {
             }
         }
         return -1;
+    }
+
+    @Override
+    public int lastIndexOf(Object o) {
+        for (int i = size - 1; i >= 0; i--) {
+            if (o == null ? elements[i] == null : o.equals(elements[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // --- SequencedCollection (Java 21+) head/tail ops over the bounded backing array ---------------
+    // addFirst inserts at index 0 (shift right, loud past capacity); addLast appends. get/removeFirst/
+    // -Last throw NoSuchElementException on an empty list, exactly like the JDK. The LinkedList model
+    // inherits these unchanged (its array-backed semantics are identical), so deque/SequencedCollection
+    // use on either list resolves to one sound body rather than a silent nondet stub.
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public E getFirst() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return (E) elements[0];
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public E getLast() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return (E) elements[size - 1];
+    }
+
+    @Override
+    public void addFirst(E e) {
+        // Append a slot (loud if past capacity), then shift the tail one position toward the end.
+        elements[size] = null;
+        size++;
+        for (int i = size - 1; i > 0; i--) {
+            elements[i] = elements[i - 1];
+        }
+        elements[0] = e;
+    }
+
+    @Override
+    public void addLast(E e) {
+        add(e);
+    }
+
+    @Override
+    public E removeFirst() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return remove(0);
+    }
+
+    @Override
+    public E removeLast() {
+        if (size == 0) {
+            throw new NoSuchElementException();
+        }
+        return remove(size - 1);
     }
 
     @Override

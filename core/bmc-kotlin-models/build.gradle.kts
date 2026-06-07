@@ -122,9 +122,11 @@ val renameDurationAbi by tasks.registering {
 tasks.named("classes") { dependsOn(renameDurationAbi) }
 
 // ---------------------------------------------------------------------------------------------
-// Loud-body synthesis (Upgrade A), mirroring bmc-models: synthesize AssertionError-throwing bodies
-// for every @BmcNotModelled / @BmcNotNeeded member these models declare but do not implement, so a
-// proof reaching an unmodeled member fails NAMED AND LOUD under JBMC instead of silently havocking.
+// Loud-body synthesis, mirroring bmc-models: synthesize a message-free sentinel-routing body for
+// every @BmcNotModelled / @BmcNotNeeded member these models declare but do not implement, so a proof
+// reaching an unmodeled member demotes to a member-named UNKNOWN under JBMC instead of silently
+// havocking. (No kotlin model uses these annotations today, so this pass currently synthesizes
+// nothing — it exists so the shape is correct and cheap the moment one does.)
 val synthesizeLoudBodies by tasks.registering {
     description = "Synthesize loud-failing bodies for @BmcNotModelled/@BmcNotNeeded members."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
@@ -182,7 +184,6 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         }
         if (decls.isEmpty()) return@forEach
 
-        val className = node.name.replace('/', '.')
         var changed = false
         for (decl in decls) {
             val parsed = parseMemberSignature(decl.member) ?: continue
@@ -194,20 +195,19 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
             val access = Opcodes.ACC_PUBLIC
             val mn = MethodNode(access, name, desc, null, null)
             mn.visitAnnotation("Lorg/bmc4j/models/audit/BmcSynthesizedLoud;", false)
-            val msg = "bmc4j: unmodelled member $className.${decl.member} — ${decl.reason}"
             val iv = mn.instructions
-            iv.add(org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, "java/lang/AssertionError"))
-            iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.DUP))
-            iv.add(org.objectweb.asm.tree.LdcInsnNode(msg))
-            iv.add(org.objectweb.asm.tree.MethodInsnNode(Opcodes.INVOKESPECIAL,
-                "java/lang/AssertionError", "<init>", "(Ljava/lang/Object;)V", false))
+            // Route through the BmcUnmodelledReached sentinel (message-free) — identical shape to
+            // bmc-models: the violated function becomes the recognized sentinel so a reach demotes to a
+            // member-named UNKNOWN (recovered from the trace call-chain), never a silent havoc. No
+            // message string: a unique constant per synthesized method was the loud-body proof-time tax
+            // (JBMC interns every constant even on unreached paths), and JBMC discards assert messages
+            // anyway. The trailing `athrow null` keeps the method well-formed for any return type.
+            iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.ACONST_NULL))
+            iv.add(org.objectweb.asm.tree.MethodInsnNode(Opcodes.INVOKESTATIC,
+                "org/bmc4j/analysis/BmcUnmodelledReached", "reached", "(Ljava/lang/String;)V", false))
+            iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.ACONST_NULL))
             iv.add(org.objectweb.asm.tree.InsnNode(Opcodes.ATHROW))
-            mn.maxStack = 3
-            mn.maxLocals = run {
-                var slots = 1
-                for (p in paramTypes) slots += p.size
-                slots
-            }
+            mn.maxStack = 1
             node.methods.add(mn)
             changed = true
         }

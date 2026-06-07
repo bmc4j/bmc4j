@@ -37,8 +37,8 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
-@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
-@BmcModelTail(reason = "array-snapshot/stream views (toArray/toArray(IntFunction)/stream/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
+@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll")
+@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     static final int MAX_CAPACITY = 64;
@@ -208,6 +208,16 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return new Itr();
     }
 
+    /** A sequential stream over the queued elements in FIFO order — a thin ListStream adapter. */
+    @SuppressWarnings("unchecked")
+    public java.util.stream.Stream<E> stream() {
+        java.util.ArrayList<E> snapshot = new java.util.ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            snapshot.add((E) elements[i]);
+        }
+        return new java.util.stream.ListStream<>(snapshot);
+    }
+
     /** Drain all elements into {@code c} (in FIFO order) and return the count moved. */
     public int drainTo(Collection<? super E> c) {
         int n = size;
@@ -217,36 +227,73 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return n;
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+    // --- functional / bulk ops over the bounded FIFO backing array ------------------------------
+    // forEach reads in FIFO order; removeIf/removeAll/retainAll compact in place (preserving FIFO);
+    // addAll enqueues via add() so it honors the logical capacity exactly (IllegalStateException when
+    // full, like the JDK). Functional arguments are plain SAM calls (bmc4j desugars the lambda so JBMC
+    // devirtualizes test/accept).
 
-    @BmcNotModelled(reason = "functional-arg iteration — iterate explicitly")
+    @SuppressWarnings("unchecked")
     public void forEach(java.util.function.Consumer<? super E> action) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.forEach(java.util.function.Consumer) — functional-arg iteration — iterate explicitly");
+        for (int i = 0; i < size; i++) {
+            action.accept((E) elements[i]);
+        }
     }
 
-    @BmcNotModelled(reason = "functional-arg filter — JBMC stubs the predicate dispatch")
+    @SuppressWarnings("unchecked")
     public boolean removeIf(java.util.function.Predicate<? super E> filter) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.removeIf(java.util.function.Predicate) — functional-arg filter — JBMC stubs the predicate dispatch");
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            E e = (E) elements[r];
+            if (filter.test(e)) {
+                changed = true;
+            } else {
+                elements[w++] = e;
+            }
+        }
+        size = w;
+        return changed;
     }
 
-    @BmcNotNeeded(reason = "bulk add — add elements explicitly over the bounded model")
     public boolean addAll(Collection<? extends E> c) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.addAll(java.util.Collection) — bulk add — add elements explicitly over the bounded model");
+        boolean changed = false;
+        for (E e : c) {
+            add(e);             // honors logical capacity (IllegalStateException when full), like the JDK
+            changed = true;
+        }
+        return changed;
     }
+
+    public boolean removeAll(Collection<?> c) {
+        return removeWhere(c, true);
+    }
+
+    public boolean retainAll(Collection<?> c) {
+        return removeWhere(c, false);
+    }
+
+    /** Compact in place (preserving FIFO), dropping elements whose membership in {@code c} equals {@code removeMatched}. */
+    private boolean removeWhere(Collection<?> c, boolean removeMatched) {
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            Object e = elements[r];
+            if (c.contains(e) == removeMatched) {
+                changed = true;     // dropped
+            } else {
+                elements[w++] = e;  // kept
+            }
+        }
+        size = w;
+        return changed;
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
-    }
-
-    @BmcNotNeeded(reason = "bulk remove — compose remove() explicitly")
-    public boolean removeAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.removeAll(java.util.Collection) — bulk remove — compose remove() explicitly");
-    }
-
-    @BmcNotNeeded(reason = "bulk retain — exotic over a bounded model")
-    public boolean retainAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.retainAll(java.util.Collection) — bulk retain — exotic over a bounded model");
     }
 
     @BmcNotNeeded(reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")

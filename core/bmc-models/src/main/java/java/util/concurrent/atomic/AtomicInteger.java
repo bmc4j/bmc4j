@@ -97,6 +97,12 @@ public class AtomicInteger extends Number {
         return old;
     }
 
+    public final int getAndAccumulate(int x, IntBinaryOperator f) {
+        int old = value;
+        value = f.applyAsInt(value, x);
+        return old;
+    }
+
     public final int accumulateAndGet(int x, IntBinaryOperator f) {
         value = f.applyAsInt(value, x);
         return value;
