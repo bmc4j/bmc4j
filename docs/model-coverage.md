@@ -1873,11 +1873,11 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `kotlin.jvm.internal.Intrinsics`
 
-Real surface: 40 members — modeled 15, not-modeled 0, not-needed 0, tail 25.
+Real surface: 40 members — modeled 16, not-modeled 0, not-needed 0, tail 24.
 
-**Modeled** (`@BmcModelConforms`): `areEqual(Object, Object)`, `checkExpressionValueIsNotNull(Object, String)`, `checkFieldIsNotNull(Object, String)`, `checkNotNull(Object)`, `checkNotNull(Object, String)`, `checkNotNullExpressionValue(Object, String)`, `checkNotNullParameter(Object, String)`, `checkParameterIsNotNull(Object, String)`, `checkReturnedValueIsNotNull(Object, String)`, `compare(int, int)`, `compare(long, long)`, `stringPlus(String, Object)`, `throwJavaNpe()`, `throwNpe()`, `throwNpe(String)`
+**Modeled** (`@BmcModelConforms`): `areEqual(Object, Object)`, `checkExpressionValueIsNotNull(Object, String)`, `checkFieldIsNotNull(Object, String)`, `checkNotNull(Object)`, `checkNotNull(Object, String)`, `checkNotNullExpressionValue(Object, String)`, `checkNotNullParameter(Object, String)`, `checkParameterIsNotNull(Object, String)`, `checkReturnedValueIsNotNull(Object, String)`, `compare(int, int)`, `compare(long, long)`, `stringPlus(String, Object)`, `throwJavaNpe()`, `throwNpe()`, `throwNpe(String)`, `throwUninitializedPropertyAccessException(String)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
 
 - `areEqual(Double, Double)`
 - `areEqual(Double, double)`
@@ -1903,7 +1903,6 @@ Real surface: 40 members — modeled 15, not-modeled 0, not-needed 0, tail 25.
 - `throwUndefinedForReified()`
 - `throwUndefinedForReified(String)`
 - `throwUninitializedProperty(String)`
-- `throwUninitializedPropertyAccessException(String)`
 
 </details>
 

@@ -7,14 +7,16 @@ import org.bmc4j.Verdict
 
 /**
  * Pins `lateinit` semantics under BMC in all three directions: unguarded pre-init access refutes,
- * the `isInitialized` guard verifies, init-then-read verifies. (kotlinc lowers the read guard to
- * a field-null check whose failure path surfaces as a violation — the uninitialized access is a
- * real, findable defect, not a silently-null read.)
+ * the `isInitialized` guard verifies, init-then-read verifies. (kotlinc lowers the unguarded read to
+ * `Intrinsics.throwUninitializedPropertyAccessException(name)`; the Intrinsics model throws a real
+ * `kotlin.UninitializedPropertyAccessException`, so the refutation is the genuine uncaught-exception
+ * defect Kotlin documents — not an incidental null deref.)
  */
 class LateinitProofs {
 
     // FAIL (the bug): reading a lateinit property before initialization. Expected verdict:
-    // REFUTED - the unguarded read is reachable with the property uninitialized.
+    // REFUTED - the unguarded read is reachable with the property uninitialized (uncaught
+    // UninitializedPropertyAccessException).
     @BmcProof(expect = Verdict.REFUTED)
     fun read_before_init_is_a_defect() {
         val s = Session()
