@@ -84,8 +84,17 @@ fun relocateModelJar(inputs: Set<File>, output: File) {
     // `org/bmc4j/models/audit/...` (relocating them would both break the gate's descriptor matching and
     // contradict the requirement that annotation FQNs survive relocation). We neither own nor re-emit
     // them here; the gate reads the descriptor strings, not the loaded annotation classes.
+    // java.util.function is DELIBERATELY excluded: those functional interfaces are SHARED between the
+    // real-JDK collection models and the lambdas a differential test passes them, so relocating them to
+    // bmcref.* would break passing a real java.util.function.Predicate to a model's removeIf (and every
+    // other functional-arg method). The function models exist only to give JBMC sound default-method
+    // bodies on the PROOF analysis classpath (the un-relocated bmc-models jar) — they are validated by
+    // model proofs (proofs.function), never the differential axis, so they never load on the test JVM
+    // and need no relocated twin. (Streams/Collectors stay relocatable: they're concrete classes the
+    // differential gate enumerates but never JVM-runs, and they only USE function interfaces.)
     fun isModel(internalName: String) =
-        internalName.startsWith("java/") || internalName.startsWith("kotlin/") || internalName.startsWith("kotlinx/")
+        (internalName.startsWith("java/") || internalName.startsWith("kotlin/") || internalName.startsWith("kotlinx/")) &&
+            !internalName.startsWith("java/util/function/")
     // 1) Collect every owned internal class name across the input jars (models only).
     val owned = mutableSetOf<String>()
     for (f in inputs) {
