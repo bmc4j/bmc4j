@@ -104,4 +104,22 @@ class BigDecimalConformanceTest : FunSpec({
             }
         }
     }
+
+    // --- OUT-OF-DOMAIN: String-ctor digit accumulation past the long bound ------------------------
+    // Bounded-model loud-failure, NOT JDK parity: an over-long numeral overflows the unscaled `long`.
+    // The JDK is arbitrary-precision and SUCCEEDS; the model must FAIL LOUDLY (the digit-accumulation
+    // overflow guard trips) rather than silently wrap to a wrong unscaled value. Previously the parse
+    // loop did `u = u*10 + d` unchecked and wrapped silently. Assertions are on under Gradle's test
+    // task, so the guard surfaces as AssertionError here exactly as it surfaces as a CBMC assert
+    // under the engine.
+    test("BigDecimal(String) with an over-long numeral fails LOUDLY (bounded-model loud-failure)") {
+        // 25 nines: far beyond Long.MAX_VALUE (~9.2e18, 19 digits) -> unscaled long would wrap.
+        val tooBig = "9".repeat(25)
+        val real = runCatching { RealBD(tooBig) }   // arbitrary precision -> succeeds
+        val model = runCatching { ModelBD(tooBig) }
+        withClue("real success=${real.isSuccess}, model=${model.exceptionOrNull()?.javaClass}") {
+            real.isSuccess shouldBe true
+            model.isFailure shouldBe true            // loud past its bound, never a silent wrap
+        }
+    }
 })

@@ -15,7 +15,16 @@ public interface Map<K, V> {
 
     boolean containsKey(Object key);
 
+    boolean containsValue(Object value);
+
     V remove(Object key);
+
+    /**
+     * Inserts {@code (key, value)} only if {@code key} is absent (or mapped to {@code null}),
+     * returning the previous value (or {@code null}). Common enough to model directly — left
+     * unmodeled it resolves to a JBMC nondet stub.
+     */
+    V putIfAbsent(K key, V value);
 
     void clear();
 

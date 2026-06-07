@@ -26,6 +26,7 @@ private val anOp: Arb<Op> = Arb.choice(
     index.map { Op("get($it)", "get", arrayOf(INT), arrayOf(it)) },
     Arb.bind(index, value) { i, v -> Op("set($i,$v)", "set", arrayOf(INT, OBJECT), arrayOf(i, v)) },
     index.map { Op("remove($it)", "remove", arrayOf(INT), arrayOf(it)) },
+    value.map { Op("removeObj($it)", "remove", arrayOf(OBJECT), arrayOf(it)) },  // Collection.remove(Object)
     value.map { Op("indexOf($it)", "indexOf", arrayOf(OBJECT), arrayOf(it)) },
     value.map { Op("contains($it)", "contains", arrayOf(OBJECT), arrayOf(it)) },
     Arb.constant(Op("clear", "clear", arrayOf(), arrayOf())),

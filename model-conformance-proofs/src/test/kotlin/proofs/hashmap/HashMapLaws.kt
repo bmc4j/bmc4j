@@ -61,6 +61,26 @@ class HashMapLaws {
     }
 
     @BmcProof
+    fun containsValue_finds_a_put_value() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        m[k] = v
+        Bmc.check(m.containsValue(v) && !m.containsValue(v + 1))
+    }
+
+    @BmcProof
+    fun putIfAbsent_inserts_when_absent_then_keeps_first() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val first = m.putIfAbsent(k, a)         // absent -> returns null, installs a
+        val second = m.putIfAbsent(k, b)        // present -> returns a, leaves a in place
+        Bmc.check(first == null && second == a && m[k] == a && m.size == 1)
+    }
+
+    @BmcProof
     fun keySet_and_values_snapshot_the_map() {
         val m = HashMap<Int, Int>()
         val k = Bmc.anyInt()

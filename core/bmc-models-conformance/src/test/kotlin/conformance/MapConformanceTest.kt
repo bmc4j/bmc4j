@@ -27,6 +27,8 @@ private fun mapOp(allowNullKey: Boolean): Arb<MapOp> {
         key.map { MapOp("get($it)", "get", arrayOf(OBJECT), arrayOf(it)) },
         key.map { MapOp("remove($it)", "remove", arrayOf(OBJECT), arrayOf(it)) },
         key.map { MapOp("containsKey($it)", "containsKey", arrayOf(OBJECT), arrayOf(it)) },
+        value.map { MapOp("containsValue($it)", "containsValue", arrayOf(OBJECT), arrayOf(it)) },
+        Arb.bind(key, value) { k, v -> MapOp("putIfAbsent($k,$v)", "putIfAbsent", arrayOf(OBJECT, OBJECT), arrayOf(k, v)) },
         Arb.bind(key, Arb.int(-9..9)) { k, d -> MapOp("getOrDefault($k,$d)", "getOrDefault", arrayOf(OBJECT, OBJECT), arrayOf(k, d)) },
         Arb.constant(MapOp("clear", "clear", arrayOf(), arrayOf())),
     )

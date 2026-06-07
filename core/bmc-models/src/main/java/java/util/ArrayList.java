@@ -110,6 +110,22 @@ public class ArrayList<E> implements List<E> {
         return old;
     }
 
+    /**
+     * Removes the first element equal to {@code o} (by {@code equals}), shifting the tail down;
+     * returns whether an element was removed. The {@code Collection.remove(Object)} overload —
+     * distinct from {@link #remove(int)}. Without it, analysed {@code list.remove(element)} calls
+     * (notably Kotlin's {@code MutableList.remove}) resolved to a JBMC nondet stub.
+     */
+    @Override
+    public boolean remove(Object o) {
+        int i = indexOf(o);
+        if (i < 0) {
+            return false;
+        }
+        remove(i);
+        return true;
+    }
+
     @Override
     public void clear() {
         size = 0;

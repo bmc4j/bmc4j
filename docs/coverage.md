@@ -100,8 +100,8 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 |---|---|---|
 | Boxed primitives, `Math` | ✅ | bundled in JBMC `core-models`; the integer methods jbmc stubbed to nondet (`floorDiv`/`floorMod`/`addExact`/`subtractExact`/`multiplyExact`/`negateExact`/`incrementExact`/`decrementExact`/`toIntExact`) are soundly redirected to `BmcMath` via an in-layer bytecode pass (`MathBytecode`), overflow loud; `sqrt`/`pow`/trig pass through to the modeled core-models |
 | `StringBuilder` / `StringBuffer` | ✅ | core-models |
-| `List` / `ArrayList` / `LinkedList` | ✅ | bounded array-backed model ([`examples/stdlib`](../examples/stdlib)) |
-| `Map` / `HashMap` / `LinkedHashMap` / `TreeMap` | ✅ | |
+| `List` / `ArrayList` / `LinkedList` | ✅ | bounded array-backed model ([`examples/stdlib`](../examples/stdlib)). Surface: `add`/`get`/`set`/`indexOf`/`contains`/`remove(int)`/`remove(Object)`/`clear`/`iterator`/`stream` (`remove(Object)` — the `Collection` overload, distinct from by-index — is modeled; differential + @BmcProof) |
+| `Map` / `HashMap` / `LinkedHashMap` / `TreeMap` | ✅ | `put`/`get`/`remove`/`containsKey`/`containsValue`/`getOrDefault`/`putIfAbsent`/`keySet`/`values`/`entrySet` (`containsValue`/`putIfAbsent` modeled; differential + @BmcProof). `compute*`/`merge`/`forEach`/`replace` not modeled (functional-arg surface) → JBMC stubs |
 | `Set` / `HashSet` / `LinkedHashSet` | ✅ | |
 | `Optional` | ✅ | |
 | `List.of` / `Set.of` / `Map.of`, `Arrays.asList` | ✅ | |
@@ -113,7 +113,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | collection copy-constructors (`new ArrayList<>(c)`, `new HashMap<>(m)`) | ✅ | List/Set + Map (incl. `Linked*`/`TreeMap`); differential + @BmcProof |
 | Map views `keySet`/`values`/`entrySet` (+ `Map.Entry`, `for (e : map.entrySet())`) | ✅ | bounded snapshots; differential + @BmcProof |
 | `BigInteger` | ✅ | bounded model backed by `long` |
-| `BigDecimal` | ✅ | exact: unscaled `long` + scale, `RoundingMode` divide/setScale ([`examples/stdlib`](../examples/stdlib)). `double` constructor 🚫 by design (use String/long) |
+| `BigDecimal` | ✅ | exact: unscaled `long` + scale, `RoundingMode` divide/setScale ([`examples/stdlib`](../examples/stdlib)). `double` constructor 🚫 by design (use String/long). Past the ~18-digit `long` bound — arithmetic AND the `String`-ctor digit accumulation — fails LOUDLY (overflow guard), never a silent wrap |
 | `java.time` `Instant`/`Duration`/`LocalDate`/`LocalTime`/`LocalDateTime` | ⚠️ | epoch/field primitives, no zones/DST. `LocalTime` = nano-of-day; `LocalDateTime` = epoch-day + nano-of-day (y/m/d conversion mirrors the JDK's proleptic-Gregorian algo, differential-verified across leap years). Day/time arithmetic (`plusDays`/`plusHours`/`plusMinutes`/`plusSeconds`) sound. Calendar-month arithmetic modeled: `LocalDate.plusMonths`/`plusYears` (+`minus*`) and `LocalDateTime.plusMonths`/`plusYears` (+`minus*`) apply the JDK's exact month-carry + day-of-month **clamp** (2024-01-31 +1mo = 2024-02-29; 2024-02-29 +1yr = 2025-02-28) — differential-verified bit-for-bit vs the JDK across month-ends/leap days/negatives, plus @BmcProof laws (12mo==1yr, clamp, round-trip). `LocalDate` exposes `getYear`/`getMonthValue`/`getDayOfMonth` |
 | `java.time` `Period` | ⚠️ | (years, months, days) triple; `of`/`ofYears`/`ofMonths`/`ofWeeks`/`ofDays`, accessors, `plus*`/`minus*`/`negated`/`normalized`, `toTotalMonths` — all differential-verified vs the JDK (loud int overflow via `Math.*Exact`). `Period.between(LocalDate,LocalDate)` modeled (replicates `LocalDate.until`'s y/m/d decomposition exactly; differential-verified vs the JDK across month-ends/leap/negative/cross-boundary cases — differential-only on the proof axis because its body uses `Math.toIntExact`, unmodeled by JBMC) |
 | `java.time` `ZonedDateTime`/formatters/zones | ❌ | need the IANA tz DB / text parsing — out of scope for a bounded model |
