@@ -48,6 +48,23 @@ internal class VerdictCacheTest {
     }
 
     @Test
+    fun slicePolicy_perturbsKey() {
+        assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
+                VerdictCache.computeKey(baseReq(), ENGINE, slicePolicy = "unsliced"),
+                "a verdict computed under a different slicing policy (or none) must never " +
+                        "satisfy this proof's lookup — slicing reshapes the analysis classpath " +
+                        "after the key is built")
+    }
+
+    @Test
+    fun slicePolicy_defaultIsTheRealPolicy() {
+        assertEquals(VerdictCache.computeKey(baseReq(), ENGINE),
+                VerdictCache.computeKey(baseReq(), ENGINE, slicePolicy = ModelSlice.KEEP_POLICY_VERSION),
+                "the production key must be computed under ModelSlice's actual policy identity, " +
+                        "so a KEEP_POLICY_VERSION bump invalidates prior verdicts automatically")
+    }
+
+    @Test
     fun entryFunction_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.otherProof", "/some/classes",
                 16, true, 16, false, "", 0)

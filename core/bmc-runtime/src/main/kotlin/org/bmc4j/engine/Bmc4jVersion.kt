@@ -46,9 +46,11 @@ object Bmc4jVersion {
      * ($default) is re-stripped instead of re-served; r7 ports the four big bytecode-rewrite
      * engines (string/concat/record, switch, lambda, config) to Kotlin (identical behavior,
      * pinned by the unchanged Java test suite - but a rewriter-code change re-mirrors on
-     * principle).
+     * principle); r8 introduces per-proof class-level model slicing (ModelSlice): the analysis
+     * classpath a verdict was computed over changes shape, so pre-slicing entries (and any
+     * slicing-policy predecessor) must re-verify rather than be served to a sliced run.
      */
-    private const val SEMANTICS_REVISION = "r7"
+    private const val SEMANTICS_REVISION = "r8"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

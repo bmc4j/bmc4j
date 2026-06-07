@@ -160,7 +160,19 @@ class JbmcBackend : VerificationBackend {
             ContractPurityAudit.auditRelevant(
                     manifest, request.entryClass, entryMethodName(request.entryFunction),
                     request.classpath, classpath)
-            return classpath
+            // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
+            // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
+            // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its
+            // directory entries to it — so every class the rewrite chain injects or redirects to (lambda
+            // impls, contract stub/enforce classes, switch helpers, residual-indy markers) is in the
+            // keep-set by construction, never pruned into a wrong verdict. (The verdict-cache cone digest
+            // keys on the ORIGINAL pre-rewrite classpath; its keying semantics are unchanged — slicing
+            // only needs its keep-set to cover the reachable-at-analysis classes, which the rewritten
+            // cone guarantees.) A proof whose cone can't be bounded (reflection / unknown indy / entry
+            // off classpath) is returned UNCHANGED: it still sees the whole surface, so slicing never
+            // under-feeds a fallback proof. Done after the purity audit so the audit still walks the full
+            // prepared classpath. A slice failure fails safe to the unsliced classpath.
+            return ModelSlice.sliceForCone(classpath, request.entryClass)
         }
 
         /**
