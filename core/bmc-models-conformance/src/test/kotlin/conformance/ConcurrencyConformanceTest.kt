@@ -204,6 +204,55 @@ class ConcurrencyConformanceTest : FunSpec({
             assertEquivalent("offer3(full)", call(r, "offer", arrayOf(OBJECT), 3), call(m, "offer", arrayOf(OBJECT), 3))
         }
 
+        // functional / bulk ops: removeIf/forEach (lambdas, FIFO), removeAll/retainAll (compact). Built
+        // identically vs the JDK queue. addAll is exercised separately (capacity-sensitive) below.
+        test("$label removeIf/forEach/removeAll/retainAll conform") {
+            checkAll(Arb.list(Arb.int(0..6), 0..5)) { seed ->
+                // removeIf / forEach via lambdas.
+                run {
+                    @Suppress("UNCHECKED_CAST")
+                    val r = makeReal(8) as java.util.Collection<Int>
+                    val m = makeModel(8)
+                    for (x in seed) { r.add(x); call(m, "offer", arrayOf(OBJECT), x) }
+                    val rChanged = r.removeIf { it % 2 == 0 }
+                    val mChanged = call(m, "removeIf", arrayOf(refClass("java.util.function.Predicate")),
+                        java.util.function.Predicate<Int> { it % 2 == 0 }).getOrThrow() as Boolean
+                    mChanged shouldBe rChanged
+                    val rSum = intArrayOf(0); r.forEach { rSum[0] += it }
+                    val mSum = intArrayOf(0)
+                    call(m, "forEach", arrayOf(refClass("java.util.function.Consumer")),
+                        java.util.function.Consumer<Int> { mSum[0] += it }).getOrThrow()
+                    mSum[0] shouldBe rSum[0]
+                }
+                // removeAll / retainAll vs a source collection.
+                for (method in listOf("removeAll", "retainAll")) {
+                    val r = makeReal(8); val m = makeModel(8)
+                    for (x in seed) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                    val rSrc = java.util.ArrayList<Any?>(listOf(0, 2, 4))
+                    val mSrc = bmcref.java.util.ArrayList<Any?>()
+                    for (x in listOf(0, 2, 4)) mSrc.add(x)
+                    assertEquivalent("$method.changed",
+                        call(r, method, arrayOf(java.util.Collection::class.java), rSrc),
+                        call(m, method, arrayOf(bmcref.java.util.Collection::class.java), mSrc))
+                    // Drain FIFO and compare.
+                    repeat(9) { assertEquivalent("drain", call(r, "poll", arrayOf()), call(m, "poll", arrayOf())) }
+                }
+            }
+        }
+
+        // addAll enqueues via add(), honoring the LOGICAL capacity: it throws IllegalStateException when
+        // the queue fills (like the JDK). Bounded ABQ at capacity 3 with a 5-element source must throw on
+        // both; an unbounded/large queue accepts all.
+        test("$label addAll honors logical capacity (throws when full, like the JDK)") {
+            val r = makeReal(3); val m = makeModel(3)
+            val rSrc = java.util.ArrayList<Any?>(listOf(1, 2, 3, 4, 5))
+            val mSrc = bmcref.java.util.ArrayList<Any?>()
+            for (x in listOf(1, 2, 3, 4, 5)) mSrc.add(x)
+            assertSameException(
+                call(r, "addAll", arrayOf(java.util.Collection::class.java), rSrc),
+                call(m, "addAll", arrayOf(bmcref.java.util.Collection::class.java), mSrc))
+        }
+
         // stream() is a thin ListStream over the queued elements in FIFO order. count() == size, and
         // toList() yields the elements in FIFO order (order IS modeled for these queues). Some offers
         // may be rejected (bounded), so build both queues identically and compare the resulting stream.

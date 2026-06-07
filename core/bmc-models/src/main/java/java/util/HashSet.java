@@ -12,7 +12,7 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter)")
+@BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll")
 @BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
@@ -108,36 +108,79 @@ public class HashSet<E> implements Set<E> {
         return new java.util.stream.ListStream<>(snapshot);
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+    // --- functional / bulk ops over the bounded backing array -----------------------------------
+    // forEach reads in insertion order; removeIf/removeAll/retainAll compact in place; addAll appends
+    // distinct elements (dedup via add(), loud out-of-bounds past CAPACITY — never a silent drop).
+    // Functional arguments are plain SAM calls (bmc4j desugars the lambda so JBMC devirtualizes
+    // test/accept), exactly as for the ArrayList model's functional ops.
 
-    @BmcNotModelled(reason = "functional-arg iteration — iterate explicitly")
+    @Override
+    @SuppressWarnings("unchecked")
     public void forEach(java.util.function.Consumer<? super E> action) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.forEach(java.util.function.Consumer) — functional-arg iteration — iterate explicitly");
+        for (int i = 0; i < size; i++) {
+            action.accept((E) elements[i]);
+        }
     }
 
-    @BmcNotModelled(reason = "functional-arg filter — JBMC stubs the predicate dispatch")
+    @Override
+    @SuppressWarnings("unchecked")
     public boolean removeIf(java.util.function.Predicate<? super E> filter) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.removeIf(java.util.function.Predicate) — functional-arg filter — JBMC stubs the predicate dispatch");
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            E e = (E) elements[r];
+            if (filter.test(e)) {
+                changed = true;
+            } else {
+                elements[w++] = e;
+            }
+        }
+        size = w;
+        return changed;
     }
 
-    @BmcNotNeeded(reason = "bulk add — add elements explicitly over the bounded model")
+    @Override
     public boolean addAll(Collection<? extends E> c) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.addAll(java.util.Collection) — bulk add — add elements explicitly over the bounded model");
+        boolean changed = false;
+        for (E e : c) {
+            if (add(e)) {       // dedup via add(); out of bounds past CAPACITY → loud model-bound signal
+                changed = true;
+            }
+        }
+        return changed;
     }
+
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        return removeWhere(c, true);
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        return removeWhere(c, false);
+    }
+
+    /** Compact in place, dropping elements whose membership in {@code c} equals {@code removeMatched}. */
+    private boolean removeWhere(Collection<?> c, boolean removeMatched) {
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            Object e = elements[r];
+            if (c.contains(e) == removeMatched) {
+                changed = true;     // dropped
+            } else {
+                elements[w++] = e;  // kept
+            }
+        }
+        size = w;
+        return changed;
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
-    }
-
-    @BmcNotNeeded(reason = "bulk remove — compose remove() explicitly")
-    public boolean removeAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.removeAll(java.util.Collection) — bulk remove — compose remove() explicitly");
-    }
-
-    @BmcNotNeeded(reason = "bulk retain — exotic over a bounded model")
-    public boolean retainAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.retainAll(java.util.Collection) — bulk retain — exotic over a bounded model");
     }
 
     @BmcNotNeeded(reason = "array snapshot — iterate the model instead")

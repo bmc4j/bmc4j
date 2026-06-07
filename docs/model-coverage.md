@@ -717,24 +717,16 @@ Real surface: 25 members — modeled 20, not-modeled 1, not-needed 3, tail 1.
 
 ## `java.util.HashSet`
 
-_dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter)_
+_dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
 
-Real surface: 21 members — modeled 8, not-modeled 2, not-needed 7, tail 4.
+Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `size()`, `stream()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
@@ -787,24 +779,16 @@ Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
 
 ## `java.util.LinkedHashSet`
 
-_inherits the HashSet model surface (incl. stream()); insertion order preserved by the backing array_
+_inherits the HashSet model surface (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); insertion order preserved by the backing array_
 
-Real surface: 29 members — modeled 8, not-modeled 2, not-needed 7, tail 12.
+Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `isEmpty()`, `iterator()`, `remove(Object)`, `size()`, `stream()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 | `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
@@ -920,25 +904,17 @@ Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-_bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order)_
+_bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
 
-Real surface: 31 members — modeled 17, not-modeled 2, not-needed 6, tail 6.
+Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `size()`, `stream()`, `take()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
 | `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
 
@@ -1176,27 +1152,19 @@ Real surface: 24 members — modeled 6, not-modeled 0, not-needed 0, tail 18.
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-_inherits the ArrayBlockingQueue FIFO model (incl. stream()); unbounded-by-default logical capacity_
+_inherits the ArrayBlockingQueue FIFO model (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); unbounded-by-default logical capacity_
 
-Real surface: 31 members — modeled 17, not-modeled 2, not-needed 6, tail 6.
+Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `size()`, `stream()`, `take()`
-
-| Not modeled (cannot) | Reason |
-|---|---|
-| `forEach(Consumer)` | functional-arg iteration — iterate explicitly |
-| `removeIf(Predicate)` | functional-arg filter — JBMC stubs the predicate dispatch |
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Not needed (exotic) | Reason |
 |---|---|
-| `addAll(Collection)` | bulk add — add elements explicitly over the bounded model |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
 | `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
-| `removeAll(Collection)` | bulk remove — compose remove() explicitly |
-| `retainAll(Collection)` | bulk retain — exotic over a bounded model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views, bulk/functional/timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views, timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
 
 - `drainTo(Collection, int)`
 - `parallelStream()`

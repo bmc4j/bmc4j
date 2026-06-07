@@ -19,6 +19,21 @@ public interface Set<E> extends Collection<E> {
     /** A sequential stream over the set's elements. */
     java.util.stream.Stream<E> stream();
 
+    /** Add every distinct element of {@code c} (dedup via the set); true if anything was added. */
+    boolean addAll(Collection<? extends E> c);
+
+    /** Remove every element also contained in {@code c}; true if this set changed. */
+    boolean removeAll(Collection<?> c);
+
+    /** Retain only the elements contained in {@code c}; true if this set changed. */
+    boolean retainAll(Collection<?> c);
+
+    /** Remove every element matching {@code filter}; true if any were removed. */
+    boolean removeIf(java.util.function.Predicate<? super E> filter);
+
+    /** Apply {@code action} to each element, in insertion order. */
+    void forEach(java.util.function.Consumer<? super E> action);
+
     // Immutable factories (java.util.Set.of).
 
     static <E> Set<E> of() {
