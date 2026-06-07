@@ -140,6 +140,8 @@ class ArrayListConformanceTest : FunSpec({
             Arb.constant(Op("removeLast", "removeLast", arrayOf(), arrayOf())),
             Arb.constant(Op("pop", "pop", arrayOf(), arrayOf())),
             Arb.constant(Op("remove", "remove", arrayOf(), arrayOf())),
+            v.map { Op("removeFirstOccurrence($it)", "removeFirstOccurrence", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("removeLastOccurrence($it)", "removeLastOccurrence", arrayOf(OBJECT), arrayOf(it)) },
         )
         checkAll(Arb.list(dequeOp, 0..40)) { ops ->
             val r = java.util.LinkedList<Any?>()

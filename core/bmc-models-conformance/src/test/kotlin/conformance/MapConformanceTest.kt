@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.boolean
 import io.kotest.property.arbitrary.choice
 import io.kotest.property.arbitrary.constant
 import io.kotest.property.arbitrary.int
@@ -97,6 +98,30 @@ class MapConformanceTest : FunSpec({
             for (probe in -6..8) {
                 for (op in listOf("ceilingKey", "floorKey", "higherKey", "lowerKey")) {
                     assertEquivalent("$op($probe)", call(r, op, arrayOf(OBJECT), probe), call(m, op, arrayOf(OBJECT), probe))
+                }
+                // The entry-returning navigation family: null when no key qualifies, else key+value match.
+                for (op in listOf("ceilingEntry", "floorEntry", "higherEntry", "lowerEntry")) {
+                    assertSameEntry("$op($probe)", call(r, op, arrayOf(OBJECT), probe), call(m, op, arrayOf(OBJECT), probe))
+                }
+            }
+        }
+    }
+
+    // pollFirstEntry/pollLastEntry: read-and-remove the min/max entry. Drain both maps in lockstep,
+    // alternating which end we poll, and after each step the polled entry AND the remaining key set
+    // (size + per-key value) must match the JDK — pinning that poll removes exactly the extreme mapping.
+    test("TreeMap pollFirstEntry/pollLastEntry conforms") {
+        val entry = Arb.bind(Arb.int(-4..6), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..20), Arb.list(Arb.boolean(), 0..25)) { pairs, polls ->
+            val r = java.util.TreeMap<Any?, Any?>()
+            val m = bmcref.java.util.TreeMap<Any?, Any?>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            for ((i, first) in polls.withIndex()) {
+                val op = if (first) "pollFirstEntry" else "pollLastEntry"
+                assertSameEntry("poll[$i]=$op", call(r, op, arrayOf()), call(m, op, arrayOf()))
+                assertEquivalent("poll[$i].size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+                for (k in -4..6) {
+                    assertEquivalent("poll[$i].get($k)", call(r, "get", arrayOf(OBJECT), k), call(m, "get", arrayOf(OBJECT), k))
                 }
             }
         }
