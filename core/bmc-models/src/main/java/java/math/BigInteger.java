@@ -24,6 +24,40 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         this.value = value;
     }
 
+    /**
+     * Decimal string constructor, parsed into the {@code long} backing. Accepts exactly what the JDK
+     * accepts in radix 10: an optional leading {@code +}/{@code -} then one or more ASCII digits
+     * (no whitespace, no decimal point, no other characters). Garbage (empty, {@code "-"}, letters,
+     * embedded spaces, …) throws {@link NumberFormatException}, like the JDK.
+     *
+     * <p>Out-of-domain values are LOUD, never silent: a magnitude past the {@code long} range routes
+     * through {@code Math.*Exact}, so the arbitrary-precision values the JDK would accept fail with an
+     * ArithmeticException (surfaced as a property violation under analysis) rather than wrapping to a
+     * wrong value — the same bounded-model contract as the rest of this class and BigDecimal(String).
+     */
+    public BigInteger(String val) {
+        int n = val.length();
+        int i = 0;
+        boolean neg = false;
+        if (n > 0 && (val.charAt(0) == '-' || val.charAt(0) == '+')) {
+            neg = val.charAt(0) == '-';
+            i = 1;
+        }
+        if (i >= n) {
+            throw new NumberFormatException("Zero length BigInteger");   // "", "-", "+"
+        }
+        long acc = 0;
+        for (; i < n; i++) {
+            char c = val.charAt(i);
+            if (c < '0' || c > '9') {
+                throw new NumberFormatException("For input string: \"" + val + "\"");
+            }
+            // acc = acc*10 + digit, with loud overflow past the long bound (never silent wrap).
+            acc = Math.addExact(Math.multiplyExact(acc, 10L), (long) (c - '0'));
+        }
+        this.value = neg ? Math.negateExact(acc) : acc;
+    }
+
     public static BigInteger valueOf(long value) {
         return new BigInteger(value);
     }
