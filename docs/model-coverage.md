@@ -704,7 +704,7 @@ Real surface: 12 members — modeled 12, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 37, not-modeled 1, not-needed 3, tail 13.
+Real surface: 54 members — modeled 37, not-modeled 1, not-needed 6, tail 10.
 
 **Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
@@ -715,23 +715,23 @@ Real surface: 54 members — modeled 37, not-modeled 1, not-needed 3, tail 13.
 | Not needed (exotic) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
+| `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
+| `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): the NavigableMap/SortedMap LIVE range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 10 members, all loud): the NavigableMap bulk-navigation surface beyond the explicitly-stubbed SortedMap range views (descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC</summary>
 
 - `descendingKeySet()`
 - `descendingMap()`
-- `headMap(Object)`
 - `headMap(Object, boolean)`
 - `navigableKeySet()`
 - `reversed()`
 - `sequencedEntrySet()`
 - `sequencedKeySet()`
 - `sequencedValues()`
-- `subMap(Object, Object)`
 - `subMap(Object, boolean, Object, boolean)`
-- `tailMap(Object)`
 - `tailMap(Object, boolean)`
 
 </details>
@@ -1439,9 +1439,9 @@ Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 18, not-modeled 0, not-needed 28, tail 29.
+Real surface: 75 members — modeled 19, not-modeled 0, not-needed 29, tail 27.
 
-**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`
+**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`, `toSortedMap(Map)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1473,8 +1473,9 @@ Real surface: 75 members — modeled 18, not-modeled 0, not-needed 28, tail 29.
 | `none(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `toSortedMap(Map, Comparator)` | comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only (no comparator constructor; comparator() is null), so a custom-comparator sort cannot be modeled soundly; loud UNKNOWN under JBMC until the TreeMap model grows a comparator backing |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 29 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 27 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Map)`
 - `asSequence(Map)`
@@ -1501,8 +1502,6 @@ Real surface: 75 members — modeled 18, not-modeled 0, not-needed 28, tail 29.
 - `toMap(Sequence)`
 - `toMap(Sequence, Map)`
 - `toSingletonMap(Map)`
-- `toSortedMap(Map)`
-- `toSortedMap(Map, Comparator)`
 - `withDefault(Map, Function1)`
 - `withDefaultMutable(Map, Function1)`
 

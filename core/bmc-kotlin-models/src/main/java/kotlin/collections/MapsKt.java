@@ -8,6 +8,8 @@ import org.bmc4j.models.audit.BmcNotNeeded;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import kotlin.Pair;
 
 /**
@@ -218,14 +220,37 @@ public final class MapsKt {
         return out;
     }
 
-    // NOTE: toSortedMap / toSortedMap(Map, Comparator) stay in the @BmcModelTail residue. They return a
-    // java.util.SortedMap (TreeMap); the WHOLE value of the op is sorted navigation, but the bounded
-    // TreeMap model's comparison-driven get/firstKey/lastKey is a DOCUMENTED JBMC contract-level
-    // divergence (ordering/null-keys) that also trips the spurious "Dynamic cast check" artifact at the
-    // proof site (see [[bmc4j-model-conformance]]) — so there is no sound bounded proof of the sorted
-    // observable here. Left loud under JBMC; revisit if the TreeMap navigation artifact is resolved.
+    // ---- toSortedMap(map): MapsKt.toSortedMap:(Ljava/util/Map;)Ljava/util/SortedMap; — a NEW SortedMap
+    // (TreeMap) holding all of the receiver's entries, sorted by key NATURAL ordering (keys must be
+    // Comparable, exactly the JDK's `new TreeMap<>(map)`). This is a NON-inline stdlib function (real JVM
+    // body in MapsKt__MapsJVMKt) whose call nondet-stubbed under JBMC (the real chain routes through
+    // kotlin-stdlib internals → UNKNOWN), so it needs a real bmc4j model. Built over bmc4j's bounded,
+    // natural-ordering TreeMap model: copy the entries in, return the TreeMap as the SortedMap the JDK
+    // contract promises. The receiver is untouched (a fresh map is returned).
+    //
+    // NOTE: the comparator overload `toSortedMap(Map, Comparator)` is deliberately LEFT IN THE TAIL
+    // (below, @BmcNotNeeded) — bmc4j's TreeMap model is natural-ordering ONLY (no comparator-taking
+    // constructor; comparator() is always null), so it cannot honor a custom key order. Modeling that
+    // overload here would silently sort by natural order instead of the supplied comparator → unsound.
+    // It stays a loud UNKNOWN until/unless the TreeMap model grows a real comparator backing.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> SortedMap<K, V> toSortedMap(Map<? extends K, ? extends V> map) {
+        TreeMap<K, V> out = new TreeMap<>();
+        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+            out.put(e.getKey(), e.getValue());
+        }
+        return out;
+    }
 
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
+
+    @BmcNotNeeded(reason = "comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only "
+            + "(no comparator constructor; comparator() is null), so a custom-comparator sort cannot be "
+            + "modeled soundly; loud UNKNOWN under JBMC until the TreeMap model grows a comparator backing")
+    public static SortedMap toSortedMap(java.util.Map a0, java.util.Comparator a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.toSortedMap(java.util.Map,java.util.Comparator) — comparator-ordered TreeMap; bmc4j's TreeMap model is natural-ordering only");
+    }
+
     @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void all(java.util.Map a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.all(java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
