@@ -1229,18 +1229,17 @@ Real surface: 19 members — modeled 5, not-modeled 0, not-needed 0, tail 14.
 
 _mutable-int holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
-Real surface: 35 members — modeled 20, not-modeled 0, not-needed 0, tail 15.
+Real surface: 35 members — modeled 21, not-modeled 0, not-needed 0, tail 14.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC</summary>
 
 - `byteValue()`
 - `compareAndExchange(int, int)`
 - `compareAndExchangeAcquire(int, int)`
 - `compareAndExchangeRelease(int, int)`
 - `getAcquire()`
-- `getAndAccumulate(int, IntBinaryOperator)`
 - `getOpaque()`
 - `getPlain()`
 - `setOpaque(int)`
@@ -1258,19 +1257,17 @@ Real surface: 35 members — modeled 20, not-modeled 0, not-needed 0, tail 15.
 
 _mutable-long holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
-Real surface: 35 members — modeled 17, not-modeled 0, not-needed 0, tail 18.
+Real surface: 35 members — modeled 19, not-modeled 0, not-needed 0, tail 16.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `updateAndGet(LongUnaryOperator)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `updateAndGet(LongUnaryOperator)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC</summary>
 
 - `byteValue()`
 - `compareAndExchange(long, long)`
 - `compareAndExchangeAcquire(long, long)`
 - `compareAndExchangeRelease(long, long)`
 - `getAcquire()`
-- `getAndAccumulate(long, LongBinaryOperator)`
-- `getAndUpdate(LongUnaryOperator)`
 - `getOpaque()`
 - `getPlain()`
 - `setOpaque(long)`

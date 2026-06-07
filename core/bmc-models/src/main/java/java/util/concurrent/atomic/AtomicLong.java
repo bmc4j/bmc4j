@@ -78,6 +78,18 @@ public class AtomicLong extends Number {
         return value;
     }
 
+    public final long getAndUpdate(LongUnaryOperator updateFunction) {
+        long old = value;
+        value = updateFunction.applyAsLong(value);
+        return old;
+    }
+
+    public final long getAndAccumulate(long x, LongBinaryOperator f) {
+        long old = value;
+        value = f.applyAsLong(value, x);
+        return old;
+    }
+
     public final long accumulateAndGet(long x, LongBinaryOperator f) {
         value = f.applyAsLong(value, x);
         return value;

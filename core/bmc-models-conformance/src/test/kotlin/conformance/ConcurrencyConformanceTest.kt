@@ -50,6 +50,59 @@ class ConcurrencyConformanceTest : FunSpec({
         }
     }
 
+    // --- Atomic update-family (functional args: getAndUpdate/updateAndGet/getAndAccumulate/accumulateAndGet)
+    // The update functions are real lambdas (IntUnaryOperator/IntBinaryOperator aren't relocated, so they
+    // pass straight through the model). Drive a sequence of update-family ops on both the JDK atomic and
+    // the model and compare each return + the final value. getAnd* return the PRIOR value, *AndGet the new.
+    test("AtomicInteger update-family conforms (lambdas devirtualize)") {
+        val n = Arb.int(-3..3)
+        val op = Arb.choice(
+            Arb.constant(0), Arb.constant(1),
+            n.map { 2 to it }, n.map { 3 to it },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicInteger(0)
+            val m = bmcref.java.util.concurrent.atomic.AtomicInteger(0)
+            for (o in ops) {
+                when (o) {
+                    0 -> r.getAndUpdate { it + 1 }.let { ro -> m.getAndUpdate { it + 1 } shouldBe ro }
+                    1 -> r.updateAndGet { it * 2 }.let { ro -> m.updateAndGet { it * 2 } shouldBe ro }
+                    is Pair<*, *> -> {
+                        val (kind, x) = o
+                        val xi = x as Int
+                        if (kind == 2) {
+                            r.getAndAccumulate(xi) { a, b -> a + b }.let { ro -> m.getAndAccumulate(xi) { a, b -> a + b } shouldBe ro }
+                        } else {
+                            r.accumulateAndGet(xi) { a, b -> a + b }.let { ro -> m.accumulateAndGet(xi) { a, b -> a + b } shouldBe ro }
+                        }
+                    }
+                }
+            }
+            m.get() shouldBe r.get()
+        }
+    }
+
+    test("AtomicLong update-family conforms (lambdas devirtualize)") {
+        val n = Arb.long(-3L..3L)
+        val op = Arb.choice(
+            Arb.constant(0L to 0L), Arb.constant(1L to 0L),
+            n.map { 2L to it }, n.map { 3L to it },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicLong(0)
+            val m = bmcref.java.util.concurrent.atomic.AtomicLong(0)
+            for ((kind, x) in ops) {
+                when (kind) {
+                    0L -> r.getAndUpdate { it + 1 }.let { ro -> m.getAndUpdate { it + 1 } shouldBe ro }
+                    1L -> r.updateAndGet { it * 2 }.let { ro -> m.updateAndGet { it * 2 } shouldBe ro }
+                    2L -> r.getAndAccumulate(x) { a, b -> a + b }.let { ro -> m.getAndAccumulate(x) { a, b -> a + b } shouldBe ro }
+                    else -> r.accumulateAndGet(x) { a, b -> a + b }.let { ro -> m.accumulateAndGet(x) { a, b -> a + b } shouldBe ro }
+                }
+            }
+            m.get() shouldBe r.get()
+        }
+    }
+
     test("AtomicLong conforms (sequential)") {
         val n = Arb.long(-3L..3L)
         val op = Arb.choice(
