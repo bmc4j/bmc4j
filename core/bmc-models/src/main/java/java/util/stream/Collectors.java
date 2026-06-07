@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
@@ -15,7 +16,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * audit tail + loud-body synthesis, reaching an unmodeled collector now fails loudly under JBMC
  * naming the member, rather than silently falling back to a nondet stub.
  */
-@BmcModelTail(reason = "the broad Collectors surface (counting/summing*/averaging*/reducing/mapping/filtering/flatMapping/partitioningBy/collectingAndThen/teeing/toUnmodifiable*/toCollection, the concurrent variants groupingByConcurrent/toConcurrentMap, summarizing*) is out of scope for the minimal eager model; loud under JBMC")
+@BmcModelTail(reason = "the broad Collectors surface (counting/summing*/averaging*/reducing/mapping/filtering/flatMapping/collectingAndThen/teeing/toUnmodifiable*/toCollection, the concurrent variants groupingByConcurrent/toConcurrentMap, summarizing*) is out of scope for the minimal eager model; loud under JBMC")
 public final class Collectors {
 
     private Collectors() {
@@ -80,5 +81,18 @@ public final class Collectors {
     @BmcModelConforms("@BmcProof (proofs.stream CollectorsLaws)")
     public static Collector<CharSequence, ?, String> joining(CharSequence delimiter) {
         return new Collector<>(Collector.JOINING, delimiter);
+    }
+
+    /**
+     * Partitions elements into a bounded {@link java.util.HashMap} with exactly two keys —
+     * {@code Boolean.TRUE} and {@code Boolean.FALSE} — each mapping to the {@link java.util.ArrayList}
+     * of elements for which {@code predicate} is/ isn't satisfied, in encounter order. Mirrors
+     * {@link java.util.stream.Collectors#partitioningBy(Predicate)}: BOTH keys are always present (the
+     * partition is total), even when a bucket is empty. {@link ListStream#collect} interprets this.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream StreamChainLaws)")
+    public static <T> Collector<T, ?, Map<Boolean, List<T>>> partitioningBy(
+            Predicate<? super T> predicate) {
+        return new Collector<>(Collector.PARTITIONING_BY, predicate);
     }
 }

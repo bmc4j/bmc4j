@@ -1,6 +1,7 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 
@@ -65,6 +66,16 @@ final class IntArrayStream implements IntStream {
             }
         }
         return false;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <U> Stream<U> mapToObj(IntFunction<? extends U> mapper) {
+        ArrayList<U> out = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            out.add(mapper.apply(data[i]));
+        }
+        return new ListStream<>(out);
     }
 
     @Override

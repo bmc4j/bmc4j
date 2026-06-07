@@ -1,6 +1,7 @@
 package java.util.stream;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -18,7 +19,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * ({@code map}/{@code filter}) call their functional-interface arguments, which bmc4j desugars from
  * lambdas — so {@code stream.filter(p).map(f).count()} analyses soundly.
  */
-@BmcModelTail(reason = "the broad lazy Stream surface (sorted/distinct/limit/skip/peek/flatMap/findFirst/findAny/min/max/noneMatch/takeWhile/dropWhile/iterate/generate/concat/mapToObj/toArray/reduce-overloads/collect(supplier,accumulator,combiner)/…) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
+@BmcModelTail(reason = "the broad lazy Stream surface (sorted/limit/peek/findFirst/findAny/min/max/noneMatch/takeWhile/dropWhile/iterate/generate/concat/mapToObj/toArray/reduce(identity,accumulator,combiner)/collect(supplier,accumulator,combiner)/…) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
 public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
@@ -26,6 +27,15 @@ public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     <R> Stream<R> map(Function<? super T, ? extends R> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamChainLaws)")
+    <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamChainLaws)")
+    Stream<T> distinct();
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamChainLaws)")
+    Stream<T> skip(long n);
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     IntStream mapToInt(ToIntFunction<? super T> mapper);
@@ -47,6 +57,9 @@ public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     T reduce(T identity, BinaryOperator<T> accumulator);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamChainLaws)")
+    Optional<T> reduce(BinaryOperator<T> accumulator);
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     <R, A> R collect(Collector<? super T, A, R> collector);

@@ -1,6 +1,7 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
 import java.util.function.LongUnaryOperator;
 
@@ -65,6 +66,16 @@ final class LongArrayStream implements LongStream {
             }
         }
         return false;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <U> Stream<U> mapToObj(LongFunction<? extends U> mapper) {
+        ArrayList<U> out = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            out.add(mapper.apply(data[i]));
+        }
+        return new ListStream<>(out);
     }
 
     @Override

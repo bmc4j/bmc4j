@@ -2,6 +2,7 @@ package java.util.stream;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -53,6 +54,45 @@ public final class ListStream<T> implements Stream<T> {
         ArrayList<R> out = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {
             out.add(mapper.apply(data.get(i)));
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper) {
+        ArrayList<R> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            Stream<? extends R> inner = mapper.apply(data.get(i));
+            List<? extends R> innerList = inner.toList();
+            for (int j = 0; j < innerList.size(); j++) {
+                out.add(innerList.get(j));
+            }
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> distinct() {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            T v = data.get(i);
+            if (!out.contains(v)) {
+                out.add(v);
+            }
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Stream<T> skip(long n) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < data.size(); i++) {
+            if (i >= n) {
+                out.add(data.get(i));
+            }
         }
         return new ListStream<>(out);
     }
@@ -124,6 +164,19 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Optional<T> reduce(BinaryOperator<T> accumulator) {
+        if (data.size() == 0) {
+            return Optional.empty();
+        }
+        T result = data.get(0);
+        for (int i = 1; i < data.size(); i++) {
+            result = accumulator.apply(result, data.get(i));
+        }
+        return Optional.of(result);
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     @BmcModelConforms("@BmcProof (proofs.stream)")
     public <R, A> R collect(Collector<? super T, A, R> collector) {
@@ -160,6 +213,24 @@ public final class ListStream<T> implements Stream<T> {
                 sb.append((CharSequence) data.get(i));
             }
             return (R) sb.toString();
+        }
+        if (collector.kind == Collector.PARTITIONING_BY) {
+            Predicate<? super T> predicate = (Predicate<? super T>) collector.predicate;
+            ArrayList<T> trues = new ArrayList<>();
+            ArrayList<T> falses = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                if (predicate.test(v)) {
+                    trues.add(v);
+                } else {
+                    falses.add(v);
+                }
+            }
+            // partitioningBy always has BOTH keys present (total partition), even when empty.
+            java.util.HashMap<Object, List<T>> m = new java.util.HashMap<>();
+            m.put(Boolean.FALSE, falses);
+            m.put(Boolean.TRUE, trues);
+            return (R) m;
         }
         if (collector.kind == Collector.GROUPING_BY) {
             Function<? super T, ?> classifier = (Function<? super T, ?>) collector.keyFn;
