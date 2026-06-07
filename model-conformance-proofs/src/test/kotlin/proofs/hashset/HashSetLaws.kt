@@ -50,4 +50,29 @@ class HashSetLaws {
         val s = HashSet<Int>(src)
         Bmc.check(s.size == 1 && s.contains(x))
     }
+
+    // --- stream() adapter (thin ListStream over the deduped elements) ------------------------------
+
+    @BmcProof
+    fun stream_count_equals_set_size() {
+        val s = HashSet<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        Bmc.assume(a != b)
+        s.add(a)
+        s.add(b)
+        s.add(a)   // duplicate, dropped
+        Bmc.check(s.stream().count() == 2L)
+    }
+
+    @BmcProof
+    fun stream_filter_then_count_via_lambda() {
+        // A real predicate through the set's stream must devirtualize (bmc4j desugars the lambda).
+        val s = HashSet<Int>()
+        val p = Bmc.anyInt(0, 100)    // positive
+        val n = Bmc.anyInt(-100, -1)  // negative
+        s.add(p)
+        s.add(n)
+        Bmc.check(s.stream().filter { it >= 0 }.count() == 1L)
+    }
 }

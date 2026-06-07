@@ -16,6 +16,9 @@ public interface Set<E> extends Collection<E> {
 
     Iterator<E> iterator();
 
+    /** A sequential stream over the set's elements. */
+    java.util.stream.Stream<E> stream();
+
     // Immutable factories (java.util.Set.of).
 
     static <E> Set<E> of() {

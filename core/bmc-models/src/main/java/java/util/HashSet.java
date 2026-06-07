@@ -12,7 +12,7 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
+@BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter)")
 @BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
@@ -95,6 +95,17 @@ public class HashSet<E> implements Set<E> {
     @Override
     public Iterator<E> iterator() {
         return new Itr();
+    }
+
+    /** A sequential stream over the set's elements — a thin adapter over the existing ListStream. */
+    @Override
+    @SuppressWarnings("unchecked")
+    public java.util.stream.Stream<E> stream() {
+        ArrayList<E> snapshot = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            snapshot.add((E) elements[i]);
+        }
+        return new java.util.stream.ListStream<>(snapshot);
     }
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------

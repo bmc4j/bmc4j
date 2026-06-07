@@ -203,6 +203,26 @@ class ConcurrencyConformanceTest : FunSpec({
             assertEquivalent("offer2", call(r, "offer", arrayOf(OBJECT), 2), call(m, "offer", arrayOf(OBJECT), 2))
             assertEquivalent("offer3(full)", call(r, "offer", arrayOf(OBJECT), 3), call(m, "offer", arrayOf(OBJECT), 3))
         }
+
+        // stream() is a thin ListStream over the queued elements in FIFO order. count() == size, and
+        // toList() yields the elements in FIFO order (order IS modeled for these queues). Some offers
+        // may be rejected (bounded), so build both queues identically and compare the resulting stream.
+        test("$label stream() conforms (count + FIFO toList)") {
+            val v = Arb.int(0..9)
+            checkAll(Arb.list(v, 0..8)) { items ->
+                val r = makeReal(6)
+                val m = makeModel(6)
+                for (x in items) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                val rStream = call(r, "stream", arrayOf()).getOrThrow()!!
+                val mStream = call(m, "stream", arrayOf()).getOrThrow()!!
+                assertEquivalent("stream.count", call(rStream, "count", arrayOf()), call(mStream, "count", arrayOf()))
+                val rList = (call(call(r, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow() as java.util.List<*>).toList()
+                val mModelList = call(call(m, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow()!!
+                val mn = call(mModelList, "size", arrayOf()).getOrThrow() as Int
+                val mElems = (0 until mn).map { call(mModelList, "get", arrayOf(INT), it).getOrThrow() }
+                mElems shouldBe rList   // FIFO order preserved
+            }
+        }
     }
 
     // The DEFAULT (no-arg) LinkedBlockingQueue is unbounded in the JDK: logical capacity

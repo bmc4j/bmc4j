@@ -37,8 +37,8 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
-@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
-@BmcModelTail(reason = "array-snapshot/stream views (toArray/toArray(IntFunction)/stream/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
+@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order)")
+@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     static final int MAX_CAPACITY = 64;
@@ -206,6 +206,16 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     @Override
     public Iterator<E> iterator() {
         return new Itr();
+    }
+
+    /** A sequential stream over the queued elements in FIFO order — a thin ListStream adapter. */
+    @SuppressWarnings("unchecked")
+    public java.util.stream.Stream<E> stream() {
+        java.util.ArrayList<E> snapshot = new java.util.ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            snapshot.add((E) elements[i]);
+        }
+        return new java.util.stream.ListStream<>(snapshot);
     }
 
     /** Drain all elements into {@code c} (in FIFO order) and return the count moved. */

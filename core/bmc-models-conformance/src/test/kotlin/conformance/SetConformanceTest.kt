@@ -83,6 +83,32 @@ class SetConformanceTest : FunSpec({
         }
     }
 
+    // --- stream() adapter ---------------------------------------------------------------------------
+    // The Set models' stream() is a thin ListStream over the (deduped) elements. Differentially: the
+    // stream's count() equals the set size, and toList()'s elements match the set as a multiset (set
+    // iteration order isn't modeled, so compare order-independently). Driven over both Set models.
+    test("HashSet/LinkedHashSet stream() conforms (count + element multiset)") {
+        val elem: Arb<Int?> = Arb.int(-3..5).orNull(0.15)
+        checkAll(Arb.list(elem, 0..30)) { items ->
+            for ((real, model) in listOf(
+                { java.util.HashSet<Any?>() } to { bmcref.java.util.HashSet<Any?>() },
+                { java.util.LinkedHashSet<Any?>() } to { bmcref.java.util.LinkedHashSet<Any?>() },
+            )) {
+                val r = real(); val m = model()
+                for (x in items) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                val rStream = call(r, "stream", arrayOf()).getOrThrow()!!
+                val mStream = call(m, "stream", arrayOf()).getOrThrow()!!
+                assertEquivalent("stream.count", call(rStream, "count", arrayOf()), call(mStream, "count", arrayOf()))
+                // toList contents as an order-independent multiset (model returns a relocated List).
+                val rList = call(call(r, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow() as java.util.List<*>
+                val mModelList = call(call(m, "stream", arrayOf()).getOrThrow()!!, "toList", arrayOf()).getOrThrow()!!
+                val mn = call(mModelList, "size", arrayOf()).getOrThrow() as Int
+                val mElems = (0 until mn).map { call(mModelList, "get", arrayOf(INT), it).getOrThrow() }
+                mElems.groupingBy { it }.eachCount() shouldBe rList.toList().groupingBy { it }.eachCount()
+            }
+        }
+    }
+
     test("HashSet(negative capacity) throws like the JDK") {
         val real = runCatching { java.util.HashSet<Any?>(-1) }
         val model = runCatching { bmcref.java.util.HashSet<Any?>(-1) }
