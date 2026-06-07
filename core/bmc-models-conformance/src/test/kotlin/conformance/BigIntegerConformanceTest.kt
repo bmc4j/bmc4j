@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.property.Arb
+import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.long
 import io.kotest.property.checkAll
 
@@ -55,9 +56,44 @@ class BigIntegerConformanceTest : FunSpec({
             cmp("mod", { rx.mod(java.math.BigInteger.valueOf(pm)).toLong() },
                 { mx.mod(bmcref.java.math.BigInteger.valueOf(pm)).toLong() })
 
+            cmp("gcd", { rx.gcd(ry).toLong() }, { mx.gcd(my).toLong() })   // non-negative, sign-agnostic
+
             rx.signum() shouldBe mx.signum()
             rx.compareTo(ry) shouldBe mx.compareTo(my)
             rx.equals(ry) shouldBe mx.equals(my)
+        }
+    }
+
+    // pow: small non-negative exponents (exact in-bound); negative exponent throws like the JDK.
+    test("pow conforms for small exponents and negative-exponent parity") {
+        val base = Arb.long(-1_000L..1_000L)
+        val exp = Arb.int(-2..6)
+        checkAll(base, exp) { bse, e ->
+            val real = runCatching { java.math.BigInteger.valueOf(bse).pow(e).toLong() }
+            val model = runCatching { bmcref.java.math.BigInteger.valueOf(bse).pow(e).toLong() }
+            assertSameException(real, model)
+            if (real.isSuccess) model.getOrThrow() shouldBe real.getOrThrow()
+        }
+    }
+
+    // OUT-OF-DOMAIN bound: gcd(Long.MIN_VALUE, 0) == abs(Long.MIN_VALUE), past the long range. The
+    // arbitrary-precision JDK returns it; the long-backed model must FAIL LOUDLY (Math.absExact).
+    test("gcd(Long.MIN_VALUE, 0) fails LOUDLY (bounded-model loud-failure)") {
+        java.math.BigInteger.valueOf(Long.MIN_VALUE).gcd(java.math.BigInteger.ZERO)   // JDK succeeds
+        val model = runCatching {
+            bmcref.java.math.BigInteger.valueOf(Long.MIN_VALUE).gcd(bmcref.java.math.BigInteger.valueOf(0L))
+        }
+        withClue("model gcd(Long.MIN,0) should overflow loudly") {
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
+    // OUT-OF-DOMAIN bound: pow overflowing the long backing fails LOUDLY, not silently wrapping.
+    test("pow overflowing the long bound fails LOUDLY (bounded-model loud-failure)") {
+        java.math.BigInteger.valueOf(10L).pow(30)   // JDK (arbitrary precision) succeeds
+        val model = runCatching { bmcref.java.math.BigInteger.valueOf(10L).pow(30) }
+        withClue("model 10^30 should overflow loudly") {
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
         }
     }
 
