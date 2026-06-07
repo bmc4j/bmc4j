@@ -25,7 +25,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * JBMC, so the floor is inlined with explicit sign handling.
  */
 @BmcModelTail(reason = "the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, "
-    + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO "
+    + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration division (dividedBy(Duration)), and ISO "
     + "formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC")
 public final class Duration {
 
@@ -132,6 +132,17 @@ public final class Duration {
         return floorSeconds() / 86400L;
     }
 
+    /**
+     * Total length in nanoseconds. On the millis backing this is {@code millis * 1_000_000}; loud,
+     * never silent at the bound — a millis count whose *1e6 leaves the {@code long} range routes
+     * through {@code Math.multiplyExact} (the real nanos-precise Duration overflows here too with its
+     * own ArithmeticException, so this matches the JDK contract).
+     */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    public long toNanos() {
+        return Math.multiplyExact(millis, 1_000_000L);
+    }
+
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isNegative() {
         return millis < 0L;
@@ -207,6 +218,24 @@ public final class Duration {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusDays(long daysToSubtract) {
         return new Duration(this.millis - Math.multiplyExact(daysToSubtract, 86_400_000L));
+    }
+
+    /**
+     * Divide by a scalar, truncating toward zero exactly like the JDK (which divides the total nanos;
+     * on the millis backing the truncation is identical for any millis-representable duration). A zero
+     * divisor throws {@link ArithmeticException}, like the JDK. Loud, never silent at the bound: the
+     * lone overflow case {@code Long.MIN_VALUE / -1} is rejected loudly (the real Duration overflows
+     * here too) rather than silently wrapping to a wrong value.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    public Duration dividedBy(long divisor) {
+        if (divisor == 0L) {
+            throw new ArithmeticException("Cannot divide by zero");
+        }
+        if (this.millis == Long.MIN_VALUE && divisor == -1L) {
+            throw new ArithmeticException("Duration overflow");   // loud, never silent wrap
+        }
+        return new Duration(this.millis / divisor);
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")

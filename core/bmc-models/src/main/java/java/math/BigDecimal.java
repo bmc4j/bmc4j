@@ -21,7 +21,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
-@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/movePoint/scaleByPowerOfTen, the *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC")
+@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/scaleByPowerOfTen, the int/long/byte/short *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     public static final BigDecimal ZERO = new BigDecimal(0L, 0);
@@ -206,6 +206,51 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return new BigDecimal(roundDiv(unscaled, pow10(scale - newScale), mode), newScale);
     }
 
+    /**
+     * Rescale with {@link RoundingMode#UNNECESSARY}: scaling UP (newScale &gt;= scale) is always exact;
+     * scaling DOWN throws {@link ArithmeticException} ("Rounding necessary") unless the dropped digits
+     * are all zero — exactly the JDK contract for the no-rounding overload.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal setScale(int newScale) {
+        if (newScale >= scale) {
+            return new BigDecimal(rescale(unscaled, scale, newScale), newScale);
+        }
+        long div = pow10(scale - newScale);
+        if (unscaled % div != 0L) {
+            throw new ArithmeticException("Rounding necessary");
+        }
+        return new BigDecimal(unscaled / div, newScale);
+    }
+
+    /**
+     * Move the decimal point right by {@code n} (multiply by 10ⁿ), like the JDK: the scale drops by
+     * {@code n}, and once it would go negative the unscaled value absorbs the surplus power of ten
+     * (the result then has scale 0). Exact integer arithmetic; loud past the {@code long} bound.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal movePointRight(int n) {
+        int newScale = scale - n;
+        if (newScale >= 0) {
+            return new BigDecimal(unscaled, newScale);
+        }
+        return new BigDecimal(mul(unscaled, pow10(-newScale)), 0);
+    }
+
+    /**
+     * Move the decimal point left by {@code n} (divide by 10ⁿ), like the JDK: the scale rises by
+     * {@code n}; if {@code n} is negative far enough to drive the scale below zero, the unscaled value
+     * absorbs the surplus power of ten (the result then has scale 0). Exact; loud past the bound.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal movePointLeft(int n) {
+        int newScale = scale + n;
+        if (newScale >= 0) {
+            return new BigDecimal(unscaled, newScale);
+        }
+        return new BigDecimal(mul(unscaled, pow10(-newScale)), 0);
+    }
+
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal negate() {
         return new BigDecimal(-unscaled, scale);
@@ -257,6 +302,19 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigInteger toBigInteger() {
+        return BigInteger.valueOf(truncatedToLong());
+    }
+
+    /**
+     * The exact integer value, throwing {@link ArithmeticException} if this has a nonzero fractional
+     * part — exactly the JDK contract. A negative scale (a value that is an integer with trailing
+     * implied zeros) is always exact; a positive scale is exact only when the fractional digits vanish.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigInteger toBigIntegerExact() {
+        if (scale > 0 && unscaled % pow10(scale) != 0L) {
+            throw new ArithmeticException("Rounding necessary");
+        }
         return BigInteger.valueOf(truncatedToLong());
     }
 

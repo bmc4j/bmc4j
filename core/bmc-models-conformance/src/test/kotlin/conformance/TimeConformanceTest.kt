@@ -70,6 +70,11 @@ class TimeConformanceTest : FunSpec({
             // multipliedBy: keep the multiplier small so the *millis result stays in range (the
             // out-of-bound saturation path is the loud-failure test below).
             ra.multipliedBy(b % 1000).toMillis() shouldBe ma.multipliedBy(b % 1000).toMillis()
+            // toNanos: millis * 1e6 (in-bound here: |millis| <= 5e6 so the product stays well inside a long).
+            ra.toNanos() shouldBe ma.toNanos()
+            // dividedBy(long): truncates toward zero; use a nonzero divisor derived from b.
+            val divisor = (b % 1000) + (if (b % 1000 == 0L) 1L else 0L)   // never zero
+            ra.dividedBy(divisor).toMillis() shouldBe ma.dividedBy(divisor).toMillis()
             ra.negated().toMillis() shouldBe ma.negated().toMillis()
             ra.abs().toMillis() shouldBe ma.abs().toMillis()
             Integer.signum(ra.compareTo(rb)) shouldBe Integer.signum(ma.compareTo(mb))   // contract is sign
@@ -139,6 +144,15 @@ class TimeConformanceTest : FunSpec({
             withClue("model Duration.ofSeconds overflow should throw") {
                 md.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
             }
+        }
+    }
+
+    test("Duration.dividedBy(0) throws ArithmeticException (JDK parity)") {
+        checkAll(ms) { a ->
+            val real = runCatching { java.time.Duration.ofMillis(a).dividedBy(0L) }
+            val model = runCatching { bmcref.java.time.Duration.ofMillis(a).dividedBy(0L) }
+            real.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
         }
     }
 
@@ -239,6 +253,11 @@ class TimeConformanceTest : FunSpec({
             rt.minusMinutes(sh).toNanoOfDay() shouldBe mt.minusMinutes(sh).toNanoOfDay()
             rt.plusSeconds(sh).toNanoOfDay() shouldBe mt.plusSeconds(sh).toNanoOfDay()
             rt.minusSeconds(sh).toNanoOfDay() shouldBe mt.minusSeconds(sh).toNanoOfDay()
+            // plusNanos/minusNanos wrap within the day; scale the shift into nanos so the symbolic
+            // count spans many wraps (the day is ~8.64e13 nanos; *1e9 keeps it well inside a long).
+            rt.plusNanos(sh * 1_000_000_000L).toNanoOfDay() shouldBe mt.plusNanos(sh * 1_000_000_000L).toNanoOfDay()
+            rt.minusNanos(sh * 1_000_000_000L).toNanoOfDay() shouldBe mt.minusNanos(sh * 1_000_000_000L).toNanoOfDay()
+            rt.plusNanos(sh).toNanoOfDay() shouldBe mt.plusNanos(sh).toNanoOfDay()   // sub-second nanos too
             // ordering vs a second time built from the shift
             val sec2 = ((sh % 86400) + 86400) % 86400
             val rt2 = java.time.LocalTime.ofSecondOfDay(sec2)

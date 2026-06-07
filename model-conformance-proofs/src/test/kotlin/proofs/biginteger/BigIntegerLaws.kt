@@ -85,6 +85,31 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.ZERO.pow(0) == BigInteger.ONE)         // 0^0 == 1, per the JDK
     }
 
+    @BmcProof
+    fun divideAndRemainder_agrees_with_divide_and_remainder() {
+        // {q, r} must equal {divide, remainder}. Concrete pins keep the symbolic divider off this
+        // proof (the division-cost lesson); the symbolic reconstruction is the slow proof below + the
+        // wide differential axis (BigIntegerConformanceTest).
+        val a = BigInteger.valueOf(17L)
+        val b = BigInteger.valueOf(5L)
+        val qr = a.divideAndRemainder(b)
+        Bmc.check(qr[0] == a.divide(b))
+        Bmc.check(qr[1] == a.remainder(b))
+        Bmc.check(qr[0] == BigInteger.valueOf(3L))
+        Bmc.check(qr[1] == BigInteger.valueOf(2L))
+        val nqr = BigInteger.valueOf(-17L).divideAndRemainder(b)
+        Bmc.check(nqr[0] == BigInteger.valueOf(-3L))   // truncates toward zero
+        Bmc.check(nqr[1] == BigInteger.valueOf(-2L))
+    }
+
+    @BmcProof
+    fun valueExact_round_trips_via_valueOf() {
+        // longValueExact always holds on the long backing; intValueExact holds within the int range.
+        val a = BigInteger.valueOf(Bmc.anyInt(-100_000, 100_000).toLong())
+        Bmc.check(BigInteger.valueOf(a.longValueExact()) == a)
+        Bmc.check(a.intValueExact().toLong() == a.longValueExact())   // in-range values agree
+    }
+
     // ~80s, the module's heaviest BigInteger division proof — pinned to shard 3 (setScale → 1,
     // add_then_subtract → 2 in BigDecimalLaws), so the three slow model-conformance proofs spread out.
     @Shard(3)
