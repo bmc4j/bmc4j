@@ -6,8 +6,16 @@ import java.util.function.LongUnaryOperator;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
-/** Sequential BMC model of {@link java.util.concurrent.atomic.AtomicLong} — a mutable long holder. */
-@BmcModelTail(reason = "VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC")
+/**
+ * Sequential BMC model of {@link java.util.concurrent.atomic.AtomicLong} — a mutable long holder.
+ *
+ * <p>The VarHandle memory-ordering accessors (the {@code *Acquire}/{@code *Release}/{@code *Opaque}/
+ * {@code *Plain} reads and writes, {@code compareAndExchange*}, and the {@code weakCompareAndSet*}
+ * family) only relax the happens-before guarantees of the plain op for performance; on one thread
+ * there is no other thread to observe a relaxed ordering, so each is observably identical to its
+ * plain/strong counterpart and is modeled by delegating to it (documented per method).
+ */
+@BmcModelTail(reason = "Number's byteValue()/shortValue() narrowing is out of scope for the long-backed model; loud under JBMC")
 public class AtomicLong extends Number {
 
     private long value;
@@ -48,6 +56,98 @@ public class AtomicLong extends Number {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Weak CAS may spuriously fail under contention; on a single thread there is no contention, so it
+     * never spuriously fails and is identical to {@link #compareAndSet(long, long)}.
+     */
+    @Deprecated
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndSet() on one thread (no spurious failure)")
+    public final boolean weakCompareAndSet(long expect, long update) {
+        return compareAndSet(expect, update);
+    }
+
+    /** Weak CAS (plain memory); no spurious failure on one thread → identical to {@link #compareAndSet(long, long)}. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndSet() on one thread (no spurious failure)")
+    public final boolean weakCompareAndSetPlain(long expect, long update) {
+        return compareAndSet(expect, update);
+    }
+
+    /** Weak CAS (acquire); no spurious failure on one thread → identical to {@link #compareAndSet(long, long)}. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndSet() on one thread (no spurious failure)")
+    public final boolean weakCompareAndSetAcquire(long expect, long update) {
+        return compareAndSet(expect, update);
+    }
+
+    /** Weak CAS (release); no spurious failure on one thread → identical to {@link #compareAndSet(long, long)}. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndSet() on one thread (no spurious failure)")
+    public final boolean weakCompareAndSetRelease(long expect, long update) {
+        return compareAndSet(expect, update);
+    }
+
+    /** Weak CAS (volatile); no spurious failure on one thread → identical to {@link #compareAndSet(long, long)}. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndSet() on one thread (no spurious failure)")
+    public final boolean weakCompareAndSetVolatile(long expect, long update) {
+        return compareAndSet(expect, update);
+    }
+
+    /** Plain read; identical to {@link #get()} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == get() on one thread")
+    public final long getPlain() {
+        return value;
+    }
+
+    /** Acquire read; identical to {@link #get()} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == get() on one thread")
+    public final long getAcquire() {
+        return value;
+    }
+
+    /** Opaque read; identical to {@link #get()} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == get() on one thread")
+    public final long getOpaque() {
+        return value;
+    }
+
+    /** Plain write; identical to {@link #set(long)} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == set() on one thread")
+    public final void setPlain(long newValue) {
+        value = newValue;
+    }
+
+    /** Release write; identical to {@link #set(long)} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == set() on one thread")
+    public final void setRelease(long newValue) {
+        value = newValue;
+    }
+
+    /** Opaque write; identical to {@link #set(long)} on a single thread (no ordering to relax). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == set() on one thread")
+    public final void setOpaque(long newValue) {
+        value = newValue;
+    }
+
+    /** CAS returning the witnessed value; the plain compareAndSet logic, returning the prior value. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); plain compare-and-exchange on one thread")
+    public final long compareAndExchange(long expectedValue, long newValue) {
+        long witnessed = value;
+        if (witnessed == expectedValue) {
+            value = newValue;
+        }
+        return witnessed;
+    }
+
+    /** Acquire-mode {@link #compareAndExchange(long, long)}; identical on one thread. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndExchange() on one thread")
+    public final long compareAndExchangeAcquire(long expectedValue, long newValue) {
+        return compareAndExchange(expectedValue, newValue);
+    }
+
+    /** Release-mode {@link #compareAndExchange(long, long)}; identical on one thread. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); == compareAndExchange() on one thread")
+    public final long compareAndExchangeRelease(long expectedValue, long newValue) {
+        return compareAndExchange(expectedValue, newValue);
     }
 
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")

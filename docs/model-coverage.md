@@ -1025,109 +1025,44 @@ Real surface: 17 members — modeled 10, not-modeled 0, not-needed 0, tail 7.
 
 ## `java.util.concurrent.atomic.AtomicBoolean`
 
-Real surface: 19 members — modeled 5, not-modeled 0, not-needed 0, tail 14.
+Real surface: 19 members — modeled 19, not-modeled 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `compareAndSet(boolean, boolean)`, `get()`, `getAndSet(boolean)`, `lazySet(boolean)`, `set(boolean)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis. All loud under JBMC</summary>
-
-- `compareAndExchange(boolean, boolean)`
-- `compareAndExchangeAcquire(boolean, boolean)`
-- `compareAndExchangeRelease(boolean, boolean)`
-- `getAcquire()`
-- `getOpaque()`
-- `getPlain()`
-- `setOpaque(boolean)`
-- `setPlain(boolean)`
-- `setRelease(boolean)`
-- `weakCompareAndSet(boolean, boolean)`
-- `weakCompareAndSetAcquire(boolean, boolean)`
-- `weakCompareAndSetPlain(boolean, boolean)`
-- `weakCompareAndSetRelease(boolean, boolean)`
-- `weakCompareAndSetVolatile(boolean, boolean)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `compareAndExchange(boolean, boolean)`, `compareAndExchangeAcquire(boolean, boolean)`, `compareAndExchangeRelease(boolean, boolean)`, `compareAndSet(boolean, boolean)`, `get()`, `getAcquire()`, `getAndSet(boolean)`, `getOpaque()`, `getPlain()`, `lazySet(boolean)`, `set(boolean)`, `setOpaque(boolean)`, `setPlain(boolean)`, `setRelease(boolean)`, `weakCompareAndSet(boolean, boolean)`, `weakCompareAndSetAcquire(boolean, boolean)`, `weakCompareAndSetPlain(boolean, boolean)`, `weakCompareAndSetRelease(boolean, boolean)`, `weakCompareAndSetVolatile(boolean, boolean)`
 
 
 ## `java.util.concurrent.atomic.AtomicInteger`
 
-Real surface: 35 members — modeled 21, not-modeled 0, not-needed 0, tail 14.
+Real surface: 35 members — modeled 33, not-modeled 0, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndExchange(int, int)`, `compareAndExchangeAcquire(int, int)`, `compareAndExchangeRelease(int, int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `setOpaque(int)`, `setPlain(int)`, `setRelease(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetAcquire(int, int)`, `weakCompareAndSetPlain(int, int)`, `weakCompareAndSetRelease(int, int)`, `weakCompareAndSetVolatile(int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the int-backed model; loud under JBMC</summary>
 
 - `byteValue()`
-- `compareAndExchange(int, int)`
-- `compareAndExchangeAcquire(int, int)`
-- `compareAndExchangeRelease(int, int)`
-- `getAcquire()`
-- `getOpaque()`
-- `getPlain()`
-- `setOpaque(int)`
-- `setPlain(int)`
-- `setRelease(int)`
 - `shortValue()`
-- `weakCompareAndSetAcquire(int, int)`
-- `weakCompareAndSetRelease(int, int)`
-- `weakCompareAndSetVolatile(int, int)`
 
 </details>
 
 
 ## `java.util.concurrent.atomic.AtomicLong`
 
-Real surface: 35 members — modeled 19, not-modeled 0, not-needed 0, tail 16.
+Real surface: 35 members — modeled 33, not-modeled 0, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `updateAndGet(LongUnaryOperator)`
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndExchange(long, long)`, `compareAndExchangeAcquire(long, long)`, `compareAndExchangeRelease(long, long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `setOpaque(long)`, `setPlain(long)`, `setRelease(long)`, `updateAndGet(LongUnaryOperator)`, `weakCompareAndSet(long, long)`, `weakCompareAndSetAcquire(long, long)`, `weakCompareAndSetPlain(long, long)`, `weakCompareAndSetRelease(long, long)`, `weakCompareAndSetVolatile(long, long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the long-backed model; loud under JBMC</summary>
 
 - `byteValue()`
-- `compareAndExchange(long, long)`
-- `compareAndExchangeAcquire(long, long)`
-- `compareAndExchangeRelease(long, long)`
-- `getAcquire()`
-- `getOpaque()`
-- `getPlain()`
-- `setOpaque(long)`
-- `setPlain(long)`
-- `setRelease(long)`
 - `shortValue()`
-- `weakCompareAndSet(long, long)`
-- `weakCompareAndSetAcquire(long, long)`
-- `weakCompareAndSetPlain(long, long)`
-- `weakCompareAndSetRelease(long, long)`
-- `weakCompareAndSetVolatile(long, long)`
 
 </details>
 
 
 ## `java.util.concurrent.atomic.AtomicReference`
 
-Real surface: 23 members — modeled 8, not-modeled 0, not-needed 0, tail 15.
+Real surface: 23 members — modeled 23, not-modeled 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(Object, BinaryOperator)`, `compareAndSet(Object, Object)`, `get()`, `getAndSet(Object)`, `getAndUpdate(UnaryOperator)`, `lazySet(Object)`, `set(Object)`, `updateAndGet(UnaryOperator)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis. All loud under JBMC</summary>
-
-- `compareAndExchange(Object, Object)`
-- `compareAndExchangeAcquire(Object, Object)`
-- `compareAndExchangeRelease(Object, Object)`
-- `getAcquire()`
-- `getAndAccumulate(Object, BinaryOperator)`
-- `getOpaque()`
-- `getPlain()`
-- `setOpaque(Object)`
-- `setPlain(Object)`
-- `setRelease(Object)`
-- `weakCompareAndSet(Object, Object)`
-- `weakCompareAndSetAcquire(Object, Object)`
-- `weakCompareAndSetPlain(Object, Object)`
-- `weakCompareAndSetRelease(Object, Object)`
-- `weakCompareAndSetVolatile(Object, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(Object, BinaryOperator)`, `compareAndExchange(Object, Object)`, `compareAndExchangeAcquire(Object, Object)`, `compareAndExchangeRelease(Object, Object)`, `compareAndSet(Object, Object)`, `get()`, `getAcquire()`, `getAndAccumulate(Object, BinaryOperator)`, `getAndSet(Object)`, `getAndUpdate(UnaryOperator)`, `getOpaque()`, `getPlain()`, `lazySet(Object)`, `set(Object)`, `setOpaque(Object)`, `setPlain(Object)`, `setRelease(Object)`, `updateAndGet(UnaryOperator)`, `weakCompareAndSet(Object, Object)`, `weakCompareAndSetAcquire(Object, Object)`, `weakCompareAndSetPlain(Object, Object)`, `weakCompareAndSetRelease(Object, Object)`, `weakCompareAndSetVolatile(Object, Object)`
 
 
 ## `java.util.stream.Collectors`
