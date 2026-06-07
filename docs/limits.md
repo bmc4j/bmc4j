@@ -106,7 +106,7 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   sequential behavior (including Kotlin coroutine *logic* under an **immediate-dispatch
   idealization**: a `suspend` call completes linearly in one call, every nested suspension point
   resolving synchronously — e.g. `runBlocking { … }`, and method contracts on `suspend` functions
-  too; see [`examples/concurrency-kotlin`](../examples/concurrency-kotlin) and
+  too; see [`examples/kotlin-coroutines-and-lincheck`](../examples/kotlin-coroutines-and-lincheck) and
   [contracts](contracts.md)). It is **not** the right tool
   for *"is my concurrent code correct & safe?"*. The flip side of that idealization is that
   real-world suspension-point *interleaving* — concurrent coroutines, dispatcher hops, cancellation
@@ -116,12 +116,10 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   `Boolean`/`Reference`, `CompletableFuture`, `ConcurrentHashMap`/`CopyOnWriteArrayList`
   are modeled with their **single-threaded semantics** (atomic = mutable holder, future =
   ready value, concurrent map = our map), and `synchronized`/`ReentrantLock` already
-  analyse fine. What bmc4j does *not* do is verify the concurrency itself. `@BmcProof(concurrent = true)` does
-  expose JBMC's basic thread-interleaving search (`--java-threading`; see
-  [`examples/concurrency-java`](../examples/concurrency-java)), but it explodes on anything
-  non-trivial and doesn't model coroutine dispatch. For real concurrency testing —
-  races, linearizability, lock-freedom, concurrent coroutines — reach for **Lincheck**:
+  analyse fine. What bmc4j does *not* do is verify the concurrency itself — interleaving
+  search, races, linearizability, and lock-freedom are all out of scope. For real concurrency
+  testing — races, linearizability, lock-freedom, concurrent coroutines — reach for **Lincheck**:
   it's JVM-native, runs your actual bytecode, has a deterministic model-checking mode,
   and is maintained by JetBrains. The two are complementary: BMC for logic, Lincheck
-  for concurrency — [`examples/concurrency-kotlin`](../examples/concurrency-kotlin) (the `lincheck`
+  for concurrency — [`examples/kotlin-coroutines-and-lincheck`](../examples/kotlin-coroutines-and-lincheck) (the `lincheck`
   concept) puts both on the same class to show the split.

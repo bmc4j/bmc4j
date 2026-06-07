@@ -13,7 +13,7 @@ dependencies {
     // The `suspendcontracts` concept contracts `suspend` functions: production code is `suspend`
     // (kotlinx-coroutines on the main classpath) and the caller proofs drive them through
     // `runBlocking { }` (test classpath). JBMC analyses clean bundled models of the coroutine runtime
-    // (no real dispatcher/event loop), exactly like `examples/concurrency-kotlin`.
+    // (no real dispatcher/event loop), exactly like `examples/kotlin-coroutines-and-lincheck`.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }

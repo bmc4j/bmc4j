@@ -19,7 +19,7 @@ import org.bmc4j.Verdict
 class LogicProofs {
 
     // Sound guard → proven for every balance and amount.
-    // These three ~73s proofs share the concurrency-kotlin module with CoroutineProofTests; pin them
+    // These three ~73s proofs share the kotlin-coroutines-and-lincheck module with CoroutineProofTests; pin them
     // so the module's heavy proofs spread across shards instead of hash-clustering.
     @Shard(2)
     @BmcProof

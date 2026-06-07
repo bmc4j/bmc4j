@@ -48,9 +48,12 @@ object Bmc4jVersion {
      * pinned by the unchanged Java test suite - but a rewriter-code change re-mirrors on
      * principle); r8 introduces per-proof class-level model slicing (ModelSlice): the analysis
      * classpath a verdict was computed over changes shape, so pre-slicing entries (and any
-     * slicing-policy predecessor) must re-verify rather than be served to a sliced run.
+     * slicing-policy predecessor) must re-verify rather than be served to a sliced run;
+     * r9 removes the per-proof `concurrent` flag (and its `--java-threading` emission) from the
+     * request and the cache key — the key no longer hashes that component, so a key computed by an
+     * r8 runtime (which folded `concurrent` in) must not be served to an r9 run.
      */
-    private const val SEMANTICS_REVISION = "r8"
+    private const val SEMANTICS_REVISION = "r9"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

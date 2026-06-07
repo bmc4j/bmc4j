@@ -17,8 +17,6 @@ class BmcRequest @JvmOverloads constructor(
         @get:JvmName("unwind") val unwind: Int,
         @get:JvmName("unwindingAssertions") val unwindingAssertions: Boolean,
         @get:JvmName("maxStringLength") val maxStringLength: Int,
-        /** Whether the proof opted into concurrency exploration. */
-        @get:JvmName("concurrent") val concurrent: Boolean,
         /** Per-proof SAT/SMT solver override (e.g. `"z3"`); empty = use `-Dbmc.solver`/default. */
         @get:JvmName("solver") val solver: String = "",
         /**

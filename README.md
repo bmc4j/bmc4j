@@ -191,24 +191,23 @@ counterexample is a ready-made reproduction of the bug, dropped into
 
 And when **not** to: I/O and frameworks (mock boundaries, prove the logic between them),
 float-heavy numerics (IEEE-754 is slow in a SAT solver — prefer integer models),
-unbounded structures (everything is proven *within a bound*), and serious concurrency
-testing (see the note below).
+unbounded structures (everything is proven *within a bound*), and concurrency
+verification (see the note below).
 
-> **Concurrency: supported but experimental, deliberately not first-class.** bmc4j can
-> exhaustively search **JVM thread** interleavings for small state spaces (see
-> [`examples/concurrency-java`](examples/concurrency-java)) — a few threads, short
-> critical sections, basic `synchronized`/atomic patterns. It will find the data race
-> and show you the exact interleaving. But interleaving search explodes
-> combinatorially, so it does not scale to realistic concurrent code **and never will
-> under BMC** — that's solver physics, not a roadmap item. **Kotlin coroutines: not at
-> all.** The interleaving search understands JVM threads only — dispatchers,
-> suspension scheduling and structured concurrency aren't modeled, so coroutine
-> *concurrency* cannot be verified, full stop. (The *sequential* logic inside `suspend`
-> functions still proves fine via the bundled `runBlocking` model — see
-> [`examples/concurrency-kotlin`](examples/concurrency-kotlin).) For serious
-> concurrency testing — linearizability, lock-freedom, large state spaces, coroutines —
-> use [Lincheck](https://github.com/JetBrains/lincheck); bmc4j is its complement for
-> sequential logic, not its competitor.
+> **Concurrency: out of scope, by design.** bmc4j is a **sequential** logic checker. It
+> does **not** verify thread interleavings, races, or linearizability — that's a
+> fundamentally different search that explodes combinatorially under BMC, so it isn't a
+> roadmap item, it's [Lincheck](https://github.com/JetBrains/lincheck)'s job. What bmc4j
+> *does* cover is the **sequential logic** that runs through concurrent constructs: the
+> `java.util.concurrent` types (`Atomic*`, `ConcurrentHashMap`, queues, latches,
+> executors, …) are modeled with single-threaded semantics so the logic that uses them
+> stays fully provable. **Kotlin coroutines** are the same story — the *sequential* logic
+> inside `suspend` functions proves fine via the bundled `runBlocking`/dispatcher models,
+> but coroutine *concurrency* (suspension scheduling, structured concurrency) is not
+> modeled. See [`examples/kotlin-coroutines-and-lincheck`](examples/kotlin-coroutines-and-lincheck),
+> which puts a `@BmcProof` (logic) and a Lincheck test (concurrency) side by side to show
+> each tool catching exactly the bug the other is blind to. bmc4j is Lincheck's
+> complement for sequential logic, not its competitor.
 
 ## The tradeoffs, honestly
 

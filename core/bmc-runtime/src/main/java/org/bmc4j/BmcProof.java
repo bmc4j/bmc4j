@@ -52,18 +52,6 @@ public @interface BmcProof {
     boolean unwindingAssertions() default true;
 
     /**
-     * Explore concurrent interleavings (experimental). Today this enables JBMC's
-     * thread analysis ({@code --java-threading}); the attribute is intentionally
-     * concurrency-general so the same proofs can target other concurrency models
-     * (e.g. Kotlin coroutines) as support lands.
-     *
-     * <p>Note: write the safety assertion at the point of interest and let the
-     * concurrent code race — do not rely on {@code Thread.join()} to sequence
-     * (it is not modeled as a barrier).
-     */
-    boolean concurrent() default false;
-
-    /**
      * Override the SAT/SMT solver for this proof — e.g. {@code "z3"}, {@code "boolector"},
      * {@code "cvc5"} (must be on {@code PATH}). Empty uses the build / {@code -Dbmc.solver} default
      * (JBMC's built-in MiniSat). An SMT backend can be much faster on division- or array-heavy

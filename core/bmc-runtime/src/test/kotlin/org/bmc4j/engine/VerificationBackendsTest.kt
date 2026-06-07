@@ -47,6 +47,6 @@ internal class VerificationBackendsTest {
         private const val PROP = "bmc.backend"
 
         private fun dummy(): BmcRequest =
-                BmcRequest("Pkg.C", "Pkg.C.m", "", 16, true, 0, false)
+                BmcRequest("Pkg.C", "Pkg.C.m", "", 16, true, 0)
     }
 }

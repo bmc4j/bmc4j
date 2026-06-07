@@ -84,7 +84,7 @@ class LoudUnmodelledProbe {
         BmcRequest req = new BmcRequest(
                 "proofs.audit.LoudUnmodelledProbe",
                 "proofs.audit.LoudUnmodelledProbe.reaching_an_unmodelled_list_member_is_undecided",
-                cp, 16, true, 16, false, "", 0);
+                cp, 16, true, 16, "", 0);
         VerificationBackend backend = VerificationBackends.select(req);
         JbmcResult result = backend.verify(req);
 
