@@ -236,6 +236,13 @@ class BmcPlugin : Plugin<Project> {
                 // pass-through (no build default — unset means "no sharding", the filter stays inert).
                 forwardCli(test, "bmc.shard.count", null)
                 forwardCli(test, "bmc.shard.index", null)
+                // A sharded run legitimately leaves some shards with zero tests in a small module
+                // (fewer tests than shards): the hash split simply put them all elsewhere. Gradle's
+                // failOnNoDiscoveredTests would fail those shards, so relax it ONLY when sharding is
+                // active — an unsharded module with no discovered tests still fails loud.
+                if ((System.getProperty("bmc.shard.count")?.toIntOrNull() ?: 1) > 1) {
+                    test.failOnNoDiscoveredTests.set(false)
+                }
                 // Verdict cache. Default ON; bmc { cache = false } disables it by setting
                 // bmc.noCache=true for the test JVM. A command-line -Dbmc.noCache wins over the build
                 // flag (so a one-off full re-verification doesn't need an edit), same precedence as

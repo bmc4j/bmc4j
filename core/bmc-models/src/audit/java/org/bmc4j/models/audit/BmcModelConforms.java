@@ -12,8 +12,10 @@ import java.lang.annotation.Target;
  *
  * <p>The model auditing gate (in {@code bmc-models-conformance}) requires every public/protected
  * member of the real target class to be one of: implemented by the model and conforming (this
- * annotation), declared in a class-level {@link BmcNotModelled} / {@link BmcNotNeeded}, or absorbed by
- * a class-level {@link BmcModelTail}. The conforming surface resolves through the model's inheritance
+ * annotation), waived by a method-level {@link BmcNotModelled} / {@link BmcNotNeeded} loud stub (or a
+ * class-level {@link BmcNotNeeded}{@code (member=…)} declaration — {@link BmcNotModelled} is
+ * method-only), or absorbed by a class-level {@link BmcModelTail}. The conforming surface resolves
+ * through the model's inheritance
  * chain — a member implemented by a modeled superclass counts (e.g. {@code LinkedList} inheriting the
  * {@code ArrayList} model).
  *
