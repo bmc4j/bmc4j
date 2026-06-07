@@ -151,15 +151,30 @@ jobs:
                 }]')"
             done
           }
+          # kotlin_leg <version> [shards]: one matrix entry per shard, mirroring jdk_leg. The
+          # conformance suite (:model-conformance-proofs:test) is the dominant cost and shards by
+          # proof-method via the bmc-runtime PostDiscoveryFilter exactly like the jdk legs; the
+          # Kotlin example modules don't shard (no @BmcProof discovery to split) and simply re-run
+          # on each shard - cheap relative to the conformance fan-out's wall-clock win. The
+          # per-proof verdict cache + the merge job's union make the slices mergeable identically
+          # to the jdk legs (one merged snapshot per leg, restored by every shard next run).
           kotlin_leg() {
+            local v="$1" shards="${2:-1}" t base i
+            t="$kotlin"
             # language-kotlin24 holds the 2.4-only syntax (context parameters, collection
             # literals) - older consumer compilers cannot build it, so only 2.4+ legs get it.
-            # Kotlin legs stay single-shard: they're off the PR critical path and each also drives
-            # the Kotlin example builds, which don't benefit from proof-method fan-out.
-            local t="$kotlin"
-            case "$1" in 2.[4-9]*|2.[1-9][0-9]*|[3-9].*) t="$t :examples:language-kotlin24:test";; esac
-            legs="$(echo "$legs" | jq -c --arg v "$1" --arg t "$t" \
-              '. + [{name: ("kotlin-" + $v), leg: ("kotlin-" + $v), jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t, shardIndex: 1, shardCount: 1}]')"
+            case "$v" in 2.[4-9]*|2.[1-9][0-9]*|[3-9].*) t="$t :examples:language-kotlin24:test";; esac
+            base="kotlin-${v}"
+            for i in $(seq 1 "$shards"); do
+              legs="$(echo "$legs" | jq -c \
+                --arg b "$base" --arg v "$v" --arg t "$t" \
+                --argjson si "$i" --argjson sc "$shards" \
+                '. + [{
+                  name: (if $sc > 1 then ($b + " (shard " + ($si|tostring) + "/" + ($sc|tostring) + ")") else $b end),
+                  leg: $b, jdk: "21", flags: ("-PbmcJvmTarget=21 -PbmcKotlinVersion=" + $v), tasks: $t,
+                  shardIndex: $si, shardCount: $sc
+                }]')"
+            done
           }
 
           # Per-event defaults; inputs.* are empty on push/PR events.
@@ -172,7 +187,9 @@ jobs:
               # 2.4 is also the default toolchain the full legs compile with, but it gets
               # its own EXPLICIT leg so the kotlin axis is self-contained - implicit
               # coverage would silently vanish the day the default bumps to 2.5.
-              kotlin_leg 2.0.21; kotlin_leg 2.2.21; kotlin_leg 2.3.21; kotlin_leg 2.4.0
+              # Every kotlin leg ran ~10 min single-shard (the slowest jobs in the run, slower
+              # than the now-sharded jdk-full legs), so fan them all out across SHARDS too.
+              kotlin_leg 2.0.21 "$SHARDS"; kotlin_leg 2.2.21 "$SHARDS"; kotlin_leg 2.3.21 "$SHARDS"; kotlin_leg 2.4.0 "$SHARDS"
               ;;
             pull_request)
               gate="true"; sel_spec="linux-arm64"
@@ -180,12 +197,13 @@ jobs:
               jdk_leg 21 "$SHARDS"
               # Kotlin-first: PRs also prove the Kotlin examples/conformance on the
               # newest consumer compiler (the full version matrix stays on main pushes).
-              kotlin_leg 2.4.0
+              # 2.4 is now the slowest PR job, so shard it for fast feedback like the jdk21 leg.
+              kotlin_leg 2.4.0 "$SHARDS"
               ;;
             *)
               gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"
               for j in $(echo "${JDKS:-21}" | tr ',' ' '); do jdk_leg "$j" "$SHARDS"; done
-              for k in $(echo "${KOTLINS:-}" | tr ',' ' '); do [ -n "$k" ] && kotlin_leg "$k"; done
+              for k in $(echo "${KOTLINS:-}" | tr ',' ' '); do [ -n "$k" ] && kotlin_leg "$k" "$SHARDS"; done
               ;;
           esac
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
