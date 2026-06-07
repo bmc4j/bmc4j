@@ -30,6 +30,8 @@ private fun mapOp(allowNullKey: Boolean): Arb<MapOp> {
         value.map { MapOp("containsValue($it)", "containsValue", arrayOf(OBJECT), arrayOf(it)) },
         Arb.bind(key, value) { k, v -> MapOp("putIfAbsent($k,$v)", "putIfAbsent", arrayOf(OBJECT, OBJECT), arrayOf(k, v)) },
         Arb.bind(key, Arb.int(-9..9)) { k, d -> MapOp("getOrDefault($k,$d)", "getOrDefault", arrayOf(OBJECT, OBJECT), arrayOf(k, d)) },
+        Arb.bind(key, value) { k, v -> MapOp("putIfAbsent($k,$v)", "putIfAbsent", arrayOf(OBJECT, OBJECT), arrayOf(k, v)) },
+        Arb.bind(key, value) { k, v -> MapOp("replace($k,$v)", "replace", arrayOf(OBJECT, OBJECT), arrayOf(k, v)) },
         Arb.constant(MapOp("clear", "clear", arrayOf(), arrayOf())),
     )
 }
@@ -109,6 +111,72 @@ class MapConformanceTest : FunSpec({
                 assertEquivalent("get($k)", call(r, "get", arrayOf(OBJECT), k), call(m, "get", arrayOf(OBJECT), k))
             }
         }
+    }
+
+    // --- functional-arg ops (compute* / merge / forEach) -------------------------------------------
+    // These take a real Function/BiFunction/BiConsumer (function interfaces aren't relocated), so the
+    // lambdas pass straight through. We drive a sequence of functional ops on both maps and compare
+    // each return + the final state, pinning the classic present-but-null / null-result-removes traps.
+    // The lambda return domain includes null (which removes / leaves-absent), exercising those edges.
+    test("HashMap functional-arg ops conform (compute/computeIfAbsent/computeIfPresent/merge/replace)") {
+        val key = Arb.int(-2..3)
+        val arg = Arb.int(-5..5)
+        // null result (returned from a remap) is the removal trap; encode it as the sentinel for "null".
+        val maybeNull = Arb.int(-5..6).map { if (it == 6) null else it }
+        checkAll(Arb.list(Arb.bind(Arb.int(0..6), key, arg, maybeNull) { op, k, a, n -> listOf(op, k, a, n) }, 0..25)) { steps ->
+            val r = java.util.HashMap<Int, Int?>()
+            val m = bmcref.java.util.HashMap<Int, Int?>()
+            for (step in steps) {
+                val op = step[0]!!; val k = step[1]!!; val a = step[2]!!; val n = step[3]
+                when (op) {
+                    0 -> {
+                        val rr = runCatching { r.computeIfAbsent(k) { n } }
+                        val mm = runCatching { m.computeIfAbsent(k) { n } }
+                        mm.getOrNull() shouldBe rr.getOrNull()
+                    }
+                    1 -> {
+                        val rr = runCatching { r.computeIfPresent(k) { _, v -> if (n == null) null else v!! + n } }
+                        val mm = runCatching { m.computeIfPresent(k) { _, v -> if (n == null) null else v!! + n } }
+                        mm.getOrNull() shouldBe rr.getOrNull()
+                    }
+                    2 -> {
+                        val rr = runCatching { r.compute(k) { _, v -> if (n == null) null else (v ?: 0) + n } }
+                        val mm = runCatching { m.compute(k) { _, v -> if (n == null) null else (v ?: 0) + n } }
+                        mm.getOrNull() shouldBe rr.getOrNull()
+                    }
+                    3 -> {
+                        val rr = runCatching { r.merge(k, a) { old, value -> if (n == null) null else old!! + value!! } }
+                        val mm = runCatching { m.merge(k, a) { old, value -> if (n == null) null else old!! + value!! } }
+                        mm.getOrNull() shouldBe rr.getOrNull()
+                    }
+                    4 -> { r.putIfAbsent(k, a); m.putIfAbsent(k, a) }
+                    5 -> { r.replace(k, a); m.replace(k, a) }
+                    else -> { r.put(k, a); m.put(k, a) }
+                }
+                // After each step: same size and same value for every candidate key.
+                (call(m, "size", arrayOf()).getOrThrow() as Int) shouldBe r.size
+                for (kk in -2..3) m.get(kk) shouldBe r.get(kk)
+            }
+            // forEach visits the same key/value multiset (sum of values, order-independent).
+            val rSum = intArrayOf(0); val mSum = intArrayOf(0)
+            r.forEach { _, v -> rSum[0] += (v ?: 0) }
+            m.forEach { _, v -> mSum[0] += (v ?: 0) }
+            mSum[0] shouldBe rSum[0]
+        }
+    }
+
+    test("ConcurrentHashMap functional-arg ops conform (merge/compute, null-result removal)") {
+        val r = java.util.concurrent.ConcurrentHashMap<Int, Int>()
+        val m = bmcref.java.util.concurrent.ConcurrentHashMap<Int, Int>()
+        r.put(1, 10); m.put(1, 10)
+        r.merge(1, 5) { a, b -> a + b }; m.merge(1, 5) { a, b -> a + b }
+        m.get(1) shouldBe r.get(1)   // 15
+        // merge returning null removes the key (CHM never stores null), on both.
+        r.merge(1, 5) { _, _ -> null }; m.merge(1, 5) { _, _ -> null }
+        m.containsKey(1) shouldBe r.containsKey(1)   // false
+        // computeIfAbsent installs a non-null, returns it.
+        m.computeIfAbsent(2) { 20 } shouldBe r.computeIfAbsent(2) { 20 }
+        m.get(2) shouldBe r.get(2)
     }
 
     test("HashMap(negative capacity) throws like the JDK") {

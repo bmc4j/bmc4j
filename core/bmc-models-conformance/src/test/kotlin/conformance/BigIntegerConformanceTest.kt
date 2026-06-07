@@ -61,6 +61,47 @@ class BigIntegerConformanceTest : FunSpec({
         }
     }
 
+    // Divergence ledger — "everything else is a bug": the String constructor must accept exactly what
+    // the JDK accepts in radix 10 and throw NumberFormatException on the rest (the silent-parse bug,
+    // mirroring the BigDecimal(String) precedent). In-bound values round-trip bit-for-bit.
+    test("BigInteger(String) conforms for valid and invalid inputs") {
+        val valid = listOf("0", "12", "-3", "+7", "100", "000", "-0", "+0", "9999999", "-9999999",
+            "2147483648", "-2147483648", "9223372036854775807")   // up to Long.MAX
+        val invalid = listOf("", "-", "+", "12x4", "1.5", "abc", "x", "1 2", " 5", "5 ", "0x1f",
+            "1_000", "--3", "+-3", "12.0", ".")
+        for (str in valid + invalid) {
+            val real = runCatching { java.math.BigInteger(str) }
+            val model = runCatching { bmcref.java.math.BigInteger(str) }
+            withClue("BigInteger(\"$str\")  real=${real.exceptionOrNull()?.javaClass?.simpleName ?: real.getOrNull()}  model=${model.exceptionOrNull()?.javaClass?.simpleName ?: model.getOrNull()}") {
+                // Same success/failure split; on failure both NumberFormatException.
+                real.isSuccess shouldBe model.isSuccess
+                if (real.isSuccess) {
+                    model.getOrThrow().toLong() shouldBe real.getOrThrow().toLong()
+                } else {
+                    real.exceptionOrNull().shouldBeInstanceOf<NumberFormatException>()
+                    (model.exceptionOrNull()!!::class.java.name.removePrefix("bmcref.")) shouldBe
+                        "java.lang.NumberFormatException"
+                }
+            }
+        }
+    }
+
+    // OUT-OF-DOMAIN bound: a magnitude past the long range is one the arbitrary-precision JDK accepts,
+    // but the long-backed model must FAIL LOUDLY (ArithmeticException via Math.*Exact), never wrap.
+    test("BigInteger(String) past the long bound fails LOUDLY (bounded-model loud-failure)") {
+        val tooBig = listOf("9223372036854775808",          // Long.MAX + 1
+            "-9223372036854775809",                          // Long.MIN - 1
+            "99999999999999999999999999", "-10000000000000000000")
+        for (str in tooBig) {
+            // JDK (arbitrary precision) succeeds.
+            java.math.BigInteger(str)
+            val model = runCatching { bmcref.java.math.BigInteger(str) }
+            withClue("BigInteger(\"$str\") should fail loudly in the bounded model") {
+                model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+            }
+        }
+    }
+
     // --- OUT-OF-DOMAIN: precondition violation (mod requires a positive modulus) -------------------
     // A band straddling the m <= 0 boundary (the model's mod previously normalized any modulus,
     // silently diverging for m <= 0 where the real BigInteger.mod throws). Assert exception parity.

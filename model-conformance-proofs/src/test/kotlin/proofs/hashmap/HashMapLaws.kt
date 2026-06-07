@@ -110,4 +110,81 @@ class HashMapLaws {
         val copy = HashMap<Int, Int>(src)
         Bmc.check(copy.size == 1 && copy[k] == v && copy.containsKey(k))
     }
+
+    // --- functional-arg ops (lambdas through the model; present-but-null / null-removal traps) ------
+
+    @BmcProof
+    fun computeIfAbsent_installs_when_absent_then_leaves_present() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        val first = m.computeIfAbsent(k) { v }      // absent -> compute via lambda, install
+        val second = m.computeIfAbsent(k) { v + 1 } // present -> NOT recomputed
+        Bmc.check(first == v && second == v && m[k] == v && m.size == 1)
+    }
+
+    @BmcProof
+    fun compute_null_result_removes_the_mapping() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        m[k] = v
+        val r = m.compute(k) { _, _ -> null }       // null result removes
+        Bmc.check(r == null && !m.containsKey(k) && m.size == 0)
+    }
+
+    @BmcProof
+    fun computeIfPresent_recomputes_present_only() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt(-1000, 1000)
+        val v = Bmc.anyInt(-1000, 1000)
+        // Absent: untouched (null).
+        Bmc.check(m.computeIfPresent(k) { _, x -> x + 1 } == null && !m.containsKey(k))
+        // Present: recomputed via the lambda.
+        m[k] = v
+        val r = m.computeIfPresent(k) { _, x -> x + 1 }
+        Bmc.check(r == v + 1 && m[k] == v + 1)
+    }
+
+    @BmcProof
+    fun merge_absent_installs_present_combines() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt(-1000, 1000)
+        val a = Bmc.anyInt(-1000, 1000)
+        val b = Bmc.anyInt(-1000, 1000)
+        val first = m.merge(k, a) { old, value -> old + value }   // absent -> install a
+        val second = m.merge(k, b) { old, value -> old + value }  // present -> a + b
+        Bmc.check(first == a && second == a + b && m[k] == a + b)
+    }
+
+    @BmcProof
+    fun merge_null_result_removes() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        m[k] = v
+        val r = m.merge(k, v) { _, _ -> null }      // null merge result removes
+        Bmc.check(r == null && !m.containsKey(k))
+    }
+
+    @BmcProof
+    fun putIfAbsent_only_when_absent() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        Bmc.check(m.putIfAbsent(k, a) == null)      // absent -> installs a, returns null
+        Bmc.check(m.putIfAbsent(k, b) == a)         // present -> returns existing a, unchanged
+        Bmc.check(m[k] == a)
+    }
+
+    @BmcProof
+    fun forEach_visits_every_mapping_via_lambda() {
+        val m = HashMap<Int, Int>()
+        m[1] = 10
+        m[2] = 20
+        val sum = intArrayOf(0)
+        m.forEach { _, v -> sum[0] += v }           // lambda through the model's forEach
+        Bmc.check(sum[0] == 30)
+    }
 }

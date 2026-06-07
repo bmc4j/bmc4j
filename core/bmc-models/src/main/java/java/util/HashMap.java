@@ -1,5 +1,9 @@
 package java.util;
 
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 /**
  * Clean BMC model of {@link java.util.HashMap}: parallel fixed-capacity key/value arrays with
  * linear lookup. Sound and bounded — lookups unwind to the current size, so keep maps within the
@@ -133,6 +137,93 @@ public class HashMap<K, V> implements Map<K, V> {
     public V getOrDefault(Object key, V defaultValue) {
         int i = indexOfKey(key);
         return i < 0 ? defaultValue : (V) vals[i];
+    }
+
+    // --- functional-arg ops -------------------------------------------------
+    // Implemented over the public get/put/remove/containsKey surface so the present-but-null edge
+    // cases (the classic JDK divergence traps) are handled exactly: "no present mapping" means absent
+    // OR mapped to null, and a null compute/merge result REMOVES the key. Functional arguments are
+    // plain SAM calls (bmc4j desugars the lambda so JBMC devirtualizes the apply/accept).
+
+    @Override
+    public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+        V cur = get(key);
+        if (cur != null) {
+            return cur;                       // present (non-null) — left untouched
+        }
+        V newValue = mappingFunction.apply(key);
+        if (newValue == null) {
+            return null;                      // null result: key stays absent (no mapping installed)
+        }
+        put(key, newValue);
+        return newValue;
+    }
+
+    @Override
+    public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        V cur = get(key);
+        if (cur == null) {
+            return null;                      // absent (or null-mapped): untouched
+        }
+        V newValue = remappingFunction.apply(key, cur);
+        if (newValue == null) {
+            remove(key);                      // null result removes the mapping
+            return null;
+        }
+        put(key, newValue);
+        return newValue;
+    }
+
+    @Override
+    public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        V cur = get(key);
+        V newValue = remappingFunction.apply(key, cur);
+        if (newValue == null) {
+            if (cur != null || containsKey(key)) {
+                remove(key);                  // null result removes any existing mapping
+            }
+            return null;
+        }
+        put(key, newValue);
+        return newValue;
+    }
+
+    @Override
+    public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        V cur = get(key);
+        V newValue = cur == null ? value : remappingFunction.apply(cur, value);
+        if (newValue == null) {
+            remove(key);                      // null merge result removes the mapping
+        } else {
+            put(key, newValue);
+        }
+        return newValue;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+        for (int i = 0; i < size; i++) {
+            action.accept((K) keys[i], (V) vals[i]);
+        }
+    }
+
+    @Override
+    public V replace(K key, V value) {
+        if (containsKey(key)) {
+            return put(key, value);
+        }
+        return null;
+    }
+
+    @Override
+    public boolean replace(K key, V oldValue, V newValue) {
+        V cur = get(key);
+        if ((cur != null || containsKey(key)) && (cur == null ? oldValue == null : cur.equals(oldValue))) {
+            put(key, newValue);
+            return true;
+        }
+        return false;
     }
 
     @Override

@@ -43,6 +43,25 @@ class BigIntegerLaws {
         Bmc.check(a.negate().negate() == a)
     }
 
+    // --- String constructor: parse round-trips (concrete to keep the parse loop SAT-light) ---------
+    // The symbolic/garbage axis is covered differentially (BigIntegerConformanceTest); these pin the
+    // parse semantics concretely under JBMC so the model's own parse path is verified, not stubbed.
+
+    @BmcProof
+    fun parse_round_trips_via_longValue() {
+        Bmc.check(BigInteger("123").toLong() == 123L)
+        Bmc.check(BigInteger("-456").toLong() == -456L)
+        Bmc.check(BigInteger("+7").toLong() == 7L)
+        Bmc.check(BigInteger("0").toLong() == 0L)
+        Bmc.check(BigInteger("000").toLong() == 0L)
+    }
+
+    @BmcProof
+    fun parse_agrees_with_valueOf() {
+        Bmc.check(BigInteger("1000") == BigInteger.valueOf(1000L))
+        Bmc.check(BigInteger("-1000") == BigInteger.valueOf(-1000L))
+    }
+
     @BmcProof
     fun divide_multiply_remainder_reconstructs_dividend() {
         // Euclidean identity a == (a/b)*b + (a%b). Tight range keeps the divider circuit small
