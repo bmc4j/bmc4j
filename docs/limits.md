@@ -103,9 +103,15 @@ full, because a proof tool that hides its limits is worse than no proof tool.
   `assumeValid` stays analysable.)
 - **Concurrency: use [Lincheck](https://github.com/JetBrains/lincheck), not this.**
   `@BmcProof` answers *"is my logic sound?"* — symbolic, all-inputs proofs of
-  sequential behavior (including Kotlin coroutine *logic*, e.g. `runBlocking { … }` —
-  see [`examples/concurrency-kotlin`](../examples/concurrency-kotlin)). It is **not** the right tool
-  for *"is my concurrent code correct & safe?"*. Note the distinction: code that *uses*
+  sequential behavior (including Kotlin coroutine *logic* under an **immediate-dispatch
+  idealization**: a `suspend` call completes linearly in one call, every nested suspension point
+  resolving synchronously — e.g. `runBlocking { … }`, and method contracts on `suspend` functions
+  too; see [`examples/concurrency-kotlin`](../examples/concurrency-kotlin) and
+  [contracts](contracts.md)). It is **not** the right tool
+  for *"is my concurrent code correct & safe?"*. The flip side of that idealization is that
+  real-world suspension-point *interleaving* — concurrent coroutines, dispatcher hops, cancellation
+  timing — is out of scope (a suspend contract's `@Requires` holds at entry and `@Ensures` at
+  completion, not across an interleaving). Note the distinction: code that *uses*
   concurrency **constructs** is still analysable for its logic — `AtomicInteger`/`Long`/
   `Boolean`/`Reference`, `CompletableFuture`, `ConcurrentHashMap`/`CopyOnWriteArrayList`
   are modeled with their **single-threaded semantics** (atomic = mutable holder, future =

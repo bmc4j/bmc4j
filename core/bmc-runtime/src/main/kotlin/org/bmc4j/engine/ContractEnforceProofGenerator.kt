@@ -81,15 +81,29 @@ object ContractEnforceProofGenerator {
                     .append('(').append(preArgList).append("));\n")
         }
         // Static target: Owner.method(args). Instance target: self.method(args) — the REAL body.
-        val call = if (c.isInstance) "$SELF.${c.methodName}($argList)"
-        else "${c.targetFqn}.${c.methodName}($argList)"
+        // A suspend target's lowered ABI is `(args, Continuation)Object`: drive it to completion by
+        // passing an immediately-completing continuation (the same immediate-dispatch idealization the
+        // runBlocking examples use), then unbox the returned BOXED result to the declared type for the
+        // predicate. Under that idealization a suspend call completes linearly in one call and returns
+        // its declared value (never COROUTINE_SUSPENDED), so the enforce checks @Ensures at completion.
+        val callArgList = if (c.isSuspend) {
+            if (argList.isEmpty()) COMPLETION else "$argList, $COMPLETION"
+        } else {
+            argList
+        }
+        val call = if (c.isInstance) "$SELF.${c.methodName}($callArgList)"
+        else "${c.targetFqn}.${c.methodName}($callArgList)"
         if (c.returnType == "void") {
-            // Degenerate (targets value-returning methods): exercise the body only.
+            // Degenerate (targets value-returning methods): exercise the body only. (A suspend Unit
+            // function is rejected by the processor, so this stays the plain non-suspend case.)
             append("        ").append(call).append(";\n")
             append("    }\n")
             return@buildString
         }
-        append("        ").append(c.returnType).append(" result = ").append(call).append(";\n")
+        // For a suspend target the call returns Object (the boxed declared result); unbox it to the
+        // declared type. For an ordinary target the call already returns the declared type.
+        val resultExpr = if (c.isSuspend) ContractStubGenerator.unboxExpr(c.returnType, call) else call
+        append("        ").append(c.returnType).append(" result = ").append(resultExpr).append(";\n")
         if (c.ensures != null) {
             val ensuresArgs = "result" + if (preArgList.isEmpty()) "" else ", $preArgList"
             append("        org.bmc4j.Bmc.check(")
@@ -101,4 +115,9 @@ object ContractEnforceProofGenerator {
 
     /** The generated receiver-variable name for an instance contract's enforce-proof. */
     private const val SELF = "self"
+
+    /** The immediately-completing continuation that drives a suspend target to completion under the
+     *  immediate-dispatch idealization. It lives in `bmc-runtime` (a consumer compile dependency) so
+     *  the generated Java compiles; JBMC analyses its trivial real bytecode. */
+    private const val COMPLETION = "org.bmc4j.coroutines.BmcSuspend.complete()"
 }

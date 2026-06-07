@@ -56,7 +56,15 @@ object ContractStubGenerator {
             /** Receiver type (the target class FQN) for a **pure instance** contract, threaded as the
              *  leading `self` parameter of the stub/enforce and predicates; `null` for a static target.
              *  Exact-class binding, like the static case — no virtual dispatch of the target method. */
-            @JvmField val receiverType: String? = null) {
+            @JvmField val receiverType: String? = null,
+            /** Non-null iff the contracted method is a Kotlin `suspend` function. Kotlin lowers
+             *  `suspend fun f(args): T` to `Object f(args, Continuation)`: the body is a state machine
+             *  that, under bmc4j's immediate-dispatch idealization, completes in one call and returns the
+             *  BOXED declared result (never COROUTINE_SUSPENDED). [returnType] then holds the DECLARED
+             *  (unboxed where primitive) Kotlin result type — what the predicates bind — while this field
+             *  carries the boxed reference form the ABI actually returns, so the stub/enforce can box on
+             *  return and unbox before the predicate. `null` for an ordinary (non-suspend) method. */
+            @JvmField val suspendBoxedReturn: String? = null) {
 
         @JvmField
         val expectEnforce: String = expectEnforce ?: "VERIFIED"
@@ -65,9 +73,18 @@ object ContractStubGenerator {
         @JvmField
         val isInstance: Boolean = receiverType != null
 
+        /** True for a `suspend` contract (lowered to a trailing `Continuation` parameter + `Object`
+         *  return; driven to completion under the immediate-dispatch idealization). */
+        @JvmField
+        val isSuspend: Boolean = suspendBoxedReturn != null
+
         /** The receiver parameter name used in generated stubs/proofs; "self" by convention. */
         val receiverName: String
             get() = "self"
+
+        /** The generated parameter name for the trailing `Continuation` of a suspend target. */
+        val continuationName: String
+            get() = "\$completion"
     }
 
     /** Render a stub class holding a `<method>__stub` method per contract. */
@@ -92,15 +109,26 @@ object ContractStubGenerator {
         //   requires(self?, args...)        ensures(result, self?, args...)
         val userParamDecls = c.params.map { "${it.key} ${it.value}" }
         val userArgs = c.params.map { it.value }
-        val paramDecls = if (c.isInstance) {
+        var paramDecls = if (c.isInstance) {
             listOf("${c.receiverType} ${c.receiverName}") + userParamDecls
         } else {
             userParamDecls
         }
+        // A suspend target's lowered ABI is `(args, Continuation)Object`: the stub must replicate it so
+        // the call-site rewrite keeps the operand stack and descriptor identical. The trailing
+        // Continuation is a real parameter of the stub (matching the call site) but is NOT a predicate
+        // argument — it's coroutine plumbing the contract never references. The stub never suspends, so
+        // it ignores the continuation entirely and returns the boxed result directly.
+        if (c.isSuspend) {
+            paramDecls = paramDecls + "kotlin.coroutines.Continuation ${c.continuationName}"
+        }
         // The arguments passed to the requires predicate: (self?, args...).
         val preArgs = if (c.isInstance) listOf(c.receiverName) + userArgs else userArgs
 
-        append("    public static ").append(c.returnType).append(' ')
+        // A suspend stub returns the erased `Object` (the lowered ABI); an ordinary stub returns the
+        // declared type.
+        val stubReturnType = if (c.isSuspend) "java.lang.Object" else c.returnType
+        append("    public static ").append(stubReturnType).append(' ')
                 .append(c.methodName).append("__stub(").append(paramDecls.joinToString(", ")).append(") {\n")
         if (c.requires != null) {
             append("        org.bmc4j.Bmc.check(")
@@ -108,10 +136,13 @@ object ContractStubGenerator {
                     .append('(').append(preArgs.joinToString(", ")).append("));\n")
         }
         if (c.returnType == "void") {
-            // Degenerate: no result to constrain (targets value-returning methods).
+            // Degenerate: no result to constrain (targets value-returning methods). A suspend Unit
+            // function is out of scope (rejected by the processor), so this stays the plain case.
             append("    }\n")
             return@buildString
         }
+        // Havoc a result of the DECLARED (unboxed-where-primitive) type and constrain it with @Ensures —
+        // exactly the value a suspend body resolves to under immediate dispatch.
         append("        ").append(c.returnType).append(" r = ")
                 .append(nondetExpr(c.returnType)).append(";\n")
         if (c.ensures != null) {
@@ -121,8 +152,43 @@ object ContractStubGenerator {
                     .append(c.predicateOwnerFqn).append('.').append(c.ensures)
                     .append('(').append(postArgs.joinToString(", ")).append("));\n")
         }
-        append("        return r;\n")
+        if (c.isSuspend) {
+            // Return the result BOXED into Object, matching the suspend ABI. A primitive declared type
+            // is boxed via its wrapper's valueOf; a reference declared type is already Object-assignable.
+            append("        return ").append(boxExpr(c.returnType, "r")).append(";\n")
+        } else {
+            append("        return r;\n")
+        }
         append("    }\n")
+    }
+
+    /** Box [valueExpr] of the declared (possibly primitive) [type] into a reference for the suspend
+     *  ABI's `Object` return. A reference type is returned as-is. */
+    internal fun boxExpr(type: String, valueExpr: String): String = when (type) {
+        "int" -> "java.lang.Integer.valueOf($valueExpr)"
+        "long" -> "java.lang.Long.valueOf($valueExpr)"
+        "short" -> "java.lang.Short.valueOf($valueExpr)"
+        "byte" -> "java.lang.Byte.valueOf($valueExpr)"
+        "char" -> "java.lang.Character.valueOf($valueExpr)"
+        "boolean" -> "java.lang.Boolean.valueOf($valueExpr)"
+        "float" -> "java.lang.Float.valueOf($valueExpr)"
+        "double" -> "java.lang.Double.valueOf($valueExpr)"
+        else -> valueExpr
+    }
+
+    /** Unbox [valueExpr] (an `Object` holding the boxed declared result) to the declared primitive
+     *  [type] for the enforce-proof's predicate call. The boxed reference is first cast to its wrapper.
+     *  A reference declared type is cast directly. */
+    internal fun unboxExpr(type: String, valueExpr: String): String = when (type) {
+        "int" -> "((java.lang.Integer) $valueExpr).intValue()"
+        "long" -> "((java.lang.Long) $valueExpr).longValue()"
+        "short" -> "((java.lang.Short) $valueExpr).shortValue()"
+        "byte" -> "((java.lang.Byte) $valueExpr).byteValue()"
+        "char" -> "((java.lang.Character) $valueExpr).charValue()"
+        "boolean" -> "((java.lang.Boolean) $valueExpr).booleanValue()"
+        "float" -> "((java.lang.Float) $valueExpr).floatValue()"
+        "double" -> "((java.lang.Double) $valueExpr).doubleValue()"
+        else -> "($type) $valueExpr"
     }
 
     /** The CProver nondet call producing an arbitrary value of [type]. Shared with

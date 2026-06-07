@@ -63,19 +63,57 @@ class ContractProcessorInstanceTest {
     }
 
     @Test
-    fun a_suspend_mirror_is_rejected_with_a_named_error(@TempDir out: Path) {
+    fun a_suspend_mirror_is_accepted_hiding_the_continuation_and_recovering_the_result(@TempDir out: Path) {
         // A suspend function, as kapt lowers it for javac: a trailing kotlin.coroutines.Continuation
-        // parameter and an Object return. The processor must reject it by name, not bind a
-        // (…,Continuation)Object shape no caller expects.
-        val (ok, _, diagnostics) = process(out,
+        // parameter and an Object return. The processor must ACCEPT it, hide the Continuation from the
+        // predicates, recover the declared result type (Int) from Continuation<? super Integer>, and
+        // generate a stub/enforce that speak the lowered (args, Continuation)Object ABI.
+        val (ok, manifest, _) = process(out,
                 StringSource("kotlin.coroutines.Continuation", CONTINUATION_STUB),
+                StringSource("org.bmc4j.coroutines.BmcSuspend", BMCSUSPEND_STUB),
                 StringSource("demo.Worker", WORKER_SRC),
                 StringSource("demo.WorkerContract", SUSPEND_CONTRACT_SRC))
-        assertFalse(ok, "a suspend contract mirror must fail compilation")
+        assertTrue(ok, "a suspend contract mirror (incl. generated stub/enforce) must compile: ")
+
+        // The redirect's call-site descriptor is the lowered suspend ABI: (int, Continuation)Object.
+        val contractLine = manifest.first { it.startsWith("contract ") }
+        assertTrue(contractLine.contains("compute (ILkotlin/coroutines/Continuation;)Ljava/lang/Object;"),
+                "the redirect must match the lowered suspend ABI descriptor: $contractLine")
+
+        // The stub replicates the ABI: trailing Continuation param, Object return, boxed result; the
+        // predicates bind the DECLARED int (Continuation hidden).
+        val stub = generatedSource(out, "demo/WorkerContract__BmcStubs.java")
+        assertTrue(stub.contains("public static java.lang.Object compute__stub(int n, kotlin.coroutines.Continuation"),
+                "stub must replicate the suspend ABI (Object return, trailing Continuation):\n$stub")
+        assertTrue(stub.contains("int r = org.cprover.CProver.nondetInt();"),
+                "stub must havoc the DECLARED (unboxed) result type:\n$stub")
+        assertTrue(stub.contains("WorkerContract.ok(n)"),
+                "requires predicate must NOT receive the Continuation:\n$stub")
+        assertTrue(stub.contains("return java.lang.Integer.valueOf(r);"),
+                "stub must box the result into the ABI's Object return:\n$stub")
+
+        // The enforce drives to completion (immediate-dispatch continuation) and unboxes for @Ensures.
+        val enforce = generatedSource(out, "demo/WorkerContract__BmcEnforce.java")
+        assertTrue(enforce.contains("org.bmc4j.coroutines.BmcSuspend.complete()"),
+                "enforce must drive the suspend body with an immediately-completing continuation:\n$enforce")
+        assertTrue(enforce.contains("int result = ((java.lang.Integer) demo.Worker.compute(a0, org.bmc4j.coroutines.BmcSuspend.complete())).intValue();"),
+                "enforce must call the real suspend body and unbox the boxed result:\n$enforce")
+    }
+
+    @Test
+    fun a_raw_continuation_suspend_mirror_is_rejected(@TempDir out: Path) {
+        // A suspend mirror whose Continuation has no recoverable type argument (raw) can't yield a
+        // declared result type — reject loudly rather than guess.
+        val (ok, _, diagnostics) = process(out,
+                StringSource("kotlin.coroutines.Continuation", CONTINUATION_STUB),
+                StringSource("org.bmc4j.coroutines.BmcSuspend", BMCSUSPEND_STUB),
+                StringSource("demo.Worker", WORKER_SRC),
+                StringSource("demo.RawContract", RAW_SUSPEND_CONTRACT_SRC))
+        assertFalse(ok, "a raw-Continuation suspend mirror must fail compilation")
         val errors = diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }
                 .joinToString("\n") { it.getMessage(null) }
-        assertTrue(errors.contains("is a suspend function"),
-                "the processor must reject a suspend mirror, naming it: $errors")
+        assertTrue(errors.contains("unrecoverable declared result type"),
+                "the processor must reject an unrecoverable suspend result, naming it: $errors")
     }
 
     @Test
@@ -157,14 +195,30 @@ class ContractProcessorInstanceTest {
             public interface Continuation<T> { }
             """.trimIndent()
 
-        val WORKER_SRC = """
-            package demo;
-            public final class Worker {
-                public int compute(int n) { return n; }
+        // A minimal stand-in for the bmc-runtime immediate-dispatch driver the generated enforce names.
+        val BMCSUSPEND_STUB = """
+            package org.bmc4j.coroutines;
+            import kotlin.coroutines.Continuation;
+            public final class BmcSuspend {
+                private BmcSuspend() {}
+                public static Continuation<Object> complete() { return null; }
             }
             """.trimIndent()
 
-        // A suspend mirror as kapt lowers it: trailing Continuation parameter.
+        // The lowered suspend production target: `suspend fun compute(n: Int): Int` compiles to
+        // `Object compute(int, Continuation)` returning the boxed Integer (or COROUTINE_SUSPENDED).
+        val WORKER_SRC = """
+            package demo;
+            import kotlin.coroutines.Continuation;
+            public final class Worker {
+                public static Object compute(int n, Continuation<? super Integer> ${'$'}c) {
+                    return Integer.valueOf(n);
+                }
+            }
+            """.trimIndent()
+
+        // A suspend mirror as kapt lowers it: trailing Continuation<? super Integer> parameter, Object
+        // return. The processor recovers the declared result (Int) and hides the Continuation.
         val SUSPEND_CONTRACT_SRC = """
             package demo;
             import org.bmc4j.BmcContractsFor;
@@ -176,7 +230,25 @@ class ContractProcessorInstanceTest {
             interface WorkerContract {
                 @Requires("ok") @Ensures("nn") Object compute(int n, Continuation<? super Integer> ${'$'}c);
                 static boolean ok(int n) { return n >= 0; }
-                static boolean nn(Object result, int n) { return true; }
+                static boolean nn(int result, int n) { return result >= 0; }
+            }
+            """.trimIndent()
+
+        // A suspend mirror whose Continuation is RAW (no type argument): the declared result type is
+        // unrecoverable, so the processor rejects it.
+        val RAW_SUSPEND_CONTRACT_SRC = """
+            package demo;
+            import org.bmc4j.BmcContractsFor;
+            import org.bmc4j.Ensures;
+            import org.bmc4j.Requires;
+            import kotlin.coroutines.Continuation;
+
+            @SuppressWarnings("rawtypes")
+            @BmcContractsFor(Worker.class)
+            interface RawContract {
+                @Requires("ok") @Ensures("nn") Object compute(int n, Continuation ${'$'}c);
+                static boolean ok(int n) { return n >= 0; }
+                static boolean nn(int result, int n) { return result >= 0; }
             }
             """.trimIndent()
 

@@ -1,6 +1,6 @@
 <!-- bmc:metadata
-proofs: 13
-proof-execution: 240s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
+proofs: 20
+proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
 
@@ -53,9 +53,11 @@ A contract mirror binds to a method on the `@BmcContractsFor` class by signature
 | `object` / `companion` method with `@JvmStatic` (static target) | works — see `basics` |
 | pure instance method (receiver threaded as `self`) | works — see `instance` |
 | method with **default parameters** (real + `$default` synthetic) | works — see `defaults` |
+| **`suspend`** function (value-returning) | works — see `suspendcontracts` (the `Continuation` is hidden, the declared result recovered, the body driven to completion) |
 | bare **top-level** `fun` | not contractable — its file-facade class (`FooKt`) is unnameable from Kotlin (`FooKt::class` is unexpressible). Put it in an `object`/`companion` with `@JvmStatic` (see `basics`). |
 | **value/inline-class** parameter or return | rejected loudly — kapt mangles the JVM name and drops the annotations, so the processor errors `@BmcContractsFor type … binds no contract`. Unwrap the value class at the boundary. |
-| **`suspend`** function | rejected loudly — the processor errors `… is a suspend function; suspend functions are not supported`. |
+| **`suspend`** function returning a `Flow` (or other stream) | rejected loudly — a contract describes one completed result, not a stream of emissions. |
+| **`suspend`** function with an unrecoverable declared result (raw `Continuation`, type-variable result) | rejected loudly — the declared type the predicates bind can't be recovered. |
 
 A silent failure to bind is the failure mode the processor refuses to allow: a `@BmcContractsFor` type
 that binds zero contracts is a hard error, not a warning.
@@ -111,3 +113,25 @@ The contract's enforce-proof is therefore excluded from the suite (removing that
 `build.gradle.kts` is itself the regression check); `PurityAuditDemoTest` documents, in plain Kotlin,
 the caller-observable effect a stub would erase. *(1 plain test; the impure enforce-proof is rejected,
 not run.)*
+
+## `suspendcontracts` — contracts on `suspend` functions
+
+"Most Kotlin is written as `suspend`", so contracts cover suspend targets. A `suspend fun f(n): Int` is
+compiled to `Object f(int, Continuation)` over a state machine; bmc4j binds it under the same
+**immediate-dispatch idealization** the coroutine proofs use — a suspend call completes linearly in one
+call. The processor hides the trailing `Continuation` from the predicates and recovers the declared
+result (`Int`) from it, so `@Requires`/`@Ensures` bind `f(n): Int` exactly as written. `Calcs.stepTo` is
+a suspend loop (a per-iteration suspension point), costly to inline: a caller at `unwind = 2` reuses the
+contract `@Ensures result == n` whether the **caller** is itself `suspend` (called from a `runBlocking`
+proof body) or a non-suspend caller driving the call through `runBlocking { }` — both redirect the same
+lowered `(n, Continuation)` call site. The no-contract `CalcsNaive` overruns the bound (**UNKNOWN**). The
+auto-generated `enforce__stepTo` drives the real body to completion and discharges `@Ensures`;
+`stepBuggy` ships a deliberately-**false** suspend contract pinned `@ExpectEnforce(REFUTED)` (a
+post-suspension off-by-one), so it publishes no redirect and passes by refutation.
+
+The purity audit applies unchanged: it allows the benign per-call coroutine plumbing every suspend body
+contains (writes to its own fresh state-machine fields, the `COROUTINE_SUSPENDED` sentinel read) but
+still rejects a real `this`-mutation — `Accumulator.add` is an **impure** suspend method whose contract
+the audit rejects with a `ContractPurityError` naming the receiver `PUTFIELD` (its enforce-proof is
+excluded, exactly like `purity`'s; `SuspendPurityAuditDemoTest` documents it). *(3 caller proofs: 2 pass
++ 1 undecided-on-purpose; plus 1 green + 1 refuted enforce proof; plus 1 plain rejection-demo test.)*
