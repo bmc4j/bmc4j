@@ -1,10 +1,13 @@
 package kotlin;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /** Clean model of Kotlin's {@code Triple} — first/second/third and destructuring
  *  ({@code component1}/{@code component2}/{@code component3}). Mirrors {@link Pair}; built directly
  *  ({@code Triple(a, b, c)}), there is no infix factory like {@code to}. */
+@BmcModelTail(reason = "Triple data-class auto-generated surface (copy/toString) not exercised by the "
+        + "bounded proofs; loud under JBMC if reached")
 public final class Triple<A, B, C> {
 
     private final A first;

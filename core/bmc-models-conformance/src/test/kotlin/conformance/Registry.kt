@@ -29,6 +29,8 @@ val COVERED: Set<String> = setOf(
     "kotlin.enums.EnumEntriesKt", "kotlin.enums.EnumEntries", "kotlin.enums.EnumEntriesList",
     // kotlin.time.Duration value-class model + its facade/unit enum (DurationLaws + differential).
     "kotlin.time.Duration", "kotlin.time.DurationKt", "kotlin.time.DurationUnit",
+    // kotlin.jvm.internal.Intrinsics null-safety helpers (fundamentals-kotlin null-safety proofs).
+    "kotlin.jvm.internal.Intrinsics",
     // Model proofs (model-conformance-proofs) — Kotlin Sequences facade (SequenceLaws).
     "kotlin.sequences.SequencesKt", "kotlin.sequences.Sequence", "kotlin.sequences.ListSequence",
     // Model proofs (model-conformance-proofs) — stream models (StreamLaws: mapToInt/sum/count/filter/collect).
@@ -72,7 +74,6 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.stream.Collector" to "interface — via Collectors",
     "kotlin.Result" to "coroutine Result plumbing — exercised by the coroutines example",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
-    "kotlin.jvm.internal.Intrinsics" to "null-safety intrinsic — exercised by fundamentals-kotlin null-safety proofs",
     "kotlin.coroutines.intrinsics.CoroutineSingletons" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.intrinsics.IntrinsicsKt" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.jvm.internal.BaseContinuationImpl" to "coroutine runtime model — coroutines example",
@@ -98,12 +99,26 @@ val WAIVED: Map<String, String> = mapOf(
  * tail-waived. These are the concrete java.* models — exactly the recurring-disease cases where a
  * missing member becomes a silent nondet stub on the analysis path.
  *
- * <p>Kotlin facade containers (`*Kt`), value classes, enums, and coroutine plumbing are NOT in this
- * set: their "real target" is an open-universe of top-level/extension functions for which "complete
- * coverage of the real class's surface" is neither well-defined nor valuable. They remain covered at
- * CLASS level (COVERED/WAIVED) and are checked by [CoverageGateTest]; the per-member gate still
- * audits any annotations they DO carry (dangling-declaration + implemented-but-unannotated checks)
- * but does not demand whole-surface enumeration. See ModelAuditGateTest for the precise rules.
+ * <p>The Kotlin facade containers (`*Kt`), value classes, and the `Intrinsics` runtime helper ARE now
+ * enforced here too. Their "real target" is the corresponding class on the kotlin-stdlib jar on this
+ * (conformance) module's classpath: reflecting it gives the real member list, the modeled subset carries
+ * a method-level [BmcModelConforms], and the (large) exotic remainder is absorbed by a class-level
+ * [BmcModelTail] — the same machinery as the java.* models. Two facade-specific conventions:
+ *   - **Facade dedup:** facades like `CollectionsKt`/`SetsKt`/`MapsKt` return bmc4j's bounded `java.util`
+ *     collection models (already per-member-audited on the JDK side). The gate enumerates only the
+ *     Kotlin-VISIBLE surface (the `*Kt` class's own members), so those java.util members are never
+ *     double-counted here.
+ *   - **Mangled value-class ABI** (`kotlin.time.Duration`): the real members carry kotlinc-mangled ABI
+ *     names (`plus-LRDsOJo`, `getInWholeSeconds-impl`). The model is authored with legal Java placeholder
+ *     names that the bmc-kotlin-models build rewrites to those exact dashed names (carrying the
+ *     [BmcModelConforms] along), so a modeled member keys against its real twin by the mangled name with
+ *     no special casing in the gate.
+ *
+ * <p>Open-universe extension facades whose "real target" has no well-defined member surface, enums
+ * (`values()`/`valueOf()`), pure marker interfaces, and coroutine plumbing stay OUT of this set: they
+ * remain covered at CLASS level (COVERED/COVERED_NO_OWN_SURFACE/WAIVED) and are checked by
+ * [CoverageGateTest]; the per-member gate still audits any annotations they DO carry (dangling-declaration
+ * + implemented-but-unannotated checks) but does not demand whole-surface enumeration.
  */
 val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
@@ -120,4 +135,14 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.concurrent.Executors",
     "java.util.stream.Stream", "java.util.stream.IntStream", "java.util.stream.Collectors",
     "java.util.stream.LongStream",
+    // Kotlin models — facades, value classes, and the Intrinsics null-safety helper. The real target is
+    // the same-named class on the kotlin-stdlib jar on this module's classpath; see the doc above for the
+    // facade-dedup and mangled-ABI conventions.
+    "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
+    "kotlin.sequences.SequencesKt",
+    "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt",
+    "kotlin.ranges.RangesKt", "kotlin.comparisons.ComparisonsKt",
+    "kotlin.enums.EnumEntriesKt",
+    "kotlin.time.Duration", "kotlin.time.DurationKt",
+    "kotlin.jvm.internal.Intrinsics",
 )

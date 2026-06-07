@@ -1,6 +1,7 @@
 package kotlin.sequences;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -29,6 +30,8 @@ import kotlin.jvm.functions.Function1;
  * {@code Function1} argument, which bmc4j desugars from the lambda, so the user predicate/mapper is
  * actually applied — not stubbed.
  */
+@BmcModelTail(reason = "exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence "
+        + "operators/generators the bounded proofs do not exercise; loud under JBMC if reached")
 public final class SequencesKt {
 
     private SequencesKt() {

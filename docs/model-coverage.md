@@ -1425,3 +1425,839 @@ Real surface: 56 members — modeled 12, not-modeled 0, not-needed 0, tail 44.
 
 </details>
 
+
+## `kotlin.Pair`
+
+Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
+
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getFirst()`, `getSecond()`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Pair data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
+
+- `copy(Object, Object)`
+
+</details>
+
+
+## `kotlin.Triple`
+
+Real surface: 7 members — modeled 6, not-modeled 0, not-needed 0, tail 1.
+
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `component3()`, `getFirst()`, `getSecond()`, `getThird()`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Triple data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
+
+- `copy(Object, Object, Object)`
+
+</details>
+
+
+## `kotlin.TuplesKt`
+
+Real surface: 3 members — modeled 1, not-modeled 0, not-needed 0, tail 2.
+
+**Modeled** (`@BmcModelConforms`): `to(Object, Object)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): TuplesKt remainder (toList overloads) not exercised by the bounded proofs; loud under JBMC if reached</summary>
+
+- `toList(Pair)`
+- `toList(Triple)`
+
+</details>
+
+
+## `kotlin.collections.CollectionsKt`
+
+Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
+
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asSequence(Iterable)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `mutableListOf(Object[])`, `sorted(Iterable)`, `sortedWith(Iterable, Comparator)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `toMutableList(Collection)`, `toSet(Iterable)`, `zip(Iterable, Iterable)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 230 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `addAll(Collection, Object[])`
+- `addAll(Collection, Sequence)`
+- `all(Iterable, Function1)`
+- `any(Iterable)`
+- `any(Iterable, Function1)`
+- `arrayListOf(Object[])`
+- `asCollection(Object[], boolean)`
+- `asReversed(List)`
+- `asReversedMutable(List)`
+- `associate(Iterable, Function1)`
+- `associateBy(Iterable, Function1)`
+- `associateBy(Iterable, Function1, Function1)`
+- `associateByTo(Iterable, Map, Function1)`
+- `associateByTo(Iterable, Map, Function1, Function1)`
+- `associateTo(Iterable, Map, Function1)`
+- `associateWith(Iterable, Function1)`
+- `associateWithTo(Iterable, Map, Function1)`
+- `averageOfByte(Iterable)`
+- `averageOfDouble(Iterable)`
+- `averageOfFloat(Iterable)`
+- `averageOfInt(Iterable)`
+- `averageOfLong(Iterable)`
+- `averageOfShort(Iterable)`
+- `binarySearch(List, Comparable, int, int)`
+- `binarySearch(List, Object, Comparator, int, int)`
+- `binarySearch(List, int, int, Function1)`
+- `binarySearchBy(List, Comparable, int, int, Function1)`
+- `build(List)`
+- `chunked(Iterable, int)`
+- `chunked(Iterable, int, Function1)`
+- `collectionSizeOrNull(Iterable)`
+- `collectionToArrayCommonImpl(Collection)`
+- `collectionToArrayCommonImpl(Collection, Object[])`
+- `contains(Iterable, Object)`
+- `convertToListIfNotCollection(Iterable)`
+- `copyToArrayOfAny(Object[], boolean)`
+- `count(Iterable)`
+- `count(Iterable, Function1)`
+- `createListBuilder()`
+- `createListBuilder(int)`
+- `distinctBy(Iterable, Function1)`
+- `dropLast(List, int)`
+- `dropLastWhile(List, Function1)`
+- `dropWhile(Iterable, Function1)`
+- `elementAt(Iterable, int)`
+- `elementAtOrElse(Iterable, int, Function1)`
+- `elementAtOrNull(Iterable, int)`
+- `filter(Iterable, Function1)`
+- `filterIndexed(Iterable, Function2)`
+- `filterIndexedTo(Iterable, Collection, Function2)`
+- `filterIsInstance(Iterable, Class)`
+- `filterIsInstanceTo(Iterable, Collection, Class)`
+- `filterNot(Iterable, Function1)`
+- `filterNotNull(Iterable)`
+- `filterNotNullTo(Iterable, Collection)`
+- `filterNotTo(Iterable, Collection, Function1)`
+- `filterTo(Iterable, Collection, Function1)`
+- `first(Iterable, Function1)`
+- `firstOrNull(Iterable)`
+- `firstOrNull(Iterable, Function1)`
+- `firstOrNull(List)`
+- `flatMap(Iterable, Function1)`
+- `flatMapSequence(Iterable, Function1)`
+- `flatMapSequenceTo(Iterable, Collection, Function1)`
+- `flatMapTo(Iterable, Collection, Function1)`
+- `flatten(Iterable)`
+- `fold(Iterable, Object, Function2)`
+- `foldIndexed(Iterable, Object, Function3)`
+- `foldRight(List, Object, Function2)`
+- `foldRightIndexed(List, Object, Function3)`
+- `forEach(Iterable, Function1)`
+- `forEach(Iterator, Function1)`
+- `forEachIndexed(Iterable, Function2)`
+- `getIndices(Collection)`
+- `getLastIndex(List)`
+- `getOrNull(List, int)`
+- `groupBy(Iterable, Function1)`
+- `groupBy(Iterable, Function1, Function1)`
+- `groupByTo(Iterable, Map, Function1)`
+- `groupByTo(Iterable, Map, Function1, Function1)`
+- `groupingBy(Iterable, Function1)`
+- `indexOf(Iterable, Object)`
+- `indexOf(List, Object)`
+- `indexOfFirst(Iterable, Function1)`
+- `indexOfFirst(List, Function1)`
+- `indexOfLast(Iterable, Function1)`
+- `indexOfLast(List, Function1)`
+- `intersect(Iterable, Iterable)`
+- `iterator(Enumeration)`
+- `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `last(Iterable)`
+- `last(Iterable, Function1)`
+- `last(List, Function1)`
+- `lastIndexOf(Iterable, Object)`
+- `lastIndexOf(List, Object)`
+- `lastOrNull(Iterable)`
+- `lastOrNull(Iterable, Function1)`
+- `lastOrNull(List)`
+- `lastOrNull(List, Function1)`
+- `listOfNotNull(Object)`
+- `listOfNotNull(Object[])`
+- `map(Iterable, Function1)`
+- `mapIndexed(Iterable, Function2)`
+- `mapIndexedNotNull(Iterable, Function2)`
+- `mapIndexedNotNullTo(Iterable, Collection, Function2)`
+- `mapIndexedTo(Iterable, Collection, Function2)`
+- `mapNotNull(Iterable, Function1)`
+- `mapNotNullTo(Iterable, Collection, Function1)`
+- `mapTo(Iterable, Collection, Function1)`
+- `maxByOrNull(Iterable, Function1)`
+- `maxByOrThrow(Iterable, Function1)`
+- `maxOrThrow(Iterable)`
+- `maxWithOrNull(Iterable, Comparator)`
+- `maxWithOrThrow(Iterable, Comparator)`
+- `minByOrNull(Iterable, Function1)`
+- `minByOrThrow(Iterable, Function1)`
+- `minOrThrow(Iterable)`
+- `minWithOrNull(Iterable, Comparator)`
+- `minWithOrThrow(Iterable, Comparator)`
+- `minus(Iterable, Iterable)`
+- `minus(Iterable, Object)`
+- `minus(Iterable, Object[])`
+- `minus(Iterable, Sequence)`
+- `none(Iterable)`
+- `none(Iterable, Function1)`
+- `onEach(Iterable, Function1)`
+- `onEachIndexed(Iterable, Function2)`
+- `optimizeReadOnlyList(List)`
+- `partition(Iterable, Function1)`
+- `plus(Collection, Iterable)`
+- `plus(Collection, Object)`
+- `plus(Collection, Object[])`
+- `plus(Collection, Sequence)`
+- `plus(Iterable, Iterable)`
+- `plus(Iterable, Object)`
+- `plus(Iterable, Object[])`
+- `plus(Iterable, Sequence)`
+- `random(Collection, Random)`
+- `randomOrNull(Collection, Random)`
+- `reduce(Iterable, Function2)`
+- `reduceIndexed(Iterable, Function3)`
+- `reduceIndexedOrNull(Iterable, Function3)`
+- `reduceOrNull(Iterable, Function2)`
+- `reduceRight(List, Function2)`
+- `reduceRightIndexed(List, Function3)`
+- `reduceRightIndexedOrNull(List, Function3)`
+- `reduceRightOrNull(List, Function2)`
+- `removeAll(Collection, Iterable)`
+- `removeAll(Collection, Object[])`
+- `removeAll(Collection, Sequence)`
+- `removeAll(Iterable, Function1)`
+- `removeAll(List, Function1)`
+- `removeFirst(List)`
+- `removeFirstOrNull(List)`
+- `removeLast(List)`
+- `removeLastOrNull(List)`
+- `requireNoNulls(Iterable)`
+- `requireNoNulls(List)`
+- `retainAll(Collection, Iterable)`
+- `retainAll(Collection, Object[])`
+- `retainAll(Collection, Sequence)`
+- `retainAll(Iterable, Function1)`
+- `retainAll(List, Function1)`
+- `reverse(List)`
+- `reversed(Iterable)`
+- `runningFold(Iterable, Object, Function2)`
+- `runningFoldIndexed(Iterable, Object, Function3)`
+- `runningReduce(Iterable, Function2)`
+- `runningReduceIndexed(Iterable, Function3)`
+- `scan(Iterable, Object, Function2)`
+- `scanIndexed(Iterable, Object, Function3)`
+- `shuffle(List, Random)`
+- `shuffled(Iterable)`
+- `shuffled(Iterable, Random)`
+- `shuffled(Iterable, Random)`
+- `single(Iterable)`
+- `single(Iterable, Function1)`
+- `single(List)`
+- `singleOrNull(Iterable)`
+- `singleOrNull(Iterable, Function1)`
+- `singleOrNull(List)`
+- `slice(List, IntRange)`
+- `slice(List, Iterable)`
+- `sort(List)`
+- `sortBy(List, Function1)`
+- `sortByDescending(List, Function1)`
+- `sortDescending(List)`
+- `sortWith(List, Comparator)`
+- `sortedBy(Iterable, Function1)`
+- `sortedByDescending(Iterable, Function1)`
+- `sortedDescending(Iterable)`
+- `subtract(Iterable, Iterable)`
+- `sumBy(Iterable, Function1)`
+- `sumByDouble(Iterable, Function1)`
+- `sumOfByte(Iterable)`
+- `sumOfFloat(Iterable)`
+- `sumOfShort(Iterable)`
+- `takeLast(List, int)`
+- `takeLastWhile(List, Function1)`
+- `takeWhile(Iterable, Function1)`
+- `terminateCollectionToArray(int, Object[])`
+- `throwCountOverflow()`
+- `throwIndexOverflow()`
+- `toBooleanArray(Collection)`
+- `toByteArray(Collection)`
+- `toCharArray(Collection)`
+- `toCollection(Iterable, Collection)`
+- `toDoubleArray(Collection)`
+- `toFloatArray(Collection)`
+- `toHashSet(Iterable)`
+- `toIntArray(Collection)`
+- `toList(Iterable)`
+- `toLongArray(Collection)`
+- `toMutableList(Iterable)`
+- `toMutableSet(Iterable)`
+- `toShortArray(Collection)`
+- `toSortedSet(Iterable)`
+- `toSortedSet(Iterable, Comparator)`
+- `union(Iterable, Iterable)`
+- `unzip(Iterable)`
+- `windowed(Iterable, int, int, boolean)`
+- `windowed(Iterable, int, int, boolean, Function1)`
+- `withIndex(Iterable)`
+- `withIndex(Iterator)`
+- `zip(Iterable, Iterable, Function2)`
+- `zip(Iterable, Object[])`
+- `zip(Iterable, Object[], Function2)`
+- `zipWithNext(Iterable)`
+- `zipWithNext(Iterable, Function2)`
+
+</details>
+
+
+## `kotlin.collections.MapsKt`
+
+Real surface: 75 members — modeled 5, not-modeled 0, not-needed 0, tail 70.
+
+**Modeled** (`@BmcModelConforms`): `emptyMap()`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `mutableMapOf(Pair[])`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 70 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `all(Map, Function1)`
+- `any(Map)`
+- `any(Map, Function1)`
+- `asSequence(Map)`
+- `build(Map)`
+- `copy(Entry)`
+- `count(Map, Function1)`
+- `createMapBuilder()`
+- `createMapBuilder(int)`
+- `filter(Map, Function1)`
+- `filterKeys(Map, Function1)`
+- `filterNot(Map, Function1)`
+- `filterNotTo(Map, Map, Function1)`
+- `filterTo(Map, Map, Function1)`
+- `filterValues(Map, Function1)`
+- `flatMap(Map, Function1)`
+- `flatMapSequence(Map, Function1)`
+- `flatMapSequenceTo(Map, Collection, Function1)`
+- `flatMapTo(Map, Collection, Function1)`
+- `forEach(Map, Function1)`
+- `getOrElseNullable(Map, Object, Function0)`
+- `getOrImplicitDefaultNullable(Map, Object)`
+- `getOrPut(ConcurrentMap, Object, Function0)`
+- `getOrPut(Map, Object, Function0)`
+- `getValue(Map, Object)`
+- `hashMapOf(Pair[])`
+- `linkedMapOf(Pair[])`
+- `map(Map, Function1)`
+- `mapEntryOf(Object, Object)`
+- `mapKeys(Map, Function1)`
+- `mapKeysTo(Map, Map, Function1)`
+- `mapNotNull(Map, Function1)`
+- `mapNotNullTo(Map, Collection, Function1)`
+- `mapTo(Map, Collection, Function1)`
+- `mapValues(Map, Function1)`
+- `mapValuesTo(Map, Map, Function1)`
+- `minus(Map, Iterable)`
+- `minus(Map, Object)`
+- `minus(Map, Object[])`
+- `minus(Map, Sequence)`
+- `none(Map)`
+- `none(Map, Function1)`
+- `onEach(Map, Function1)`
+- `onEachIndexed(Map, Function2)`
+- `optimizeReadOnlyMap(Map)`
+- `plus(Map, Iterable)`
+- `plus(Map, Map)`
+- `plus(Map, Pair)`
+- `plus(Map, Pair[])`
+- `plus(Map, Sequence)`
+- `putAll(Map, Iterable)`
+- `putAll(Map, Pair[])`
+- `putAll(Map, Sequence)`
+- `sortedMapOf(Comparator, Pair[])`
+- `sortedMapOf(Pair[])`
+- `toList(Map)`
+- `toMap(Iterable)`
+- `toMap(Iterable, Map)`
+- `toMap(Map)`
+- `toMap(Map, Map)`
+- `toMap(Pair[])`
+- `toMap(Pair[], Map)`
+- `toMap(Sequence)`
+- `toMap(Sequence, Map)`
+- `toMutableMap(Map)`
+- `toSingletonMap(Map)`
+- `toSortedMap(Map)`
+- `toSortedMap(Map, Comparator)`
+- `withDefault(Map, Function1)`
+- `withDefaultMutable(Map, Function1)`
+
+</details>
+
+
+## `kotlin.collections.SetsKt`
+
+Real surface: 22 members — modeled 4, not-modeled 0, not-needed 0, tail 18.
+
+**Modeled** (`@BmcModelConforms`): `emptySet()`, `mutableSetOf(Object[])`, `setOf(Object)`, `setOf(Object[])`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `build(Set)`
+- `createSetBuilder()`
+- `createSetBuilder(int)`
+- `hashSetOf(Object[])`
+- `linkedSetOf(Object[])`
+- `minus(Set, Iterable)`
+- `minus(Set, Object)`
+- `minus(Set, Object[])`
+- `minus(Set, Sequence)`
+- `optimizeReadOnlySet(Set)`
+- `plus(Set, Iterable)`
+- `plus(Set, Object)`
+- `plus(Set, Object[])`
+- `plus(Set, Sequence)`
+- `setOfNotNull(Object)`
+- `setOfNotNull(Object[])`
+- `sortedSetOf(Comparator, Object[])`
+- `sortedSetOf(Object[])`
+
+</details>
+
+
+## `kotlin.comparisons.ComparisonsKt`
+
+Real surface: 34 members — modeled 1, not-modeled 0, not-needed 0, tail 33.
+
+**Modeled** (`@BmcModelConforms`): `compareValues(Comparable, Comparable)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `compareBy(Function1[])`
+- `compareValuesBy(Object, Object, Function1[])`
+- `maxOf(Comparable, Comparable)`
+- `maxOf(Comparable, Comparable, Comparable)`
+- `maxOf(Comparable, Comparable[])`
+- `maxOf(Object, Object, Comparator)`
+- `maxOf(Object, Object, Object, Comparator)`
+- `maxOf(Object, Object[], Comparator)`
+- `maxOf(byte, byte[])`
+- `maxOf(double, double[])`
+- `maxOf(float, float[])`
+- `maxOf(int, int[])`
+- `maxOf(long, long[])`
+- `maxOf(short, short[])`
+- `minOf(Comparable, Comparable)`
+- `minOf(Comparable, Comparable, Comparable)`
+- `minOf(Comparable, Comparable[])`
+- `minOf(Object, Object, Comparator)`
+- `minOf(Object, Object, Object, Comparator)`
+- `minOf(Object, Object[], Comparator)`
+- `minOf(byte, byte[])`
+- `minOf(double, double[])`
+- `minOf(float, float[])`
+- `minOf(int, int[])`
+- `minOf(long, long[])`
+- `minOf(short, short[])`
+- `naturalOrder()`
+- `nullsFirst(Comparator)`
+- `nullsLast(Comparator)`
+- `reverseOrder()`
+- `reversed(Comparator)`
+- `then(Comparator, Comparator)`
+- `thenDescending(Comparator, Comparator)`
+
+</details>
+
+
+## `kotlin.enums.EnumEntriesKt`
+
+Real surface: 2 members — modeled 2, not-modeled 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `enumEntries(Enum[])`, `enumEntries(Function0)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): EnumEntriesKt has no remainder beyond the two modeled enumEntries overloads; tail present for ratchet completeness, loud under JBMC if any future member is reached</summary>
+
+_(none — the real surface is fully modeled/declared)_
+
+</details>
+
+
+## `kotlin.jvm.internal.Intrinsics`
+
+Real surface: 40 members — modeled 15, not-modeled 0, not-needed 0, tail 25.
+
+**Modeled** (`@BmcModelConforms`): `areEqual(Object, Object)`, `checkExpressionValueIsNotNull(Object, String)`, `checkFieldIsNotNull(Object, String)`, `checkNotNull(Object)`, `checkNotNull(Object, String)`, `checkNotNullExpressionValue(Object, String)`, `checkNotNullParameter(Object, String)`, `checkParameterIsNotNull(Object, String)`, `checkReturnedValueIsNotNull(Object, String)`, `compare(int, int)`, `compare(long, long)`, `stringPlus(String, Object)`, `throwJavaNpe()`, `throwNpe()`, `throwNpe(String)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
+
+- `areEqual(Double, Double)`
+- `areEqual(Double, double)`
+- `areEqual(Float, Float)`
+- `areEqual(Float, float)`
+- `areEqual(double, Double)`
+- `areEqual(float, Float)`
+- `checkFieldIsNotNull(Object, String, String)`
+- `checkHasClass(String)`
+- `checkHasClass(String, String)`
+- `checkReturnedValueIsNotNull(Object, String, String)`
+- `needClassReification()`
+- `needClassReification(String)`
+- `reifiedOperationMarker(int, String)`
+- `reifiedOperationMarker(int, String, String)`
+- `throwAssert()`
+- `throwAssert(String)`
+- `throwIllegalArgument()`
+- `throwIllegalArgument(String)`
+- `throwIllegalState()`
+- `throwIllegalState(String)`
+- `throwJavaNpe(String)`
+- `throwUndefinedForReified()`
+- `throwUndefinedForReified(String)`
+- `throwUninitializedProperty(String)`
+- `throwUninitializedPropertyAccessException(String)`
+
+</details>
+
+
+## `kotlin.ranges.RangesKt`
+
+Real surface: 131 members — modeled 6, not-modeled 0, not-needed 0, tail 125.
+
+**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 125 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `byteRangeContains(ClosedRange, int)`
+- `byteRangeContains(ClosedRange, long)`
+- `byteRangeContains(ClosedRange, short)`
+- `byteRangeContains(OpenEndRange, int)`
+- `byteRangeContains(OpenEndRange, long)`
+- `byteRangeContains(OpenEndRange, short)`
+- `checkStepIsPositive(boolean, Number)`
+- `coerceAtLeast(Comparable, Comparable)`
+- `coerceAtLeast(byte, byte)`
+- `coerceAtLeast(double, double)`
+- `coerceAtLeast(float, float)`
+- `coerceAtLeast(short, short)`
+- `coerceAtMost(Comparable, Comparable)`
+- `coerceAtMost(byte, byte)`
+- `coerceAtMost(double, double)`
+- `coerceAtMost(float, float)`
+- `coerceAtMost(short, short)`
+- `coerceIn(Comparable, ClosedFloatingPointRange)`
+- `coerceIn(Comparable, ClosedRange)`
+- `coerceIn(Comparable, Comparable, Comparable)`
+- `coerceIn(byte, byte, byte)`
+- `coerceIn(double, double, double)`
+- `coerceIn(float, float, float)`
+- `coerceIn(int, ClosedRange)`
+- `coerceIn(long, ClosedRange)`
+- `coerceIn(short, short, short)`
+- `doubleRangeContains(ClosedRange, float)`
+- `doubleRangeContains(OpenEndRange, float)`
+- `downTo(byte, byte)`
+- `downTo(byte, int)`
+- `downTo(byte, long)`
+- `downTo(byte, short)`
+- `downTo(char, char)`
+- `downTo(int, byte)`
+- `downTo(int, int)`
+- `downTo(int, long)`
+- `downTo(int, short)`
+- `downTo(long, byte)`
+- `downTo(long, int)`
+- `downTo(long, long)`
+- `downTo(long, short)`
+- `downTo(short, byte)`
+- `downTo(short, int)`
+- `downTo(short, long)`
+- `downTo(short, short)`
+- `first(CharProgression)`
+- `first(IntProgression)`
+- `first(LongProgression)`
+- `firstOrNull(CharProgression)`
+- `firstOrNull(IntProgression)`
+- `firstOrNull(LongProgression)`
+- `floatRangeContains(ClosedRange, double)`
+- `intRangeContains(ClosedRange, byte)`
+- `intRangeContains(ClosedRange, long)`
+- `intRangeContains(ClosedRange, short)`
+- `intRangeContains(OpenEndRange, byte)`
+- `intRangeContains(OpenEndRange, long)`
+- `intRangeContains(OpenEndRange, short)`
+- `last(CharProgression)`
+- `last(IntProgression)`
+- `last(LongProgression)`
+- `lastOrNull(CharProgression)`
+- `lastOrNull(IntProgression)`
+- `lastOrNull(LongProgression)`
+- `longRangeContains(ClosedRange, byte)`
+- `longRangeContains(ClosedRange, int)`
+- `longRangeContains(ClosedRange, short)`
+- `longRangeContains(OpenEndRange, byte)`
+- `longRangeContains(OpenEndRange, int)`
+- `longRangeContains(OpenEndRange, short)`
+- `random(CharRange, Random)`
+- `random(IntRange, Random)`
+- `random(LongRange, Random)`
+- `randomOrNull(CharRange, Random)`
+- `randomOrNull(IntRange, Random)`
+- `randomOrNull(LongRange, Random)`
+- `rangeTo(Comparable, Comparable)`
+- `rangeTo(double, double)`
+- `rangeTo(float, float)`
+- `rangeUntil(Comparable, Comparable)`
+- `rangeUntil(double, double)`
+- `rangeUntil(float, float)`
+- `reversed(CharProgression)`
+- `reversed(IntProgression)`
+- `reversed(LongProgression)`
+- `shortRangeContains(ClosedRange, byte)`
+- `shortRangeContains(ClosedRange, int)`
+- `shortRangeContains(ClosedRange, long)`
+- `shortRangeContains(OpenEndRange, byte)`
+- `shortRangeContains(OpenEndRange, int)`
+- `shortRangeContains(OpenEndRange, long)`
+- `step(CharProgression, int)`
+- `step(IntProgression, int)`
+- `step(LongProgression, long)`
+- `toByteExactOrNull(double)`
+- `toByteExactOrNull(float)`
+- `toByteExactOrNull(int)`
+- `toByteExactOrNull(long)`
+- `toByteExactOrNull(short)`
+- `toIntExactOrNull(double)`
+- `toIntExactOrNull(float)`
+- `toIntExactOrNull(long)`
+- `toLongExactOrNull(double)`
+- `toLongExactOrNull(float)`
+- `toShortExactOrNull(double)`
+- `toShortExactOrNull(float)`
+- `toShortExactOrNull(int)`
+- `toShortExactOrNull(long)`
+- `until(byte, byte)`
+- `until(byte, int)`
+- `until(byte, long)`
+- `until(byte, short)`
+- `until(char, char)`
+- `until(int, byte)`
+- `until(int, int)`
+- `until(int, long)`
+- `until(int, short)`
+- `until(long, byte)`
+- `until(long, int)`
+- `until(long, long)`
+- `until(long, short)`
+- `until(short, byte)`
+- `until(short, int)`
+- `until(short, long)`
+- `until(short, short)`
+
+</details>
+
+
+## `kotlin.sequences.SequencesKt`
+
+Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
+
+**Modeled** (`@BmcModelConforms`): `count(Sequence)`, `distinct(Sequence)`, `drop(Sequence, int)`, `filter(Sequence, Function1)`, `flatMap(Sequence, Function1)`, `map(Sequence, Function1)`, `sequenceOf(Object[])`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `toList(Sequence)`, `toSet(Sequence)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 153 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `all(Sequence, Function1)`
+- `any(Sequence)`
+- `any(Sequence, Function1)`
+- `asIterable(Sequence)`
+- `asSequence(Iterator)`
+- `associate(Sequence, Function1)`
+- `associateBy(Sequence, Function1)`
+- `associateBy(Sequence, Function1, Function1)`
+- `associateByTo(Sequence, Map, Function1)`
+- `associateByTo(Sequence, Map, Function1, Function1)`
+- `associateTo(Sequence, Map, Function1)`
+- `associateWith(Sequence, Function1)`
+- `associateWithTo(Sequence, Map, Function1)`
+- `averageOfByte(Sequence)`
+- `averageOfDouble(Sequence)`
+- `averageOfFloat(Sequence)`
+- `averageOfInt(Sequence)`
+- `averageOfLong(Sequence)`
+- `averageOfShort(Sequence)`
+- `chunked(Sequence, int)`
+- `chunked(Sequence, int, Function1)`
+- `constrainOnce(Sequence)`
+- `contains(Sequence, Object)`
+- `count(Sequence, Function1)`
+- `distinctBy(Sequence, Function1)`
+- `dropWhile(Sequence, Function1)`
+- `elementAt(Sequence, int)`
+- `elementAtOrElse(Sequence, int, Function1)`
+- `elementAtOrNull(Sequence, int)`
+- `emptySequence()`
+- `filterIndexed(Sequence, Function2)`
+- `filterIndexedTo(Sequence, Collection, Function2)`
+- `filterIsInstance(Sequence, Class)`
+- `filterIsInstanceTo(Sequence, Collection, Class)`
+- `filterNot(Sequence, Function1)`
+- `filterNotNull(Sequence)`
+- `filterNotNullTo(Sequence, Collection)`
+- `filterNotTo(Sequence, Collection, Function1)`
+- `filterTo(Sequence, Collection, Function1)`
+- `first(Sequence)`
+- `first(Sequence, Function1)`
+- `firstOrNull(Sequence)`
+- `firstOrNull(Sequence, Function1)`
+- `flatMapIndexed(Sequence, Function2, Function1)`
+- `flatMapIndexedIterable(Sequence, Function2)`
+- `flatMapIndexedSequence(Sequence, Function2)`
+- `flatMapIterable(Sequence, Function1)`
+- `flatMapIterableTo(Sequence, Collection, Function1)`
+- `flatMapTo(Sequence, Collection, Function1)`
+- `flatten(Sequence)`
+- `flattenSequenceOfIterable(Sequence)`
+- `fold(Sequence, Object, Function2)`
+- `foldIndexed(Sequence, Object, Function3)`
+- `forEach(Sequence, Function1)`
+- `forEachIndexed(Sequence, Function2)`
+- `generateSequence(Function0)`
+- `generateSequence(Function0, Function1)`
+- `generateSequence(Object, Function1)`
+- `groupBy(Sequence, Function1)`
+- `groupBy(Sequence, Function1, Function1)`
+- `groupByTo(Sequence, Map, Function1)`
+- `groupByTo(Sequence, Map, Function1, Function1)`
+- `groupingBy(Sequence, Function1)`
+- `ifEmpty(Sequence, Function0)`
+- `indexOf(Sequence, Object)`
+- `indexOfFirst(Sequence, Function1)`
+- `indexOfLast(Sequence, Function1)`
+- `iterator(Function2)`
+- `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `last(Sequence)`
+- `last(Sequence, Function1)`
+- `lastIndexOf(Sequence, Object)`
+- `lastOrNull(Sequence)`
+- `lastOrNull(Sequence, Function1)`
+- `mapIndexed(Sequence, Function2)`
+- `mapIndexedNotNull(Sequence, Function2)`
+- `mapIndexedNotNullTo(Sequence, Collection, Function2)`
+- `mapIndexedTo(Sequence, Collection, Function2)`
+- `mapNotNull(Sequence, Function1)`
+- `mapNotNullTo(Sequence, Collection, Function1)`
+- `mapTo(Sequence, Collection, Function1)`
+- `maxByOrNull(Sequence, Function1)`
+- `maxByOrThrow(Sequence, Function1)`
+- `maxOrNull(Sequence)`
+- `maxOrThrow(Sequence)`
+- `maxWithOrNull(Sequence, Comparator)`
+- `maxWithOrThrow(Sequence, Comparator)`
+- `minByOrNull(Sequence, Function1)`
+- `minByOrThrow(Sequence, Function1)`
+- `minOrNull(Sequence)`
+- `minOrThrow(Sequence)`
+- `minWithOrNull(Sequence, Comparator)`
+- `minWithOrThrow(Sequence, Comparator)`
+- `minus(Sequence, Iterable)`
+- `minus(Sequence, Object)`
+- `minus(Sequence, Object[])`
+- `minus(Sequence, Sequence)`
+- `none(Sequence)`
+- `none(Sequence, Function1)`
+- `onEach(Sequence, Function1)`
+- `onEachIndexed(Sequence, Function2)`
+- `partition(Sequence, Function1)`
+- `plus(Sequence, Iterable)`
+- `plus(Sequence, Object)`
+- `plus(Sequence, Object[])`
+- `plus(Sequence, Sequence)`
+- `reduce(Sequence, Function2)`
+- `reduceIndexed(Sequence, Function3)`
+- `reduceIndexedOrNull(Sequence, Function3)`
+- `reduceOrNull(Sequence, Function2)`
+- `requireNoNulls(Sequence)`
+- `runningFold(Sequence, Object, Function2)`
+- `runningFoldIndexed(Sequence, Object, Function3)`
+- `runningReduce(Sequence, Function2)`
+- `runningReduceIndexed(Sequence, Function3)`
+- `scan(Sequence, Object, Function2)`
+- `scanIndexed(Sequence, Object, Function3)`
+- `sequence(Function2)`
+- `sequenceOf(Object)`
+- `shuffled(Sequence)`
+- `shuffled(Sequence, Random)`
+- `single(Sequence)`
+- `single(Sequence, Function1)`
+- `singleOrNull(Sequence)`
+- `singleOrNull(Sequence, Function1)`
+- `sorted(Sequence)`
+- `sortedBy(Sequence, Function1)`
+- `sortedByDescending(Sequence, Function1)`
+- `sortedDescending(Sequence)`
+- `sortedWith(Sequence, Comparator)`
+- `sumBy(Sequence, Function1)`
+- `sumByDouble(Sequence, Function1)`
+- `sumOfByte(Sequence)`
+- `sumOfDouble(Sequence)`
+- `sumOfFloat(Sequence)`
+- `sumOfLong(Sequence)`
+- `sumOfShort(Sequence)`
+- `takeWhile(Sequence, Function1)`
+- `toCollection(Sequence, Collection)`
+- `toHashSet(Sequence)`
+- `toMutableList(Sequence)`
+- `toMutableSet(Sequence)`
+- `toSortedSet(Sequence)`
+- `toSortedSet(Sequence, Comparator)`
+- `unzip(Sequence)`
+- `windowed(Sequence, int, int, boolean)`
+- `windowed(Sequence, int, int, boolean, Function1)`
+- `withIndex(Sequence)`
+- `zip(Sequence, Sequence)`
+- `zip(Sequence, Sequence, Function2)`
+- `zipWithNext(Sequence)`
+- `zipWithNext(Sequence, Function2)`
+
+</details>
+
+
+## `kotlin.time.Duration`
+
+Real surface: 41 members — modeled 21, not-modeled 0, not-needed 0, tail 20.
+
+**Modeled** (`@BmcModelConforms`): `compareTo-LRDsOJo(long, long)`, `div-UwyO8pc(long, int)`, `equals-impl0(long, long)`, `getAbsoluteValue-UwyO8pc(long)`, `getInWholeDays-impl(long)`, `getInWholeHours-impl(long)`, `getInWholeMicroseconds-impl(long)`, `getInWholeMilliseconds-impl(long)`, `getInWholeMinutes-impl(long)`, `getInWholeNanoseconds-impl(long)`, `getInWholeSeconds-impl(long)`, `hashCode-impl(long)`, `isFinite-impl(long)`, `isInfinite-impl(long)`, `isNegative-impl(long)`, `isPositive-impl(long)`, `minus-LRDsOJo(long, long)`, `plus-LRDsOJo(long, long)`, `times-UwyO8pc(long, int)`, `toLong-impl(long, DurationUnit)`, `unaryMinus-UwyO8pc(long)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 20 members, all loud): exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), TimeSource/TimeMark wall-clock; loud under JBMC if reached</summary>
+
+- `compareTo-LRDsOJo(long)`
+- `constructor-impl(long)`
+- `div-LRDsOJo(long, long)`
+- `div-UwyO8pc(long, double)`
+- `equals-impl(long, Object)`
+- `getHoursComponent-impl(long)`
+- `getMinutesComponent-impl(long)`
+- `getNanosecondsComponent-impl(long)`
+- `getSecondsComponent-impl(long)`
+- `times-UwyO8pc(long, double)`
+- `toComponents-impl(long, Function2)`
+- `toComponents-impl(long, Function3)`
+- `toComponents-impl(long, Function4)`
+- `toComponents-impl(long, Function5)`
+- `toDouble-impl(long, DurationUnit)`
+- `toInt-impl(long, DurationUnit)`
+- `toIsoString-impl(long)`
+- `toString-impl(long)`
+- `toString-impl(long, DurationUnit, int)`
+- `truncateTo-UwyO8pc$kotlin_stdlib(long, DurationUnit)`
+
+</details>
+
+
+## `kotlin.time.DurationKt`
+
+Real surface: 3 members — modeled 2, not-modeled 0, not-needed 0, tail 1.
+
+**Modeled** (`@BmcModelConforms`): `toDuration(int, DurationUnit)`, `toDuration(long, DurationUnit)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): DurationKt Double-valued toDuration overload (no-double policy) plus the mangled extension-property getters; loud under JBMC if reached</summary>
+
+- `toDuration(double, DurationUnit)`
+
+</details>
+
