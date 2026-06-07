@@ -44,31 +44,26 @@ class BmcPluginTest {
     }
 
     @Test
-    fun a_java_only_project_does_not_apply_ksp() {
-        // ksp + kspTest are Kotlin-only: a Java consumer must never get them. The legacy kapt path is
-        // gone — assert neither the deprecated kapt nor KSP is applied.
+    fun a_java_only_project_does_not_apply_kapt() {
+        // kapt + kaptTest are Kotlin-only: a Java consumer must never get them (no kotlin-stdlib pull).
         val p = applied()
-        assertTrue(!p.plugins.hasPlugin("com.google.devtools.ksp"),
-                "KSP must not be applied to a Java-only project")
         assertTrue(!p.plugins.hasPlugin("org.jetbrains.kotlin.kapt"),
-                "the deprecated kapt must never be applied")
-        assertTrue(p.configurations.findByName("kspTest") == null,
-                "no kspTest configuration on a Java-only project")
+                "kapt must not be applied to a Java-only project")
+        assertTrue(p.configurations.findByName("kaptTest") == null,
+                "no kaptTest configuration on a Java-only project")
     }
 
     @Test
-    fun a_kotlin_project_gets_ksp_and_the_contracts_processor_on_kspTest() {
+    fun a_kotlin_project_gets_kapt_and_the_contracts_processor_on_kaptTest() {
         val p = ProjectBuilder.builder().build()
         // Apply the Kotlin JVM plugin first, then bmc4j — the wiring runs inside
         // withPlugin("org.jetbrains.kotlin.jvm").
         p.pluginManager.apply("org.jetbrains.kotlin.jvm")
         p.pluginManager.apply(BmcPlugin::class.java)
-        assertTrue(p.plugins.hasPlugin("com.google.devtools.ksp"),
-                "the Kotlin path must apply KSP to host the contracts SymbolProcessor")
-        assertTrue(!p.plugins.hasPlugin("org.jetbrains.kotlin.kapt"),
-                "kapt is deprecated and must not be applied (replaced by KSP)")
-        assertTrue(hasDependency(p, "kspTest", "bmc-contracts"),
-                "bmc-contracts must be wired onto kspTest for a Kotlin consumer")
+        assertTrue(p.plugins.hasPlugin("org.jetbrains.kotlin.kapt"),
+                "the Kotlin path must apply kapt to host the javac contracts processor")
+        assertTrue(hasDependency(p, "kaptTest", "bmc-contracts"),
+                "bmc-contracts must be wired onto kaptTest for a Kotlin consumer")
         // bmc-kotlin helpers come along too.
         assertTrue(hasDependency(p, "testImplementation", "bmc-kotlin"),
                 "Kotlin consumers get the bmc-kotlin helpers")

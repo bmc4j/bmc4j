@@ -14,7 +14,6 @@ the exact input) with one that passes — that failure *is* the result.
 | [language-kotlin24](language-kotlin24) | What's new in Kotlin 2.4: context parameters, explicit backing fields, collection literals (needs kotlinc ≥ 2.4) |
 | [stdlib](stdlib) | Standard-library modeling: strings, collections, `BigDecimal`, `java.time` |
 | [integrations](integrations) | Real-world inputs: Jakarta validation, env/property config, custom models (Java & Kotlin) |
-| [contracts-kotlin](contracts-kotlin) | Method contracts from Kotlin (KSP-wired): basics (`object`+`@JvmStatic`), instance receivers, default parameters, the soundness guard, the purity audit on a `this`-mutation |
 | [kotlin-coroutines-and-lincheck](kotlin-coroutines-and-lincheck) | Coroutines (`suspend` proofs) and BMC-vs-Lincheck (logic vs concurrency) |
 | [contracts-kotlin](contracts-kotlin) | Method contracts from Kotlin (kapt-wired): basics (`object`+`@JvmStatic`), instance receivers, default parameters, the soundness guard, the purity audit on a `this`-mutation |
 | [contracts](contracts) | Method contracts (`@Requires`/`@Ensures`) in Java: basics, recursion-as-induction, stacking, the soundness guard |

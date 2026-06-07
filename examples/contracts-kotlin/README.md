@@ -9,15 +9,16 @@ proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate)
 Method contracts (`@Requires`/`@Ensures`) declared **test-side from Kotlin** with `@BmcContractsFor`,
 so production code carries no bmc references. The Kotlin counterpart of [`examples/contracts`](../contracts).
 
-`bmc-contracts` ships a native **KSP** `SymbolProcessor` for the Kotlin path (KSP replaces the
-deprecated kapt). The `org.bmc4j` plugin wires it for you: apply the Kotlin plugin and the bmc4j
-plugin, and the plugin applies KSP, adds `bmc-contracts` to `kspTest`, and sets
-`javaParameters = true` so predicate parameter names survive into bytecode. No KSP block to write:
+The `bmc-contracts` processor is a **javac** annotation processor, so Kotlin test sources need
+**kapt** to run it (KSP cannot host a javac AP). The `org.bmc4j` plugin wires this for you: apply the
+Kotlin plugin and the bmc4j plugin, and the plugin applies kapt, adds `bmc-contracts` to `kaptTest`,
+and sets `javaParameters = true` so predicate parameter names survive into bytecode. No kapt block to
+write:
 
 ```kotlin
 plugins {
     kotlin("jvm")
-    id("org.bmc4j") // applies KSP + wires kspTest(bmc-contracts) + javaParameters
+    id("org.bmc4j") // applies kapt + wires kaptTest(bmc-contracts) + javaParameters
 }
 ```
 
@@ -54,7 +55,7 @@ A contract mirror binds to a method on the `@BmcContractsFor` class by signature
 | method with **default parameters** (real + `$default` synthetic) | works — see `defaults` |
 | **`suspend`** function (value-returning) | works — see `suspendcontracts` (the `Continuation` is hidden, the declared result recovered, the body driven to completion) |
 | bare **top-level** `fun` | not contractable — its file-facade class (`FooKt`) is unnameable from Kotlin (`FooKt::class` is unexpressible). Put it in an `object`/`companion` with `@JvmStatic` (see `basics`). |
-| **value/inline-class** parameter or return | rejected loudly — its JVM name is mangled and can't be contracted, so the processor errors naming the value/inline-class cause. Unwrap the value class at the boundary. |
+| **value/inline-class** parameter or return | rejected loudly — kapt mangles the JVM name and drops the annotations, so the processor errors `@BmcContractsFor type … binds no contract`. Unwrap the value class at the boundary. |
 | **`suspend`** function returning a `Flow` (or other stream) | rejected loudly — a contract describes one completed result, not a stream of emissions. |
 | **`suspend`** function with an unrecoverable declared result (raw `Continuation`, type-variable result) | rejected loudly — the declared type the predicates bind can't be recovered. |
 

@@ -7,18 +7,18 @@ proofs modular: prove a method's postcondition *once*, then let callers assume i
 
 Contracts live **in your tests, not your production code**. Production stays plain.
 
-## Kotlin (KSP)
+## Kotlin (kapt)
 
-bmc4j is Kotlin-first, and so are contracts. `bmc-contracts` ships a native **KSP** `SymbolProcessor`
-for the Kotlin path (KSP replaces the deprecated kapt), alongside the javac annotation processor used
-for pure-Java modules. The `org.bmc4j` plugin wires KSP for you the moment the Kotlin plugin is
-applied — it applies KSP, adds `bmc-contracts` to `kspTest`, and sets `javaParameters = true` so
-predicate parameter names survive into bytecode. There is no KSP block to write:
+bmc4j is Kotlin-first, and so are contracts. The `bmc-contracts` processor is a **javac** annotation
+processor, so Kotlin test sources run it through **kapt** (KSP can't host a javac AP). The `org.bmc4j`
+plugin wires this for you the moment the Kotlin plugin is applied — it applies kapt, adds
+`bmc-contracts` to `kaptTest`, and sets `javaParameters = true` so predicate parameter names survive
+into bytecode. There is no kapt block to write:
 
 ```kotlin
 plugins {
     kotlin("jvm")
-    id("org.bmc4j") // applies KSP + wires kspTest(bmc-contracts) + javaParameters
+    id("org.bmc4j") // applies kapt + wires kaptTest(bmc-contracts) + javaParameters
 }
 ```
 
@@ -47,7 +47,7 @@ interface SumToContract {
 methods (receiver threaded as `self`), methods with **default parameters** (the `$default` synthetic's
 call is redirected too), and **`suspend` functions** (see below). Shapes the processor rejects
 **loudly** (a silent failure to bind is a hard error): a **value/inline-class** parameter or return
-(its JVM name is mangled and can't be contracted — unwrap the value class at the boundary), a bare
+(kapt mangles the JVM name and drops the annotations — unwrap the value class at the boundary), a bare
 **top-level `fun`** (its facade class is unnameable from Kotlin — use an `object`/`companion`), a
 **suspend function returning a `Flow`** or other stream (a contract describes one completed result, not
 a stream of emissions), and a **suspend function whose declared result type is unrecoverable** (a raw
@@ -108,8 +108,7 @@ version. No minimum kotlinc is required for suspend contracts.
 
 ## Java
 
-Java contracts are wired via the plain javac `testAnnotationProcessor` (no KSP — KSP is the Kotlin
-path). Production stays plain:
+Java contracts are wired the same way, via `testAnnotationProcessor` (no kapt). Production stays plain:
 
 ```java
 // src/main — no bmc references
