@@ -27,7 +27,8 @@ class JbmcResult private constructor(
         /** True if this UNKNOWN was caused by a non-verdict engine exit (crash/abort), not a timeout. */
         val isEngineCrash: Boolean,
         stubbedMethods: List<String>?,
-        unmodelledMembers: List<String>?) {
+        unmodelledMembers: List<String>?,
+        linkFailureStubs: List<String>?) {
 
     enum class Verdict {
         VERIFIED,
@@ -60,11 +61,29 @@ class JbmcResult private constructor(
     @get:JvmName("unmodelledMembers")
     val unmodelledMembers: List<String> = unmodelledMembers?.toList() ?: emptyList()
 
+    /**
+     * The stubbed MEMBERS whose nondet body a REFUTED counterexample ran through this run: methods
+     * JBMC had no body for in the reachable slice and replaced with an argument-ignoring nondet stub
+     * (fingerprinted by `stub_ignored_arg*` assignments in the failure trace; see
+     * [JbmcOutputParser.harvestLinkFailureStubMembers]). Each entry is the offending
+     * `Class.method(params)` (dot form). Empty on a clean run, and only ever populated alongside a
+     * refutation.
+     *
+     * Like [stubbedMethods] / [unmodelledMembers] this is a parallel FACT harvested at parse time. The
+     * verdict interpreter [org.bmc4j.junit.BmcProofExtension] applies the POLICY: when the stub's owning
+     * class is nonetheless PRESENT on the analysis classpath, the refutation is a transient engine
+     * link failure (the class was there but got nondet-stubbed anyway), NOT a real counterexample, so
+     * the would-be REFUTED is DEMOTED to a member-named UNKNOWN. A genuinely absent class is the
+     * ordinary nondet-stub path instead.
+     */
+    @get:JvmName("linkFailureStubs")
+    val linkFailureStubs: List<String> = linkFailureStubs?.toList() ?: emptyList()
+
     @JvmOverloads
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, false, false, emptyList(), emptyList())
+            null, false, false, emptyList(), emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -84,7 +103,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubs, unmodelledMembers)
+                isEngineCrash, stubs, unmodelledMembers, linkFailureStubs)
     }
 
     /**
@@ -97,7 +116,21 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubbedMethods, members)
+                isEngineCrash, stubbedMethods, members, linkFailureStubs)
+    }
+
+    /**
+     * Return a copy carrying the link-failure-stub member list (a parallel fact, like
+     * [withStubbedMethods] / [withUnmodelledMembers]). The verdict and violations are unchanged here —
+     * the demotion of a present-on-classpath link failure to UNKNOWN is a POLICY applied later by
+     * [org.bmc4j.junit.BmcProofExtension]. Returns `this` when empty/unchanged.
+     */
+    fun withLinkFailureStubs(members: List<String>?): JbmcResult {
+        if (members.isNullOrEmpty()) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
+                isEngineCrash, stubbedMethods, unmodelledMembers, members)
     }
 
     companion object {
@@ -113,7 +146,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknown(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, false,
-                        emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the
@@ -123,7 +156,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknownTimeout(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, true, false,
-                        emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused by the engine process exiting with a non-verdict code (it crashed,
@@ -135,7 +168,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknownEngineCrash(reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, true,
-                        emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList())
     }
 
     /** A single refuted property, with enough detail to build a stack trace. */

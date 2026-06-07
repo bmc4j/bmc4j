@@ -567,6 +567,102 @@ internal class BmcProofExtensionTest {
         }
     }
 
+    // --- Link-failure demotion (REFUTED + nondet stub of a PRESENT class -> UNKNOWN) ---
+
+    @Test
+    fun ownerClassOf_dropsParamsAndTrailingMethod() {
+        assertEquals("kotlin.ranges.RangesKt",
+                BmcProofExtension.ownerClassOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"))
+        assertEquals("pkg.C", BmcProofExtension.ownerClassOf("pkg.C.m()"))
+        // No method part -> null (can't resolve an owner).
+        assertEquals(null, BmcProofExtension.ownerClassOf("bare"))
+    }
+
+    @Test
+    fun classIsPresentOnClasspath_findsClassInADirectoryEntry_butNotAMissingOne(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "kotlin.ranges.RangesKt")
+        assertTrue(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.RangesKt", dir.toString()))
+        assertFalse(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.Absent", dir.toString()))
+    }
+
+    @Test
+    fun classIsPresentOnClasspath_findsClassInsideAJarEntry(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        val jar = dir.resolve("lib.jar")
+        java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(jar)).use { zos ->
+            zos.putNextEntry(java.util.zip.ZipEntry("kotlin/ranges/RangesKt.class"))
+            zos.write(byteArrayOf(0xCA.toByte(), 0xFE.toByte()))
+            zos.closeEntry()
+        }
+        assertTrue(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.RangesKt", jar.toString()))
+        assertFalse(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.Absent", jar.toString()))
+    }
+
+    @Test
+    fun linkFailuresPresentOnClasspath_keepsPresentClasses_dropsAbsentOnes(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "kotlin.ranges.RangesKt")
+        // The harvested fact: a refutation ran through stubs of two members. Only the one whose class
+        // is on the classpath is a (demotable) link failure; the absent one stays an ordinary stub.
+        val refuted = refutedResult().withLinkFailureStubs(listOf(
+                "kotlin.ranges.RangesKt.coerceAtMost(long, long)",
+                "com.absent.Gone.compute(int)"))
+        assertEquals(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"),
+                BmcProofExtension.linkFailuresPresentOnClasspath(refuted, dir.toString()),
+                "only the present-on-classpath stub member demotes the refutation")
+    }
+
+    @Test
+    fun linkFailuresPresentOnClasspath_isEmptyForAGenuineRefutationWithNoStub(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // A genuine refutation has no harvested link-failure stubs -> nothing to demote, stays REFUTED.
+        assertTrue(BmcProofExtension.linkFailuresPresentOnClasspath(refutedResult(), dir.toString()).isEmpty())
+    }
+
+    @Test
+    fun linkFailureUndecided_isInfraUnknown_namesMember_andDoesNotSatisfyExpectUnknown() {
+        val err = BmcProofExtension.linkFailureUndecided("jbmc", "proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min",
+                listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"))
+        assertTrue(err.message!!.contains("(UNKNOWN)"), err.message)
+        assertTrue(err.message!!.contains("kotlin.ranges.RangesKt.coerceAtMost"), err.message)
+        assertTrue(err.message!!.contains("link failure"), err.message)
+        assertFalse(err.message!!.contains("refuted "),
+                "a link failure is UNKNOWN, never a refutation: " + err.message)
+        // A transient link failure is engine infrastructure: it must NOT satisfy expect=UNKNOWN.
+        assertTrue(err.isEngineInfrastructure())
+        val rejected = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, err)
+        }
+        assertTrue(rejected.message!!.contains("not a real UNKNOWN"), rejected.message)
+    }
+
+    @Test
+    fun linkFailuresToDemote_keepsAnExpectedRefutationEvenWithAStubInTrace(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // A demo that PINS expect=REFUTED and matches, whose trace happens to run through a nondet stub
+        // of a PRESENT class (e.g. a lateinit getter), is getting its intended verdict — the link-failure
+        // demotion must NOT fire and steal that pass. Nothing to demote -> stays REFUTED/passes.
+        writeModelClass(dir, "example.lateinitprops.Session")
+        val refuted = refutedResult().withLinkFailureStubs(listOf("example.lateinitprops.Session.getUser()"))
+        assertTrue(BmcProofExtension.linkFailuresToDemote(org.bmc4j.Verdict.REFUTED, refuted, dir.toString()).isEmpty(),
+                "an expect=REFUTED match must not be demoted by a stub in its trace")
+    }
+
+    @Test
+    fun linkFailuresToDemote_demotesAnUNEXPECTEDRefutationWithAPresentStub(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // The transient-flake case this guards: a refutation surfacing where none was expected
+        // (expect=VERIFIED), running through a nondet stub of a PRESENT class, IS demoted to UNKNOWN so
+        // a clean proof doesn't go red on a transient link failure (existing behavior).
+        writeModelClass(dir, "example.lateinitprops.Session")
+        val refuted = refutedResult().withLinkFailureStubs(listOf("example.lateinitprops.Session.getUser()"))
+        assertEquals(listOf("example.lateinitprops.Session.getUser()"),
+                BmcProofExtension.linkFailuresToDemote(org.bmc4j.Verdict.VERIFIED, refuted, dir.toString()),
+                "an unexpected refutation through a present-class stub still demotes to UNKNOWN")
+    }
+
     companion object {
         /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
         private fun writeModelClass(root: java.nio.file.Path, fqn: String) {

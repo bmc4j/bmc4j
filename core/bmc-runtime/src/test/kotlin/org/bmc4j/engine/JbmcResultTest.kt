@@ -48,6 +48,20 @@ internal class JbmcResultTest {
     }
 
     @Test
+    fun link_failure_stubs_is_a_parallel_fact_attached_without_changing_the_verdict() {
+        // withLinkFailureStubs attaches the harvested members and leaves the verdict/violations alone
+        // (the demote-to-UNKNOWN policy is BmcProofExtension's job); empty/null is a no-op.
+        val base = JbmcResult(false, listOf(), "raw")
+        assertTrue(base.linkFailureStubs.isEmpty())
+        assertEquals(base, base.withLinkFailureStubs(null))
+        assertEquals(base, base.withLinkFailureStubs(listOf()))
+
+        val withStubs = base.withLinkFailureStubs(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"))
+        assertEquals(JbmcResult.Verdict.REFUTED, withStubs.verdict, "the verdict is unchanged")
+        assertEquals(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"), withStubs.linkFailureStubs)
+    }
+
+    @Test
     fun violation_exposes_all_fields() {
         val frame = StackTraceElement("pkg.C", "m", "C.java", 7)
         val v = JbmcResult.Violation(
