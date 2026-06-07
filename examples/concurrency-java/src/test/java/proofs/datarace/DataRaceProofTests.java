@@ -1,6 +1,7 @@
 package proofs.datarace;
 
 import org.bmc4j.BmcProof;
+import org.bmc4j.Shard;
 import org.bmc4j.Verdict;
 import org.bmc4j.concurrent.Latch;
 
@@ -20,6 +21,8 @@ class DataRaceProofTests {
      * interleave between this thread's write and its read.
      */
     // Expected verdict: REFUTED - under interleavings another thread's write can land between.
+    // The three concurrent proofs in this class each take ~70s; pin them across the shards.
+    @Shard(1)
     @BmcProof(concurrent = true, expect = Verdict.REFUTED)
     void read_sees_its_own_write() {
         Thread t = new Thread() {
@@ -37,6 +40,7 @@ class DataRaceProofTests {
      * PASSES: both accesses are guarded by the same monitor, so no interleaving can
      * slip between the write and the read.
      */
+    @Shard(2)
     @BmcProof(concurrent = true)
     void synchronized_read_sees_its_own_write() {
         Thread t = new Thread() {
@@ -59,6 +63,7 @@ class DataRaceProofTests {
      * can check the worker's final result. The worker completes the latch last; the
      * proof awaits before reading. (This is the await/structured-concurrency shape.)
      */
+    @Shard(3)
     @BmcProof(concurrent = true)
     void final_result_is_visible_after_latch() {
         final int[] result = new int[1];

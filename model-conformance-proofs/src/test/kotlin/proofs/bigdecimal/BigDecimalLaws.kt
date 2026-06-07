@@ -4,6 +4,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
+import org.bmc4j.Shard
 
 /**
  * Model proofs (axis 2): algebraic laws the BigDecimal model must satisfy under
@@ -47,6 +48,8 @@ class BigDecimalLaws {
         Bmc.check(a.subtract(a).signum() == 0)
     }
 
+    // ~57s — pinned to spread it away from the heavier setScale proof below.
+    @Shard(2)
     @BmcProof
     fun add_then_subtract_round_trips() {
         val a = anyBd(2)
@@ -54,6 +57,8 @@ class BigDecimalLaws {
         Bmc.check(a.add(b).subtract(b).compareTo(a) == 0)
     }
 
+    // ~88s, the module's slowest division-heavy proof — pinned to shard 1.
+    @Shard(1)
     @BmcProof
     fun setScale_widen_then_narrow_round_trips() {
         // Division-heavy (narrowing setScale rounds via roundDiv). Tight range keeps the divider

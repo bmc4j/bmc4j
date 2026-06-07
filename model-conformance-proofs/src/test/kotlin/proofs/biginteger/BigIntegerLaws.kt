@@ -3,6 +3,7 @@ package proofs.biginteger
 import java.math.BigInteger
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
+import org.bmc4j.Shard
 
 /**
  * Model proofs (axis 2): algebraic laws the BigInteger model (bounded, long-backed) must
@@ -84,6 +85,9 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.ZERO.pow(0) == BigInteger.ONE)         // 0^0 == 1, per the JDK
     }
 
+    // ~80s, the module's heaviest BigInteger division proof — pinned to shard 3 (setScale → 1,
+    // add_then_subtract → 2 in BigDecimalLaws), so the three slow model-conformance proofs spread out.
+    @Shard(3)
     @BmcProof
     fun divide_multiply_remainder_reconstructs_dividend() {
         // Euclidean identity a == (a/b)*b + (a%b). Tight range keeps the divider circuit small
