@@ -2,6 +2,12 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.chrono.ChronoPeriod;
+import java.time.chrono.Chronology;
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
+import java.time.temporal.TemporalUnit;
+import java.util.List;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotModelled;
@@ -18,9 +24,16 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * leaning on the now-exposed calendar fields of the epoch-day {@code LocalDate} model; it is validated
  * bit-for-bit by the differential suite vs the real JDK across month-ends, leap days and negatives.
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
+ *
+ * <p>It {@code implements java.time.chrono.ChronoPeriod} ONLY so a Period is the covariant return type
+ * of the {@link LocalDate#until(java.time.chrono.ChronoLocalDate)} model (which the real JDK declares
+ * to return {@code Period} covariantly over {@code ChronoPeriod}) — keeping {@code Period} assignable
+ * to {@code ChronoPeriod} the way the real one is, so {@code LocalDate.until} can stay modeled. The
+ * {@code ChronoPeriod} abstract methods this model doesn't already implement ({@code multipliedBy(int)}
+ * and {@code normalized()} are modeled) are LOUD stubs — instanceof only, never a silent nondet.
  */
 @BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), plus/minus(TemporalAmount) and toString are out of scope; all loud under JBMC")
-public final class Period {
+public final class Period implements ChronoPeriod {
 
     public static final Period ZERO = new Period(0, 0, 0);
 
@@ -223,6 +236,59 @@ public final class Period {
             return this;
         }
         return create(Math.toIntExact(splitYears), splitMonths, days);
+    }
+
+    // --- ChronoPeriod abstract surface: implemented ONLY to keep Period assignable to ChronoPeriod
+    //     (the covariant return of LocalDate.until); each is LOUD, never modeled. multipliedBy(int) and
+    //     normalized() above already satisfy the interface (covariant Period return + auto bridge). ---
+
+    @BmcNotModelled(reason = "the TemporalUnit accessor (get) is out of scope; this model exposes years/months/days, not the generic-unit view")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public long get(TemporalUnit unit) {
+        throw fail("bmc4j: unmodelled member java.time.Period.get(java.time.temporal.TemporalUnit) — the TemporalUnit accessor is out of scope; this model exposes years/months/days, not the generic-unit view");
+    }
+
+    @BmcNotModelled(reason = "the supported-units list (getUnits) is out of scope for this years/months/days model")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public List<TemporalUnit> getUnits() {
+        throw fail("bmc4j: unmodelled member java.time.Period.getUnits() — the supported-units list is out of scope for this years/months/days model");
+    }
+
+    @BmcNotModelled(reason = "the Chronology accessor (getChronology) is out of scope for this bounded model")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public Chronology getChronology() {
+        throw fail("bmc4j: unmodelled member java.time.Period.getChronology() — the Chronology accessor is out of scope for this bounded model");
+    }
+
+    @BmcNotModelled(reason = "the TemporalAmount-typed add (plus) is out of scope; use the typed plusYears/plusMonths/plusDays")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public ChronoPeriod plus(TemporalAmount amountToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.Period.plus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed add is out of scope; use the typed plusYears/plusMonths/plusDays");
+    }
+
+    @BmcNotModelled(reason = "the TemporalAmount-typed subtract (minus) is out of scope; use the typed minusYears/minusMonths/minusDays")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public ChronoPeriod minus(TemporalAmount amountToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.Period.minus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed subtract is out of scope; use the typed minusYears/minusMonths/minusDays");
+    }
+
+    @BmcNotModelled(reason = "applying a Period to a Temporal (addTo) is out of scope for this bounded model")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public Temporal addTo(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Period.addTo(java.time.temporal.Temporal) — applying a Period to a Temporal is out of scope for this bounded model");
+    }
+
+    @BmcNotModelled(reason = "subtracting a Period from a Temporal (subtractFrom) is out of scope for this bounded model")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public Temporal subtractFrom(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Period.subtractFrom(java.time.temporal.Temporal) — subtracting a Period from a Temporal is out of scope for this bounded model");
     }
 
     @Override
