@@ -1,5 +1,6 @@
 package kotlin.jvm.internal;
 
+import kotlin.UninitializedPropertyAccessException;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
@@ -9,8 +10,9 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <p>The real implementation builds exceptions via stack-trace sanitization (array
  * and reflection-ish operations) that, once fully resolvable on the classpath, make
  * JBMC generate a cascade of spurious null/array/cast checks inside Intrinsics. This
- * model keeps only the observable semantics — a null check that throws, equality,
- * comparison — so idiomatic null-safe Kotlin analyzes cleanly.
+ * model keeps only the observable semantics — a null check that throws, the
+ * uninitialized-{@code lateinit} read that throws, equality, comparison — so
+ * idiomatic null-safe Kotlin analyzes cleanly.
  *
  * <p>Compiled into a separate source set and bundled as a resource (not on any
  * runtime classpath); the JUnit extension extracts it onto JBMC's analysis classpath.
@@ -91,6 +93,21 @@ public class Intrinsics {
     @BmcModelConforms("fundamentals-kotlin null-safety proofs")
     public static void throwJavaNpe() {
         throw new NullPointerException();
+    }
+
+    /**
+     * Reading a {@code lateinit} property before initialization lowers (kotlinc 2.x) to this call,
+     * passing the property name. The real helper builds the message and delegates to {@code
+     * throwUninitializedProperty}, which constructs a {@link UninitializedPropertyAccessException}
+     * through {@code sanitizeStackTrace} (the reflective stack-trace machinery this model avoids).
+     * Here we throw the real exception directly with the same documented message, so an uninitialized
+     * read refutes through the genuine {@code UninitializedPropertyAccessException} path — not an
+     * incidental null deref. The exception type's constructors are trivial (plain {@code
+     * RuntimeException} delegation) and link cleanly under JBMC, so no model of it is needed.
+     */
+    @BmcModelConforms("fundamentals-kotlin lateinit proofs (proofs.lateinitprops)")
+    public static void throwUninitializedPropertyAccessException(String name) {
+        throw new UninitializedPropertyAccessException("lateinit property " + name + " has not been initialized");
     }
 
     @BmcModelConforms("fundamentals-kotlin null-safety proofs")
