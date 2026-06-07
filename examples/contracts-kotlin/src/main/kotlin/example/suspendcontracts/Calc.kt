@@ -4,7 +4,7 @@ package example.suspendcontracts
  * `suspend` functions carrying contracts. "Most Kotlin is written as `suspend`", so a contract story
  * that excluded suspend would exclude most Kotlin — bmc4j contracts therefore cover suspend targets
  * under the same **immediate-dispatch** idealization the coroutine proofs use (see
- * [`examples/concurrency-kotlin`]): a suspend call completes linearly in one call (every nested
+ * [`examples/kotlin-coroutines-and-lincheck`]): a suspend call completes linearly in one call (every nested
  * suspension point resolves synchronously), so `@Requires` is checked at entry and `@Ensures` at
  * completion, exactly as for an ordinary value-returning method.
  *

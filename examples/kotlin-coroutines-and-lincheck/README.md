@@ -4,15 +4,15 @@ proof-execution: 277s summed across the module (JBMC time, MiniSat; approximate)
   interleaving search adds ~150s when enabled.
 -->
 
-# Concurrency (Kotlin)
+# Kotlin coroutines and Lincheck
 
 Two concepts. The **Lincheck** tests exercise a JetBrains library (not bmc4j) and its
 interleaving search is slow, so they're **opt-in** — by default only the `@BmcProof` side runs,
 keeping regressions fast.
 
 ```
-./gradlew :examples:concurrency-kotlin:test                       # @BmcProof only
-./gradlew :examples:concurrency-kotlin:test -Dbmc.lincheck=true   # + Lincheck
+./gradlew :examples:kotlin-coroutines-and-lincheck:test                       # @BmcProof only
+./gradlew :examples:kotlin-coroutines-and-lincheck:test -Dbmc.lincheck=true   # + Lincheck
 ```
 
 ## `coroutines` — proving `suspend` functions

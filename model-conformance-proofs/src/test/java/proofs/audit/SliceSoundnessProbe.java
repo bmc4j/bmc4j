@@ -90,7 +90,7 @@ class SliceSoundnessProbe {
         BmcRequest req = new BmcRequest(
                 "proofs.audit.SliceSoundnessProbe",
                 "proofs.audit.SliceSoundnessProbe.reaches_helper",
-                classpath, 16, true, 16, false, "", 0);
+                classpath, 16, true, 16, "", 0);
         VerificationBackend backend = VerificationBackends.select(req);
         return backend.verify(req);
     }
