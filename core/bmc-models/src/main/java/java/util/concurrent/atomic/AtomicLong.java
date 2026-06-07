@@ -3,7 +3,12 @@ package java.util.concurrent.atomic;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongUnaryOperator;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /** Sequential BMC model of {@link java.util.concurrent.atomic.AtomicLong} — a mutable long holder. */
+@BmcModelConforms("mutable-long holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
+@BmcModelTail(reason = "VarHandle memory-ordering variants collapse to the plain op under sequential analysis; Number's byteValue/shortValue/intValue/floatValue/doubleValue narrowing where unmodeled. All loud under JBMC")
 public class AtomicLong extends Number {
 
     private long value;

@@ -1,5 +1,12 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcNotNeeded;
+
 /**
  * Clean BMC model of {@link java.util.ArrayList}: a fixed-capacity backing array plus a size.
  * All operations are plain array reads/writes — sound in CBMC and trivially bounded. Lookup loops
@@ -10,6 +17,8 @@ package java.util;
  * primitives (modeled). String elements use JBMC's native {@code String.equals}; prefer the
  * dedicated string support for string-keyed lookups.
  */
+@BmcModelConforms("array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray()")
+@BmcModelTail(reason = "exotic remainder: SequencedCollection deque surface (addFirst/getLast/reversed/…), listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
 public class ArrayList<E> implements List<E> {
 
     private static final int CAPACITY = 64;
@@ -205,6 +214,48 @@ public class ArrayList<E> implements List<E> {
             out[i] = elements[i];
         }
         return out;
+    }
+
+    // --- explicitly UNMODELLED members ---------------------------------------
+    // Real ArrayList members this bounded array-backed model deliberately does not implement. Each is
+    // a declared stub with a LOUD body (routed through the BmcUnmodelledReached sentinel), so reaching
+    // one is honestly UNKNOWN (a model gap) — never a silent nondet stub, never a false refutation.
+    // The decision (@BmcNotModelled = "can't"; @BmcNotNeeded = "not worth it") + reason live ON the
+    // stub, next to the surface it waives.
+
+    @BmcNotModelled(reason = "functional-arg map — JBMC stubs the operator dispatch")
+    public void replaceAll(java.util.function.UnaryOperator<E> operator) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.replaceAll(java.util.function.UnaryOperator) — functional-arg map — JBMC stubs the operator dispatch");
+    }
+
+    @BmcNotModelled(reason = "comparator-driven sort over the bounded array — not modeled")
+    public void sort(Comparator<? super E> c) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array — not modeled");
+    }
+
+    @BmcNotNeeded(reason = "positional bulk add — exotic; add elements explicitly")
+    public boolean addAll(int index, Collection<? extends E> c) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.addAll(int,java.util.Collection) — positional bulk add — exotic; add elements explicitly");
+    }
+
+    @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    public boolean containsAll(Collection<?> c) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+    }
+
+    @BmcNotNeeded(reason = "positional insert — exotic; append + shift not modeled")
+    public void add(int index, E element) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.add(int,java.lang.Object) — positional insert — exotic; append + shift not modeled");
+    }
+
+    @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    public <T> T[] toArray(T[] a) {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
+    }
+
+    @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.clone() — shallow copy of a bounded model — construct a fresh list from the elements instead");
     }
 
     @Override

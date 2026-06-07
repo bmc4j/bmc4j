@@ -1,5 +1,8 @@
 package java.util.concurrent;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.LinkedBlockingQueue} — functionally the same
  * FIFO model as {@link ArrayBlockingQueue} (bmc4j proves logic, not interleavings). The default
@@ -13,6 +16,8 @@ package java.util.concurrent;
  * {@code remove}/{@code element}/{@code size}) is sound; {@code put}/{@code take} carry the same
  * assume-prune blocking idealization as {@link ArrayBlockingQueue} — see its javadoc.
  */
+@BmcModelConforms("inherits the ArrayBlockingQueue FIFO model; unbounded-by-default logical capacity")
+@BmcModelTail(reason = "array-snapshot/stream views, bulk/functional/timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC")
 public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     /**

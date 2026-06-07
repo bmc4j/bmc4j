@@ -1,7 +1,10 @@
 package kotlin;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /** Clean model of Kotlin's {@code Pair} (the {@code a to b} tuple), enough for first/second and
  *  destructuring ({@code component1}/{@code component2}). */
+@BmcModelConforms("Kotlin Pair model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class Pair<A, B> {
 
     private final A first;

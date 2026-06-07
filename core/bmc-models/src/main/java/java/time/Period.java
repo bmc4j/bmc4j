@@ -1,5 +1,11 @@
 package java.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * JBMC model of {@link java.time.Period} as an amount of time in (years, months, days), each an
  * {@code int} stored exactly as supplied (the JDK does NOT auto-normalize: {@code Period.of(0, 13, 0)}
@@ -13,6 +19,8 @@ package java.time;
  * bit-for-bit by the differential suite vs the real JDK across month-ends, leap days and negatives.
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
  */
+@BmcModelConforms("(years,months,days) Period — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), multipliedBy/the ofWeeks-rollups and toString are out of scope; all loud under JBMC")
 public final class Period {
 
     public static final Period ZERO = new Period(0, 0, 0);
@@ -25,6 +33,11 @@ public final class Period {
         this.years = years;
         this.months = months;
         this.days = days;
+    }
+
+    @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+    public static Period parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.Period.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
 
     private static Period create(int years, int months, int days) {

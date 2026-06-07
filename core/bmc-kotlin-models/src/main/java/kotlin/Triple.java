@@ -1,8 +1,11 @@
 package kotlin;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /** Clean model of Kotlin's {@code Triple} — first/second/third and destructuring
  *  ({@code component1}/{@code component2}/{@code component3}). Mirrors {@link Pair}; built directly
  *  ({@code Triple(a, b, c)}), there is no infix factory like {@code to}. */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class Triple<A, B, C> {
 
     private final A first;

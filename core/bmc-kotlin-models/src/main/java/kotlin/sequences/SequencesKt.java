@@ -1,5 +1,7 @@
 package kotlin.sequences;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -27,6 +29,7 @@ import kotlin.jvm.functions.Function1;
  * {@code Function1} argument, which bmc4j desugars from the lambda, so the user predicate/mapper is
  * actually applied — not stubbed.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class SequencesKt {
 
     private SequencesKt() {

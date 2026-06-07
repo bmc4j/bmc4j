@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.function.LongPredicate;
 import java.util.function.LongUnaryOperator;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /** Eager, {@code long[]}-backed {@link LongStream} model (fixed capacity, like the collection models). */
+@BmcModelConforms("concrete eager LongStream impl backing the LongStream model — @BmcProof (proofs.stream)")
 final class LongArrayStream implements LongStream {
 
     private static final int CAPACITY = 64;

@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /** Eager, {@code int[]}-backed {@link IntStream} model (fixed capacity, like the collection models). */
+@BmcModelConforms("concrete eager IntStream impl backing the IntStream model — @BmcProof (proofs.stream)")
 final class IntArrayStream implements IntStream {
 
     private static final int CAPACITY = 64;

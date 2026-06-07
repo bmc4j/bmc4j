@@ -1,5 +1,7 @@
 package kotlin.ranges;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of the {@code kotlin.ranges.RangesKt} facade members bmc4j needs. Kotlin's INLINE
  * {@code associate}/{@code associateBy}/{@code associateWith} emit
@@ -14,6 +16,7 @@ package kotlin.ranges;
  * ({@code coerceIn(0, 0, 95) == 96}) the moment an example used it. Other primitive overloads
  * (double/float/Comparable) remain stubs until something needs them.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class RangesKt {
 
     private RangesKt() {

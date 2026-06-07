@@ -51,6 +51,81 @@ internal class BmcProofExtensionTest {
         fun unacked() {}
     }
 
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class UnmodelledAckProofs {
+        @BmcProof(acknowledgeUnmodelled = ["java.util.ArrayList.sort", " java.util.HashSet.* "])
+        fun acked() {}
+
+        @BmcProof
+        fun unacked() {}
+    }
+
+    // --- unmodelled-member acknowledgment (verdict honesty + opt-out) ----------
+
+    @Test
+    fun acknowledgedUnmodelled_mergesAnnotationAndBuildProp_trimmed() {
+        val prev = System.getProperty("bmc.acknowledgeUnmodelled")
+        System.setProperty("bmc.acknowledgeUnmodelled", "java.time.*, java.math.BigInteger.gcd")
+        try {
+            val ack = BmcProofExtension.acknowledgedUnmodelled(
+                    annotationOn(UnmodelledAckProofs::class.java, "acked"))
+            assertTrue(ack.contains("java.util.ArrayList.sort"), ack.toString())
+            assertTrue(ack.contains("java.util.HashSet.*"), "whitespace trimmed: $ack")
+            assertTrue(ack.contains("java.time.*") && ack.contains("java.math.BigInteger.gcd"),
+                    "build-wide -Dbmc.acknowledgeUnmodelled entries are merged: $ack")
+        } finally {
+            restore("bmc.acknowledgeUnmodelled", prev)
+        }
+    }
+
+    @Test
+    fun isAcknowledged_matchesExactAndWildcard_onTheMemberName() {
+        val acked = listOf("java.util.ArrayList.sort", "java.util.HashSet.*", "java.time.*")
+        // exact name match (params ignored)
+        assertTrue(BmcProofExtension.isAcknowledged("java.util.ArrayList.sort(Comparator)", acked))
+        // class wildcard
+        assertTrue(BmcProofExtension.isAcknowledged("java.util.HashSet.forEach(Consumer)", acked))
+        // package wildcard
+        assertTrue(BmcProofExtension.isAcknowledged("java.time.Instant.now()", acked))
+        // not acknowledged
+        assertFalse(BmcProofExtension.isAcknowledged("java.util.ArrayList.replaceAll(UnaryOperator)", acked))
+        assertFalse(BmcProofExtension.isAcknowledged("java.math.BigInteger.gcd(BigInteger)", acked))
+    }
+
+    @Test
+    fun buildWideAcknowledgeUnmodelled_participatesInTheVerdictCacheKey() {
+        // The build-wide acknowledgment changes outcomes (an acknowledged reach degrades from UNKNOWN
+        // to a footnoted pass), so it must be folded into the cache's engine identity — a change to it
+        // invalidates cached verdicts. Unset -> empty suffix; set -> the prop appears in the suffix.
+        val prev = System.getProperty("bmc.acknowledgeUnmodelled")
+        try {
+            System.clearProperty("bmc.acknowledgeUnmodelled")
+            assertFalse(BmcProofExtension.solverEnvSuffix().contains("acknowledgeUnmodelled"),
+                    "unset: the ack prop must not perturb the default cache key")
+            System.setProperty("bmc.acknowledgeUnmodelled", "java.util.ArrayList.sort")
+            val suffix = BmcProofExtension.solverEnvSuffix()
+            assertTrue(suffix.contains("bmc.acknowledgeUnmodelled=java.util.ArrayList.sort"),
+                    "set: the ack value is keyed into the engine identity: $suffix")
+        } finally {
+            restore("bmc.acknowledgeUnmodelled", prev)
+        }
+    }
+
+    @Test
+    fun unmodelledMemberUndecided_isUnknown_namesMember_and_saysWhatToDo() {
+        val err = BmcProofExtension.unmodelledMemberUndecided(
+                "jbmc", "pkg.T.proof", listOf("java.util.ArrayList.sort(Comparator)"))
+        // Non-infrastructure: a genuine, acknowledgeable analysis limit (satisfies expect=UNKNOWN).
+        assertFalse(err.isEngineInfrastructure(),
+                "an unmodelled-member reach is a real model gap, not engine infrastructure failure")
+        val msg = err.message!!
+        assertTrue(msg.contains("(UNKNOWN)"), msg)
+        assertTrue(msg.contains("java.util.ArrayList.sort"), msg)
+        assertTrue(msg.contains("does not model"), msg)
+        assertTrue(msg.contains("acknowledgeUnmodelled"), msg)
+        assertTrue(msg.contains("model it"), msg)
+    }
+
     // --- Nondet-stub policy ---------------------------------------
 
     @Test

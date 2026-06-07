@@ -1,5 +1,11 @@
 package java.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * JBMC model of {@link java.time.LocalDateTime} backed by an epoch-day {@code long} (the date) plus
  * a nano-of-day {@code long} (the time), so ordering and arithmetic reduce to integer arithmetic
@@ -14,6 +20,8 @@ package java.time;
  * unchanged; it is validated bit-for-bit by the differential suite vs the real JDK. Zones, formatters
  * and sub-nano precision are out of scope; {@code now()} is not modeled.
  */
+@BmcModelConforms("epoch-day + nano-of-day LocalDateTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcModelTail(reason = "the wide LocalDateTime/Temporal surface (with*/truncatedTo/until/atZone/atOffset/toLocalDate/toLocalTime/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getDayOfYear and the of(...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
 public final class LocalDateTime {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
@@ -27,6 +35,11 @@ public final class LocalDateTime {
     private LocalDateTime(long epochDay, long nanoOfDay) {
         this.epochDay = epochDay;
         this.nanoOfDay = nanoOfDay;
+    }
+
+    @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters")
+    public static LocalDateTime now() {
+        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.now() — wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters");
     }
 
     public static LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute) {

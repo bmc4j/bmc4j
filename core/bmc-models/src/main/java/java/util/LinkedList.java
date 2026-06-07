@@ -1,5 +1,8 @@
 package java.util;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * BMC model of {@link java.util.LinkedList} as an array-backed list — behaviourally equivalent for
  * proofs (the linked structure doesn't affect functional results, only performance). The full
@@ -19,6 +22,12 @@ package java.util;
  * Capacity is the inherited {@value ArrayList#CAPACITY}; inserting past it is out of bounds (loud
  * backing-array write), never a silent drop.
  */
+// The List/Collection surface is inherited from the ArrayList model; the Deque/Queue surface
+// (addFirst/addLast/getFirst/getLast/removeFirst/removeLast/offer*/poll*/peek*/push/pop, plus the
+// Queue offer/poll/peek/remove/element) is implemented here. Blanket-conforms covers both; the tail
+// is the remaining Deque/List surface still unmodeled.
+@BmcModelConforms("inherits the ArrayList model surface + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof")
+@BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator/descendingDuque ops, listIterator/subList/spliterator, reversed/SequencedCollection, clone) is out of scope for this array-backed model; all loud under JBMC")
 public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
 
     public LinkedList() {
@@ -32,7 +41,7 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     // --- Deque: head/tail insertion ------------------------------------------
 
     public void addFirst(E e) {
-        add(0, e);
+        insertAt(0, e);
     }
 
     public void addLast(E e) {
@@ -146,7 +155,7 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
      * — the documented loud model-bound signal, never a silent drop. Package-visible because
      * {@code ArrayList}'s backing array is private; this reuses the public List surface to stay sound.
      */
-    private void add(int index, E element) {
+    private void insertAt(int index, E element) {
         if (index < 0 || index > size()) {
             throw new IndexOutOfBoundsException();
         }

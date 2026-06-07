@@ -1,5 +1,7 @@
 package kotlin.sequences;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.List;
  * intermediate op produces a fresh sequence over a bounded {@link ArrayList} (the conformance-tested
  * bounded collection model). Eager evaluation is sound for the bounded element counts JBMC unwinds.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class ListSequence<T> implements Sequence<T> {
 
     final ArrayList<T> data;

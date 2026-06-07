@@ -1,5 +1,7 @@
 package kotlin.enums;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -23,6 +25,7 @@ import java.util.ListIterator;
  *
  * @param <T> the enum type
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> {
 
     private final ArrayList<T> backing;

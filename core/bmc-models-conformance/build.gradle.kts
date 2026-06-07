@@ -44,6 +44,8 @@ dependencies {
     modelsToRelocate(project(":bmc-kotlin-models"))
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
     testImplementation("io.kotest:kotest-property:5.9.1")
+    // The model auditing gate reads audit annotations + method tables off the relocated model bytecode.
+    testImplementation("org.ow2.asm:asm-tree:9.7")
 }
 
 val relocatedJar = layout.buildDirectory.file("relocated/bmcref-models.jar")
@@ -69,20 +71,33 @@ tasks.named("compileTestKotlin") { dependsOn(relocateModels) }
 tasks.test {
     dependsOn(relocateModels)
     useJUnitPlatform()
+    // Forward the docs-regeneration flag to the test JVM (ModelCoverageDocsTest rewrites
+    // docs/model-coverage.md when set). Off by default: the test then just stale-checks.
+    providers.systemProperty("bmc.regenerateDocs").orNull?.let { systemProperty("bmc.regenerateDocs", it) }
 }
 
 fun relocateModelJar(inputs: Set<File>, output: File) {
     val prefix = "bmcref/"
-    // 1) Collect every owned internal class name across the input jars.
+    // The model classes that get relocated for side-by-side loading: java.*, kotlin.*, kotlinx.*.
+    // The org.bmc4j.models.audit.* annotation classes ride in the model jar but are NOT models — they
+    // must stay UN-relocated so the annotation FQNs the gate reads off the model bytecode remain
+    // `org/bmc4j/models/audit/...` (relocating them would both break the gate's descriptor matching and
+    // contradict the requirement that annotation FQNs survive relocation). We neither own nor re-emit
+    // them here; the gate reads the descriptor strings, not the loaded annotation classes.
+    fun isModel(internalName: String) =
+        internalName.startsWith("java/") || internalName.startsWith("kotlin/") || internalName.startsWith("kotlinx/")
+    // 1) Collect every owned internal class name across the input jars (models only).
     val owned = mutableSetOf<String>()
     for (f in inputs) {
         JarFile(f).use { jar ->
             jar.entries().asSequence()
                 .filter { it.name.endsWith(".class") }
-                .forEach { owned.add(it.name.removeSuffix(".class")) }
+                .map { it.name.removeSuffix(".class") }
+                .filter { isModel(it) }
+                .forEach { owned.add(it) }
         }
     }
-    // 2) Map owned names to bmcref.*; SimpleRemapper leaves everything else untouched.
+    // 2) Map owned names to bmcref.*; SimpleRemapper leaves everything else (incl. org.bmc4j.*) untouched.
     val remapper = SimpleRemapper(owned.associateWith { prefix + it })
     output.parentFile.mkdirs()
     val written = mutableSetOf<String>()
@@ -91,6 +106,7 @@ fun relocateModelJar(inputs: Set<File>, output: File) {
             JarFile(f).use { jar ->
                 jar.entries().asSequence()
                     .filter { it.name.endsWith(".class") }
+                    .filter { isModel(it.name.removeSuffix(".class")) } // skip non-model classes (audit annotations)
                     .forEach { e ->
                         val cr = ClassReader(jar.getInputStream(e).readBytes())
                         val cw = ClassWriter(0) // pure name remap; frames/maxs unchanged

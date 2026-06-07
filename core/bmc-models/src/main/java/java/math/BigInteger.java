@@ -1,5 +1,8 @@
 package java.math;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Bounded BMC model of {@link java.math.BigInteger}, backed by a {@code long}. Sound for values
  * within the {@code long} range (±9.2e18). This is a DELIBERATELY bounded model (real BigInteger is
@@ -11,6 +14,8 @@ package java.math;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
+@BmcModelConforms("long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, number-theory (modInverse/modPow/gcd-variants/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);

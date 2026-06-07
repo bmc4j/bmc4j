@@ -2,6 +2,8 @@ package java.util.concurrent;
 
 import org.cprover.CProver;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.CountDownLatch} — a counter that
  * {@link #countDown()} decrements (floored at 0) and {@link #getCount()} reads. bmc4j proves logic,
@@ -24,6 +26,7 @@ import org.cprover.CProver;
  * the JVM-runnable differential axis. The non-blocking surface ({@link #countDown()} /
  * {@link #getCount()}) stays pure Java and is differential-tested against the real JDK.
  */
+@BmcModelConforms("floored-counter latch — differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
 public class CountDownLatch {
 
     private long count;

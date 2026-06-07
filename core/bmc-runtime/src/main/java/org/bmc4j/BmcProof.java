@@ -86,6 +86,25 @@ public @interface BmcProof {
     String[] allowStubs() default {};
 
     /**
+     * Acknowledge real JDK members this proof knowingly reaches that bmc4j does NOT model — members
+     * a bundled model marks {@code @BmcNotModelled} / {@code @BmcNotNeeded}, or absorbs into its
+     * {@code @BmcModelTail}. By DEFAULT, reaching such a member fails the proof as {@code UNKNOWN}
+     * (verdict honesty: a model gap is bmc4j's own limitation, not a counterexample in your code — the
+     * synthesized loud body trips and the verdict interpreter demotes the would-be refutation, naming
+     * the member). Listing a member here OPTS OUT: it degrades to the classic nondet-stub behavior —
+     * the member is treated as an unconstrained havoc and the proof proceeds with a loud footnote
+     * (NEVER silent), exactly like an acknowledged {@link #allowStubs() stub}.
+     *
+     * <p>Each entry is a fully-qualified member name with an optional trailing wildcard, matched against
+     * the rendered {@code pkg.Class.method} form: {@code "java.util.ArrayList.sort"} (exact name),
+     * {@code "java.util.ArrayList.*"} (any method of the class), or {@code "java.util.*"} (any member
+     * under the package). The build-wide equivalent is {@code bmc { acknowledgeUnmodelled = [...] }} /
+     * {@code -Dbmc.acknowledgeUnmodelled}; both sets apply. Sibling of {@link #allowStubs()}: prefer
+     * modeling the member, or restructuring the proof to avoid it, over acknowledging it.
+     */
+    String[] acknowledgeUnmodelled() default {};
+
+    /**
      * Per-proof wall-clock budget in seconds. If the engine doesn't reach a verdict in
      * time, its process tree is force-killed and the proof is reported as {@code UNKNOWN} (undecided) —
      * which still fails the test, but distinctly from a refutation (no counterexample; with guidance

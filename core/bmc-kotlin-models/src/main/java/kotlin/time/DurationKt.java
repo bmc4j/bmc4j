@@ -1,5 +1,7 @@
 package kotlin.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of Kotlin's {@code kotlin.time.DurationKt} top-level facade — the duration-construction
  * extension functions/properties on {@code Int}/{@code Long}. The inline unit extensions
@@ -11,6 +13,7 @@ package kotlin.time;
  * <p>Only the {@code Int}/{@code Long} construction surface is modeled (bmc4j avoids {@code double}); the
  * {@code Double} overloads remain JBMC stubs, consistent with the model's documented holes.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class DurationKt {
 
     private DurationKt() {

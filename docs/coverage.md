@@ -96,6 +96,13 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 
 ## `java.*` standard library
 
+> **Per-member audit.** The exact member-by-member coverage of each modeled JDK class — what's
+> modeled, what's deliberately not (with reasons), and the loud exotic tail — is mechanically
+> enforced by the audit annotations and **generated** into [model-coverage.md](model-coverage.md)
+> (regenerate via `gradlew -p core :bmc-models-conformance:test --tests
+> conformance.ModelCoverageDocsTest -Dbmc.regenerateDocs=true`). The rows below stay as a
+> human-readable summary.
+
 | API | Status | Note |
 |---|---|---|
 | Boxed primitives, `Math` | ✅ | bundled in JBMC `core-models`; the integer methods jbmc stubbed to nondet (`floorDiv`/`floorMod`/`addExact`/`subtractExact`/`multiplyExact`/`negateExact`/`incrementExact`/`decrementExact`/`toIntExact`) are soundly redirected to `BmcMath` via an in-layer bytecode pass (`MathBytecode`), overflow loud; `sqrt`/`pow`/trig pass through to the modeled core-models |

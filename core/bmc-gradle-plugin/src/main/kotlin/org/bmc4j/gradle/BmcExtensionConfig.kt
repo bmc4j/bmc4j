@@ -96,6 +96,19 @@ abstract class BmcExtensionConfig {
     abstract val allowStubs: ListProperty<String>
 
     /**
+     * Build-wide acknowledged UNMODELLED members: real JDK members bmc4j deliberately does NOT model
+     * (a bundled model's `@BmcNotModelled` / `@BmcNotNeeded` / `@BmcModelTail`) that proofs may reach
+     * without failing. By DEFAULT, reaching such a member fails the proof as UNKNOWN (a model gap is
+     * bmc4j's own limitation, not a counterexample in your code). Listing a member here OPTS OUT
+     * suite-wide: it degrades to the classic nondet-stub behavior — treated as an unconstrained havoc,
+     * with a loud footnote (never silent) — exactly like [allowStubs] for stubs. A proof can add more
+     * with `@BmcProof(acknowledgeUnmodelled = …)`; both sets apply. Entries are fully-qualified member
+     * names with an optional trailing wildcard: `"java.util.ArrayList.sort"`, `"java.util.ArrayList.*"`,
+     * or `"java.util.*"`. Overridable with `-Dbmc.acknowledgeUnmodelled`; part of the verdict-cache key.
+     */
+    abstract val acknowledgeUnmodelled: ListProperty<String>
+
+    /**
      * Language of the **replay** scratch file bmc4j writes for a refuted proof
      * (`build/bmc4j/replays/<Class>_<method>Replay.{java|kt}`). One of:
      *

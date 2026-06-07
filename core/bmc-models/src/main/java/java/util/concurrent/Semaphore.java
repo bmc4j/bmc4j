@@ -2,6 +2,9 @@ package java.util.concurrent;
 
 import org.cprover.CProver;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.Semaphore} — a permit counter. bmc4j proves
  * logic, not interleavings (Lincheck's job), so the permit count is modeled as single-threaded
@@ -22,6 +25,8 @@ import org.cprover.CProver;
  * JVM-runnable differential axis. The non-blocking surface ({@code tryAcquire}/{@code release}/
  * {@code availablePermits}/{@code drainPermits}) stays pure Java and is differential-tested.
  */
+@BmcModelConforms("permit-counter — differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
+@BmcModelTail(reason = "timed/uninterruptible acquire variants (acquireUninterruptibly/tryAcquire(timeout)), fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) and reducePermits are scheduling/interleaving concerns a sequential model can't represent; all loud under JBMC")
 public class Semaphore {
 
     private int permits;

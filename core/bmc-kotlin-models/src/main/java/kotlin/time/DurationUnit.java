@@ -1,5 +1,7 @@
 package kotlin.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of Kotlin's {@code kotlin.time.DurationUnit} enum. The real enum carries a
  * {@code java.util.concurrent.TimeUnit} field used for {@code Long}-precision unit conversion; this
@@ -10,6 +12,7 @@ package kotlin.time;
  * {@code Duration.Companion.getSeconds} passes {@code DurationUnit.SECONDS}); the {@code nanosScale}
  * field is internal to the model.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public enum DurationUnit {
     NANOSECONDS(1L),
     MICROSECONDS(1_000L),

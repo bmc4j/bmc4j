@@ -6,11 +6,14 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean BMC model of {@link java.util.Optional} — a value plus a present flag. Replaces the real
  * one on JBMC's analysis classpath only (the real JVM ignores {@code java.*} models). Sound and
  * trivially bounded: there is no collection to unwind.
  */
+@BmcModelConforms("present-flag model — differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional); full surface modeled (empty/of/ofNullable/get/isPresent/isEmpty/orElse*/ifPresent*/map/filter/flatMap/or/stream)")
 public final class Optional<T> {
 
     private final T value;

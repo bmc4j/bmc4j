@@ -3,12 +3,17 @@ package java.util.concurrent.atomic;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntUnaryOperator;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.atomic.AtomicInteger} — a plain mutable
  * holder. bmc4j does not verify concurrency (that's Lincheck's job), but code that *uses* atomics
  * should still be analysable for its logic; under single-threaded analysis an atomic is just a
  * mutable int (CAS succeeds iff the witnessed value matches).
  */
+@BmcModelConforms("mutable-int holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
+@BmcModelTail(reason = "VarHandle memory-ordering variants (getAcquire/getOpaque/getPlain/setOpaque/setPlain/setRelease/compareAndExchange*/weakCompareAndSet{Acquire,Release,Volatile}) collapse to the plain op under sequential analysis and aren't separately modeled; Number's byteValue/shortValue narrowing too. All loud under JBMC")
 public class AtomicInteger extends Number {
 
     private int value;

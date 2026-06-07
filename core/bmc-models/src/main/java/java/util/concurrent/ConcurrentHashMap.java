@@ -4,6 +4,9 @@ import java.util.HashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.ConcurrentHashMap} — functionally a HashMap
  * (the bmc4j bounded map model). Concurrency isn't verified; this just lets logic proofs over code
@@ -12,6 +15,8 @@ import java.util.function.Function;
  * <p>Unlike HashMap, ConcurrentHashMap rejects null keys and values (NPE) — modeled here so a proof
  * over code that puts/looks up a null in a concurrent map sees the real failure, not a silent pass.
  */
+@BmcModelConforms("inherits the HashMap model surface; adds null-key/value rejection (differential + @BmcProof)")
+@BmcModelTail(reason = "the functional-arg map ops (compute*/merge/forEach/replaceAll) and the entire parallel bulk surface (forEachKey/reduce*/search*/reduceToInt/… across keys/values/entries with parallelismThreshold), plus newKeySet/mappingCount/elements/keys/contains(value-alias) — out of scope for a sequential bounded model; all loud under JBMC")
 public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
 
     public ConcurrentHashMap() {
