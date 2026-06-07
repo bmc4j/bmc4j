@@ -1,6 +1,7 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.OptionalLong;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -219,6 +220,63 @@ final class LongArrayStream implements LongStream {
             result = op.applyAsLong(result, data[i]);
         }
         return result;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    public OptionalLong reduce(LongBinaryOperator op) {
+        if (size == 0) {
+            return OptionalLong.empty();
+        }
+        long result = data[0];
+        for (int i = 1; i < size; i++) {
+            result = op.applyAsLong(result, data[i]);
+        }
+        return OptionalLong.of(result);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    public OptionalLong min() {
+        if (size == 0) {
+            return OptionalLong.empty();
+        }
+        long m = data[0];
+        for (int i = 1; i < size; i++) {
+            if (data[i] < m) {
+                m = data[i];
+            }
+        }
+        return OptionalLong.of(m);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    public OptionalLong max() {
+        if (size == 0) {
+            return OptionalLong.empty();
+        }
+        long m = data[0];
+        for (int i = 1; i < size; i++) {
+            if (data[i] > m) {
+                m = data[i];
+            }
+        }
+        return OptionalLong.of(m);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    public OptionalLong findFirst() {
+        return size == 0 ? OptionalLong.empty() : OptionalLong.of(data[0]);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    public OptionalLong findAny() {
+        // Eager bounded model is deterministic: findAny returns the first element, a valid choice
+        // under the JDK's "any element" contract (it permits, but does not require, the first).
+        return findFirst();
     }
 
     @Override

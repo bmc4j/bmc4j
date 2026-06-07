@@ -10,8 +10,9 @@ import org.bmc4j.BmcProof;
  * {@code peek}/{@code forEach}/{@code allMatch}/{@code noneMatch}/{@code reduce(int,op)}/{@code
  * toArray}/{@code mapToLong}/{@code asLongStream}, plus the static {@code of(int)}/{@code empty}/
  * {@code concat}/{@code iterate(3-arg)}. Concrete tiny inputs; pins each op's result so a wrong
- * pipeline is caught. {@code min/max/average/summaryStatistics} stay in the tail (need the unmodeled
- * OptionalInt/OptionalDouble/IntSummaryStatistics + double).
+ * pipeline is caught. {@code min/max/reduce(op)/findFirst/findAny} (returning the now-modeled
+ * {@code OptionalInt}) are proven in {@link IntStreamOptionalLaws}; {@code average/summaryStatistics}
+ * stay in the tail (need OptionalDouble/IntSummaryStatistics + double).
  */
 class IntStreamTailLaws {
 
