@@ -11,22 +11,24 @@ import kotlin.Pair;
  * mutableMapOf}/{@code emptyMap}), building bmc4j's bounded {@code HashMap} model from Pairs instead
  * of routing through kotlin-stdlib internals JBMC stubs.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class MapsKt {
 
     private MapsKt() {
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> Map<K, V> emptyMap() {
         return new HashMap<>();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> Map<K, V> mapOf(Pair<? extends K, ? extends V> pair) {
         HashMap<K, V> m = new HashMap<>();
         m.put(pair.getFirst(), pair.getSecond());
         return m;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> Map<K, V> mapOf(Pair<? extends K, ? extends V>[] pairs) {
         HashMap<K, V> m = new HashMap<>();
         for (Pair<? extends K, ? extends V> p : pairs) {
@@ -35,10 +37,12 @@ public final class MapsKt {
         return m;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> Map<K, V> mutableMapOf() {
         return new HashMap<>();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> Map<K, V> mutableMapOf(Pair<? extends K, ? extends V>[] pairs) {
         HashMap<K, V> m = new HashMap<>();
         for (Pair<? extends K, ? extends V> p : pairs) {
@@ -55,6 +59,7 @@ public final class MapsKt {
      * a sound, non-negative passthrough — but if left as a nondet stub the capacity poisons the
      * {@code LinkedHashMap(int)} ctor. Mirrors the stdlib formula for small sizes.
      */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int mapCapacity(int expectedSize) {
         if (expectedSize < 0) {
             return expectedSize; // stdlib returns it unchanged for the (unreachable here) negative case

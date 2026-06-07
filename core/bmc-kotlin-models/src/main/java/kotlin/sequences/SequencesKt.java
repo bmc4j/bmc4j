@@ -29,18 +29,19 @@ import kotlin.jvm.functions.Function1;
  * {@code Function1} argument, which bmc4j desugars from the lambda, so the user predicate/mapper is
  * actually applied — not stubbed.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class SequencesKt {
 
     private SequencesKt() {
     }
 
     @SafeVarargs
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> sequenceOf(T... elements) {
         return new ListSequence<>(elements);
     }
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> map(Sequence<T> source, Function1<? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
         Iterator<T> it = source.iterator();
@@ -50,6 +51,7 @@ public final class SequencesKt {
         return new ListSequence<>(out);
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> filter(Sequence<T> source, Function1<? super T, Boolean> predicate) {
         ArrayList<T> out = new ArrayList<>();
         Iterator<T> it = source.iterator();
@@ -62,6 +64,7 @@ public final class SequencesKt {
         return new ListSequence<>(out);
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> toList(Sequence<T> source) {
         ArrayList<T> out = new ArrayList<>();
         Iterator<T> it = source.iterator();
@@ -71,6 +74,7 @@ public final class SequencesKt {
         return out;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int sumOfInt(Sequence<Integer> source) {
         int sum = 0;
         Iterator<Integer> it = source.iterator();
@@ -80,6 +84,7 @@ public final class SequencesKt {
         return sum;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> int count(Sequence<T> source) {
         int n = 0;
         Iterator<T> it = source.iterator();
@@ -98,6 +103,7 @@ public final class SequencesKt {
     // throws IllegalArgumentException; take(n) yields the first min(n, len) elements; drop(n) yields
     // the rest after the first min(n, len) — both in order.
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> take(Sequence<T> source, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
@@ -117,6 +123,7 @@ public final class SequencesKt {
         return new ListSequence<>(out);
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> drop(Sequence<T> source, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
@@ -139,6 +146,7 @@ public final class SequencesKt {
     //   distinct(Lkotlin/sequences/Sequence;)Lkotlin/sequences/Sequence;
     // Kotlin's contract: distinct elements in first-occurrence order (dedup via equals). Eager over a
     // bounded LinkedHashSet (dedups via equals, iterates in insertion order in the model).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> distinct(Sequence<T> source) {
         LinkedHashSet<T> seen = new LinkedHashSet<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -156,6 +164,7 @@ public final class SequencesKt {
     // where the transform yields a Sequence per element; we concatenate them in order. The transform
     // is the user lambda (desugared by bmc4j), so it's genuinely applied, not stubbed.
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> flatMap(
             Sequence<T> source, Function1<? super T, ? extends Sequence<? extends R>> transform) {
         ArrayList<R> out = new ArrayList<>();
@@ -173,6 +182,7 @@ public final class SequencesKt {
     // ---- toSet(): the Kotlin compiler emits
     //   toSet(Lkotlin/sequences/Sequence;)Ljava/util/Set;
     // Kotlin's contract: a NEW LinkedHashSet preserving first-occurrence order, dedup via equals.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Set<T> toSet(Sequence<T> source) {
         LinkedHashSet<T> out = new LinkedHashSet<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {

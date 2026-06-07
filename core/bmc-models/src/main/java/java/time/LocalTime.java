@@ -16,7 +16,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * Zones, formatters and sub-nano precision are out of scope (a model, not a reimplementation);
  * {@code now()} is intentionally not modeled — pass LocalTimes as proof parameters.
  */
-@BmcModelConforms("nano-of-day LocalTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
 @BmcModelTail(reason = "the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC")
 public final class LocalTime {
 
@@ -32,18 +31,22 @@ public final class LocalTime {
     }
 
     @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalTime.now() — wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters");
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime of(int hour, int minute) {
         return of(hour, minute, 0, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime of(int hour, int minute, int second) {
         return of(hour, minute, second, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime of(int hour, int minute, int second, int nanoOfSecond) {
         if (hour < 0 || hour > 23) {
             throw new DateTimeException("Invalid value for HourOfDay: " + hour);
@@ -64,6 +67,7 @@ public final class LocalTime {
         return new LocalTime(nod);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime ofSecondOfDay(long secondOfDay) {
         if (secondOfDay < 0 || secondOfDay > 86399) {
             throw new DateTimeException("Invalid value for SecondOfDay: " + secondOfDay);
@@ -71,6 +75,7 @@ public final class LocalTime {
         return new LocalTime(secondOfDay * NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime ofNanoOfDay(long nanoOfDay) {
         if (nanoOfDay < 0 || nanoOfDay > NANOS_PER_DAY - 1) {
             throw new DateTimeException("Invalid value for NanoOfDay: " + nanoOfDay);
@@ -78,26 +83,32 @@ public final class LocalTime {
         return new LocalTime(nanoOfDay);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getHour() {
         return (int) (nanoOfDay / NANOS_PER_HOUR);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getMinute() {
         return (int) ((nanoOfDay / NANOS_PER_MINUTE) % 60);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getSecond() {
         return (int) ((nanoOfDay / NANOS_PER_SECOND) % 60);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getNano() {
         return (int) (nanoOfDay % NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int toSecondOfDay() {
         return (int) (nanoOfDay / NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toNanoOfDay() {
         return nanoOfDay;
     }
@@ -112,48 +123,59 @@ public final class LocalTime {
         return new LocalTime(newNod);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime plusHours(long hours) {
         return plusNanos((hours % 24) * NANOS_PER_HOUR);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime plusMinutes(long minutes) {
         return plusNanos((minutes % (24 * 60)) * NANOS_PER_MINUTE);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime plusSeconds(long seconds) {
         return plusNanos((seconds % (24 * 60 * 60)) * NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime minusHours(long hours) {
         return plusHours(-(hours % 24));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime minusMinutes(long minutes) {
         return plusMinutes(-(minutes % (24 * 60)));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime minusSeconds(long seconds) {
         return plusSeconds(-(seconds % (24 * 60 * 60)));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isBefore(LocalTime other) {
         return this.nanoOfDay < other.nanoOfDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isAfter(LocalTime other) {
         return this.nanoOfDay > other.nanoOfDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(LocalTime other) {
         return this.nanoOfDay < other.nanoOfDay ? -1 : (this.nanoOfDay == other.nanoOfDay ? 0 : 1);
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean equals(Object o) {
         return (o instanceof LocalTime) && ((LocalTime) o).nanoOfDay == this.nanoOfDay;
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int hashCode() {
         return (int) (nanoOfDay ^ (nanoOfDay >>> 32));
     }

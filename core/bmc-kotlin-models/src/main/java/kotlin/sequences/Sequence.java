@@ -11,7 +11,7 @@ import java.util.Iterator;
  * JBMC unwinds over. The single abstract method mirrors the real one so the compiler-emitted
  * {@code Lkotlin/sequences/Sequence;} types in {@link SequencesKt} resolve against this model.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public interface Sequence<T> {
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     Iterator<T> iterator();
 }

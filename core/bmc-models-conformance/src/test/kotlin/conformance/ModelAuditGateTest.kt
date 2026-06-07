@@ -120,8 +120,6 @@ class ModelAuditGateTest : FunSpec({
         return null
     }
 
-    fun classLevelConforms(node: ClassNode): Boolean = anns(node).any { it.desc == conformsDesc }
-
     // ---- method-level NotModelled / NotNeeded stubs (the revision-2 primary form) ---------------
     // The decision lives ON a real stub method whose loud body throws the recognized message. The gate
     // accounts for the method's own key as declared, never requires @BmcModelConforms on it, never
@@ -161,8 +159,8 @@ class ModelAuditGateTest : FunSpec({
     }
 
     // model member keys that COUNT AS CONFORMING, resolved through the model inheritance chain. A
-    // member conforms if it carries a method-level @BmcModelConforms, OR its declaring class carries a
-    // class-level @BmcModelConforms (blanket: every implemented member mirrors-and-conforms).
+    // member conforms iff it carries a method-level @BmcModelConforms (there is no class-level
+    // "blanket" form anymore — every conforming member is pinned individually).
     // key = name + erased-param-desc (return-agnostic). Constructors excluded (audited via real ctors
     // separately if ever needed; the real-member surface enumerates methods, not <init>).
     val synthesizedDesc = "L${auditPkg}BmcSynthesizedLoud;"
@@ -173,7 +171,6 @@ class ModelAuditGateTest : FunSpec({
         val out = mutableSetOf<String>()
         var cur: ClassNode? = nodes[realFqn]
         while (cur != null) {
-            val blanket = classLevelConforms(cur)
             for (m in cur.methods) {
                 if (m.name == "<clinit>" || m.name == "<init>") continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
@@ -182,7 +179,7 @@ class ModelAuditGateTest : FunSpec({
                 if (stubKind(m) != null) continue   // a method-level NotModelled/NotNeeded stub is NOT modeled
                 val methodConforms = ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList()))
                     .any { it.desc == conformsDesc }
-                if (blanket || methodConforms) out.add(m.name + paramsDesc(m.desc))
+                if (methodConforms) out.add(m.name + paramsDesc(m.desc))
             }
             // walk to modeled superclass (bmcref-prefixed); stop at non-model supers.
             val superReal = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
@@ -277,10 +274,8 @@ class ModelAuditGateTest : FunSpec({
             }
 
             // (c) implemented-but-unannotated: every OWN public/protected model method that mirrors a
-            // real member must be accounted for — covered by @BmcModelConforms (class-level blanket or
-            // its own method-level annotation) OR be a method-level NotModelled/NotNeeded loud stub.
-            // Constructors and bridge/synthetic excluded.
-            val blanket = classLevelConforms(node)
+            // real member must be accounted for — covered by its own method-level @BmcModelConforms
+            // OR be a method-level NotModelled/NotNeeded loud stub. Constructors and bridge/synthetic excluded.
             val conformsOwn = node.methods.filter { m ->
                 ((m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())).any { it.desc == conformsDesc }
             }.map { it.name + paramsDesc(it.desc) }.toSet()
@@ -288,6 +283,7 @@ class ModelAuditGateTest : FunSpec({
                 if (m.name == "<init>" || m.name == "<clinit>") continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
                 if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
+                if (isSynthesizedLoud(m)) continue             // a build-synthesized loud tail stub is NOT a model impl
                 val isPublic = (m.access and org.objectweb.asm.Opcodes.ACC_PUBLIC) != 0
                 val isProtected = (m.access and org.objectweb.asm.Opcodes.ACC_PROTECTED) != 0
                 if (!isPublic && !isProtected) continue
@@ -295,7 +291,7 @@ class ModelAuditGateTest : FunSpec({
                 // Only methods that mirror a REAL member (model-internal helpers aren't part of the audit).
                 if (!realMembers.containsKey(key)) continue
                 if (key in methodStubKeys) continue            // a loud NotModelled/NotNeeded stub: accounted for
-                if (blanket || key in conformsOwn) continue    // modeled + conforming
+                if (key in conformsOwn) continue               // modeled + conforming (own method-level annotation)
                 failures.add("$realFqn: implemented model member ${m.name}${paramsDesc(m.desc)} lacks @BmcModelConforms")
             }
 
@@ -335,12 +331,15 @@ class ModelAuditGateTest : FunSpec({
                         failures.add("$realFqn: dangling @Bmc${d.kind}(member=\"${d.member}\")")
                     }
                 }
-            } else if (!annotated && realFqn !in WAIVED) {
+            } else if (!annotated && realFqn !in WAIVED && realFqn !in COVERED_NO_OWN_SURFACE) {
                 // A REGISTERED (COVERED) model that bears no audit annotations FAILS — a registered model
                 // can't silently skip auditing. A genuinely-new, non-registered, non-waived model only
-                // WARNS here (CoverageGateTest is what fails on an unregistered new model).
+                // WARNS here (CoverageGateTest is what fails on an unregistered new model). Models in
+                // COVERED_NO_OWN_SURFACE are exempt: they have no own member to pin @BmcModelConforms on.
                 if (realFqn in COVERED) {
-                    failures.add("$realFqn: registered (COVERED) but carries NO audit annotation — annotate it (at least a class-level @BmcModelConforms)")
+                    failures.add("$realFqn: registered (COVERED) but carries NO audit annotation — annotate each " +
+                        "conforming member with a method-level @BmcModelConforms (or, if it has no own auditable " +
+                        "surface, add it to COVERED_NO_OWN_SURFACE with a reason)")
                 } else {
                     pristine.add(realFqn)
                 }

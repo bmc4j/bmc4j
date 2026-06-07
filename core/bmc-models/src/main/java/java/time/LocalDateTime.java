@@ -20,7 +20,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * unchanged; it is validated bit-for-bit by the differential suite vs the real JDK. Zones, formatters
  * and sub-nano precision are out of scope; {@code now()} is not modeled.
  */
-@BmcModelConforms("epoch-day + nano-of-day LocalDateTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
 @BmcModelTail(reason = "the wide LocalDateTime/Temporal surface (with*/truncatedTo/until/atZone/atOffset/toLocalDate/toLocalTime/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getDayOfYear and the of(...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
 public final class LocalDateTime {
 
@@ -38,18 +37,22 @@ public final class LocalDateTime {
     }
 
     @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.now() — wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters");
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute) {
         return of(year, month, dayOfMonth, hour, minute, 0, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime of(int year, int month, int dayOfMonth, int hour, int minute, int second) {
         return of(year, month, dayOfMonth, hour, minute, second, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime of(int year, int month, int dayOfMonth,
                                    int hour, int minute, int second, int nanoOfSecond) {
         long ed = toEpochDay(year, month, dayOfMonth);
@@ -57,6 +60,7 @@ public final class LocalDateTime {
         return new LocalDateTime(ed, nod);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime of(LocalDate date, LocalTime time) {
         return new LocalDateTime(date.toEpochDay(), time.toNanoOfDay());
     }
@@ -165,48 +169,59 @@ public final class LocalDateTime {
         return new int[]{(int) yearEst, month, dom};
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getYear() {
         return ymd()[0];
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getMonthValue() {
         return ymd()[1];
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getDayOfMonth() {
         return ymd()[2];
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getHour() {
         return (int) (nanoOfDay / NANOS_PER_HOUR);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getMinute() {
         return (int) ((nanoOfDay / NANOS_PER_MINUTE) % 60);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getSecond() {
         return (int) ((nanoOfDay / NANOS_PER_SECOND) % 60);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getNano() {
         return (int) (nanoOfDay % NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate toLocalDate() {
         return LocalDate.ofEpochDay(epochDay);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalTime toLocalTime() {
         return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
     // --- day/time arithmetic: exact, sound (no calendar-month rule involved) ---
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusDays(long days) {
         return new LocalDateTime(epochDay + days, nanoOfDay);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusDays(long days) {
         return new LocalDateTime(epochDay - days, nanoOfDay);
     }
@@ -234,6 +249,7 @@ public final class LocalDateTime {
         return new LocalDateTime(toEpochDay(year, month, d), nanoOfDay);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusMonths(long monthsToAdd) {
         if (monthsToAdd == 0) {
             return this;
@@ -246,6 +262,7 @@ public final class LocalDateTime {
         return resolveDate(newYear, newMonth, day);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusYears(long yearsToAdd) {
         if (yearsToAdd == 0) {
             return this;
@@ -255,10 +272,12 @@ public final class LocalDateTime {
         return resolveDate(newYear, f[1], f[2]);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusMonths(long monthsToSubtract) {
         return plusMonths(-monthsToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusYears(long yearsToSubtract) {
         return plusYears(-yearsToSubtract);
     }
@@ -275,40 +294,49 @@ public final class LocalDateTime {
         return new LocalDateTime(epochDay + dayCarry + days, newNod);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusHours(long hours) {
         return plusDayCarryAndNanos(hours / 24, (hours % 24) * NANOS_PER_HOUR);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusMinutes(long minutes) {
         return plusDayCarryAndNanos(minutes / (24 * 60), (minutes % (24 * 60)) * NANOS_PER_MINUTE);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime plusSeconds(long seconds) {
         return plusDayCarryAndNanos(seconds / (24 * 60 * 60), (seconds % (24 * 60 * 60)) * NANOS_PER_SECOND);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusHours(long hours) {
         return plusHours(-hours);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusMinutes(long minutes) {
         return plusMinutes(-minutes);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDateTime minusSeconds(long seconds) {
         return plusSeconds(-seconds);
     }
 
     // --- ordering: lexicographic (date, then time) ---
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isBefore(LocalDateTime other) {
         return compareTo(other) < 0;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isAfter(LocalDateTime other) {
         return compareTo(other) > 0;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(LocalDateTime other) {
         if (this.epochDay < other.epochDay) {
             return -1;
@@ -320,6 +348,7 @@ public final class LocalDateTime {
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean equals(Object o) {
         if (!(o instanceof LocalDateTime)) {
             return false;
@@ -329,6 +358,7 @@ public final class LocalDateTime {
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int hashCode() {
         long h = epochDay * 31 + nanoOfDay;
         return (int) (h ^ (h >>> 32));

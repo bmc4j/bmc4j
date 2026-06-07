@@ -9,7 +9,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * deliberately unmodeled; with the audit tail + loud-body synthesis, reaching any of those members
  * now fails LOUDLY under JBMC naming the member, rather than silently havocking to a nondet result.
  */
-@BmcModelConforms("models asList (the listOf / Arrays.asList route); the rest is the tail")
 @BmcModelTail(reason = "the broad Arrays utility surface (sort/binarySearch/fill/copyOf/copyOfRange/equals/hashCode/stream/setAll/parallel*/toString/deep*/… across every primitive + Object overload) is out of scope for a bounded model; only asList is modeled. All loud under JBMC")
 public class Arrays {
 
@@ -17,6 +16,7 @@ public class Arrays {
     }
 
     @SafeVarargs
+    @BmcModelConforms("models asList (the listOf / Arrays.asList route)")
     public static <T> List<T> asList(T... a) {
         ArrayList<T> l = new ArrayList<>();
         for (T t : a) {

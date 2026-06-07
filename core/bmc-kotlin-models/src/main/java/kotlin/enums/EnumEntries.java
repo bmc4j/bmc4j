@@ -13,6 +13,5 @@ import java.util.List;
  *
  * @param <E> the enum type
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public interface EnumEntries<E extends Enum<E>> extends List<E> {
 }

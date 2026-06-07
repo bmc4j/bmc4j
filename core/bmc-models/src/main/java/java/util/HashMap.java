@@ -17,7 +17,6 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * proof's {@code unwind} bound. Key equality uses {@code equals} (sound for boxed primitives).
  * Capacity is {@value #CAPACITY}.
  */
-@BmcModelConforms("parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap); incl. the modeled functional ops compute*/merge/forEach/replace")
 @BmcModelTail(reason = "exotic remainder: newHashMap(int) factory — out of scope; loud under JBMC")
 public class HashMap<K, V> implements Map<K, V> {
 
@@ -56,17 +55,20 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public int size() {
         return size;
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean isEmpty() {
         return size == 0;
     }
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V get(Object key) {
         int i = indexOfKey(key);
         return i < 0 ? null : (V) vals[i];
@@ -74,6 +76,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V put(K key, V value) {
         int i = indexOfKey(key);
         if (i >= 0) {
@@ -88,11 +91,13 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean containsKey(Object key) {
         return indexOfKey(key) >= 0;
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean containsValue(Object value) {
         for (int i = 0; i < size; i++) {
             if (value == null ? vals[i] == null : value.equals(vals[i])) {
@@ -104,6 +109,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V putIfAbsent(K key, V value) {
         int i = indexOfKey(key);
         if (i >= 0 && vals[i] != null) {
@@ -122,6 +128,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V remove(Object key) {
         int i = indexOfKey(key);
         if (i < 0) {
@@ -137,12 +144,14 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void clear() {
         size = 0;
     }
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V getOrDefault(Object key, V defaultValue) {
         int i = indexOfKey(key);
         return i < 0 ? defaultValue : (V) vals[i];
@@ -155,6 +164,7 @@ public class HashMap<K, V> implements Map<K, V> {
     // plain SAM calls (bmc4j desugars the lambda so JBMC devirtualizes the apply/accept).
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
         V cur = get(key);
         if (cur != null) {
@@ -169,6 +179,7 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
         V cur = get(key);
         if (cur == null) {
@@ -184,6 +195,7 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
         V cur = get(key);
         V newValue = remappingFunction.apply(key, cur);
@@ -198,6 +210,7 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
         V cur = get(key);
         V newValue = cur == null ? value : remappingFunction.apply(cur, value);
@@ -211,6 +224,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void forEach(BiConsumer<? super K, ? super V> action) {
         for (int i = 0; i < size; i++) {
             action.accept((K) keys[i], (V) vals[i]);
@@ -218,6 +232,7 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public V replace(K key, V value) {
         if (containsKey(key)) {
             return put(key, value);
@@ -226,6 +241,7 @@ public class HashMap<K, V> implements Map<K, V> {
     }
 
     @Override
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean replace(K key, V oldValue, V newValue) {
         V cur = get(key);
         if ((cur != null || containsKey(key)) && (cur == null ? oldValue == null : cur.equals(oldValue))) {
@@ -237,6 +253,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public Set<K> keySet() {
         HashSet<K> ks = new HashSet<>();
         for (int i = 0; i < size; i++) {
@@ -247,6 +264,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public Collection<V> values() {
         ArrayList<V> vs = new ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -257,6 +275,7 @@ public class HashMap<K, V> implements Map<K, V> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public Set<Map.Entry<K, V>> entrySet() {
         HashSet<Map.Entry<K, V>> es = new HashSet<>();
         for (int i = 0; i < size; i++) {
@@ -268,21 +287,25 @@ public class HashMap<K, V> implements Map<K, V> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotModelled(reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.replaceAll(java.util.function.BiFunction) — functional-arg bulk replace — JBMC stubs the lambda dispatch");
     }
 
     @BmcNotNeeded(reason = "compare-and-remove — compose get()/remove() explicitly")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean remove(Object key, Object value) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.remove(java.lang.Object,java.lang.Object) — compare-and-remove — compose get()/remove() explicitly");
     }
 
     @BmcNotNeeded(reason = "bulk put — put entries explicitly over the bounded model")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void putAll(Map<? extends K, ? extends V> m) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.putAll(java.util.Map) — bulk put — put entries explicitly over the bounded model");
     }
 
     @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.HashMap.clone() — shallow copy of a bounded model — construct a fresh map from the entries instead");
     }

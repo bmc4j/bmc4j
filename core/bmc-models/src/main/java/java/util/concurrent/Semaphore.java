@@ -25,7 +25,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * JVM-runnable differential axis. The non-blocking surface ({@code tryAcquire}/{@code release}/
  * {@code availablePermits}/{@code drainPermits}) stays pure Java and is differential-tested.
  */
-@BmcModelConforms("permit-counter — differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
 @BmcModelTail(reason = "timed/uninterruptible acquire variants (acquireUninterruptibly/tryAcquire(timeout)), fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) and reducePermits are scheduling/interleaving concerns a sequential model can't represent; all loud under JBMC")
 public class Semaphore {
 
@@ -40,6 +39,7 @@ public class Semaphore {
         this.permits = permits;
     }
 
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public int availablePermits() {
         return permits;
     }
@@ -49,17 +49,20 @@ public class Semaphore {
      * assume a permit is available, then decrement — the no-permit path is pruned. Use
      * {@link #tryAcquire()} to probe instead of block.
      */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void acquire() throws InterruptedException {
         CProver.assume(permits > 0);
         permits--;
     }
 
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void acquireUninterruptibly() {
         CProver.assume(permits > 0);
         permits--;
     }
 
     /** Take {@code n} permits at once, blocking until they are available (assume-prune; see {@link #acquire()}). */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void acquire(int n) throws InterruptedException {
         if (n < 0) {
             throw new IllegalArgumentException();
@@ -69,6 +72,7 @@ public class Semaphore {
     }
 
     /** Non-blocking acquire: take a permit and return true, else return false. Fully sound sequentially. */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public boolean tryAcquire() {
         if (permits > 0) {
             permits--;
@@ -77,6 +81,7 @@ public class Semaphore {
         return false;
     }
 
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public boolean tryAcquire(int n) {
         if (n < 0) {
             throw new IllegalArgumentException();
@@ -94,14 +99,17 @@ public class Semaphore {
      * would block until timeout and then return false — same observable here for the available case,
      * and the sound "false" for the unavailable case).
      */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public boolean tryAcquire(long timeout, TimeUnit unit) throws InterruptedException {
         return tryAcquire();
     }
 
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void release() {
         permits++;
     }
 
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void release(int n) {
         if (n < 0) {
             throw new IllegalArgumentException();
@@ -110,6 +118,7 @@ public class Semaphore {
     }
 
     /** Acquire all currently available permits and return how many were taken. */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public int drainPermits() {
         int n = permits;
         permits = 0;
@@ -117,6 +126,7 @@ public class Semaphore {
     }
 
     @Override
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public String toString() {
         return super.toString() + "[Permits = " + permits + "]";
     }

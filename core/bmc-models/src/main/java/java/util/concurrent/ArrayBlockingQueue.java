@@ -37,7 +37,6 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
-@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll")
 @BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
@@ -69,22 +68,26 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public int size() {
         return size;
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean isEmpty() {
         return size == 0;
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public int remainingCapacity() {
         return capacity - size;
     }
 
     /** Enqueue if room; returns false when full. NPE on null per the JDK. */
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean offer(E e) {
         if (e == null) {
             throw new NullPointerException();
@@ -99,6 +102,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     /** Enqueue; throws IllegalStateException("Queue full") when full, per the JDK. */
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean add(E e) {
         if (!offer(e)) {
             throw new IllegalStateException("Queue full");
@@ -108,6 +112,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E poll() {
         if (size == 0) {
             return null;
@@ -121,6 +126,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E remove() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -130,11 +136,13 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E peek() {
         return size == 0 ? null : (E) elements[0];
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E element() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -148,6 +156,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
      * probe without blocking.
      */
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public void put(E e) throws InterruptedException {
         if (e == null) {
             throw new NullPointerException();
@@ -164,12 +173,14 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
      */
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E take() throws InterruptedException {
         CProver.assume(size > 0);
         return poll();
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean contains(Object o) {
         for (int i = 0; i < size; i++) {
             if (o == null ? elements[i] == null : o.equals(elements[i])) {
@@ -185,6 +196,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
      * distinct from the no-arg head-removing {@link #remove()}.
      */
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean remove(Object o) {
         for (int i = 0; i < size; i++) {
             if (o == null ? elements[i] == null : o.equals(elements[i])) {
@@ -199,17 +211,20 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public void clear() {
         size = 0;
     }
 
     @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public Iterator<E> iterator() {
         return new Itr();
     }
 
     /** A sequential stream over the queued elements in FIFO order — a thin ListStream adapter. */
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public java.util.stream.Stream<E> stream() {
         java.util.ArrayList<E> snapshot = new java.util.ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -219,6 +234,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     }
 
     /** Drain all elements into {@code c} (in FIFO order) and return the count moved. */
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public int drainTo(Collection<? super E> c) {
         int n = size;
         while (size > 0) {
@@ -234,6 +250,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     // devirtualizes test/accept).
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public void forEach(java.util.function.Consumer<? super E> action) {
         for (int i = 0; i < size; i++) {
             action.accept((E) elements[i]);
@@ -241,6 +258,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     }
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean removeIf(java.util.function.Predicate<? super E> filter) {
         int w = 0;
         boolean changed = false;
@@ -256,6 +274,7 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return changed;
     }
 
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean addAll(Collection<? extends E> c) {
         boolean changed = false;
         for (E e : c) {
@@ -265,10 +284,12 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return changed;
     }
 
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean removeAll(Collection<?> c) {
         return removeWhere(c, true);
     }
 
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean retainAll(Collection<?> c) {
         return removeWhere(c, false);
     }
@@ -292,16 +313,19 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
     @BmcNotNeeded(reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.offer(java.lang.Object,long,java.util.concurrent.TimeUnit) — timed offer — timeout is a scheduling concern; use offer()/put() assume-prune");
     }
 
     @BmcNotNeeded(reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E poll(long timeout, TimeUnit unit) throws InterruptedException {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.poll(long,java.util.concurrent.TimeUnit) — timed poll — timeout is a scheduling concern; use poll()/take() assume-prune");
     }

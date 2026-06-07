@@ -21,26 +21,29 @@ import kotlin.sequences.Sequence;
  * ArrayList} model directly. Only the {@code listOf}/{@code emptyList} members are provided; other
  * {@code CollectionsKt} members remain JBMC stubs (as they already were).
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class CollectionsKt {
 
     private CollectionsKt() {
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> emptyList() {
         return new ArrayList<>();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> listOf() {
         return new ArrayList<>();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> listOf(T element) {
         ArrayList<T> l = new ArrayList<>();
         l.add(element);
         return l;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> listOf(T[] elements) {
         ArrayList<T> l = new ArrayList<>();
         for (T e : elements) {
@@ -49,10 +52,12 @@ public final class CollectionsKt {
         return l;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> mutableListOf() {
         return new ArrayList<>();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> mutableListOf(T[] elements) {
         ArrayList<T> l = new ArrayList<>();
         for (T e : elements) {
@@ -65,10 +70,12 @@ public final class CollectionsKt {
     // non-inline facade methods (sumOfInt/first/last). With these + java.lang.Iterable modeled,
     // `list.map { }.filter { }.sum()` etc. analyse over the bounded collection models.
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int collectionSizeOrDefault(Iterable<?> iterable, int defaultValue) {
         return defaultValue; // only used to pre-size the destination; our ArrayList ignores capacity
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int sumOfInt(Iterable<Integer> source) {
         int sum = 0;
         Iterator<Integer> it = source.iterator();
@@ -78,6 +85,7 @@ public final class CollectionsKt {
         return sum;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static long sumOfLong(Iterable<Long> source) {
         long sum = 0;
         Iterator<Long> it = source.iterator();
@@ -87,6 +95,7 @@ public final class CollectionsKt {
         return sum;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static double sumOfDouble(Iterable<Double> source) {
         double sum = 0;
         Iterator<Double> it = source.iterator();
@@ -96,6 +105,7 @@ public final class CollectionsKt {
         return sum;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> T first(List<T> list) {
         if (list.isEmpty()) {
             throw new NoSuchElementException();
@@ -103,6 +113,7 @@ public final class CollectionsKt {
         return list.get(0);
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> T first(Iterable<T> source) {
         Iterator<T> it = source.iterator();
         if (!it.hasNext()) {
@@ -111,6 +122,7 @@ public final class CollectionsKt {
         return it.next();
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> T last(List<T> list) {
         if (list.isEmpty()) {
             throw new NoSuchElementException();
@@ -127,6 +139,7 @@ public final class CollectionsKt {
     // source, matching Kotlin's *OrNull contract.
 
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static Comparable maxOrNull(Iterable source) {
         Iterator it = source.iterator();
         if (!it.hasNext()) {
@@ -143,6 +156,7 @@ public final class CollectionsKt {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static Comparable minOrNull(Iterable source) {
         Iterator it = source.iterator();
         if (!it.hasNext()) {
@@ -162,6 +176,7 @@ public final class CollectionsKt {
     // Lkotlin/sequences/Sequence; for `iterable.asSequence()`. The real chain reaches kotlin-stdlib
     // internals JBMC stubs; we wrap the (bounded) source in bmc4j's eager ListSequence so the
     // downstream SequencesKt ops (map/filter/toList/sum/count) analyse over the bounded model.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> asSequence(Iterable<T> source) {
         return new ListSequence<>(source);
     }
@@ -171,6 +186,7 @@ public final class CollectionsKt {
     // for `a.zip(b)` (no transform). The real chain reaches kotlin-stdlib internals JBMC stubs; we
     // build the bounded ArrayList of Pairs directly, truncated to the shorter input, matching the
     // Kotlin contract.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> List<Pair<T, R>> zip(Iterable<T> source, Iterable<R> other) {
         ArrayList<Pair<T, R>> result = new ArrayList<>();
         Iterator<T> a = source.iterator();
@@ -192,6 +208,7 @@ public final class CollectionsKt {
     // ordering (sorted) or the supplied Comparator (sortedWith); both are sound for boxed primitives.
 
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T extends Comparable<? super T>> List<T> sorted(Iterable<T> source) {
         ArrayList<T> out = new ArrayList<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -201,6 +218,7 @@ public final class CollectionsKt {
         return out;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> sortedWith(Iterable<T> source, Comparator<? super T> comparator) {
         ArrayList<T> out = new ArrayList<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -241,6 +259,7 @@ public final class CollectionsKt {
     // first min(n, size) elements; drop(n) returns all but the first min(n, size) — both in order,
     // both NEW lists leaving the source untouched.
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> take(Iterable<T> source, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
@@ -261,6 +280,7 @@ public final class CollectionsKt {
         return out;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> drop(Iterable<T> source, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
@@ -284,6 +304,7 @@ public final class CollectionsKt {
     // Kotlin's contract: a NEW list of the distinct elements in first-occurrence order (dedup via
     // equals). We accumulate into a bounded LinkedHashSet (which dedups via equals and iterates in
     // insertion order in the model) then copy to a list — matching the order contract.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> distinct(Iterable<T> source) {
         LinkedHashSet<T> seen = new LinkedHashSet<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -299,6 +320,7 @@ public final class CollectionsKt {
     // ---- toSet(): the Kotlin compiler emits
     //   CollectionsKt.toSet:(Ljava/lang/Iterable;)Ljava/util/Set;
     // Kotlin's contract: a NEW LinkedHashSet preserving first-occurrence order, dedup via equals.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Set<T> toSet(Iterable<T> source) {
         LinkedHashSet<T> out = new LinkedHashSet<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -310,6 +332,7 @@ public final class CollectionsKt {
     // ---- toMutableList(): the Kotlin compiler emits, for a List/Collection receiver,
     //   CollectionsKt.toMutableList:(Ljava/util/Collection;)Ljava/util/List;
     // Kotlin's contract: a NEW ArrayList copy of the source, in order (a mutable snapshot).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> toMutableList(Collection<T> source) {
         ArrayList<T> out = new ArrayList<>();
         for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
@@ -324,6 +347,7 @@ public final class CollectionsKt {
     // The real chain reaches kotlin-stdlib internals JBMC stubs (so flatMap's accumulation was
     // silently nondet). We append every element of `source` to `target` in order, returning whether
     // the target changed — matching the Kotlin/Collections contract over the bounded models.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> boolean addAll(Collection<T> target, Iterable<? extends T> source) {
         boolean changed = false;
         for (Iterator<? extends T> it = source.iterator(); it.hasNext(); ) {

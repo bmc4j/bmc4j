@@ -12,7 +12,6 @@ import java.util.function.ToLongFunction;
 import org.bmc4j.models.audit.BmcModelConforms;
 
 /** Eager, array-backed {@link Stream} model. Each op produces a fresh stream over a bounded list. */
-@BmcModelConforms("concrete eager Stream impl backing the Stream model — @BmcProof (proofs.stream)")
 public final class ListStream<T> implements Stream<T> {
 
     private final ArrayList<T> data;
@@ -36,6 +35,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public Stream<T> filter(Predicate<? super T> predicate) {
         ArrayList<T> out = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {
@@ -48,6 +48,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public <R> Stream<R> map(Function<? super T, ? extends R> mapper) {
         ArrayList<R> out = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {
@@ -57,6 +58,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public IntStream mapToInt(ToIntFunction<? super T> mapper) {
         IntArrayStream s = new IntArrayStream();
         for (int i = 0; i < data.size(); i++) {
@@ -66,6 +68,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public LongStream mapToLong(ToLongFunction<? super T> mapper) {
         LongArrayStream s = new LongArrayStream();
         for (int i = 0; i < data.size(); i++) {
@@ -75,11 +78,13 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public long count() {
         return data.size();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public boolean anyMatch(Predicate<? super T> predicate) {
         for (int i = 0; i < data.size(); i++) {
             if (predicate.test(data.get(i))) {
@@ -90,6 +95,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public boolean allMatch(Predicate<? super T> predicate) {
         for (int i = 0; i < data.size(); i++) {
             if (!predicate.test(data.get(i))) {
@@ -100,6 +106,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public void forEach(Consumer<? super T> action) {
         for (int i = 0; i < data.size(); i++) {
             action.accept(data.get(i));
@@ -107,6 +114,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public T reduce(T identity, BinaryOperator<T> accumulator) {
         T result = identity;
         for (int i = 0; i < data.size(); i++) {
@@ -117,6 +125,7 @@ public final class ListStream<T> implements Stream<T> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public <R, A> R collect(Collector<? super T, A, R> collector) {
         if (collector.kind == Collector.TO_SET) {
             java.util.HashSet<T> s = new java.util.HashSet<>();
@@ -171,6 +180,7 @@ public final class ListStream<T> implements Stream<T> {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public List<T> toList() {
         ArrayList<T> copy = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {

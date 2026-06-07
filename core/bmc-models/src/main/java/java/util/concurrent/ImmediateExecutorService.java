@@ -19,18 +19,19 @@ import org.bmc4j.models.audit.BmcModelTail;
  */
 // Model-only class (no real java.util.concurrent.ImmediateExecutorService twin) implementing the
 // ExecutorService contract with same-thread semantics; exercised via the concurrency example + proofs.
-@BmcModelConforms("immediate/same-thread ExecutorService — synchronous submit, completed Future")
 @BmcModelTail(reason = "scheduling-bound ExecutorService surface not on the immediate model path (timed awaitTermination variants, invokeAny, scheduled hooks) — out of scope; loud under JBMC")
 public class ImmediateExecutorService implements ExecutorService {
 
     private boolean shutdown;
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public void execute(Runnable command) {
         command.run();
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public <T> Future<T> submit(Callable<T> task) {
         try {
             return new ImmediateFuture<>(task.call());
@@ -40,18 +41,21 @@ public class ImmediateExecutorService implements ExecutorService {
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public <T> Future<T> submit(Runnable task, T result) {
         task.run();
         return new ImmediateFuture<>(result);
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public Future<?> submit(Runnable task) {
         task.run();
         return new ImmediateFuture<>(null);
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException {
         List<Future<T>> results = new ArrayList<>();
         for (Callable<T> task : tasks) {
@@ -61,27 +65,32 @@ public class ImmediateExecutorService implements ExecutorService {
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public void shutdown() {
         shutdown = true;
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public List<Runnable> shutdownNow() {
         shutdown = true;
         return new ArrayList<>();
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public boolean isShutdown() {
         return shutdown;
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public boolean isTerminated() {
         return shutdown;
     }
 
     @Override
+    @BmcModelConforms("synchronous submit, completed Future")
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         return true;
     }

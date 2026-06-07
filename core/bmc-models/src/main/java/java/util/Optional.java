@@ -13,7 +13,6 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * one on JBMC's analysis classpath only (the real JVM ignores {@code java.*} models). Sound and
  * trivially bounded: there is no collection to unwind.
  */
-@BmcModelConforms("present-flag model — differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional); full surface modeled (empty/of/ofNullable/get/isPresent/isEmpty/orElse*/ifPresent*/map/filter/flatMap/or/stream)")
 public final class Optional<T> {
 
     private final T value;
@@ -25,12 +24,14 @@ public final class Optional<T> {
     }
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public static <T> Optional<T> empty() {
         return (Optional<T>) EMPTY;
     }
 
     private static final Optional<?> EMPTY = new Optional<>(null, false);
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public static <T> Optional<T> of(T value) {
         if (value == null) {
             throw new NullPointerException();
@@ -38,18 +39,22 @@ public final class Optional<T> {
         return new Optional<>(value, true);
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public static <T> Optional<T> ofNullable(T value) {
         return value == null ? empty() : of(value);
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public boolean isPresent() {
         return present;
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public boolean isEmpty() {
         return !present;
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public T get() {
         if (!present) {
             throw new NoSuchElementException();
@@ -57,18 +62,22 @@ public final class Optional<T> {
         return value;
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public T orElse(T other) {
         return present ? value : other;
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public T orElseGet(Supplier<? extends T> supplier) {
         return present ? value : supplier.get();
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public T orElseThrow() {
         return get();
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public <X extends Throwable> T orElseThrow(Supplier<? extends X> exceptionSupplier) throws X {
         if (present) {
             return value;
@@ -76,12 +85,14 @@ public final class Optional<T> {
         throw exceptionSupplier.get();
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public void ifPresent(Consumer<? super T> action) {
         if (present) {
             action.accept(value);
         }
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public void ifPresentOrElse(Consumer<? super T> action, Runnable emptyAction) {
         if (present) {
             action.accept(value);
@@ -90,11 +101,13 @@ public final class Optional<T> {
         }
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public <U> Optional<U> map(Function<? super T, ? extends U> mapper) {
         return present ? Optional.ofNullable(mapper.apply(value)) : Optional.empty();
     }
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public <U> Optional<U> flatMap(Function<? super T, ? extends Optional<? extends U>> mapper) {
         if (!present) {
             return empty();
@@ -107,6 +120,7 @@ public final class Optional<T> {
         return r;
     }
 
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public Optional<T> filter(Predicate<? super T> predicate) {
         if (!present) {
             return this;
@@ -115,6 +129,7 @@ public final class Optional<T> {
     }
 
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public Optional<T> or(Supplier<? extends Optional<? extends T>> supplier) {
         if (present) {
             return this;
@@ -133,6 +148,7 @@ public final class Optional<T> {
      * the stream models already provide — no extra hole.
      */
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional)")
     public Stream<T> stream() {
         return present ? Stream.of(value) : (Stream<T>) Stream.of();
     }

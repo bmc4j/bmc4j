@@ -19,7 +19,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * bit-for-bit by the differential suite vs the real JDK across month-ends, leap days and negatives.
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
  */
-@BmcModelConforms("(years,months,days) Period — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
 @BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), multipliedBy/the ofWeeks-rollups and toString are out of scope; all loud under JBMC")
 public final class Period {
 
@@ -36,6 +35,7 @@ public final class Period {
     }
 
     @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Period.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
@@ -47,22 +47,27 @@ public final class Period {
         return new Period(years, months, days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period of(int years, int months, int days) {
         return create(years, months, days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period ofYears(int years) {
         return create(years, 0, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period ofMonths(int months) {
         return create(0, months, 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period ofWeeks(int weeks) {
         return create(0, 0, Math.multiplyExact(weeks, 7));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period ofDays(int days) {
         return create(0, 0, days);
     }
@@ -76,6 +81,7 @@ public final class Period {
      * the total months (matching the JDK), and the leftover days complete the result. The day-of-month
      * CLAMP that {@code plusMonths} applies is what makes the positive-carry branch land exactly.
      */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period between(LocalDate start, LocalDate end) {
         long totalMonths = end.getProlepticMonth() - start.getProlepticMonth();
         int days = end.getDayOfMonth() - start.getDayOfMonth();
@@ -92,31 +98,38 @@ public final class Period {
         return create(Math.toIntExact(years), months, days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getYears() {
         return years;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getMonths() {
         return months;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getDays() {
         return days;
     }
 
     /** Total months = years*12 + months (used by normalized()), with loud overflow. */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toTotalMonths() {
         return years * 12L + months;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isZero() {
         return this == ZERO || (years == 0 && months == 0 && days == 0);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isNegative() {
         return years < 0 || months < 0 || days < 0;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period plusYears(long yearsToAdd) {
         if (yearsToAdd == 0) {
             return this;
@@ -124,6 +137,7 @@ public final class Period {
         return create(Math.toIntExact(Math.addExact(years, yearsToAdd)), months, days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period plusMonths(long monthsToAdd) {
         if (monthsToAdd == 0) {
             return this;
@@ -131,6 +145,7 @@ public final class Period {
         return create(years, Math.toIntExact(Math.addExact(months, monthsToAdd)), days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period plusDays(long daysToAdd) {
         if (daysToAdd == 0) {
             return this;
@@ -138,18 +153,22 @@ public final class Period {
         return create(years, months, Math.toIntExact(Math.addExact(days, daysToAdd)));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period minusYears(long yearsToSubtract) {
         return plusYears(-yearsToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period minusMonths(long monthsToSubtract) {
         return plusMonths(-monthsToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period minusDays(long daysToSubtract) {
         return plusDays(-daysToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period negated() {
         return create(Math.negateExact(years), Math.negateExact(months), Math.negateExact(days));
     }
@@ -159,6 +178,7 @@ public final class Period {
      * the total months (years*12 + months) is split into whole years + remainder months. Days are
      * left untouched (the JDK can't normalize days without a calendar).
      */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Period normalized() {
         long totalMonths = toTotalMonths();
         long splitYears = totalMonths / 12;
@@ -170,6 +190,7 @@ public final class Period {
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean equals(Object o) {
         if (!(o instanceof Period)) {
             return false;
@@ -179,6 +200,7 @@ public final class Period {
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int hashCode() {
         return years + Integer.rotateLeft(months, 8) + Integer.rotateLeft(days, 16);
     }

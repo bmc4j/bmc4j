@@ -16,28 +16,32 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * ({@code coerceIn(0, 0, 95) == 96}) the moment an example used it. Other primitive overloads
  * (double/float/Comparable) remain stubs until something needs them.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class RangesKt {
 
     private RangesKt() {
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int coerceAtLeast(int value, int minimumValue) {
         return value < minimumValue ? minimumValue : value;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static long coerceAtLeast(long value, long minimumValue) {
         return value < minimumValue ? minimumValue : value;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int coerceAtMost(int value, int maximumValue) {
         return value > maximumValue ? maximumValue : value;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static long coerceAtMost(long value, long maximumValue) {
         return value > maximumValue ? maximumValue : value;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int coerceIn(int value, int minimumValue, int maximumValue) {
         if (minimumValue > maximumValue) {
             throw new IllegalArgumentException("Cannot coerce value to an empty range: maximum "
@@ -52,6 +56,7 @@ public final class RangesKt {
         return value;
     }
 
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static long coerceIn(long value, long minimumValue, long maximumValue) {
         if (minimumValue > maximumValue) {
             throw new IllegalArgumentException("Cannot coerce value to an empty range: maximum "

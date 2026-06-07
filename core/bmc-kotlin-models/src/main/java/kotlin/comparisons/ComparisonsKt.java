@@ -12,13 +12,13 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * nulls ordered first (a null is "less than" any non-null, two nulls are equal). Sound for boxed
  * primitives and Strings' lexicographic compareTo.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class ComparisonsKt {
 
     private ComparisonsKt() {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int compareValues(Comparable a, Comparable b) {
         if (a == b) {
             return 0;

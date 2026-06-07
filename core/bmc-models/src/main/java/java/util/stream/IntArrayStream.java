@@ -7,7 +7,6 @@ import java.util.function.IntUnaryOperator;
 import org.bmc4j.models.audit.BmcModelConforms;
 
 /** Eager, {@code int[]}-backed {@link IntStream} model (fixed capacity, like the collection models). */
-@BmcModelConforms("concrete eager IntStream impl backing the IntStream model — @BmcProof (proofs.stream)")
 final class IntArrayStream implements IntStream {
 
     private static final int CAPACITY = 64;
@@ -20,6 +19,7 @@ final class IntArrayStream implements IntStream {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public IntStream map(IntUnaryOperator op) {
         IntArrayStream s = new IntArrayStream();
         for (int i = 0; i < size; i++) {
@@ -29,6 +29,7 @@ final class IntArrayStream implements IntStream {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public IntStream filter(IntPredicate predicate) {
         IntArrayStream s = new IntArrayStream();
         for (int i = 0; i < size; i++) {
@@ -40,6 +41,7 @@ final class IntArrayStream implements IntStream {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public int sum() {
         int t = 0;
         for (int i = 0; i < size; i++) {
@@ -49,11 +51,13 @@ final class IntArrayStream implements IntStream {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public long count() {
         return size;
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public boolean anyMatch(IntPredicate predicate) {
         for (int i = 0; i < size; i++) {
             if (predicate.test(data[i])) {
@@ -64,6 +68,7 @@ final class IntArrayStream implements IntStream {
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public Stream<Integer> boxed() {
         ArrayList<Integer> l = new ArrayList<>();
         for (int i = 0; i < size; i++) {
