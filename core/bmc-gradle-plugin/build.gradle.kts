@@ -44,16 +44,37 @@ dependencies {
     // The KSP Gradle plugin, so the bmc plugin can `pluginManager.apply("com.google.devtools.ksp")`
     // for a Kotlin consumer with zero ceremony (the consumer needn't declare KSP itself). Unlike kapt
     // — which ships inside KGP and is on the consumer classpath automatically — KSP is a separate
-    // plugin, so it must travel with this plugin to be applyable programmatically. KSP2 runs as its
-    // own compiler invocation and drives a newer consumer Kotlin than its own version, so pinning
-    // 2.3.9 here still works under the -PbmcKotlinVersion legs. `implementation`: it is on the
-    // plugin's runtime/buildscript classpath, but only ever applied inside the Kotlin-JVM `withPlugin`
-    // block, so a Java-only consumer never triggers KSP.
-    implementation("com.google.devtools.ksp:symbol-processing-gradle-plugin:2.3.9")
+    // plugin, so it must travel with this plugin (on its runtime/buildscript classpath) to be
+    // applyable programmatically. It is only ever applied inside the Kotlin-JVM `withPlugin` block, so
+    // a Java-only consumer never triggers KSP.
+    //
+    // CRITICAL — version-PAIR KSP to the consumer's Kotlin (KGP): KSP's task-configuration shim calls
+    // KGP DSL whose surface is version-coupled to the consumer's Kotlin — e.g. KSP >= 2.3.x calls
+    // KotlinJvmCompilerOptions.getJvmDefault(), which only exists in KGP >= 2.2. A single fixed KSP
+    // (the old hard-pinned 2.3.9) therefore crashed the older -PbmcKotlinVersion legs (2.0.21 ->
+    // NoSuchMethodError on getJvmDefault). This plugin is consumed via `includeBuild("core")`, so its
+    // own build sees the composite's -PbmcKotlinVersion and bundles the PAIRED KSP onto the consumer's
+    // buildscript classpath for that leg. Pairings (latest release per Kotlin leg; KSP1 names are
+    // `<kotlin>-1.0.x`, the Kotlin-pinned KSP2 scheme is `<kotlin>-2.x`, and KSP's newer decoupled
+    // scheme is plain `2.3.x` for Kotlin >= 2.3):
+    //   2.0.21 -> 2.0.21-1.0.28  (KSP1; last KSP supporting KGP 2.0.x — predates the getJvmDefault call)
+    //   2.2.21 -> 2.2.21-2.0.5   (KSP2, Kotlin-pinned scheme)
+    //   2.3.21 -> 2.3.9          (KSP2, decoupled scheme; relies on KGP >= 2.2's getJvmDefault)
+    //   2.4.0  -> 2.3.9          (KSP2, decoupled scheme; the pairing the Kotlin docs show for 2.4.0)
+    // The published (non-includeBuild) plugin bundles the default-leg KSP (2.3.9), pairing with the
+    // 2.3.21/2.4.0-class KGPs real consumers run; the table only varies the bundled KSP for the CI
+    // back-compat legs that drive an older consumer kotlinc.
+    val bmcKotlinVersion = providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0"
+    val pairedKspVersion = when (bmcKotlinVersion) {
+        "2.0.21" -> "2.0.21-1.0.28"
+        "2.2.21" -> "2.2.21-2.0.5"
+        else -> "2.3.9" // 2.3.21, 2.4.0, and the default
+    }
+    implementation("com.google.devtools.ksp:symbol-processing-gradle-plugin:$pairedKspVersion")
     testImplementation(gradleTestKit())
     // ProjectBuilder tests apply the Kotlin JVM + KSP plugins to assert the Kotlin contracts wiring,
     // so KGP must be on the test classpath (it is only compileOnly for main); KSP comes via the
-    // implementation dependency above.
+    // implementation dependency above (the leg's paired version).
     testImplementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
 }
 

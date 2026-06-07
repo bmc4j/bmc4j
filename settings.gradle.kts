@@ -18,10 +18,13 @@ pluginManagement {
         id("org.jetbrains.kotlin.jvm") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
     }
     // The KSP plugin (replacing the deprecated kapt) that the org.bmc4j plugin applies to a Kotlin
-    // consumer is NOT declared here: it travels with the bmc plugin (an `implementation` dependency of
-    // bmc-gradle-plugin) and is applied programmatically, so it needs no version pin in this block.
-    // KSP2 runs as its own compiler invocation and drives a newer consumer Kotlin than its own
-    // version, so the bmc-pinned KSP works across the -PbmcKotlinVersion legs.
+    // consumer is NOT declared here: it travels with the bmc plugin (a dependency of
+    // bmc-gradle-plugin) and is applied programmatically by id, so it needs no version pin in this
+    // block. The bmc plugin's build version-PAIRS that bundled KSP to the consumer Kotlin (KGP) via
+    // the same bmcKotlinVersion property used above — see core/bmc-gradle-plugin/build.gradle.kts —
+    // because KSP's task-configuration shim calls KGP DSL that is version-coupled (e.g. KSP >= 2.3.x
+    // calls KotlinJvmCompilerOptions.getJvmDefault(), which only exists in KGP >= 2.2), so a KSP
+    // newer than the consumer's KGP crashes the older legs (2.0.21 -> NoSuchMethodError).
 }
 
 // Auto-provision JDK toolchains (the examples + model-conformance-proofs pin a
