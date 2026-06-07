@@ -70,6 +70,13 @@ for a reason — range reduction usually beats it.
   re-solved (including a fail-on-purpose demo whose expected `REFUTED`/`VACUOUS` arrived) — a
   "nothing changed" run is near-free, so the expensive solve happens
   once per actual change ([configuration → Verdict cache](configuration.md#verdict-cache)).
+- **Per-proof model slicing**: the engine only ever parses the model surface a proof
+  actually reaches — its transitively-reachable cone of classes — so the analysis
+  classpath stays small no matter how many models the library accumulates. Unrelated
+  model growth no longer taxes every proof. It's automatic and needs no configuration; a
+  proof that can't be bounded statically (reflection / unresolvable `invokedynamic`)
+  conservatively keeps the whole surface, and a class wrongly left out would surface as a
+  named UNKNOWN, never a silent pass.
 - **Parallelism**: proofs verify concurrently, one engine process per proof, sized to
   your CPUs.
 - **Fail-fast budgets in CI**: a per-run `-Dbmc.timeoutSeconds=180` means a
