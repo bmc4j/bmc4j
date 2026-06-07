@@ -44,12 +44,59 @@ interface SumToContract {
 ```
 
 **Kotlin shapes** that bind: `object`/`companion` `@JvmStatic` methods (static targets), pure instance
-methods (receiver threaded as `self`), and methods with **default parameters** (the `$default`
-synthetic's call is redirected too). Shapes the processor rejects **loudly** (a silent failure to bind
-is a hard error): a **value/inline-class** parameter or return (kapt mangles the JVM name and drops the
-annotations — unwrap the value class at the boundary), a bare **top-level `fun`** (its facade class is
-unnameable from Kotlin — use an `object`/`companion`), and **`suspend`** functions (they return a
-coroutine state machine, not a value). See [`examples/contracts-kotlin`](../examples/contracts-kotlin).
+methods (receiver threaded as `self`), methods with **default parameters** (the `$default` synthetic's
+call is redirected too), and **`suspend` functions** (see below). Shapes the processor rejects
+**loudly** (a silent failure to bind is a hard error): a **value/inline-class** parameter or return
+(kapt mangles the JVM name and drops the annotations — unwrap the value class at the boundary), a bare
+**top-level `fun`** (its facade class is unnameable from Kotlin — use an `object`/`companion`), a
+**suspend function returning a `Flow`** or other stream (a contract describes one completed result, not
+a stream of emissions), and a **suspend function whose declared result type is unrecoverable** (a raw
+`Continuation`, or a type-variable result). See [`examples/contracts-kotlin`](../examples/contracts-kotlin).
+
+### `suspend` functions
+
+Most Kotlin is written `suspend`, so contracts cover suspend targets too. A `suspend fun f(args): R` is
+compiled to `Object f(args, Continuation)` over a state machine; bmc4j analyses it under the same
+**immediate-dispatch idealization** the coroutine proofs use (see
+[`examples/concurrency-kotlin`](../examples/concurrency-kotlin) and [limits](limits.md)): a suspend call
+completes linearly in one call — every nested suspension point resolves synchronously — so the
+processor binds the **declared** Kotlin shape. The trailing `Continuation` is coroutine plumbing, hidden
+from the predicates; the declared result type `R` is recovered from it, so `@Requires`/`@Ensures` see
+`f(args): R` exactly as written, with no coroutine types leaking in:
+
+```kotlin
+// src/main — a plain suspend fun on a nameable object
+object Calcs {
+    @JvmStatic suspend fun stepTo(n: Int): Int { /* loops, suspends into a helper */ }
+}
+
+// src/test — the contract mirrors the suspend signature; predicates bind the declared Int
+@BmcContractsFor(Calcs::class)
+interface CalcContract {
+    @Requires("bounded") @Ensures("isN") suspend fun stepTo(n: Int): Int
+    companion object {
+        @JvmStatic fun bounded(n: Int): Boolean = n in 0..5
+        @JvmStatic fun isN(result: Int, n: Int): Boolean = result == n   // no Continuation here
+    }
+}
+```
+
+The **replace-stub** speaks the lowered ABI — same `(args, Continuation)Object` descriptor, so a call
+site is rewritten with the operand stack unchanged whether the **caller** is itself `suspend` or drives
+the call through `runBlocking { }`. It checks `@Requires`, havocs a result of the declared type,
+assumes `@Ensures`, and returns it boxed — it never yields `COROUTINE_SUSPENDED`. The **enforce-proof**
+drives the real body to completion with an immediately-completing continuation (the same immediate
+dispatch) and checks `@Ensures` on the completed result. **Semantics:** `@Requires` is checked at entry
+and `@Ensures` at completion — exactly as for an ordinary value-returning method. Real-world
+suspension-point *interleaving* (concurrent coroutines, dispatcher hops, cancellation timing) is outside
+this single-thread idealization, the same boundary the `runBlocking { }` proofs draw; for that, reach
+for Lincheck (see [limits](limits.md)).
+
+The purity audit (below) applies unchanged: it allows the benign per-call coroutine plumbing a suspend
+body unavoidably contains — writes to its own fresh state-machine (continuation) fields and the
+`COROUTINE_SUSPENDED` sentinel read — but **still rejects** a real `this`-mutation or any other genuine
+effect, so an impure suspend method is not a legal contract target either (the `suspendcontracts`
+concept ships exactly such a rejected contract).
 
 ## Java
 
@@ -130,7 +177,11 @@ Read these before trusting a contract:
   static call graph over the same model-bearing bytecode JBMC analyses (so JDK calls resolve to
   bmc's sound models), and treats a call to another contract's stub as an already-summarized
   pure leaf — that callee's purity is its own contract's obligation, exactly like modular
-  enforce. **Exception behaviour is deliberately not audited:** the replace-stub never throws,
+  enforce. For a **`suspend`** target it additionally allows the narrow, individually-justified set
+  of benign coroutine plumbing a suspend body must contain — writes/reads of its own fresh,
+  non-escaping state-machine (continuation) fields and the `COROUTINE_SUSPENDED` sentinel read — but
+  this is **not** a blanket pass on `kotlin`/`kotlinx.coroutines`: a real `this`-mutation (or any
+  other genuine effect) inside a suspend body is still rejected. **Exception behaviour is deliberately not audited:** the replace-stub never throws,
   and the enforce-proof runs the real body under `@Requires`, so enforce-green *already is* a
   no-throw-under-`requires` proof. The `examples/contracts` `purity` concept ships an
   intentionally-impure contract whose enforce-proof the audit rejects (its `PUTSTATIC` named).

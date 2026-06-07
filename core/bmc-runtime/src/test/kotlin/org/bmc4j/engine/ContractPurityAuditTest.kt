@@ -386,6 +386,72 @@ internal class ContractPurityAuditTest {
         assertTrue(ex.message!!.contains("writes field pkg/Mut2.value"), ex.message)
     }
 
+    // ---- coroutine (suspend) plumbing allowance ----------------------------------------------
+
+    @Test
+    fun certifies_a_write_to_a_coroutine_state_machine_field(@TempDir dir: Path) {
+        // A suspend body writes its OWN state-machine fields (label, L$0, result). The state machine is
+        // a fresh, per-call, non-escaping continuation; the audit allows a write to a class that
+        // transitively extends a Kotlin continuation base. Here `pkg/SM` extends BaseContinuationImpl
+        // and a contracted target writes SM.label — must CERTIFY (the plumbing allowance), even though
+        // the receiver (ALOAD 0) is conservatively non-fresh.
+        emitContinuation(dir, "pkg/SM", "kotlin/coroutines/jvm/internal/BaseContinuationImpl")
+        emit(dir, "pkg/Susp") { cw ->
+            // static int drive(pkg/SM sm) { sm.label = 1; return 0; }
+            method(cw, "drive", "(Lpkg/SM;)I") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)         // the state machine (pre-existing per the shadow)
+                mv.visitInsn(Opcodes.ICONST_1)
+                mv.visitFieldInsn(Opcodes.PUTFIELD, "pkg/SM", "label", "I") // plumbing write -> allowed
+                mv.visitInsn(Opcodes.ICONST_0)
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        assertCertifies(dir, "pkg/Susp", "drive", "(Lpkg/SM;)I")
+    }
+
+    @Test
+    fun certifies_reading_the_coroutine_suspended_sentinel(@TempDir dir: Path) {
+        // GETSTATIC of the COROUTINE_SUSPENDED sentinel is a fixed runtime constant — allowed despite
+        // the general "no mutable-static read" rule. (Reading any OTHER reference static still rejects;
+        // see rejects_read_of_a_mutable_static.)
+        emit(dir, "pkg/Sentinel") { cw ->
+            method(cw, "f", "()Ljava/lang/Object;") { mv ->
+                mv.visitFieldInsn(Opcodes.GETSTATIC,
+                        "kotlin/coroutines/intrinsics/CoroutineSingletons", "COROUTINE_SUSPENDED",
+                        "Lkotlin/coroutines/intrinsics/CoroutineSingletons;")
+                mv.visitInsn(Opcodes.ARETURN)
+            }
+        }
+        assertCertifies(dir, "pkg/Sentinel", "f", "()Ljava/lang/Object;")
+    }
+
+    @Test
+    fun rejects_receiver_mutation_inside_a_suspend_body(@TempDir dir: Path) {
+        // The soundness pin: the coroutine allowance must NOT let real `this`-mutation through. A
+        // suspend body's lowered invokeSuspend writes the RECEIVER's field (owner = the receiver class,
+        // NOT a continuation class), so it must still REJECT. Model it as a method on a non-continuation
+        // class writing its own pre-existing field — exactly the shape Accumulator.add lowers to.
+        emit(dir, "pkg/Acc") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC, "total", "I", null, null).visitEnd()
+            instanceMethod(cw, "pkg/Acc", "add", "(I)I") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)   // this (the receiver, pre-existing)
+                mv.visitInsn(Opcodes.DUP)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Acc", "total", "I")
+                mv.visitVarInsn(Opcodes.ILOAD, 1)
+                mv.visitInsn(Opcodes.IADD)
+                mv.visitFieldInsn(Opcodes.PUTFIELD, "pkg/Acc", "total", "I") // writes this.total -> reject
+                mv.visitVarInsn(Opcodes.ALOAD, 0)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Acc", "total", "I")
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        val ex = assertThrows(ContractPurityError::class.java) {
+            ContractPurityAudit.audit(listOf(instanceRedirect("pkg/Acc", "add", "(I)I")), dir.toString())
+        }
+        assertTrue(ex.message!!.contains("writes field pkg/Acc.total"),
+                "a real receiver mutation inside a suspend body must still be rejected: ${ex.message}")
+    }
+
     @Test
     fun no_redirects_is_a_no_op() {
         // Should not throw even with a bogus classpath — nothing to audit.
@@ -491,6 +557,19 @@ internal class ContractPurityAuditTest {
         code(mv)
         mv.visitMaxs(0, 0) // COMPUTE_MAXS
         mv.visitEnd()
+    }
+
+    /** Emit a coroutine state-machine fixture: a public class [internalName] extending [superName] (a
+     *  Kotlin continuation base) with a `label` field — the shape the audit recognises as per-call
+     *  plumbing whose field writes are allowed. */
+    private fun emitContinuation(dir: Path, internalName: String, superName: String) {
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, superName, null)
+        cw.visitField(Opcodes.ACC_PUBLIC, "label", "I", null, null).visitEnd()
+        cw.visitEnd()
+        val out = dir.resolve("$internalName.class")
+        Files.createDirectories(out.parent)
+        Files.write(out, cw.toByteArray())
     }
 
     /** Emit a public class [internalName] into [dir] via [body], with a default no-arg ctor omitted

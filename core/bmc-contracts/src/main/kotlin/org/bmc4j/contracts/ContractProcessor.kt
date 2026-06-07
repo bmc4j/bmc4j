@@ -87,17 +87,6 @@ class ContractProcessor : AbstractProcessor() {
                 continue
             }
             val mirror = member as ExecutableElement
-            // LOUD reject of Kotlin shapes contracts can't bind. A mirror with a hidden
-            // `kotlin.coroutines.Continuation` parameter is a `suspend` function: it returns
-            // `Object` (the resumed value or COROUTINE_SUSPENDED) over a state machine, not a value,
-            // so it is neither pure nor a legal value-returning target. Reject it by name rather than
-            // letting it silently bind to a `(…,Continuation)Object` shape no caller expects.
-            if (isSuspend(mirror)) {
-                error(mirror, "contract mirror '${mirror.simpleName}' is a suspend function;" +
-                        " suspend functions are not supported (they return a coroutine state machine," +
-                        " not a value). Contract a non-suspend, pure, value-returning method instead")
-                continue
-            }
             // NOTE on value/inline classes: a mirror that takes or returns one is name-mangled by
             // Kotlin (`f-<hash>`) and OMITTED from kapt's Java stub, so it never reaches this loop —
             // the type ends up binding zero contracts and is rejected loudly below. (We can't report
@@ -108,20 +97,51 @@ class ContractProcessor : AbstractProcessor() {
                 continue // a predicate method (or other), not a contract mirror
             }
             val name = mirror.simpleName.toString()
-            val params: List<Map.Entry<String, String>> = mirror.parameters.map {
+            // A `suspend` mirror is lowered to `(args, Continuation)Object`. The contract binds the
+            // DECLARED Kotlin shape: the trailing Continuation is coroutine plumbing (hidden from the
+            // predicates) and the declared result type is the Continuation's type argument, not the
+            // erased `Object` return. Everything else (binding, instance/static, expect) is unchanged.
+            val suspend = isSuspend(mirror)
+            // Predicate parameters: all mirror parameters except a suspend mirror's trailing Continuation.
+            val predicateParams = if (suspend) mirror.parameters.dropLast(1) else mirror.parameters
+            val params: List<Map.Entry<String, String>> = predicateParams.map {
                 AbstractMap.SimpleImmutableEntry(typeSource(it.asType()), it.simpleName.toString())
             }
             // Resolve the mirror's signature against the target class to learn whether the contracted
             // method is static or a pure instance method (the receiver is then threaded as `self`). A
             // mirror that binds to nothing on the target is an orphan — a production rename or typo;
             // report it now with a clear message rather than letting the generated enforce-proof fail
-            // to compile against a missing method.
+            // to compile against a missing method. (For a suspend mirror this matches the lowered
+            // `(…,Continuation)Object` target the Kotlin compiler emits, so binding works unchanged.)
             val bound = resolveTargetMethod(target, mirror)
             if (bound == null) {
                 error(mirror, "no method on ${target.simpleName} matches the contract mirror" +
                         " '$name${signature(mirror)}' — the target may have been renamed or its" +
                         " signature changed; update the mirror or the production method to match")
                 continue
+            }
+            // The declared result type and its boxed reference form for a suspend contract. Out-of-scope
+            // suspend result shapes (Flow/streaming, an unrecoverable declared type) are rejected loudly.
+            var declaredReturn = typeSource(mirror.returnType)
+            var suspendBoxedReturn: String? = null
+            if (suspend) {
+                val declared = suspendDeclaredReturn(mirror)
+                if (declared == null) {
+                    error(mirror, "suspend contract mirror '$name' has an unrecoverable declared result" +
+                            " type: its lowered Continuation parameter must be" +
+                            " kotlin.coroutines.Continuation<? super R> for a concrete R. A type-variable" +
+                            " or unbounded result can't be contracted")
+                    continue
+                }
+                if (isFlowType(declared)) {
+                    error(mirror, "suspend contract mirror '$name' returns a Flow ($declared):" +
+                            " contracts describe a single completed result, not a stream of emissions." +
+                            " Streaming/Flow behavior is out of scope — contract a suspend function that" +
+                            " returns one value")
+                    continue
+                }
+                declaredReturn = unboxIfBoxedPrimitive(declared)
+                suspendBoxedReturn = declared
             }
             val isInstance = !bound.modifiers.contains(javax.lang.model.element.Modifier.STATIC)
             val receiverType = if (isInstance) targetFqn else null
@@ -131,8 +151,8 @@ class ContractProcessor : AbstractProcessor() {
             val expectEnforce = methodExpect?.value?.name
                     ?: contractType.getAnnotation(BmcContractsFor::class.java).expectEnforce.name
             contracts.add(ContractStubGenerator.Contract(targetFqn, contractFqn, name,
-                    typeSource(mirror.returnType), params,
-                    requires?.value, ensures?.value, expectEnforce, receiverType))
+                    declaredReturn, params,
+                    requires?.value, ensures?.value, expectEnforce, receiverType, suspendBoxedReturn))
             // SOUNDNESS: only a contract whose enforce-proof is expected to VERIFY may publish a
             // reusable redirect. A non-VERIFIED contract (@ExpectEnforce REFUTED/VACUOUS, or a
             // type-level non-VERIFIED expectEnforce) declares the framework KNOWS its @Ensures is
@@ -216,6 +236,62 @@ class ContractProcessor : AbstractProcessor() {
         val element = (last as DeclaredType).asElement()
         return element is TypeElement &&
                 element.qualifiedName.toString() == "kotlin.coroutines.Continuation"
+    }
+
+    /**
+     * The DECLARED Kotlin result type of a `suspend` [mirror], recovered from its lowered
+     * `Continuation<? super R>` tail parameter, or `null` if it can't be recovered as a concrete type.
+     * Kotlin lowers `suspend fun f(args): R` to `Object f(args, Continuation<? super R>)`, so the
+     * declared result is the Continuation's single type argument (`R`). A boxed primitive (`Integer`
+     * for `Int`, etc.) is left boxed here — the caller unboxes it for the predicate signature.
+     *
+     * The type argument is a `? super R` wildcard whose **super bound** is `R`. A bare `Continuation`
+     * (raw / no type argument) or a type-variable argument yields `null` (unrecoverable).
+     */
+    private fun suspendDeclaredReturn(mirror: ExecutableElement): String? {
+        val last = mirror.parameters.lastOrNull()?.asType() ?: return null
+        if (last.kind != TypeKind.DECLARED) {
+            return null
+        }
+        val args = (last as DeclaredType).typeArguments
+        if (args.size != 1) {
+            return null // raw Continuation — no recoverable declared type
+        }
+        val arg = args[0]
+        // `Continuation<? super R>` -> a WildcardType with super bound R. kapt usually presents the
+        // declaration-site `out`-projected argument as a `? super R` wildcard; accept a plain declared
+        // argument too (defensive) for the rare invariant projection.
+        val resolved: TypeMirror = when (arg.kind) {
+            TypeKind.WILDCARD -> (arg as javax.lang.model.type.WildcardType).superBound ?: return null
+            TypeKind.DECLARED -> arg
+            else -> return null // TYPEVAR, ARRAY-of-typevar, etc. — unrecoverable
+        }
+        if (resolved.kind != TypeKind.DECLARED) {
+            return null
+        }
+        return typeSource(resolved)
+    }
+
+    /** True when [declaredFqn] is a Kotlin `Flow` (a stream of emissions, not a single completed
+     *  value) — out of scope for contracts, which describe one completed result. */
+    private fun isFlowType(declaredFqn: String): Boolean =
+            declaredFqn == "kotlinx.coroutines.flow.Flow" ||
+                    declaredFqn == "kotlinx.coroutines.flow.SharedFlow" ||
+                    declaredFqn == "kotlinx.coroutines.flow.StateFlow"
+
+    /** Unbox a boxed-primitive FQN to its Kotlin-declared primitive (so the predicate binds `int`, not
+     *  `Integer` — kapt lowers a `suspend fun … : Int` predicate parameter to a primitive `int`). A
+     *  non-boxed reference type (e.g. java.lang.String) is returned unchanged. */
+    private fun unboxIfBoxedPrimitive(boxedFqn: String): String = when (boxedFqn) {
+        "java.lang.Integer" -> "int"
+        "java.lang.Long" -> "long"
+        "java.lang.Short" -> "short"
+        "java.lang.Byte" -> "byte"
+        "java.lang.Character" -> "char"
+        "java.lang.Boolean" -> "boolean"
+        "java.lang.Float" -> "float"
+        "java.lang.Double" -> "double"
+        else -> boxedFqn
     }
 
     /** A readable `(int, java.lang.String)` parameter list for diagnostics. */

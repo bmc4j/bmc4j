@@ -1,12 +1,21 @@
 // Contracts (Kotlin) — method contracts (@Requires/@Ensures) declared test-side from KOTLIN, with
 // the processor wired via kapt by the org.bmc4j plugin (the processor is a javac annotation
 // processor; KSP can't host it). One package per concept (basics, instance, defaults, soundness,
-// purity). The low per-proof bounds that make the "contracts beat inlining" point are set with
+// purity, suspendcontracts). The low per-proof bounds that make the "contracts beat inlining" point are set with
 // @BmcProof(unwind = …); the auto-generated enforce proofs discharge each @Ensures against the real
 // Kotlin body. The Kotlin counterpart of examples/contracts.
 plugins {
     kotlin("jvm") // version from the root settings pluginManagement (-PbmcKotlinVersion overrides)
     id("org.bmc4j") // applies kapt + wires kaptTest(bmc-contracts) + javaParameters automatically
+}
+
+dependencies {
+    // The `suspendcontracts` concept contracts `suspend` functions: production code is `suspend`
+    // (kotlinx-coroutines on the main classpath) and the caller proofs drive them through
+    // `runBlocking { }` (test classpath). JBMC analyses clean bundled models of the coroutine runtime
+    // (no real dispatcher/event loop), exactly like `examples/concurrency-kotlin`.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }
 
 // The CONSUMER-side compile target. Default 25; the Kotlin-version CI matrix passes
@@ -32,5 +41,12 @@ tasks.withType<Test>().configureEach {
     // audit's message naming the PUTFIELD on the receiver.)
     filter {
         excludeTestsMatching("contracts.purity.LedgerContract__BmcEnforce")
+        // The `suspendcontracts` concept ALSO ships an intentionally-impure contract — on the suspend
+        // method example.suspendcontracts.Accumulator.add, which mutates a pre-existing field of `this`
+        // underneath the coroutine plumbing. The purity audit's coroutine allowance list lets the
+        // state-machine plumbing through but still rejects the receiver mutation, so this contract's
+        // enforce-proof is rejected at proof time with a ContractPurityError — excluded here, with
+        // proofs.suspendcontracts.SuspendPurityAuditDemoTest documenting it deterministically.
+        excludeTestsMatching("contracts.suspendcontracts.AccumulatorContract__BmcEnforce")
     }
 }

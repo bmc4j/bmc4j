@@ -104,6 +104,36 @@ internal object ContractPurityAudit {
             "java/lang/invoke/MethodHandles",
             "java/lang/invoke/VarHandle")
 
+    // ---- coroutine (suspend) plumbing allowance ----------------------------------------------
+    //
+    // A `suspend` function is lowered to `(args, Continuation)Object` over a generated state machine,
+    // and bmc4j contracts suspend targets under the immediate-dispatch idealization (a suspend call
+    // completes linearly in one call). Such a body unavoidably touches a small set of provably-benign
+    // coroutine internals that the general purity rules would otherwise flag. Each allowance below is
+    // narrow and individually justified — we do NOT blanket-allow kotlin/kotlinx coroutines, so a real
+    // `this`-mutation (or any other genuine effect) inside a suspend body still rejects.
+
+    /** The base classes of a Kotlin coroutine **state machine** (continuation). The compiler emits a
+     *  synthetic `Owner$method$N` per suspend function that extends one of these; bmc4j bundles clean
+     *  models of them. A class transitively extending one is the per-call, non-escaping state machine —
+     *  writes/reads of ITS OWN fields (`label`, `L$N`, `result`, `completion`) are internal plumbing,
+     *  never a caller-observable effect, so they are allowed (see [isCoroutineStateMachine]). */
+    private val CONTINUATION_BASES: Set<String> = setOf(
+            "kotlin/coroutines/jvm/internal/BaseContinuationImpl",
+            "kotlin/coroutines/jvm/internal/ContinuationImpl",
+            "kotlin/coroutines/jvm/internal/RestrictedContinuationImpl",
+            "kotlin/coroutines/jvm/internal/SuspendLambda",
+            "kotlin/coroutines/jvm/internal/RestrictedSuspendLambda")
+
+    /** `GETSTATIC owner.name` reads that are allowed inside coroutine plumbing despite the general
+     *  "no mutable-static read" rule: each is a constant suspension sentinel, not run-varying state. */
+    private val ALLOWED_COROUTINE_STATICS: Set<String> = setOf(
+            // The COROUTINE_SUSPENDED sentinel — a `static final` enum singleton compared by identity at
+            // every suspension point. Its value is a fixed constant of the runtime, identical in the
+            // enforce-proof and at every call site, so reading it is not a function of run-varying state.
+            "kotlin/coroutines/intrinsics/CoroutineSingletons.COROUTINE_SUSPENDED",
+            "kotlin/coroutines/intrinsics/IntrinsicsKt.COROUTINE_SUSPENDED")
+
     /** `"owner.name"` call sites that are impure even though their owner has pure methods too —
      *  wall-clock reads and process/IO entry points on otherwise-fine classes. */
     private val IMPURE_METHODS: Set<String> = setOf(
@@ -274,6 +304,16 @@ internal object ContractPurityAudit {
             if (m !== root && isBoundary(m, boundaries)) {
                 continue
             }
+            // A PURE_JDK_FLOOR owner is a vouched-for effect-free value type (boxing wrappers, Math,
+            // Objects, String value ops, exception construction). Treat it as a pure leaf even when a
+            // bundled MODEL supplies a body — otherwise the model's own constructor (e.g.
+            // Integer.<init> writing this.value while boxing a suspend result) would read as a write to
+            // non-fresh state. These owners are certified pure by construction; their bodies needn't be
+            // re-derived. (Without a model body this is already handled in the body==null branch below;
+            // this covers the with-model case the suspend boxing path newly exercises.)
+            if (m !== root && isPureJdkFloor(m.owner)) {
+                continue
+            }
             val body = index.find(m.owner, m.name, m.descriptor)
             if (body == null) {
                 // No body on the classpath. A KNOWN-PURE JDK floor method (exception construction,
@@ -289,7 +329,7 @@ internal object ContractPurityAudit {
                                 " un-devirtualizable virtual/interface call, or an intrinsified JDK" +
                                 " method with no bundled model)")
             }
-            val finding = scan(body)
+            val finding = scan(body, index)
             val impurity = finding.impurity
             if (impurity != null) {
                 throw reject(root, m, impurity)
@@ -301,6 +341,32 @@ internal object ContractPurityAudit {
                 }
             }
         }
+    }
+
+    /**
+     * True when [owner] is a Kotlin coroutine **state machine** — a synthetic continuation class
+     * (`Owner$method$N`) the compiler generates per suspend function, transitively extending one of
+     * [CONTINUATION_BASES]. Walked over [index] up the super-class chain (bounded; cycle-guarded). A
+     * write/read of such a class's OWN fields is the per-call, non-escaping coroutine plumbing the
+     * suspend ABI requires, not a caller-observable effect — so the purity audit allows it while still
+     * rejecting any other heap write (e.g. a `this`-mutation in the real suspend logic).
+     */
+    private fun isCoroutineStateMachine(owner: String, index: ClasspathIndex): Boolean {
+        if (CONTINUATION_BASES.contains(owner)) {
+            return true
+        }
+        var current: String? = owner
+        var hops = 0
+        val seen = HashSet<String>()
+        while (current != null && hops < 12 && seen.add(current)) {
+            val sup = index.superNameOf(current) ?: return false
+            if (CONTINUATION_BASES.contains(sup)) {
+                return true
+            }
+            current = sup
+            hops++
+        }
+        return false
     }
 
     /** True when [m] is a summarized contract-stub boundary or a bmc assume/check helper. */
@@ -319,9 +385,14 @@ internal object ContractPurityAudit {
         return m.owner == "org/bmc4j/Bmc"
     }
 
-    /** Scan a single method body: classify it impure (with a reason) or collect its callees. */
-    private fun scan(body: MethodBody): ScanResult {
-        val v = PurityMethodVisitor()
+    /** Scan a single method body: classify it impure (with a reason) or collect its callees. The
+     *  [index]-backed coroutine allowance lets a suspend body's state-machine plumbing through (writes
+     *  to its own continuation class, the COROUTINE_SUSPENDED sentinel read) without blanket-allowing
+     *  real impurity. */
+    private fun scan(body: MethodBody, index: ClasspathIndex): ScanResult {
+        val v = PurityMethodVisitor(
+                isStateMachineField = { owner -> isCoroutineStateMachine(owner, index) },
+                isAllowedStaticRead = { owner, name -> ALLOWED_COROUTINE_STATICS.contains("$owner.$name") })
         ClassReader(body.classBytes).accept(SingleMethodVisitor(body.name, body.descriptor, v), 0)
         return ScanResult(v.impurity, v.calls)
     }
@@ -470,6 +541,17 @@ internal object ContractPurityAudit {
             return if (hasMethod(bytes, name, desc)) MethodBody(bytes, name, desc ?: anyDesc(bytes, name)) else null
         }
 
+        /** The internal super-class name of [owner], or null if [owner] isn't on the classpath. Used to
+         *  walk a class's supertype chain (e.g. to recognise a coroutine state machine). */
+        fun superNameOf(owner: String): String? {
+            val bytes = classes[owner] ?: return null
+            return try {
+                ClassReader(bytes).superName
+            } catch (e: RuntimeException) {
+                null
+            }
+        }
+
         private fun anyDesc(bytes: ByteArray, name: String): String? {
             var found: String? = null
             ClassReader(bytes).accept(object : ClassVisitor(Opcodes.ASM9) {
@@ -583,7 +665,15 @@ internal object ContractPurityAudit {
      * treated as a pre-existing write — a reject — which keeps the audit sound (it never certifies
      * a real heap effect as pure).
      */
-    private class PurityMethodVisitor : MethodVisitor(Opcodes.ASM9) {
+    private class PurityMethodVisitor(
+            /** True when the field-instruction owner is a coroutine state-machine (continuation) class:
+             *  a write/read of its own fields is per-call coroutine plumbing, not a caller-observable
+             *  effect. Defaults to "no class qualifies" for non-suspend callers. */
+            private val isStateMachineField: (String) -> Boolean = { false },
+            /** True when a `GETSTATIC owner.name` is an allowed coroutine constant (the
+             *  COROUTINE_SUSPENDED sentinel) rather than run-varying mutable state. */
+            private val isAllowedStaticRead: (String, String) -> Boolean = { _, _ -> false },
+    ) : MethodVisitor(Opcodes.ASM9) {
         @JvmField var impurity: String? = null
         @JvmField val calls = ArrayList<MethodRef>()
 
@@ -642,7 +732,10 @@ internal object ContractPurityAudit {
                     // bundled-model constant, we only flag GETSTATIC whose descriptor is a mutable
                     // reference type (collections, arrays, holders). A final-primitive/String is
                     // inlined by javac (no GETSTATIC) or is an interface constant (effectively final).
-                    if (isMutableStaticType(descriptor)) {
+                    // ALLOWANCE: the COROUTINE_SUSPENDED suspension sentinel is a fixed runtime constant
+                    // (a static-final enum singleton compared by identity), identical in the enforce-proof
+                    // and at every call site — reading it is not run-varying state.
+                    if (isMutableStaticType(descriptor) && !isAllowedStaticRead(owner ?: "", name ?: "")) {
                         flag(mutableStaticReadImpurity(owner, name))
                     }
                     push(false)
@@ -651,7 +744,12 @@ internal object ContractPurityAudit {
                     // Stack (pre): ..., objectref, value  -> store writes a field of objectref.
                     val valueFresh = pop()    // value
                     val targetFresh = pop()   // objectref
-                    if (!targetFresh) {
+                    // ALLOWANCE: a write to a coroutine state-machine (continuation) class's OWN field is
+                    // per-call coroutine plumbing — the state machine is fresh per call and never escapes
+                    // to the caller, so the write (`label`, `L$N`, `result`, `completion`) is not a
+                    // caller-observable effect. (A `this`-mutation in the real suspend logic targets the
+                    // receiver class, NOT a continuation class, so it is still rejected below.)
+                    if (!targetFresh && !isStateMachineField(owner ?: "")) {
                         flag("writes field $owner.$name on an object it did not allocate (a heap" +
                                 " write to pre-existing state)")
                     }
