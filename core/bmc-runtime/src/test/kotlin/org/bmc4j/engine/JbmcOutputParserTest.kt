@@ -303,42 +303,59 @@ internal class JbmcOutputParserTest {
     // --- link-failure stub harvest (verdict honesty) ----------
     // A REFUTED whose counterexample ran THROUGH a nondet stub leaves a stub_ignored_arg* assignment
     // in the trace (JBMC names a synthesized stub body's ignored params that way). The parser harvests
-    // the stubbed MEMBER (the assignment's owning function) so the interpreter can demote the would-be
-    // REFUTED to a member-named UNKNOWN when that member's class is nonetheless on the classpath.
+    // the stubbed CALLEE — the innermost OPEN call frame at that assignment (the engine mislabels the
+    // assignment's own sourceLocation.function with the CALLER) — so the interpreter can demote the
+    // would-be REFUTED to a member-named UNKNOWN when that member's class is nonetheless on the classpath.
 
     @Test
-    fun refuted_trace_with_stub_ignored_arg_harvests_the_stubbed_member() {
-        // The real-world shape (RangeLaws.coerceAtMost_long_is_min): JBMC nondet-stubbed
-        // RangesKt.coerceAtMost(J,J)J — its synthesized body assigns the ignored params
-        // stub_ignored_arg0/1, which surface in the counterexample trace.
+    fun refuted_trace_with_stub_ignored_arg_harvests_the_stubbed_callee_not_the_caller() {
+        // REGENERATED from a real `jbmc --json-ui --trace` run of LateinitProofs.read_before_init_is_a_defect
+        // (fundamentals-kotlin, kotlinc 2.4.0 / JVM 21), trimmed to the load-bearing steps. The lateinit
+        // pre-init read calls Session.getUser(), which calls the (nondet-stubbed)
+        // Intrinsics.throwUninitializedPropertyAccessException; its synthesized stub body assigns the
+        // ignored param stub_ignored_arg0.
+        //
+        // CRITICAL — the bug this regen fixes: the engine stamps the stub_ignored_arg0 assignment's
+        // sourceLocation.function with the CALLER (Session.getUser), NOT the stubbed callee. The earlier
+        // hand-built fixture wrongly placed the callee there, so the (caller-class-based) present-on-
+        // classpath demotion always tripped on the wrong, ever-present class. The harvested member is the
+        // INNERMOST OPEN FRAME (the callee), reconstructed from the function-call/return steps.
         val json = """
             [
               {"result":[
-                {"name":"f.1","status":"FAILURE","description":"assertion",
-                 "sourceLocation":{"file":"RangeLaws.java","line":"12","function":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V"},
+                {"status":"FAILURE","description":"Null pointer check",
+                 "sourceLocation":{"file":"example/lateinitprops/Sessions.kt","line":"13",
+                   "function":"java::example.lateinitprops.Session.greetLength:()I"},
                  "trace":[
-                   {"stepType":"function-call","function":{"identifier":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V"},
-                    "sourceLocation":{"file":"RangeLaws.java","line":"5"}},
-                   {"stepType":"function-call","function":{"identifier":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
-                    "sourceLocation":{"file":"RangeLaws.java","line":"7"}},
+                   {"stepType":"function-call","function":{"identifier":"java::proofs.lateinitprops.LateinitProofs.read_before_init_is_a_defect:()V"},
+                    "sourceLocation":{"file":"proofs/lateinitprops/LateinitProofs.kt","line":"20"}},
+                   {"stepType":"function-call","function":{"identifier":"java::example.lateinitprops.Session.greetLength:()I"},
+                    "sourceLocation":{"file":"proofs/lateinitprops/LateinitProofs.kt","line":"21"}},
+                   {"stepType":"function-call","function":{"identifier":"java::example.lateinitprops.Session.getUser:()Ljava/lang/String;"},
+                    "sourceLocation":{"file":"example/lateinitprops/Sessions.kt","line":"13"}},
+                   {"stepType":"function-call","function":{"identifier":"java::kotlin.jvm.internal.Intrinsics.throwUninitializedPropertyAccessException:(Ljava/lang/String;)V"},
+                    "sourceLocation":{"file":"example/lateinitprops/Sessions.kt","line":"10"}},
                    {"stepType":"assignment","lhs":"stub_ignored_arg0",
-                    "sourceLocation":{"function":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
-                    "value":{"name":"integer","data":"0"}},
-                   {"stepType":"assignment","lhs":"stub_ignored_arg1",
-                    "sourceLocation":{"function":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
-                    "value":{"name":"integer","data":"0"}},
+                    "sourceLocation":{"function":"java::example.lateinitprops.Session.getUser:()Ljava/lang/String;"},
+                    "value":{"name":"pointer","data":"java.lang.String.Literal.user","type":"struct java.lang.String *"}},
+                   {"stepType":"function-return","function":{"identifier":"java::kotlin.jvm.internal.Intrinsics.throwUninitializedPropertyAccessException:(Ljava/lang/String;)V"}},
+                   {"stepType":"function-return","function":{"identifier":"java::example.lateinitprops.Session.getUser:()Ljava/lang/String;"}},
                    {"stepType":"failure",
-                    "sourceLocation":{"function":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V","file":"RangeLaws.java","line":"12"}}
+                    "sourceLocation":{"function":"java::example.lateinitprops.Session.greetLength:()I","file":"example/lateinitprops/Sessions.kt","line":"13"}}
                  ]}
               ]},
               {"cProverStatus":"failure"}
             ]""".trimIndent()
-        val r = JbmcOutputParser.parse(json, "proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min")
+        val r = JbmcOutputParser.parse(json, "proofs.lateinitprops.LateinitProofs.read_before_init_is_a_defect")
         // The verdict FACT is still a refutation here — the parser only attaches the stub member; the
-        // demote-to-UNKNOWN policy (which needs the classpath) lives in BmcProofExtension.
+        // demote-to-UNKNOWN policy (which needs the classpath, and which leaves an expect=REFUTED demo
+        // alone) lives in BmcProofExtension.
         assertFalse(r.isVerified)
-        // The member is harvested once (deduped across the two stub_ignored_arg* assignments).
-        assertEquals(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"), r.linkFailureStubs)
+        // The harvested member is the STUBBED CALLEE (the innermost open frame), never the caller the
+        // engine mislabels on the assignment's source location.
+        assertEquals(
+                listOf("kotlin.jvm.internal.Intrinsics.throwUninitializedPropertyAccessException(String)"),
+                r.linkFailureStubs)
     }
 
     @Test

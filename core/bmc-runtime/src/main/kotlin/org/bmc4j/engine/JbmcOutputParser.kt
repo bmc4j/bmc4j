@@ -312,9 +312,21 @@ object JbmcOutputParser {
     /**
      * Harvest the STUBBED MEMBERS whose nondet body a FAILURE trace ran through: for every FAILURE
      * property, scan its trace for an `assignment` to a `stub_ignored_arg*` variable (the fingerprint of
-     * a synthesized nondet stub body — see [STUB_IGNORED_ARG_PREFIX]) and record the owning function,
-     * rendered `pkg.Class.method(params)` like [harvestUnmodelledMembers]. Deduped, first-seen order.
-     * Empty on a clean run. Pure; never throws.
+     * a synthesized nondet stub body — see [STUB_IGNORED_ARG_PREFIX]) and record the STUBBED CALLEE that
+     * assignment runs inside, rendered `pkg.Class.method(params)` like [harvestUnmodelledMembers].
+     * Deduped, first-seen order. Empty on a clean run. Pure; never throws.
+     *
+     * The callee is the INNERMOST OPEN `java::` frame at the assignment — the function the stub body
+     * structurally lives in — reconstructed from the trace's `function-call` / `function-return` steps.
+     * It is emphatically NOT the assignment step's `sourceLocation.function`: real JBMC stamps the
+     * CALLER's frame there, not the stub it synthesized (verified against a live trace — a lateinit
+     * pre-init read assigns `stub_ignored_arg0` with `sourceLocation.function = Session.getUser` (the
+     * caller) while the stubbed callee is `Intrinsics.throwUninitializedPropertyAccessException`). Reading
+     * the source location named the ever-present caller class, so the present-on-classpath demotion always
+     * tripped on the wrong class. The open-frame stack is the reliable signal — the same discipline
+     * [callerOfSentinel] uses, and self-contained per trace (no dependence on the `--verbosity 10`
+     * opaque-symbol stream, which [harvestStubs] consumes separately and which only reports that SOMETHING
+     * was stubbed, not which method a given counterexample ran through).
      *
      * This is the parse-time FACT that a refutation passed through a nondet stub. The POLICY — demote
      * such a REFUTED to a member-named UNKNOWN when the stub's owning class is nonetheless PRESENT on the
@@ -339,19 +351,35 @@ object JbmcOutputParser {
             if (str(p, "status") != "FAILURE" || !p.has("trace")) {
                 continue
             }
+            // Track the open java:: call frames so a stub_ignored_arg* assignment can be attributed to
+            // the function it runs INSIDE (the stubbed callee = innermost open frame), not the caller the
+            // engine mislabels on the assignment's source location.
+            val active = ArrayDeque<String>() // top = innermost open frame
             for (se in p.getAsJsonArray("trace")) {
                 val step = se.asJsonObject
-                if (str(step, "stepType") != "assignment") {
-                    continue
-                }
-                val lhs = str(step, "lhs") ?: continue
-                if (!lhs.startsWith(STUB_IGNORED_ARG_PREFIX)) {
-                    continue
-                }
-                val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
-                val fn = if (loc != null) str(loc, "function") else null
-                if (fn != null && fn.startsWith("java::") && !fn.contains("<clinit")) {
-                    members.add(renderMember(fn))
+                when (str(step, "stepType")) {
+                    "function-call" -> {
+                        val id = funcId(step) ?: continue
+                        if (id.startsWith("java::") && !id.contains("<clinit")) {
+                            active.push(id)
+                        }
+                    }
+                    "function-return" -> {
+                        val id = funcId(step) ?: continue
+                        if (id.startsWith("java::") && !id.contains("<clinit") && !active.isEmpty()) {
+                            active.pop()
+                        }
+                    }
+                    "assignment" -> {
+                        val lhs = str(step, "lhs") ?: continue
+                        if (!lhs.startsWith(STUB_IGNORED_ARG_PREFIX)) {
+                            continue
+                        }
+                        val callee = active.peek() // innermost open frame = the stubbed callee
+                        if (callee != null) {
+                            members.add(renderMember(callee))
+                        }
+                    }
                 }
             }
         }
