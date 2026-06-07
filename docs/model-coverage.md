@@ -761,9 +761,9 @@ Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 
 ## `java.util.LinkedList`
 
-Real surface: 56 members — modeled 38, not-modeled 2, not-needed 5, tail 11.
+Real surface: 56 members — modeled 40, not-modeled 2, not-needed 5, tail 9.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -778,14 +778,12 @@ Real surface: 56 members — modeled 38, not-modeled 2, not-needed 5, tail 11.
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the remaining Deque/List surface not implemented (descendingIterator/descendingDeque ops, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 9 members, all loud): the remaining Deque/List surface not implemented (descendingIterator, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC</summary>
 
 - `descendingIterator()`
 - `listIterator()`
 - `listIterator(int)`
 - `parallelStream()`
-- `removeFirstOccurrence(Object)`
-- `removeLastOccurrence(Object)`
 - `removeRange(int, int)`
 - `reversed()`
 - `spliterator()`
@@ -804,9 +802,9 @@ Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
+Real surface: 54 members — modeled 35, not-modeled 1, not-needed 3, tail 15.
 
-**Modeled** (`@BmcModelConforms`): `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -818,19 +816,13 @@ Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 21 members, all loud): NavigableMap/SortedMap range-view and bulk-navigation surface (ceilingEntry/floorEntry/higherEntry/lowerEntry/firstKey-as-entry variants, headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/pollFirstEntry/pollLastEntry) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): NavigableMap/SortedMap range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC</summary>
 
-- `ceilingEntry(Object)`
 - `descendingKeySet()`
 - `descendingMap()`
-- `floorEntry(Object)`
 - `headMap(Object)`
 - `headMap(Object, boolean)`
-- `higherEntry(Object)`
-- `lowerEntry(Object)`
 - `navigableKeySet()`
-- `pollFirstEntry()`
-- `pollLastEntry()`
 - `putFirst(Object, Object)`
 - `putLast(Object, Object)`
 - `reversed()`

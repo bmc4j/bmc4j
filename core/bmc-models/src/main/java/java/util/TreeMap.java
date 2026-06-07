@@ -17,10 +17,13 @@ import org.bmc4j.models.audit.BmcModelTail;
  * at the first comparison, like the JDK. Exception semantics on an empty map match the JDK:
  * {@code firstKey}/{@code lastKey} throw {@link NoSuchElementException}; {@code firstEntry}/
  * {@code lastEntry} and the ceiling/floor/higher/lower family return {@code null} when no qualifying
- * key exists. The comparator-taking constructor and the sub/head/tail-map and descending/poll
- * navigation views are out of scope (tail; loud under JBMC).
+ * key exists. The single-key navigation entry family (ceilingEntry/floorEntry/higherEntry/
+ * lowerEntry) and the poll-extreme ops (pollFirstEntry/pollLastEntry) are modeled here too, derived
+ * from the same bounded scan. The comparator-taking constructor and the multi-key range/bulk views
+ * (sub/head/tail-map, descendingMap/descendingKeySet/navigableKeySet) are out of scope (tail; loud
+ * under JBMC).
  */
-@BmcModelTail(reason = "NavigableMap/SortedMap range-view and bulk-navigation surface (ceilingEntry/floorEntry/higherEntry/lowerEntry/firstKey-as-entry variants, headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/pollFirstEntry/pollLastEntry) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC")
+@BmcModelTail(reason = "NavigableMap/SortedMap range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC")
 public class TreeMap<K, V> extends HashMap<K, V> {
 
     public TreeMap() {
@@ -95,6 +98,70 @@ public class TreeMap<K, V> extends HashMap<K, V> {
     @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K lowerKey(K key) {
         return bound(key, false, false);
+    }
+
+    // --- entry-returning navigation (mirrors the *Key family) --------------------------------------
+    // Each pairs the navigated key with its current value, or returns null when no key qualifies —
+    // exactly the JDK's NavigableMap ceilingEntry/floorEntry/higherEntry/lowerEntry contract.
+
+    /** Least entry whose key is &gt;= {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> ceilingEntry(K key) {
+        return entryFor(bound(key, true, true));
+    }
+
+    /** Greatest entry whose key is &lt;= {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> floorEntry(K key) {
+        return entryFor(bound(key, false, true));
+    }
+
+    /** Least entry whose key is strictly &gt; {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> higherEntry(K key) {
+        return entryFor(bound(key, true, false));
+    }
+
+    /** Greatest entry whose key is strictly &lt; {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> lowerEntry(K key) {
+        return entryFor(bound(key, false, false));
+    }
+
+    // --- poll: read-and-remove the extreme entry --------------------------------------------------
+    // Returns the min/max entry and removes that mapping, or returns null on an empty map — the JDK's
+    // NavigableMap pollFirstEntry/pollLastEntry contract. The snapshot entry is taken BEFORE removal,
+    // so its key/value reflect the polled mapping.
+
+    /** Removes and returns the least entry, or {@code null} when the map is empty. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> pollFirstEntry() {
+        return pollExtreme(true);
+    }
+
+    /** Removes and returns the greatest entry, or {@code null} when the map is empty. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public Map.Entry<K, V> pollLastEntry() {
+        return pollExtreme(false);
+    }
+
+    /** Snapshot the {@code key}'s current mapping, or {@code null} when {@code key} is null. */
+    private Map.Entry<K, V> entryFor(K key) {
+        if (key == null) {
+            return null;
+        }
+        return new Entry<>(key, get(key));
+    }
+
+    /** Snapshot then remove the least ({@code wantMin}) or greatest entry; null on an empty map. */
+    private Map.Entry<K, V> pollExtreme(boolean wantMin) {
+        if (isEmpty()) {
+            return null;
+        }
+        K k = extreme(wantMin);
+        Entry<K, V> e = new Entry<>(k, get(k));
+        remove(k);
+        return e;
     }
 
     // --- bounded sorted scan over the live key set -------------------------------------------------
