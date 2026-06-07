@@ -1,7 +1,10 @@
 package kotlin.sequences;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotNeeded;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -193,4 +196,261 @@ public final class SequencesKt {
         }
         return out;
     }
+
+    // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void all(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.all(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void any(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.any(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associate(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associate(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateByTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateByTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateByTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2, kotlin.jvm.functions.Function1 a3) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateByTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateWith(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateWith(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateWithTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.associateWithTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void count(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.count(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterIndexedTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.filterIndexedTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterNotTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.filterNotTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.filterTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void first(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.first(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void firstOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.firstOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMapIterableTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.flatMapIterableTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMapTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.flatMapTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void fold(kotlin.sequences.Sequence a0, java.lang.Object a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.fold(kotlin.sequences.Sequence,java.lang.Object,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void foldIndexed(kotlin.sequences.Sequence a0, java.lang.Object a1, kotlin.jvm.functions.Function3 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.foldIndexed(kotlin.sequences.Sequence,java.lang.Object,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void forEach(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.forEach(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void forEachIndexed(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.forEachIndexed(kotlin.sequences.Sequence,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.groupBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.groupBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupByTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.groupByTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupByTo(kotlin.sequences.Sequence a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2, kotlin.jvm.functions.Function1 a3) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.groupByTo(kotlin.sequences.Sequence,java.util.Map,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupingBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.groupingBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfFirst(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.indexOfFirst(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfLast(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.indexOfLast(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void last(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.last(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void lastOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.lastOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexedNotNullTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.mapIndexedNotNullTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexedTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.mapIndexedTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapNotNullTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.mapNotNullTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapTo(kotlin.sequences.Sequence a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.mapTo(kotlin.sequences.Sequence,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void maxByOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.maxByOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void maxByOrThrow(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.maxByOrThrow(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void minByOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.minByOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void minByOrThrow(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.minByOrThrow(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void none(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.none(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void partition(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.partition(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduce(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.reduce(kotlin.sequences.Sequence,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceIndexed(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.reduceIndexed(kotlin.sequences.Sequence,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceIndexedOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.reduceIndexedOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.reduceOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void single(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.single(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void singleOrNull(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.singleOrNull(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortedBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sortedBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortedByDescending(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sortedByDescending(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sumBy(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sumBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sumByDouble(kotlin.sequences.Sequence a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sumByDouble(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
 }
