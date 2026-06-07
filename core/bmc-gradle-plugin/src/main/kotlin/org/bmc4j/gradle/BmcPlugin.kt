@@ -358,6 +358,15 @@ class BmcPlugin : Plugin<Project> {
 private fun wireKotlinContracts(project: Project) {
     project.pluginManager.apply("org.jetbrains.kotlin.kapt")
     project.dependencies.add("kaptTest", "$GROUP:bmc-contracts:$VERSION")
+    // Applying kapt moves ALL annotation processing off javac (kapt runs the APs over the
+    // Kotlin stubs + Java sources itself and javac compiles with processing disabled), so a
+    // mixed-source consumer's other javac processors — declared on annotationProcessor /
+    // testAnnotationProcessor, e.g. bmc-constraints-jakarta — would silently stop running.
+    // Carry every declared javac processor over to the kapt configurations.
+    project.configurations.getByName("kapt")
+            .extendsFrom(project.configurations.getByName("annotationProcessor"))
+    project.configurations.getByName("kaptTest")
+            .extendsFrom(project.configurations.getByName("testAnnotationProcessor"))
     project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
         task.compilerOptions.javaParameters.set(true)
     }
