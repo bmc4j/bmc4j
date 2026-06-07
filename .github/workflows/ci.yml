@@ -10,7 +10,7 @@ name: CI
 #   push (main)   -> jdk17-floor (conformance), jdk21 + jdk25 (full suite),
 #                    consumer-kotlin 2.0 + 2.2 + 2.3 (conformance + Kotlin examples,
 #                    JVM 21), ALL platform smokes
-#   pull_request  -> jdk21 full + one linux-arm64 smoke (fast feedback)
+#   pull_request  -> jdk21 full + consumer-kotlin 2.4 + one linux-arm64 smoke (fast feedback)
 #   dispatch/call -> from the jdks/kotlins/platforms inputs
 #
 # The proof suites are green by design: the fail-on-purpose demos declare their
@@ -139,6 +139,9 @@ jobs:
             pull_request)
               gate="true"; sel_spec="linux-arm64"
               jdk_leg 21
+              # Kotlin-first: PRs also prove the Kotlin examples/conformance on the
+              # newest consumer compiler (the full version matrix stays on main pushes).
+              kotlin_leg 2.4.0
               ;;
             *)
               gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"
