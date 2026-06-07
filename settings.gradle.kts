@@ -16,8 +16,12 @@ pluginManagement {
     // vary with the consumer's compiler.
     plugins {
         id("org.jetbrains.kotlin.jvm") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
-        id("org.jetbrains.kotlin.kapt") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
     }
+    // The KSP plugin (replacing the deprecated kapt) that the org.bmc4j plugin applies to a Kotlin
+    // consumer is NOT declared here: it travels with the bmc plugin (an `implementation` dependency of
+    // bmc-gradle-plugin) and is applied programmatically, so it needs no version pin in this block.
+    // KSP2 runs as its own compiler invocation and drives a newer consumer Kotlin than its own
+    // version, so the bmc-pinned KSP works across the -PbmcKotlinVersion legs.
 }
 
 // Auto-provision JDK toolchains (the examples + model-conformance-proofs pin a

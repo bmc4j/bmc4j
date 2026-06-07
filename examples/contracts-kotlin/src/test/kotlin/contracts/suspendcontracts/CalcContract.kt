@@ -8,11 +8,12 @@ import org.bmc4j.Requires
 import org.bmc4j.Verdict
 
 /**
- * Contracts on the `suspend` functions of [Calcs]. The mirror is declared `suspend` so its kapt-lowered
- * signature matches the lowered production target (`(args, Continuation)Object`); the processor hides
- * the trailing `Continuation` from the predicates and recovers the declared result type (`Int`) from
- * it, so the predicates bind the plain Kotlin shape — `bounded(n)` and `isN(result, n)` — with no
- * coroutine types leaking in.
+ * Contracts on the `suspend` functions of [Calcs]. The mirror is declared `suspend` so it binds the
+ * suspend production target, whose lowered ABI is `(args, Continuation)Object`; the KSP processor reads
+ * the declared `suspend` shape, synthesizes that lowered descriptor for the call-site redirect, hides
+ * the trailing `Continuation` from the predicates, and uses the declared result type (`Int`), so the
+ * predicates bind the plain Kotlin shape — `bounded(n)` and `isN(result, n)` — with no coroutine types
+ * leaking in.
  *
  * The generated `enforce__stepTo` drives the real suspend body to completion (immediate dispatch) and
  * checks `@Ensures` on the completed result. `stepBuggy` is a deliberately-false demo pinned
