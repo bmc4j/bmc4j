@@ -208,6 +208,94 @@ internal class VerdictCacheTest {
         }
     }
 
+    // --- Reachable-cone scoping (the central change) ---------------------------
+
+    /**
+     * The goal behaviour: a class OUTSIDE the proof's reachable cone changing must NOT perturb the key
+     * (the proof keeps its cached green), while a class INSIDE the cone changing MUST. The entry
+     * `pkg.C.proof` reaches `pkg/Dep` (a `new pkg/Dep`) but never `pkg/Unrelated`.
+     */
+    @Test
+    fun classOutsideCone_doesNotPerturbKey_butInsideConeDoes(@TempDir dir: Path) {
+        val classes = Files.createDirectory(dir.resolve("classes"))
+        writeEntryReaching(classes, "pkg/C", "proof", "pkg/Dep")
+        writeEmptyClass(classes, "pkg/Dep")
+        writeEmptyClass(classes, "pkg/Unrelated")
+        val r = req(classes.toString())
+
+        val before = VerdictCache.computeKey(r, ENGINE)
+
+        // Touch an UNRELATED class (outside the cone): key must be unchanged.
+        rewriteEmptyClass(classes, "pkg/Unrelated", marker = 7)
+        bumpMtime(classes.resolve("pkg/Unrelated.class"))
+        assertEquals(before, VerdictCache.computeKey(r, ENGINE),
+                "a class outside the proof's cone changing must not invalidate the proof's cache")
+
+        // Touch a class INSIDE the cone (Dep): key must change.
+        rewriteEmptyClass(classes, "pkg/Dep", marker = 9)
+        bumpMtime(classes.resolve("pkg/Dep.class"))
+        assertNotEquals(before, VerdictCache.computeKey(r, ENGINE),
+                "a class inside the proof's cone changing must invalidate the proof's cache")
+    }
+
+    /**
+     * The end-to-end soundness/benefit: a stored green is STILL SERVED after an unrelated (out-of-cone)
+     * class changes (the benefit), and is NOT served after an in-cone class changes (soundness).
+     */
+    @Test
+    fun storedGreen_survivesOutOfConeChange_butNotInConeChange(@TempDir dir: Path) {
+        runIn(dir) {
+            val classes = Files.createDirectory(dir.resolve("classes"))
+            writeEntryReaching(classes, "pkg/C", "proof", "pkg/Dep")
+            writeEmptyClass(classes, "pkg/Dep")
+            writeEmptyClass(classes, "pkg/Unrelated")
+            val r = req(classes.toString())
+
+            VerdictCache.storeIfVerified(r, ENGINE, JbmcResult(true, listOf(), "raw"))
+            assertTrue(VerdictCache.isVerified(r, ENGINE), "freshly stored green hits")
+
+            rewriteEmptyClass(classes, "pkg/Unrelated", marker = 3)
+            bumpMtime(classes.resolve("pkg/Unrelated.class"))
+            assertTrue(VerdictCache.isVerified(r, ENGINE),
+                    "the green survives an out-of-cone class change (the benefit: fewer misses)")
+
+            rewriteEmptyClass(classes, "pkg/Dep", marker = 5)
+            bumpMtime(classes.resolve("pkg/Dep.class"))
+            assertFalse(VerdictCache.isVerified(r, ENGINE),
+                    "the green is NOT served after an in-cone class changes (soundness: never stale)")
+        }
+    }
+
+    /**
+     * Soundness fallback: when the cone can't be bounded (here, the entry class isn't on the
+     * classpath), the cone digest must fall back to the WHOLE-classpath digest — so ANY class change,
+     * in or out of any cone, invalidates. Over-invalidation is always acceptable.
+     */
+    @Test
+    fun unboundableCone_fallsBackToWholeClasspath(@TempDir dir: Path) {
+        val classes = Files.createDirectory(dir.resolve("classes"))
+        writeEmptyClass(classes, "pkg/Other")
+        // Entry "pkg.C" is NOT written to the classpath -> cone can't be rooted -> whole-classpath fallback.
+        val r = req(classes.toString())
+        val before = VerdictCache.computeKey(r, ENGINE)
+        rewriteEmptyClass(classes, "pkg/Other", marker = 2)
+        bumpMtime(classes.resolve("pkg/Other.class"))
+        assertNotEquals(before, VerdictCache.computeKey(r, ENGINE),
+                "with an unbounded cone, any class change must invalidate (coarse fallback)")
+    }
+
+    @Test
+    fun coneContentDigest_resolvedAndWhole_neverCollide(@TempDir dir: Path) {
+        // A resolved cone reaching every class must not hash-collide with the whole-classpath fallback,
+        // even when the underlying byte sets coincide — the mode is tagged into each digest.
+        val classes = Files.createDirectory(dir.resolve("classes"))
+        writeEntryReaching(classes, "pkg/C", "proof", "pkg/Dep")
+        writeEmptyClass(classes, "pkg/Dep")
+        val scoped = VerdictCache.coneContentDigest(classes.toString(), "pkg.C")
+        val whole = VerdictCache.coneContentDigest(classes.toString(), "does.not.Exist")
+        assertNotEquals(scoped, whole, "a scoped cone digest must never alias the whole-classpath fallback")
+    }
+
     // --- computeKey memoization (a cache hit must be cheap) ---------------------
 
     /**
@@ -589,6 +677,57 @@ internal class VerdictCacheTest {
             mv.visitEnd()
             cw.visitEnd()
             return cw.toByteArray()
+        }
+
+        /** Write `internalName`'s bytecode under `dir` (creating package subdirs). */
+        private fun writeClassFile(dir: Path, internalName: String, bytes: ByteArray) {
+            val f = dir.resolve("$internalName.class")
+            Files.createDirectories(f.parent)
+            Files.write(f, bytes)
+        }
+
+        /** A class `entryInternal` with a method `method()` that does `new dep` — so `method` reaches
+         *  `dep` in the cone (and nothing else). */
+        private fun writeEntryReaching(dir: Path, entryInternal: String, method: String, dep: String) {
+            val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, entryInternal, null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, method, "()V", null, null)
+            mv.visitCode()
+            mv.visitTypeInsn(Opcodes.NEW, dep)
+            mv.visitInsn(Opcodes.POP)
+            mv.visitInsn(Opcodes.RETURN)
+            mv.visitMaxs(0, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+            writeClassFile(dir, entryInternal, cw.toByteArray())
+        }
+
+        /** An empty class with the given internal name. */
+        private fun writeEmptyClass(dir: Path, internalName: String) {
+            writeClassFile(dir, internalName, emptyClassBytes(internalName, 0))
+        }
+
+        /** Rewrite an empty class with a [marker] field count so its bytes (and content digest) change. */
+        private fun rewriteEmptyClass(dir: Path, internalName: String, marker: Int) {
+            writeClassFile(dir, internalName, emptyClassBytes(internalName, marker))
+        }
+
+        /** Empty-class bytes; [extraFields] dummy int fields make the content vary deterministically. */
+        private fun emptyClassBytes(internalName: String, extraFields: Int): ByteArray {
+            val cw = ClassWriter(0)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null)
+            for (i in 0 until extraFields) {
+                cw.visitField(Opcodes.ACC_PRIVATE, "f$i", "I", null, null).visitEnd()
+            }
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** Move a file's mtime forward so the digest memo's (path, size, mtime) fingerprint changes
+         *  even if an in-place rewrite happened to keep the same size on a coarse clock. */
+        private fun bumpMtime(file: Path) {
+            Files.setLastModifiedTime(file, FileTime.fromMillis(
+                    Files.getLastModifiedTime(file).toMillis() + 2_000))
         }
 
         /** Bytecode for a class with NO config call sites (an empty static method). */

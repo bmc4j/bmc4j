@@ -228,9 +228,13 @@ object VerdictCache {
      * 2. the engine identity (bundled engine version, or a hash of an explicit `jbmcPath` binary);
      * 3. the effective request: entry function, unwind, unwinding-assertions, solver,
      *    maxStringLength, timeoutSeconds, concurrent;
-     * 4. the analysis-classpath *content*: every application `.class` file and every
-     *    model jar on the classpath, by path + content (coarse v1 — any app-class change invalidates
-     *    the whole module's cache);
+     * 4. the proof's **reachable-cone content**: only the `.class` files transitively reachable from
+     *    this proof's entry class (a constant-pool / call-graph walk, [ReachableCone]) — so touching a
+     *    class outside the cone no longer invalidates this proof. When the cone can't be bounded
+     *    soundly (reflection / method handles, an un-attributable `invokedynamic`, the entry class not
+     *    on the classpath, or any walk error) it falls back to the whole-classpath content digest — the
+     *    old coarse-but-always-sound behaviour. Over-invalidation is always acceptable; a stale green
+     *    never is, so the unbounded edge folds in the whole classpath rather than dropping it;
      * 5. the user-model directory content (`bmc.userModels`): user `src/bmcModel` classes
      *    are spliced onto the analysis classpath inside `JbmcBackend.prepareClasspath`, AFTER
      *    this key is built, so they aren't in `request.classpath` — fold them in explicitly or
@@ -263,10 +267,13 @@ object VerdictCache {
         update(md, "msl", request.maxStringLength.toString())
         update(md, "timeout", request.timeoutSeconds.toString())
         update(md, "concurrent", request.concurrent.toString())
-        // 4) analysis-classpath content — memoized per classpath behind a (path, size, mtime)
-        //    fingerprint; computeKey runs for EVERY proof and re-hashing the whole classpath
-        //    dominated the cost of a cache hit (see memoized()).
-        update(md, "classpath", memoized(DIGEST_MEMO, request.classpath, ::classpathContentDigest))
+        // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
+        //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
+        //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).
+        //    Memoized behind a (path, size, mtime) fingerprint keyed by classpath AND entry class: the
+        //    cone is per-entry, so two proofs in the same module get distinct memo entries, while an
+        //    unchanged classpath still reuses the digest across re-keys of the same proof.
+        update(md, "cone", memoizedCone(request.classpath, request.entryClass))
         // 5) user-model content (bmc.userModels) — spliced onto the classpath after this key is built,
         //    so editing a user model must invalidate here or a stale green is served.
         val userModels = System.getProperty("bmc.userModels", "")
@@ -324,6 +331,36 @@ object VerdictCache {
 
     private val DIGEST_MEMO = ConcurrentHashMap<String, Memo<String>>()
     private val SITES_MEMO = ConcurrentHashMap<String, Memo<List<Array<String>>>>()
+    private val CONE_MEMO = ConcurrentHashMap<String, Memo<String>>()
+
+    /**
+     * The cone-scoped content digest for ([classpath], [entryClass]), memoized behind the classpath's
+     * (path, size, mtime) fingerprint. The memo key folds in the entry class so two proofs sharing a
+     * classpath get distinct cones; the *fingerprint* still tracks only the classpath files, so any
+     * file change forces a fresh compute for every entry (over-invalidation stays sound). Computed
+     * under a per-key lock for the same herd-avoidance reason as [memoized].
+     */
+    private fun memoizedCone(classpath: String?, entryClass: String): String {
+        val cp = classpath ?: ""
+        val memoKey = entryClass + " " + cp
+        val fp = fingerprint(cp)
+        var m = CONE_MEMO[memoKey]
+        if (m != null && m.fingerprint == fp) {
+            return m.value
+        }
+        synchronized(LOCKS.computeIfAbsent(memoKey) { Any() }) {
+            m = CONE_MEMO[memoKey]
+            m?.let {
+                if (it.fingerprint == fp) {
+                    return it.value
+                }
+            }
+            MEMO_RECOMPUTES.incrementAndGet()
+            val value = coneContentDigest(cp, entryClass)
+            CONE_MEMO[memoKey] = Memo(fp, value)
+            return value
+        }
+    }
 
     /**
      * Memoize [compute] per classpath string, guarded by a cheap (path, size, mtime)
@@ -413,6 +450,109 @@ object VerdictCache {
         sb.append(label).append('|').append(Files.size(file)).append('|')
                 .append(Files.getLastModifiedTime(file).to(TimeUnit.NANOSECONDS))
                 .append('\n')
+    }
+
+    /**
+     * The reachable-cone content digest for a proof: a hex digest over the bytes of exactly the
+     * classes [ReachableCone] reaches from [entryClass] on [classpath], by internal name + content,
+     * sorted (so classpath order and jar-vs-dir placement don't perturb it). When the cone can't be
+     * bounded soundly the walk returns the whole-classpath signal and this delegates to
+     * [classpathContentDigest] — the coarse, always-correct fallback — tagged so a resolved cone that
+     * happens to reach every class can never collide with a deliberate fallback.
+     *
+     * Soundness: the cone is a sound over-approximation of the classes a proof depends on, so a class
+     * the proof actually reaches is always in the digest; touching a class *outside* the cone leaves
+     * this digest (hence the proof's whole cache key) unchanged, which is the intended cache hit. A
+     * class the cone reaches but that lives off the classpath (a real-JDK type with no `.class` here)
+     * contributes nothing to this digest — its modelled content rides on the model jars, which are
+     * folded in via the engine identity and the user-model / config inputs; an off-classpath JDK class
+     * has no per-module bytes to change. Visible for unit testing.
+     */
+    internal fun coneContentDigest(classpath: String?, entryClass: String): String {
+        val cone = ReachableCone.compute(entryClass, classpath)
+        if (cone.whole || cone.classes == null) {
+            // Conservative fallback: hash the whole classpath, tagged distinctly so it can never alias
+            // a resolved cone digest.
+            val md = sha256()
+            update(md, "cone-mode", "whole")
+            update(md, "cone-whole", classpathContentDigest(classpath))
+            return toHex(md.digest())
+        }
+        val md = sha256()
+        update(md, "cone-mode", "scoped")
+        val bytesByName = coneClassBytes(classpath, cone.classes)
+        // Sort by internal name so order is stable regardless of where each class was found.
+        for (name in bytesByName.keys.sorted()) {
+            update(md, "cone-class:$name", toHex(sha256().also { it.update(bytesByName[name]) }.digest()))
+        }
+        return toHex(md.digest())
+    }
+
+    /**
+     * Read the raw bytes of each internal class name in [wanted] from [classpath] (first on the
+     * classpath wins, mirroring JVM resolution), across both directory and jar entries. Names not
+     * present on the classpath (real-JDK / off-classpath types the cone reached) are simply absent from
+     * the result — they have no per-module content to hash.
+     */
+    private fun coneClassBytes(classpath: String?, wanted: Set<String>): Map<String, ByteArray> {
+        val out = HashMap<String, ByteArray>()
+        if (classpath.isNullOrBlank()) {
+            return out
+        }
+        for (e in classpath.split(File.pathSeparator).filter { it.isNotBlank() }.sorted()) {
+            val p = Path.of(e)
+            try {
+                when {
+                    Files.isDirectory(p) -> coneBytesFromDir(p, wanted, out)
+                    Files.isRegularFile(p) && isJar(p) -> coneBytesFromJar(p, wanted, out)
+                    else -> {}
+                }
+            } catch (ex: RuntimeException) {
+                // Per-entry read failure: a class it would have provided is then absent, an
+                // under-approximation. To stay sound, surface it so [coneContentDigest]'s memo recompute
+                // would differ — fold an unreadable marker keyed by the entry into a sentinel name.
+                out["__unreadable__:$e"] = ex.javaClass.simpleName.toByteArray(StandardCharsets.UTF_8)
+            } catch (ex: IOException) {
+                out["__unreadable__:$e"] = ex.javaClass.simpleName.toByteArray(StandardCharsets.UTF_8)
+            }
+        }
+        return out
+    }
+
+    private fun coneBytesFromDir(dir: Path, wanted: Set<String>, out: MutableMap<String, ByteArray>) {
+        Files.walk(dir).use { walk ->
+            for (c in Iterable { walk.iterator() }) {
+                if (Files.isRegularFile(c) && c.fileName.toString().endsWith(".class")) {
+                    val bytes = Files.readAllBytes(c)
+                    val name = internalNameOf(bytes) ?: continue
+                    if (wanted.contains(name)) {
+                        out.putIfAbsent(name, bytes)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun coneBytesFromJar(jar: Path, wanted: Set<String>, out: MutableMap<String, ByteArray>) {
+        ZipInputStream(Files.newInputStream(jar)).use { zin ->
+            var ze = zin.nextEntry
+            while (ze != null) {
+                if (!ze.isDirectory && ze.name.endsWith(".class")) {
+                    val bytes = zin.readAllBytes()
+                    val name = internalNameOf(bytes)
+                    if (name != null && wanted.contains(name)) {
+                        out.putIfAbsent(name, bytes)
+                    }
+                }
+                ze = zin.nextEntry
+            }
+        }
+    }
+
+    private fun internalNameOf(bytes: ByteArray): String? = try {
+        org.objectweb.asm.ClassReader(bytes).className
+    } catch (e: RuntimeException) {
+        null
     }
 
     /**
