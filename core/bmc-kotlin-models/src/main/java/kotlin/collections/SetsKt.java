@@ -138,4 +138,57 @@ public final class SetsKt {
         }
         return out;
     }
+
+    // ---- setOfNotNull(element) / setOfNotNull(elements[]):
+    //   SetsKt.setOfNotNull:(Ljava/lang/Object;)Ljava/util/Set;
+    //   SetsKt.setOfNotNull:([Ljava/lang/Object;)Ljava/util/Set;
+    // Kotlin contract: a NEW set of the given non-null element(s) (nulls filtered out), first-occurrence
+    // order preserved (LinkedHashSet, dedup via equals). The single-arg form yields an empty set for a
+    // null element. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> setOfNotNull(T element) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        if (element != null) {
+            out.add(element);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> setOfNotNull(T[] elements) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (T e : elements) {
+            if (e != null) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    // ---- hashSetOf(elements[]) / linkedSetOf(elements[]):
+    //   SetsKt.hashSetOf:([Ljava/lang/Object;)Ljava/util/HashSet;
+    //   SetsKt.linkedSetOf:([Ljava/lang/Object;)Ljava/util/LinkedHashSet;
+    // a NEW HashSet / LinkedHashSet of the given elements (dedup via equals; LinkedHashSet preserves
+    // first-occurrence order). Both back onto bmc4j's bounded models. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> HashSet<T> hashSetOf(T[] elements) {
+        HashSet<T> out = new HashSet<>();
+        for (T e : elements) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> LinkedHashSet<T> linkedSetOf(T[] elements) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (T e : elements) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    // NOTE: sortedSetOf / toSortedSet stay in the @BmcModelTail residue — they return a java.util.TreeSet,
+    // for which bmc4j has no bounded model (only TreeMap is modeled). Out of scope until a TreeSet model
+    // lands. optimizeReadOnlySet is an internal stdlib size-optimizer, also left loud. Loud under JBMC.
 }

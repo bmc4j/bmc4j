@@ -137,4 +137,64 @@ class KotlinMapSetResidueLaws {
         val added = setOf(a) + b
         Bmc.check(added.size == 2 && added.contains(a) && added.contains(b))
     }
+
+    // ---- MapsKt.toMap / toMutableMap / toSortedMap (models/kotlin-collections-2 pass) ----
+
+    @BmcProof
+    fun toMap_copies_entries() {
+        val m = mapOf(1 to 10, 2 to 20).toMap()
+        Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
+    }
+
+    @BmcProof
+    fun toMutableMap_copies_and_is_mutable() {
+        val m = mapOf(1 to 10).toMutableMap()
+        m[2] = 20
+        Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
+    }
+
+    @BmcProof
+    fun toMap_from_pair_list() {
+        val m = listOf(1 to 10, 2 to 20).toMap()
+        Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
+    }
+
+    // NOTE: no toSortedMap proof — that op stays in the @BmcModelTail residue (returns a TreeMap whose
+    // sorted navigation is a documented JBMC contract-level divergence / dynamic-cast artifact; no sound
+    // bounded proof of the sorted observable). See MapsKt.java.
+
+    // ---- SetsKt.setOfNotNull / hashSetOf / linkedSetOf (models/kotlin-collections-2 pass) ----
+
+    @BmcProof
+    fun setOfNotNull_filters_nulls() {
+        val s = setOfNotNull(1, null, 2, null, 2)
+        Bmc.check(s.size == 2 && s.contains(1) && s.contains(2))
+    }
+
+    @BmcProof
+    fun setOfNotNull_single_null_is_empty() {
+        val s = setOfNotNull<Int>(null)
+        Bmc.check(s.isEmpty())
+    }
+
+    @BmcProof
+    fun hashSetOf_dedups() {
+        val s = hashSetOf(1, 2, 2, 3)
+        Bmc.check(s.size == 3 && s.contains(2) && !s.contains(9))
+    }
+
+    @BmcProof
+    fun linkedSetOf_dedups() {
+        val s = linkedSetOf(1, 2, 2, 3)
+        Bmc.check(s.size == 3 && s.contains(1) && s.contains(3))
+    }
+
+    /** Symbolic setOfNotNull law: for distinct a,b — setOfNotNull(a, null, b) has exactly {a,b}. */
+    @BmcProof
+    fun symbolic_setOfNotNull() {
+        val a = Bmc.anyInt(0, 100)
+        val b = Bmc.anyInt(101, 200)
+        val s = setOfNotNull(a, null, b)
+        Bmc.check(s.size == 2 && s.contains(a) && s.contains(b))
+    }
 }

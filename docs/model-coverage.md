@@ -1324,9 +1324,9 @@ Real surface: 3 members — modeled 1, not-modeled 0, not-needed 0, tail 2.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109.
+Real surface: 253 members — modeled 58, not-modeled 0, not-needed 99, tail 96.
 
-**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asSequence(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `sorted(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `toList(Iterable)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `union(Iterable, Iterable)`, `zip(Iterable, Iterable)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `flatten(Iterable)`, `intersect(Iterable, Iterable)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toList(Iterable)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `union(Iterable, Iterable)`, `windowed(Iterable, int, int, boolean)`, `zip(Iterable, Iterable)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1430,15 +1430,13 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 109 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 96 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `addAll(Collection, Object[])`
 - `addAll(Collection, Sequence)`
 - `any(Iterable)`
 - `arrayListOf(Object[])`
 - `asCollection(Object[], boolean)`
-- `asReversed(List)`
-- `asReversedMutable(List)`
 - `averageOfByte(Iterable)`
 - `averageOfDouble(Iterable)`
 - `averageOfFloat(Iterable)`
@@ -1447,7 +1445,6 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 - `binarySearch(List, Object, Comparator, int, int)`
 - `binarySearch(List, int, int, Function1)`
 - `build(List)`
-- `chunked(Iterable, int)`
 - `chunked(Iterable, int, Function1)`
 - `collectionSizeOrNull(Iterable)`
 - `collectionToArrayCommonImpl(Collection)`
@@ -1457,7 +1454,6 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 - `count(Iterable)`
 - `createListBuilder()`
 - `createListBuilder(int)`
-- `dropLast(List, int)`
 - `elementAtOrElse(Iterable, int, Function1)`
 - `filterIsInstance(Iterable, Class)`
 - `filterIsInstanceTo(Iterable, Collection, Class)`
@@ -1465,7 +1461,6 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 - `filterNotNullTo(Iterable, Collection)`
 - `firstOrNull(Iterable)`
 - `firstOrNull(List)`
-- `flatten(Iterable)`
 - `getIndices(Collection)`
 - `getLastIndex(List)`
 - `iterator(Enumeration)`
@@ -1509,16 +1504,9 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 - `shuffled(Iterable)`
 - `shuffled(Iterable, Random)`
 - `shuffled(Iterable, Random)`
-- `slice(List, IntRange)`
-- `slice(List, Iterable)`
-- `sort(List)`
-- `sortDescending(List)`
-- `sortWith(List, Comparator)`
-- `sortedDescending(Iterable)`
 - `sumOfByte(Iterable)`
 - `sumOfFloat(Iterable)`
 - `sumOfShort(Iterable)`
-- `takeLast(List, int)`
 - `terminateCollectionToArray(int, Object[])`
 - `throwCountOverflow()`
 - `throwIndexOverflow()`
@@ -1535,7 +1523,6 @@ Real surface: 253 members — modeled 45, not-modeled 0, not-needed 99, tail 109
 - `toSortedSet(Iterable)`
 - `toSortedSet(Iterable, Comparator)`
 - `unzip(Iterable)`
-- `windowed(Iterable, int, int, boolean)`
 - `windowed(Iterable, int, int, boolean, Function1)`
 - `withIndex(Iterable)`
 - `withIndex(Iterator)`
@@ -1560,9 +1547,9 @@ Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 14, not-modeled 0, not-needed 28, tail 33.
+Real surface: 75 members — modeled 18, not-modeled 0, not-needed 28, tail 29.
 
-**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`
+**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1595,7 +1582,7 @@ Real surface: 75 members — modeled 14, not-modeled 0, not-needed 28, tail 33.
 | `onEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 29 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Map)`
 - `asSequence(Map)`
@@ -1616,15 +1603,11 @@ Real surface: 75 members — modeled 14, not-modeled 0, not-needed 28, tail 33.
 - `putAll(Map, Sequence)`
 - `sortedMapOf(Comparator, Pair[])`
 - `sortedMapOf(Pair[])`
-- `toMap(Iterable)`
 - `toMap(Iterable, Map)`
-- `toMap(Map)`
 - `toMap(Map, Map)`
-- `toMap(Pair[])`
 - `toMap(Pair[], Map)`
 - `toMap(Sequence)`
 - `toMap(Sequence, Map)`
-- `toMutableMap(Map)`
 - `toSingletonMap(Map)`
 - `toSortedMap(Map)`
 - `toSortedMap(Map, Comparator)`
@@ -1636,22 +1619,18 @@ Real surface: 75 members — modeled 14, not-modeled 0, not-needed 28, tail 33.
 
 ## `kotlin.collections.SetsKt`
 
-Real surface: 22 members — modeled 10, not-modeled 0, not-needed 0, tail 12.
+Real surface: 22 members — modeled 14, not-modeled 0, not-needed 0, tail 8.
 
-**Modeled** (`@BmcModelConforms`): `emptySet()`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`
+**Modeled** (`@BmcModelConforms`): `emptySet()`, `hashSetOf(Object[])`, `linkedSetOf(Object[])`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`, `setOfNotNull(Object)`, `setOfNotNull(Object[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `build(Set)`
 - `createSetBuilder()`
 - `createSetBuilder(int)`
-- `hashSetOf(Object[])`
-- `linkedSetOf(Object[])`
 - `minus(Set, Sequence)`
 - `optimizeReadOnlySet(Set)`
 - `plus(Set, Sequence)`
-- `setOfNotNull(Object)`
-- `setOfNotNull(Object[])`
 - `sortedSetOf(Comparator, Object[])`
 - `sortedSetOf(Object[])`
 

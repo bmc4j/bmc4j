@@ -180,6 +180,51 @@ public final class MapsKt {
         return out;
     }
 
+    // ---- toMap(map) / toMutableMap(map): a NEW snapshot copy.
+    //   MapsKt.toMap:(Ljava/util/Map;)Ljava/util/Map;
+    //   MapsKt.toMutableMap:(Ljava/util/Map;)Ljava/util/Map;
+    // Kotlin contract: a fresh map with the same entries (toMutableMap is the mutable twin; same
+    // observable here since the bounded HashMap model is mutable). Receiver untouched. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toMap(Map<? extends K, ? extends V> map) {
+        return copyOf(map);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toMutableMap(Map<? extends K, ? extends V> map) {
+        return copyOf(map);
+    }
+
+    // ---- toMap(Iterable<Pair>) / toMap(Pair[]): build a NEW map from the pairs (later wins on key
+    //   MapsKt.toMap:(Ljava/lang/Iterable;)Ljava/util/Map;
+    //   MapsKt.toMap:([Lkotlin/Pair;)Ljava/util/Map;
+    // collision), in pair order. (Non-inline; the destination-Map overloads stay in the tail.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toMap(java.lang.Iterable<? extends Pair<? extends K, ? extends V>> pairs) {
+        HashMap<K, V> out = new HashMap<>();
+        for (java.util.Iterator<? extends Pair<? extends K, ? extends V>> it = pairs.iterator(); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toMap(Pair<? extends K, ? extends V>[] pairs) {
+        HashMap<K, V> out = new HashMap<>();
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    // NOTE: toSortedMap / toSortedMap(Map, Comparator) stay in the @BmcModelTail residue. They return a
+    // java.util.SortedMap (TreeMap); the WHOLE value of the op is sorted navigation, but the bounded
+    // TreeMap model's comparison-driven get/firstKey/lastKey is a DOCUMENTED JBMC contract-level
+    // divergence (ordering/null-keys) that also trips the spurious "Dynamic cast check" artifact at the
+    // proof site (see [[bmc4j-model-conformance]]) — so there is no sound bounded proof of the sorted
+    // observable here. Left loud under JBMC; revisit if the TreeMap navigation artifact is resolved.
+
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
     @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void all(java.util.Map a0, kotlin.jvm.functions.Function1 a1) {
