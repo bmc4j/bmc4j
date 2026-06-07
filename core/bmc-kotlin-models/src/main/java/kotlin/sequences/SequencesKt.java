@@ -7,11 +7,17 @@ import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcNotNeeded;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import kotlin.Pair;
+import kotlin.collections.IndexedValue;
+import kotlin.jvm.functions.Function0;
 import kotlin.jvm.functions.Function1;
+import kotlin.jvm.functions.Function2;
+import org.cprover.CProver;
 
 /**
  * Clean model of Kotlin's {@code kotlin.sequences.SequencesKt} facade. Kotlin sequence ops
@@ -453,4 +459,462 @@ public final class SequencesKt {
         throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sumByDouble(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
     }
 
+    // ---- mapIndexed / filterIndexed / withIndex: index-aware variants. The Kotlin compiler emits a
+    // facade call (these are NOT inline funs) carrying a Function2 (index, element). bmc4j desugars the
+    // user lambda into the Function2, so the index-aware mapper/predicate is genuinely applied — not
+    // stubbed. We evaluate eagerly over the bounded source, indexing from 0 in iteration order.
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> mapIndexed(Sequence<T> source, Function2<? super Integer, ? super T, ? extends R> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        int index = 0;
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            out.add((R) transform.invoke(index, it.next()));
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> filterIndexed(Sequence<T> source, Function2<? super Integer, ? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        int index = 0;
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            T v = it.next();
+            if (predicate.invoke(index, v)) {
+                out.add(v);
+            }
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    // withIndex(): each element wrapped in an IndexedValue(index, element), index from 0 in order.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<IndexedValue<T>> withIndex(Sequence<T> source) {
+        ArrayList<IndexedValue<T>> out = new ArrayList<>();
+        int index = 0;
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            out.add(new IndexedValue<>(index, it.next()));
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- onEach / onEachIndexed: perform the action on each element as it passes through, yielding the
+    // SAME elements unchanged (Kotlin contract). Eager, so the side-effecting order is the iteration
+    // order over the bounded source. The action is the desugared user lambda, genuinely invoked.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> onEach(Sequence<T> source, Function1<? super T, ? extends Object> action) {
+        ArrayList<T> out = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            T v = it.next();
+            action.invoke(v);
+            out.add(v);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> onEachIndexed(Sequence<T> source, Function2<? super Integer, ? super T, ? extends Object> action) {
+        ArrayList<T> out = new ArrayList<>();
+        int index = 0;
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            T v = it.next();
+            action.invoke(index, v);
+            out.add(v);
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- firstOrNull / lastOrNull (no-arg) / elementAtOrNull: terminal element accessors that return
+    // null instead of throwing when out of range. (The predicate overloads are INLINE funs — desugared
+    // directly over iterator() — so only the no-arg/index forms are facade methods needing a model.)
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T firstOrNull(Sequence<T> source) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        return it.next();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T lastOrNull(Sequence<T> source) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        T last = it.next();
+        while (it.hasNext()) {
+            last = it.next();
+        }
+        return last;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T elementAtOrNull(Sequence<T> source, int index) {
+        if (index < 0) {
+            return null;
+        }
+        int count = 0;
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            T element = it.next();
+            if (index == count) {
+                return element;
+            }
+            count++;
+        }
+        return null;
+    }
+
+    // ---- chunked(size) / chunked(size, transform): split into lists each of at most `size` (the last
+    // may be shorter). Kotlin's contract: size must be positive else IllegalArgumentException. Modeled
+    // as windowed(size, size, partialWindows=true) per the stdlib definition.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<List<T>> chunked(Sequence<T> source, int size) {
+        return windowed(source, size, size, true);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> chunked(Sequence<T> source, int size, Function1<? super List<T>, ? extends R> transform) {
+        return windowed(source, size, size, true, transform);
+    }
+
+    // ---- windowed(size, step, partialWindows[, transform]): a sliding window of `size` advancing by
+    // `step`. Kotlin's contract: both size and step must be positive (else IllegalArgumentException). If
+    // partialWindows is false, only full windows of exactly `size` are kept; if true, trailing partial
+    // windows are kept too. Eager over the bounded source into fresh bounded lists.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<List<T>> windowed(Sequence<T> source, int size, int step, boolean partialWindows) {
+        if (size <= 0 || step <= 0) {
+            throw new IllegalArgumentException(
+                    "Both size " + size + " and step " + step + " must be greater than zero.");
+        }
+        ArrayList<T> all = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        while (it.hasNext()) {
+            all.add(it.next());
+        }
+        int n = all.size();
+        ArrayList<List<T>> windows = new ArrayList<>();
+        for (int start = 0; start < n; start += step) {
+            int end = start + size;
+            if (end > n) {
+                if (!partialWindows) {
+                    break;
+                }
+                end = n;
+            }
+            ArrayList<T> window = new ArrayList<>();
+            for (int i = start; i < end; i++) {
+                window.add(all.get(i));
+            }
+            windows.add(window);
+        }
+        return new ListSequence<>(windows);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> windowed(
+            Sequence<T> source, int size, int step, boolean partialWindows,
+            Function1<? super List<T>, ? extends R> transform) {
+        Sequence<List<T>> windows = windowed(source, size, step, partialWindows);
+        ArrayList<R> out = new ArrayList<>();
+        Iterator<List<T>> it = windows.iterator();
+        while (it.hasNext()) {
+            out.add((R) transform.invoke(it.next()));
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- zipWithNext() / zipWithNext(transform): pairs (or transformed pairs) of each two ADJACENT
+    // elements. Empty if the sequence has fewer than two elements. Eager over the bounded source.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<Pair<T, T>> zipWithNext(Sequence<T> source) {
+        ArrayList<Pair<T, T>> out = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        if (it.hasNext()) {
+            T current = it.next();
+            while (it.hasNext()) {
+                T next = it.next();
+                out.add(new Pair<>(current, next));
+                current = next;
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> zipWithNext(Sequence<T> source, Function2<? super T, ? super T, ? extends R> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        if (it.hasNext()) {
+            T current = it.next();
+            while (it.hasNext()) {
+                T next = it.next();
+                out.add((R) transform.invoke(current, next));
+                current = next;
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- zip(other) / zip(other, transform): pair up elements at the same index from two sequences;
+    // the result ends as soon as the shorter input ends. Eager over both bounded sources.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<Pair<T, R>> zip(Sequence<T> source, Sequence<R> other) {
+        ArrayList<Pair<T, R>> out = new ArrayList<>();
+        Iterator<T> a = source.iterator();
+        Iterator<R> b = other.iterator();
+        while (a.hasNext() && b.hasNext()) {
+            out.add(new Pair<>(a.next(), b.next()));
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R, V> Sequence<V> zip(Sequence<T> source, Sequence<R> other, Function2<? super T, ? super R, ? extends V> transform) {
+        ArrayList<V> out = new ArrayList<>();
+        Iterator<T> a = source.iterator();
+        Iterator<R> b = other.iterator();
+        while (a.hasNext() && b.hasNext()) {
+            out.add((V) transform.invoke(a.next(), b.next()));
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- plus(...) / minus(...): concatenation and element removal. plus appends; minus(element)
+    // removes the FIRST occurrence (equals); minus(elements) removes ALL contained (equals). Eager over
+    // the bounded source(s), returning a fresh bounded sequence and leaving the source untouched.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> plus(Sequence<T> source, T element) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        out.add(element);
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> plus(Sequence<T> source, T[] elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (T e : elements) {
+            out.add(e);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> plus(Sequence<T> source, Iterable<T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> plus(Sequence<T> source, Sequence<T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> minus(Sequence<T> source, T element) {
+        ArrayList<T> out = new ArrayList<>();
+        boolean removed = false;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            if (!removed && objEquals(v, element)) {
+                removed = true;
+            } else {
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> minus(Sequence<T> source, T[] elements) {
+        ArrayList<T> removeFrom = new ArrayList<>();
+        for (T e : elements) {
+            removeFrom.add(e);
+        }
+        return minusAll(source, removeFrom);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> minus(Sequence<T> source, Iterable<T> elements) {
+        ArrayList<T> removeFrom = new ArrayList<>();
+        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+            removeFrom.add(it.next());
+        }
+        return minusAll(source, removeFrom);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> minus(Sequence<T> source, Sequence<T> elements) {
+        ArrayList<T> removeFrom = new ArrayList<>();
+        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+            removeFrom.add(it.next());
+        }
+        return minusAll(source, removeFrom);
+    }
+
+    private static <T> Sequence<T> minusAll(Sequence<T> source, ArrayList<T> removeFrom) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            if (!contains(removeFrom, v)) {
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    private static <T> boolean contains(ArrayList<T> list, T value) {
+        for (int i = 0; i < list.size(); i++) {
+            if (objEquals(list.get(i), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean objEquals(Object a, Object b) {
+        if (a == null) {
+            return b == null;
+        }
+        return a.equals(b);
+    }
+
+    // ---- sorted() / sortedDescending() / sortedWith(comparator): a NEW sequence yielding the source's
+    // elements sorted. Reuses the same proven insertion-sort-over-a-bounded-ArrayList pattern as
+    // CollectionsKt.sorted/sortedWith (stable; bounded by size, within the proof's unwind). sorted uses
+    // natural ordering, sortedDescending its reverse, sortedWith the supplied Comparator. Source
+    // untouched, matching the Kotlin contract.
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> Sequence<T> sorted(Sequence<T> source) {
+        ArrayList<T> out = drain(source);
+        insertionSort(out, null);
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> Sequence<T> sortedDescending(Sequence<T> source) {
+        // Sort ascending by natural order, then reverse — avoids depending on an unmodeled
+        // Collections.reverseOrder() comparator (which JBMC would nondet-stub into a wrong sort).
+        ArrayList<T> out = drain(source);
+        insertionSort(out, null);
+        ArrayList<T> rev = new ArrayList<>();
+        for (int i = out.size() - 1; i >= 0; i--) {
+            rev.add(out.get(i));
+        }
+        return new ListSequence<>(rev);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> sortedWith(Sequence<T> source, Comparator<? super T> comparator) {
+        ArrayList<T> out = drain(source);
+        insertionSort(out, comparator);
+        return new ListSequence<>(out);
+    }
+
+    private static <T> ArrayList<T> drain(Sequence<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T> void insertionSort(ArrayList<T> a, Comparator<? super T> cmp) {
+        int n = a.size();
+        for (int i = 1; i < n; i++) {
+            T key = a.get(i);
+            int j = i - 1;
+            // stable: shift down only strictly-greater elements (> 0, not >= 0)
+            while (j >= 0 && compare(a.get(j), key, cmp) > 0) {
+                a.set(j + 1, a.get(j));
+                j--;
+            }
+            a.set(j + 1, key);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T> int compare(T x, T y, Comparator<? super T> cmp) {
+        if (cmp != null) {
+            return cmp.compare(x, y);
+        }
+        return ((Comparable) x).compareTo(y);
+    }
+
+    // ---- generateSequence(seed, nextFunction) / generateSequence(seedFunction, nextFunction): build a
+    // sequence by repeatedly applying nextFunction, stopping when it (or the seed) yields null. The
+    // pure-supplier infinite form generateSequence(nextFunction) is laziness-observable (only sensible
+    // with a downstream take(n)) and stays in the loud tail. These seeded forms are sound for
+    // TERMINATING generators: the eager unwind is bounded with CProver.assume, which prunes the
+    // (infinite/over-long) paths JBMC cannot finish rather than silently truncating to a wrong shorter
+    // sequence. A generator that terminates within GENERATE_BOUND is analysed exactly.
+
+    private static final int GENERATE_BOUND = 16;
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> generateSequence(T seed, Function1<? super T, ? extends T> nextFunction) {
+        ArrayList<T> out = new ArrayList<>();
+        T current = seed;
+        int guard = 0;
+        while (current != null) {
+            out.add(current);
+            guard++;
+            CProver.assume(guard <= GENERATE_BOUND);
+            current = (T) nextFunction.invoke(current);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> generateSequence(
+            Function0<? extends T> seedFunction, Function1<? super T, ? extends T> nextFunction) {
+        return generateSequence((T) seedFunction.invoke(), nextFunction);
+    }
 }

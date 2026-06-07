@@ -52,12 +52,14 @@ val auditAnnotations by configurations.creating {
 
 // The not-needed/not-modeled loud stubs (hand-written method-level @BmcNotNeeded) route their bodies
 // through org.bmc4j.analysis.BmcUnmodelledReached.fail(...) — exactly as the JDK models in bmc-models
-// do — so a reach demotes to a member-named UNKNOWN. That sentinel lives in bmc-runtime, but
-// bmc-runtime already depends on THIS module (it bundles the compiled kotlin models as resources), so
-// a project dependency back on bmc-runtime would be a cycle. We can't compile against bmc-runtime's
-// copy; instead a tiny compile-only source-compatible stub of the sentinel sits in its own source set,
+// do — so a reach demotes to a member-named UNKNOWN. SequencesKt.generateSequence likewise bounds its
+// eager unwind with org.cprover.CProver.assume. Both BmcUnmodelledReached and CProver live in
+// bmc-runtime, but bmc-runtime already depends on THIS module (it bundles the compiled kotlin models as
+// resources), so a project dependency back on bmc-runtime would be a cycle. We can't compile against
+// bmc-runtime's copies; instead tiny compile-only source-compatible stubs sit in their own source set,
 // compiled but NEVER bundled into the model jar (the jar packs only `main`). At verification time JBMC
-// uses bmc-runtime's REAL BmcUnmodelledReached from the analysis classpath — this stub is invisible.
+// uses bmc-runtime's REAL BmcUnmodelledReached + CProver from the analysis classpath — these stubs are
+// invisible.
 val sentinelApi by sourceSets.creating {
     java.srcDir("src/sentinel-api/java")
 }
@@ -67,6 +69,9 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     auditAnnotations(project(path = ":bmc-models", configuration = "auditAnnotations"))
     compileOnly(files(auditAnnotations))
+    // SequencesKt.generateSequence bounds its eager unwind with org.cprover.CProver.assume; the
+    // BmcUnmodelledReached + CProver stubs both live in this compile-only source set (we cannot depend
+    // on bmc-runtime — that would be a cycle). JBMC supplies the real CProver at verification time.
     compileOnly(sentinelApi.output)
 }
 
