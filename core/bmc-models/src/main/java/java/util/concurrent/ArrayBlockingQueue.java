@@ -5,6 +5,11 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import org.cprover.CProver;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcNotNeeded;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.ArrayBlockingQueue} — a bounded FIFO over a
  * fixed-size backing array (head at index 0, tail at {@code size}; {@code poll}/{@code take} shift
@@ -30,6 +35,16 @@ import org.cprover.CProver;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
+@BmcModelConforms("bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
+@BmcNotModelled(member = "forEach(java.util.function.Consumer)", reason = "functional-arg iteration — iterate explicitly")
+@BmcNotModelled(member = "removeIf(java.util.function.Predicate)", reason = "functional-arg filter — JBMC stubs the predicate dispatch")
+@BmcNotNeeded(member = "addAll(java.util.Collection)", reason = "bulk add — add elements explicitly over the bounded model")
+@BmcNotNeeded(member = "containsAll(java.util.Collection)", reason = "bulk membership — compose contains() explicitly")
+@BmcNotNeeded(member = "removeAll(java.util.Collection)", reason = "bulk remove — compose remove() explicitly")
+@BmcNotNeeded(member = "retainAll(java.util.Collection)", reason = "bulk retain — exotic over a bounded model")
+@BmcNotNeeded(member = "offer(java.lang.Object,long,java.util.concurrent.TimeUnit)", reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
+@BmcNotNeeded(member = "poll(long,java.util.concurrent.TimeUnit)", reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
+@BmcModelTail(reason = "array-snapshot/stream views (toArray/toArray(IntFunction)/stream/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     static final int MAX_CAPACITY = 64;

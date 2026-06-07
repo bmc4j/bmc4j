@@ -5,12 +5,17 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of {@link java.util.concurrent.CompletableFuture} — a future is just "a value
  * that is ready". `*Async` builders run their task eagerly (single-threaded), and `get`/`join`
  * return the value. Lets logic proofs go through code structured around futures; bmc4j does not model
  * actual asynchrony/scheduling (concurrency is Lincheck's job).
  */
+@BmcModelConforms("ready-value future — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
+@BmcModelTail(reason = "the wide async-combinator surface not on the modeled eager path — *Async overloads taking an Executor, exceptionally*/handle*/whenComplete*, allOf/anyOf, orTimeout/completeOnTimeout, get(timeout)/getNow, cancel/obtrude*/minimalCompletionStage/newIncompleteFuture/defaultExecutor/copy — out of scope for a sequential ready-value model; all loud under JBMC")
 public class CompletableFuture<T> {
 
     private T value;

@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Sequential BMC model of an {@link ExecutorService}: an immediate / same-thread executor. Every
  * task runs <b>synchronously on the calling thread</b> at submit time, and the returned
@@ -14,6 +17,10 @@ import java.util.List;
  *
  * <p>Returned by {@link Executors#newFixedThreadPool(int)} and friends.
  */
+// Model-only class (no real java.util.concurrent.ImmediateExecutorService twin) implementing the
+// ExecutorService contract with same-thread semantics; exercised via the concurrency example + proofs.
+@BmcModelConforms("immediate/same-thread ExecutorService — synchronous submit, completed Future")
+@BmcModelTail(reason = "scheduling-bound ExecutorService surface not on the immediate model path (timed awaitTermination variants, invokeAny, scheduled hooks) — out of scope; loud under JBMC")
 public class ImmediateExecutorService implements ExecutorService {
 
     private boolean shutdown;
