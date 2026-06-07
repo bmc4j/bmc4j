@@ -68,7 +68,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'e' && s.charAt(1) == 'l' && s.charAt(2) == 'l' && s.charAt(3) == 'o');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void substring_from_symbolic() {
         String s = Bmc.anyString(4);
         int begin = Bmc.anyInt(0, s.length());
@@ -88,7 +88,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'e' && s.charAt(1) == 'l');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void substring_range_symbolic() {
         String s = Bmc.anyString(4);
         int begin = Bmc.anyInt(0, s.length());
@@ -110,7 +110,7 @@ class StringLaws {
                 && s.charAt(3) == 'o' && s.charAt(4) == 'n' && s.charAt(5) == 'o');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void replace_char_symbolic() {
         String s = Bmc.anyString(4);
         String r = s.replace('a', 'o');
@@ -130,7 +130,7 @@ class StringLaws {
         Bmc.check(!"x".isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void isEmpty_symbolic_tracks_length() {
         // isEmpty() == (length()==0) in BOTH directions: a nondet result could not satisfy this.
         String s = Bmc.anyString(4);
@@ -145,7 +145,7 @@ class StringLaws {
         Bmc.check(!"ABC".equalsIgnoreCase("abd"));  // false: a nondet result could be true
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void equalsIgnoreCase_symbolic_reflexive() {
         // Reflexive over every bounded string: a nondet equalsIgnoreCase could refute this.
         String s = Bmc.anyString(4);
@@ -161,7 +161,7 @@ class StringLaws {
         Bmc.check("b".compareTo("a") > 0);
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void compareTo_symbolic_reflexive() {
         String s = Bmc.anyString(4);
         Bmc.check(s.compareTo(s) == 0);            // reflexive: 0 for every string
@@ -222,14 +222,22 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'A' && s.charAt(1) == 'B' && s.charAt(2) == 'C');
     }
 
+    @BmcProof(maxStringLength = 4)
+    void toLowerCase_symbolic_length_preserving() {
+        // Length-preserving for every bounded string: a nondet result could refute this.
+        String s = Bmc.anyString(4);
+        Bmc.check(s.toLowerCase().length() == s.length());
+    }
+
     @BmcProof
-    void toLowerCase_symbolic_length_preserving_and_idempotent() {
-        // Length-preserving for every bounded string, and idempotent (a second fold is a no-op):
-        // a nondet result could satisfy neither. (equals here is the sound BmcStrings shim.)
-        String s = Bmc.anyString(3);
-        String lo = s.toLowerCase();
-        Bmc.check(lo.length() == s.length());
+    void toLowerCase_concrete_idempotent() {
+        // Idempotence (a second fold is a no-op) is inherently heavy over a FULL symbolic string —
+        // it builds and string-equals two whole-string case folds. Pinned concretely here; the
+        // exhaustive case-fold semantics live on the differential axis (DifferentialProofs runs the
+        // native op against the model over a value set), not as a whole-string symbolic proof.
+        String lo = "aBc".toLowerCase();
         Bmc.check(lo.toLowerCase().equals(lo));
+        Bmc.check(lo.equals("abc"));
     }
 
     // ---- concat(String) ----------------------------------------------------
@@ -241,8 +249,10 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'a' && s.charAt(1) == 'b' && s.charAt(2) == 'c' && s.charAt(3) == 'd');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void concat_symbolic_length_adds_and_prefix_preserved() {
+        // Both operands are symbolic by necessity (length additivity + left-operand prefix); each is
+        // bounded to 3 so the concatenated result stays small.
         String a = Bmc.anyString(3);
         String b = Bmc.anyString(3);
         String r = a.concat(b);
@@ -261,7 +271,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'X' && s.charAt(1) == 'X' && s.charAt(2) == 'X');
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void replace_charseq_symbolic_identity_is_noop() {
         // Replacing "a" with "a" leaves every bounded string unchanged: a nondet replace could not.
         String s = Bmc.anyString(4);
@@ -317,7 +327,7 @@ class StringLaws {
         Bmc.check("  x ".trim().length() == 1);
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void trim_symbolic_blankness_matches_a_charAt_scan() {
         // Symbolic, both directions: trim().isEmpty() must agree with "no char > ' '" over the
         // sound charAt primitive. If trim were nondet/unsound this equivalence could be refuted —

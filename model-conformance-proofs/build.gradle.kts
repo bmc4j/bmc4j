@@ -38,6 +38,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 // absolute path lands in the repo; with it unset, those proofs surface a clear "solver not found".
 bmc {
     providers.gradleProperty("z3Path").orNull?.let { solverPath.set(it) }
+    // Opt-in concurrency cap (-PbmcParallelism=N): string-heavy proofs can eat all machine
+    // memory at the default per-core fan-out; cap the jbmc pool when running these locally.
+    providers.gradleProperty("bmcParallelism").orNull?.let { parallelism.set(it.toInt()) }
 }
 
 // Opt-in benchmarking escape hatch (no-op unless -PsatPath is passed): route the proofs at an

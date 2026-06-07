@@ -33,16 +33,17 @@ class StringShimLaws {
         Bmc.check(!"abc".equals((Object) Integer.valueOf(1)));  // non-String -> false
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void equals_symbolic_reflexive() {
         String s = Bmc.anyString(4);
         Bmc.check(s.equals(s));             // reflexive over every bounded string
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void equals_symbolic_agrees_with_charAt_scan() {
         // equals(t) must agree, in BOTH directions, with "same length AND every charAt matches" —
-        // the exact relation BmcStrings.equals rebuilds. A nondet shim could refute this.
+        // the exact relation BmcStrings.equals rebuilds. A nondet shim could refute this. Both
+        // operands are symbolic by necessity; each is bounded to 3.
         String a = Bmc.anyString(3);
         String b = Bmc.anyString(3);
         boolean same = a.length() == b.length();
@@ -65,7 +66,7 @@ class StringShimLaws {
         Bmc.check(!"hi".startsWith("hello"));   // false (prefix longer than receiver)
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void startsWith_symbolic_self_and_empty() {
         // Every string starts with itself and with the empty prefix: a nondet shim could refute.
         String s = Bmc.anyString(4);
@@ -82,7 +83,7 @@ class StringShimLaws {
         Bmc.check(!"hi".endsWith("hello"));     // false (suffix longer than receiver)
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void endsWith_symbolic_self_and_empty() {
         String s = Bmc.anyString(4);
         Bmc.check(s.endsWith(s));
@@ -99,7 +100,7 @@ class StringShimLaws {
         Bmc.check(!"hi".contains("hello"));     // false: needle longer than receiver
     }
 
-    @BmcProof
+    @BmcProof(maxStringLength = 4)
     void contains_symbolic_self_and_empty() {
         // Every string contains itself and the empty needle: a nondet shim could refute.
         String s = Bmc.anyString(4);
