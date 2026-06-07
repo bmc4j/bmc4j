@@ -244,6 +244,11 @@ class BmcPlugin : Plugin<Project> {
                 // pass-through (no build default — unset means "no sharding", the filter stays inert).
                 forwardCli(test, "bmc.shard.count", null)
                 forwardCli(test, "bmc.shard.index", null)
+                // Machine-readable per-proof summary sink (CI PR-comment job): -Dbmc.summaryDir names a
+                // dir each test JVM appends one JSONL record per proof to. Pure CLI pass-through (no
+                // build default — unset means no summary is written, the sink stays inert). Forwarded to
+                // the forked test JVMs exactly like the shard knobs above.
+                forwardCli(test, "bmc.summaryDir", null)
                 // Verdict cache. Default ON; bmc { cache = false } disables it by setting
                 // bmc.noCache=true for the test JVM. A command-line -Dbmc.noCache wins over the build
                 // flag (so a one-off full re-verification doesn't need an edit), same precedence as

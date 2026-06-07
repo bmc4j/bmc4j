@@ -316,12 +316,40 @@ jobs:
       #
       # -Dbmc.shard.* select this shard's slice of the suite (the bmc-runtime
       # PostDiscoveryFilter keeps 1/N of the proofs); shardCount=1 is a no-op (full suite).
+      # -Dbmc.summaryDir: every proof test JVM appends one JSONL record (verdict, cached vs live,
+      # elapsed, pass/fail, truncated counterexample) under this dir. The bmc-runtime sink + the
+      # plugin's forwardCli pass it through to the forked workers. The pr-proof-comment job unions
+      # every shard's records into the PR results table. Emission is fail-open (never perturbs a
+      # verdict), so it's always on - harmless on push/dispatch where no comment job consumes it.
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
         run: |
           ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 \
             -Dbmc.shard.count=${{ matrix.shardCount }} -Dbmc.shard.index=${{ matrix.shardIndex }} \
+            -Dbmc.summaryDir="$GITHUB_WORKSPACE/bmc-proof-summary" \
             ${{ matrix.flags }} ${{ matrix.tasks }}
+
+      # always(): a shard that FAILED still proved (and thus recorded) every passing proof and the
+      # failing one's counterexample - the comment job needs both. Tag each tarball with leg + shard
+      # so the aggregator can detect a lost shard (a discovered proof whose record never arrived).
+      - name: Pack proof summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "$GITHUB_WORKSPACE/bmc-proof-summary" ]; then
+            tar -czf proof-summary-shard.tgz -C "$GITHUB_WORKSPACE" bmc-proof-summary
+          else
+            tar -czf proof-summary-shard.tgz --files-from /dev/null
+          fi
+
+      - name: Upload proof summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: proof-summary-${{ matrix.leg }}-${{ matrix.shardIndex }}-of-${{ matrix.shardCount }}
+          path: proof-summary-shard.tgz
+          if-no-files-found: ignore
 
       # always(): upload this shard's verdict-cache tree even when the leg FAILS - the cache
       # only ever stores expectation-matching verdicts (a flaky/failed/timed-out proof is never
@@ -442,6 +470,72 @@ jobs:
         with:
           path: '**/build/bmc4j/verdict-cache'
           key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
+
+  # ── PR proof-results comment (pull_request only) ──────────────────────────────
+  #
+  # After every proof leg finishes, union all shards' machine-readable per-proof summaries (the
+  # -Dbmc.summaryDir JSONL each test JVM wrote, uploaded as proof-summary-* artifacts) into ONE
+  # results table and post it as a PR comment - proofs ran / expected / checked, cache hits vs live
+  # solves, and a per-failure row naming the proof + its truncated counterexample. A marker comment
+  # is UPDATED in place on subsequent pushes (never spammed).
+  #
+  # always(): a red proof leg still uploaded its passing proofs AND the failure's counterexample, so
+  # the comment must still post (the failure rows are the point). The data source is the structured
+  # summary, not log-scraping - robust by construction.
+  #
+  # pull-requests: write is scoped to THIS job only (the rest of CI stays contents: read). Forked PRs
+  # get a read-only token: the script catches the 403 and degrades to the job-summary table instead
+  # of failing. The job itself never fails the run - it's reporting, not a gate.
+  pr-proof-comment:
+    name: PR proof comment
+    needs: [plan, proofs]
+    if: ${{ always() && github.event_name == 'pull_request' && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout (for the aggregation script)
+        uses: actions/checkout@v6
+
+      - name: Download proof summaries
+        uses: actions/download-artifact@v6
+        with:
+          path: summary-artifacts
+          pattern: proof-summary-*
+          merge-multiple: false
+
+      - name: Unpack summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p summaries
+          # Each artifact is one shard's tarball; extract preserving the artifact dir name so the
+          # aggregator can recover leg + shard id from the path (see legOfPath). Handle both the
+          # nested (multi-artifact) and flat (single-artifact) download-artifact layouts.
+          find summary-artifacts -type f -name 'proof-summary-shard.tgz' -print0 \
+            | while IFS= read -r -d '' tgz; do
+                # The artifact dir is the tarball's parent (or summary-artifacts/ when flat).
+                dir="$(dirname "$tgz")"
+                name="$(basename "$dir")"
+                [ "$name" = "summary-artifacts" ] && name="proof-summary-proofs-1-of-1"
+                dest="summaries/$name"
+                mkdir -p "$dest"
+                tar -xzf "$tgz" -C "$dest" || true
+              done
+          echo "Unpacked $(find summaries -name '*.jsonl' | wc -l) summary file(s)."
+
+      - name: Post / update the proof-results comment
+        uses: actions/github-script@v7
+        env:
+          SUMMARY_ROOT: summaries
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const mod = await import('${{ github.workspace }}/.github/scripts/proof-comment.mjs');
+            await mod.default({ github, context, core });
 
   smoke:
     name: smoke ${{ matrix.platform }}
