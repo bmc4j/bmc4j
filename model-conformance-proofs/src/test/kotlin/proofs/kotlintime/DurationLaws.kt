@@ -96,4 +96,20 @@ class DurationLaws {
         val d = (a * k).seconds
         Bmc.check((d / k).inWholeSeconds == a.toLong())
     }
+
+    /**
+     * Component decomposition via the public `toComponents { minutes, seconds, nanoseconds -> … }` lambda
+     * form (which compiles to the modeled `toComponents-impl(long, Function3)` ABI). Built from small whole
+     * counts, the minutes/seconds components read back exactly (minute count is sub-60, second component is
+     * the seconds-within-the-minute). Range kept tight — the mod-heavy components are solver-heavy; exact
+     * parity over a wide range is in conformance.KotlinDurationConformanceTest.
+     */
+    @BmcProof
+    fun toComponents_decomposes_minutes_seconds() {
+        val m = Bmc.anyInt(0, 59)
+        val s = Bmc.anyInt(0, 59)
+        val d = m.minutes + s.seconds
+        val ok = d.toComponents { minutes, seconds, _ -> minutes == m.toLong() && seconds == s }
+        Bmc.check(ok)
+    }
 }

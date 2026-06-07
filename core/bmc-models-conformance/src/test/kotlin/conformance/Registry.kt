@@ -29,6 +29,8 @@ val COVERED: Set<String> = setOf(
     "kotlin.enums.EnumEntriesKt", "kotlin.enums.EnumEntries", "kotlin.enums.EnumEntriesList",
     // kotlin.time.Duration value-class model + its facade/unit enum (DurationLaws + differential).
     "kotlin.time.Duration", "kotlin.time.DurationKt", "kotlin.time.DurationUnit",
+    // kotlin.Result value-class model — non-inline ABI surface (ResultLaws model proofs).
+    "kotlin.Result",
     // kotlin.jvm.internal.Intrinsics null-safety helpers (fundamentals-kotlin null-safety proofs).
     "kotlin.jvm.internal.Intrinsics",
     // Model proofs (model-conformance-proofs) — Kotlin Sequences facade (SequenceLaws).
@@ -74,7 +76,6 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
     "java.util.stream.Collector" to "interface — via Collectors",
-    "kotlin.Result" to "coroutine Result plumbing — exercised by the coroutines example",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
     "kotlin.coroutines.intrinsics.CoroutineSingletons" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.intrinsics.IntrinsicsKt" to "coroutine runtime model — coroutines example",
@@ -147,5 +148,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "kotlin.ranges.RangesKt", "kotlin.comparisons.ComparisonsKt",
     "kotlin.enums.EnumEntriesKt",
     "kotlin.time.Duration", "kotlin.time.DurationKt",
+    // kotlin.Result value class — mangled -impl ABI; real target is kotlin-stdlib's kotlin.Result.
+    "kotlin.Result",
     "kotlin.jvm.internal.Intrinsics",
 )

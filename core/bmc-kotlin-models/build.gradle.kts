@@ -96,6 +96,18 @@ val durationAbiRenames: Map<String, String> = mapOf(
     "isInfinite(J)Z" to "isInfinite-impl",
     "isFinite(J)Z" to "isFinite-impl",
     "toLong(JLkotlin/time/DurationUnit;)J" to "toLong-impl",
+    "toInt(JLkotlin/time/DurationUnit;)I" to "toInt-impl",
+    // truncateTo carries BOTH the value-type mangle suffix and the internal `$kotlin_stdlib` marker.
+    "truncateTo(JLkotlin/time/DurationUnit;)J" to "truncateTo-UwyO8pc\$kotlin_stdlib",
+    "getHoursComponent(J)I" to "getHoursComponent-impl",
+    "getMinutesComponent(J)I" to "getMinutesComponent-impl",
+    "getSecondsComponent(J)I" to "getSecondsComponent-impl",
+    "getNanosecondsComponent(J)I" to "getNanosecondsComponent-impl",
+    "toComponents(JLkotlin/jvm/functions/Function2;)Ljava/lang/Object;" to "toComponents-impl",
+    "toComponents(JLkotlin/jvm/functions/Function3;)Ljava/lang/Object;" to "toComponents-impl",
+    "toComponents(JLkotlin/jvm/functions/Function4;)Ljava/lang/Object;" to "toComponents-impl",
+    "toComponents(JLkotlin/jvm/functions/Function5;)Ljava/lang/Object;" to "toComponents-impl",
+    "constructorImpl(J)J" to "constructor-impl",
     "getInWholeDays(J)J" to "getInWholeDays-impl",
     "getInWholeHours(J)J" to "getInWholeHours-impl",
     "getInWholeMinutes(J)J" to "getInWholeMinutes-impl",
@@ -107,33 +119,51 @@ val durationAbiRenames: Map<String, String> = mapOf(
     "hashCode(J)I" to "hashCode-impl",
 )
 
+// kotlin.Result<T> is likewise a @JvmInline value class — erased to its single Object carrier, with the
+// same kotlinc -impl name mangling (no dashed hash here, since the value type appears only as the erased
+// Object). Authored with legal placeholder names, rewritten to the real ABI names by the same pass. Only
+// the NON-inline public surface is modeled: getOrNull/fold/map/recover + Companion.success/failure are
+// @InlineOnly (their ABI methods are private — no symbol to rename).
+val resultAbiRenames: Map<String, String> = mapOf(
+    "constructorImpl(Ljava/lang/Object;)Ljava/lang/Object;" to "constructor-impl",
+    "isFailure(Ljava/lang/Object;)Z" to "isFailure-impl",
+    "isSuccess(Ljava/lang/Object;)Z" to "isSuccess-impl",
+    "exceptionOrNull(Ljava/lang/Object;)Ljava/lang/Throwable;" to "exceptionOrNull-impl",
+)
+
+// Owner internal-name -> (placeholderName+descriptor -> mangled ABI name). One pass rewrites every
+// value-class model's members AND its own internal call sites to the dashed kotlinc ABI names.
+val valueClassAbiRenames: Map<String, Map<String, String>> = mapOf(
+    "kotlin/time/Duration" to durationAbiRenames,
+    "kotlin/Result" to resultAbiRenames,
+)
+
 val renameDurationAbi by tasks.registering {
-    description = "Rename kotlin.time.Duration value-class members to their mangled JVM ABI names."
+    description = "Rename kotlin value-class members (Duration, Result) to their mangled JVM ABI names."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
     // outputs.dir alone creates NO task dependency — without the explicit dependsOn this raced
     // compileJava on cold parallel builds (surfaced by the arm64 smoke once the audit tasks
     // reshuffled the schedule) and failed with "Duration.class not found".
     dependsOn(tasks.named("compileJava"))
-    inputs.property("renames", durationAbiRenames)
+    inputs.property("renames", valueClassAbiRenames)
     outputs.dir(classesDir)
     doLast {
-        val durationOwner = "kotlin/time/Duration"
-        val target = classesDir.get().asFile.resolve("kotlin/time/Duration.class")
-        if (!target.exists()) {
-            throw GradleException("kotlin/time/Duration.class not found for ABI rename: $target")
-        }
         val remapper = object : Remapper() {
             override fun mapMethodName(owner: String, name: String, descriptor: String): String {
-                if (owner == durationOwner) {
-                    durationAbiRenames[name + descriptor]?.let { return it }
-                }
+                valueClassAbiRenames[owner]?.get(name + descriptor)?.let { return it }
                 return name
             }
         }
-        val cr = ClassReader(target.readBytes())
-        val cw = ClassWriter(0)
-        cr.accept(ClassRemapper(cw, remapper), 0)
-        target.writeBytes(cw.toByteArray())
+        for (owner in valueClassAbiRenames.keys) {
+            val target = classesDir.get().asFile.resolve("$owner.class")
+            if (!target.exists()) {
+                throw GradleException("$owner.class not found for value-class ABI rename: $target")
+            }
+            val cr = ClassReader(target.readBytes())
+            val cw = ClassWriter(0)
+            cr.accept(ClassRemapper(cw, remapper), 0)
+            target.writeBytes(cw.toByteArray())
+        }
     }
 }
 

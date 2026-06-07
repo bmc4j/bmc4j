@@ -435,6 +435,92 @@ public final class Duration {
         return millisToNanos(v);
     }
 
+    // ---- whole-unit conversion to Int (saturating; toDouble/toIsoString stay tail: no-double/no-format) ----
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static int toInt(long raw, DurationUnit unit) {
+        long v = toLong(raw, unit);
+        if (v > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        if (v < Integer.MIN_VALUE) {
+            return Integer.MIN_VALUE;
+        }
+        return (int) v;
+    }
+
+    // ---- truncation toward zero to a coarser unit (Duration.truncateTo, internal $kotlin_stdlib) ----
+    // truncate(unit) == inWhole<unit> rebuilt at that unit, i.e. integer-divide toward zero. The real
+    // member name carries the value-type mangle suffix AND the internal `$kotlin_stdlib` marker; the build
+    // rename carries the placeholder to truncateTo-UwyO8pc$kotlin_stdlib.
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static long truncateTo(long raw, DurationUnit unit) {
+        return toDuration(toLong(raw, unit), unit);
+    }
+
+    // ---- component decomposition (the days/hours/minutes/seconds/nanoseconds breakdown) ----
+    // hoursComponent = (inWholeHours % 24), minutesComponent = (inWholeMinutes % 60),
+    // secondsComponent = (inWholeSeconds % 60), nanosecondsComponent = (inWholeNanoseconds % 1e9) — each
+    // narrowed to Int (the magnitudes are bounded by the modulus, so the narrowing never truncates).
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static int getHoursComponent(long raw) {
+        return (int) (getInWholeHours(raw) % 24);
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static int getMinutesComponent(long raw) {
+        return (int) (getInWholeMinutes(raw) % 60);
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static int getSecondsComponent(long raw) {
+        return (int) (getInWholeSeconds(raw) % 60);
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static int getNanosecondsComponent(long raw) {
+        return (int) (getInWholeNanoseconds(raw) % 1_000_000_000L);
+    }
+
+    // ---- toComponents(action) — invoke the supplied lambda with the decomposed parts ----
+    // These are NOT inline (each has a real -impl ABI method); they box the parts (Long for the leading
+    // whole-unit count, Integer for the components) and call FunctionN.invoke, mirroring the stdlib.
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static Object toComponents(long raw, kotlin.jvm.functions.Function2<? super Long, ? super Integer, ?> action) {
+        return action.invoke(getInWholeSeconds(raw), getNanosecondsComponent(raw));
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static Object toComponents(long raw,
+            kotlin.jvm.functions.Function3<? super Long, ? super Integer, ? super Integer, ?> action) {
+        return action.invoke(getInWholeMinutes(raw), getSecondsComponent(raw), getNanosecondsComponent(raw));
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static Object toComponents(long raw,
+            kotlin.jvm.functions.Function4<? super Long, ? super Integer, ? super Integer, ? super Integer, ?> action) {
+        return action.invoke(getInWholeHours(raw), getMinutesComponent(raw), getSecondsComponent(raw),
+                getNanosecondsComponent(raw));
+    }
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static Object toComponents(long raw,
+            kotlin.jvm.functions.Function5<? super Long, ? super Integer, ? super Integer, ? super Integer,
+                    ? super Integer, ?> action) {
+        return action.invoke(getInWholeDays(raw), getHoursComponent(raw), getMinutesComponent(raw),
+                getSecondsComponent(raw), getNanosecondsComponent(raw));
+    }
+
+    // ---- identity constructor (constructor-impl(long) -> long; the model is already pre-packed) ----
+
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
+    public static long constructorImpl(long raw) {
+        return raw;
+    }
+
     // ---- equals / hashCode (value-class ABI: equals-impl0(long,long), hashCode-impl(long)) ----
 
     @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
