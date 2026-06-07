@@ -1,14 +1,17 @@
 package java.util.stream;
 
+import java.util.function.LongBinaryOperator;
+import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
+import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
 /** Minimal BMC model of {@link java.util.stream.LongStream}, eager over a bounded {@code long[]}. */
-@BmcModelTail(reason = "the broad lazy LongStream surface (sorted/distinct/limit/skip/peek/min/max/average/reduce-overloads/asDoubleStream/toArray/collect/summaryStatistics/iterate/generate/concat/…) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+@BmcModelTail(reason = "the remaining LongStream surface (min/max/average/summaryStatistics + reduce(LongBinaryOperator) — all need the unmodeled OptionalLong/OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
@@ -29,8 +32,88 @@ public interface LongStream {
     @BmcModelConforms("@BmcProof (proofs.stream)")
     boolean anyMatch(LongPredicate predicate);
 
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    boolean allMatch(LongPredicate predicate);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    boolean noneMatch(LongPredicate predicate);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream limit(long maxSize);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream skip(long n);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream takeWhile(LongPredicate predicate);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream dropWhile(LongPredicate predicate);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream distinct();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream sorted();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    LongStream peek(LongConsumer action);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    void forEach(LongConsumer action);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    long reduce(long identity, LongBinaryOperator op);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    long[] toArray();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    IntStream mapToInt(LongToIntFunction mapper);
+
     @BmcModelConforms("@BmcProof (proofs.stream)")
     Stream<Long> boxed();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    static LongStream empty() {
+        return new LongArrayStream();
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    static LongStream of(long value) {
+        LongArrayStream s = new LongArrayStream();
+        s.add(value);
+        return s;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    static LongStream concat(LongStream a, LongStream b) {
+        LongArrayStream s = new LongArrayStream();
+        long[] aa = a.toArray();
+        for (int i = 0; i < aa.length; i++) {
+            s.add(aa[i]);
+        }
+        long[] bb = b.toArray();
+        for (int i = 0; i < bb.length; i++) {
+            s.add(bb[i]);
+        }
+        return s;
+    }
+
+    /**
+     * The FINITE 3-arg iterate (seed + {@code hasNext} predicate + {@code next}). Bounded and sound;
+     * the infinite 2-arg {@code iterate}/{@code generate} stay in the tail (would never terminate).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
+    static LongStream iterate(long seed, LongPredicate hasNext, LongUnaryOperator next) {
+        LongArrayStream s = new LongArrayStream();
+        long cur = seed;
+        while (hasNext.test(cur)) {
+            s.add(cur);
+            cur = next.applyAsLong(cur);
+        }
+        return s;
+    }
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
     static LongStream range(long startInclusive, long endExclusive) {
