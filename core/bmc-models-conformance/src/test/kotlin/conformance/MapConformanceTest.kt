@@ -72,6 +72,36 @@ class MapConformanceTest : FunSpec({
         checkMap({ java.util.concurrent.ConcurrentHashMap<Any?, Any?>() }, { bmcref.java.util.concurrent.ConcurrentHashMap<Any?, Any?>() }, allowNullKey = true)
     }
 
+    // --- TreeMap NavigableMap navigation (firstKey/lastKey/.../ceilingKey/floorKey/higher/lower) ----
+    // Build identical maps (small, collision-dense Comparable keys), then compare every navigation op
+    // across a range of probe keys vs the JDK TreeMap — including the empty-map split (firstKey/lastKey
+    // throw NoSuchElementException; firstEntry/lastEntry/ceiling/floor/higher/lower return null) and
+    // comparator() == null (natural ordering). Iteration order isn't modeled, but the navigation
+    // RESULTS are total functions of the key set + ordering, so they must match exactly.
+    test("TreeMap NavigableMap navigation conforms") {
+        val entry = Arb.bind(Arb.int(-4..6), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..25)) { pairs ->
+            val r = java.util.TreeMap<Any?, Any?>()
+            val m = bmcref.java.util.TreeMap<Any?, Any?>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+
+            // comparator() is null for natural ordering on both.
+            assertEquivalent("comparator", call(r, "comparator", arrayOf()), call(m, "comparator", arrayOf()))
+            // firstKey/lastKey: equal value, or the SAME exception (NoSuchElementException when empty).
+            assertEquivalent("firstKey", call(r, "firstKey", arrayOf()), call(m, "firstKey", arrayOf()))
+            assertEquivalent("lastKey", call(r, "lastKey", arrayOf()), call(m, "lastKey", arrayOf()))
+            // firstEntry/lastEntry: null when empty, else key/value match (entry types differ by relocation).
+            assertSameEntry("firstEntry", call(r, "firstEntry", arrayOf()), call(m, "firstEntry", arrayOf()))
+            assertSameEntry("lastEntry", call(r, "lastEntry", arrayOf()), call(m, "lastEntry", arrayOf()))
+            // ceiling/floor/higher/lower across probe keys spanning below/within/above the key range.
+            for (probe in -6..8) {
+                for (op in listOf("ceilingKey", "floorKey", "higherKey", "lowerKey")) {
+                    assertEquivalent("$op($probe)", call(r, op, arrayOf(OBJECT), probe), call(m, op, arrayOf(OBJECT), probe))
+                }
+            }
+        }
+    }
+
     // keySet/values/entrySet snapshots: size matches the map, and key/value membership matches the JDK.
     test("keySet/values/entrySet snapshot the map like the JDK") {
         val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }

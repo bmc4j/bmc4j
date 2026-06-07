@@ -877,11 +877,11 @@ Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-_inherits the HashMap model surface; functional results match (no key ordering imposed)_
+_inherits the HashMap model surface; NavigableMap navigation (firstKey/lastKey/firstEntry/lastEntry/ceilingKey/floorKey/higherKey/lowerKey/comparator) by bounded sorted scan — differential (MapConformanceTest) + @BmcProof (proofs.treemap)_
 
-Real surface: 54 members — modeled 20, not-modeled 1, not-needed 3, tail 30.
+Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
@@ -893,25 +893,16 @@ Real surface: 54 members — modeled 20, not-modeled 1, not-needed 3, tail 30.
 | `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 30 members, all loud): NavigableMap/SortedMap ordering surface (firstKey/lastKey/ceilingEntry/floorKey/headMap/tailMap/subMap/descendingMap/pollFirstEntry/…) — this array-backed model imposes no ordering, so the ordered navigation API is out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 21 members, all loud): NavigableMap/SortedMap range-view and bulk-navigation surface (ceilingEntry/floorEntry/higherEntry/lowerEntry/firstKey-as-entry variants, headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/pollFirstEntry/pollLastEntry) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC</summary>
 
 - `ceilingEntry(Object)`
-- `ceilingKey(Object)`
-- `comparator()`
 - `descendingKeySet()`
 - `descendingMap()`
-- `firstEntry()`
-- `firstKey()`
 - `floorEntry(Object)`
-- `floorKey(Object)`
 - `headMap(Object)`
 - `headMap(Object, boolean)`
 - `higherEntry(Object)`
-- `higherKey(Object)`
-- `lastEntry()`
-- `lastKey()`
 - `lowerEntry(Object)`
-- `lowerKey(Object)`
 - `navigableKeySet()`
 - `pollFirstEntry()`
 - `pollLastEntry()`
