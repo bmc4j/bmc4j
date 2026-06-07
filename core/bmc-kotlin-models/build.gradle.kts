@@ -88,6 +88,10 @@ val durationAbiRenames: Map<String, String> = mapOf(
 val renameDurationAbi by tasks.registering {
     description = "Rename kotlin.time.Duration value-class members to their mangled JVM ABI names."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
+    // outputs.dir alone creates NO task dependency — without the explicit dependsOn this raced
+    // compileJava on cold parallel builds (surfaced by the arm64 smoke once the audit tasks
+    // reshuffled the schedule) and failed with "Duration.class not found".
+    dependsOn(tasks.named("compileJava"))
     inputs.property("renames", durationAbiRenames)
     outputs.dir(classesDir)
     doLast {
