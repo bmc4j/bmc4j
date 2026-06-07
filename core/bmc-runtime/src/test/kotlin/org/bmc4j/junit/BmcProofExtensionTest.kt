@@ -638,6 +638,31 @@ internal class BmcProofExtensionTest {
         assertTrue(rejected.message!!.contains("not a real UNKNOWN"), rejected.message)
     }
 
+    @Test
+    fun linkFailuresToDemote_keepsAnExpectedRefutationEvenWithAStubInTrace(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // A demo that PINS expect=REFUTED and matches, whose trace happens to run through a nondet stub
+        // of a PRESENT class (e.g. a lateinit getter), is getting its intended verdict — the link-failure
+        // demotion must NOT fire and steal that pass. Nothing to demote -> stays REFUTED/passes.
+        writeModelClass(dir, "example.lateinitprops.Session")
+        val refuted = refutedResult().withLinkFailureStubs(listOf("example.lateinitprops.Session.getUser()"))
+        assertTrue(BmcProofExtension.linkFailuresToDemote(org.bmc4j.Verdict.REFUTED, refuted, dir.toString()).isEmpty(),
+                "an expect=REFUTED match must not be demoted by a stub in its trace")
+    }
+
+    @Test
+    fun linkFailuresToDemote_demotesAnUNEXPECTEDRefutationWithAPresentStub(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // The transient-flake case this guards: a refutation surfacing where none was expected
+        // (expect=VERIFIED), running through a nondet stub of a PRESENT class, IS demoted to UNKNOWN so
+        // a clean proof doesn't go red on a transient link failure (existing behavior).
+        writeModelClass(dir, "example.lateinitprops.Session")
+        val refuted = refutedResult().withLinkFailureStubs(listOf("example.lateinitprops.Session.getUser()"))
+        assertEquals(listOf("example.lateinitprops.Session.getUser()"),
+                BmcProofExtension.linkFailuresToDemote(org.bmc4j.Verdict.VERIFIED, refuted, dir.toString()),
+                "an unexpected refutation through a present-class stub still demotes to UNKNOWN")
+    }
+
     companion object {
         /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
         private fun writeModelClass(root: java.nio.file.Path, fqn: String) {
