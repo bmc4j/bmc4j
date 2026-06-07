@@ -54,6 +54,26 @@ class ArrayListLaws {
     }
 
     @BmcProof
+    fun removeObject_deletes_first_equal_and_reports() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        l.add(a)
+        l.add(b)
+        val present = l.remove(a)               // Collection.remove(Object) -> boolean
+        Bmc.check(present && l.size == 1 && l[0] == b)
+    }
+
+    @BmcProof
+    fun removeObject_absent_returns_false_and_keeps_size() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        l.add(a)
+        val absent = l.remove(a + 1)
+        Bmc.check(!absent && l.size == 1 && l[0] == a)
+    }
+
+    @BmcProof
     fun clear_empties() {
         val l = ArrayList<Int>()
         l.add(Bmc.anyInt())

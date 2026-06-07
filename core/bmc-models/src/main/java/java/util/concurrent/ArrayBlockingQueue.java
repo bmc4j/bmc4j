@@ -170,6 +170,25 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return false;
     }
 
+    /**
+     * Removes a single instance of {@code o} (the first, by {@code equals}) if present, shifting the
+     * tail down; returns whether one was removed. The {@code Collection.remove(Object)} overload —
+     * distinct from the no-arg head-removing {@link #remove()}.
+     */
+    @Override
+    public boolean remove(Object o) {
+        for (int i = 0; i < size; i++) {
+            if (o == null ? elements[i] == null : o.equals(elements[i])) {
+                for (int j = i; j < size - 1; j++) {
+                    elements[j] = elements[j + 1];
+                }
+                size--;
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void clear() {
         size = 0;
