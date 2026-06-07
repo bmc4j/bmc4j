@@ -16,7 +16,8 @@ the exact input) with one that passes — that failure *is* the result.
 | [integrations](integrations) | Real-world inputs: Jakarta validation, env/property config, custom models (Java & Kotlin) |
 | [concurrency-java](concurrency-java) | `@BmcProof(concurrent = true)` thread-interleaving search (data race + lock fix) |
 | [concurrency-kotlin](concurrency-kotlin) | Coroutines (`suspend` proofs) and BMC-vs-Lincheck (logic vs concurrency) |
-| [contracts](contracts) | Method contracts (`@Requires`/`@Ensures`): basics, recursion-as-induction, stacking, the soundness guard |
+| [contracts-kotlin](contracts-kotlin) | Method contracts from Kotlin (kapt-wired): basics (`object`+`@JvmStatic`), instance receivers, default parameters, the soundness guard, the purity audit on a `this`-mutation |
+| [contracts](contracts) | Method contracts (`@Requires`/`@Ensures`) in Java: basics, recursion-as-induction, stacking, the soundness guard |
 
 ## Running them
 

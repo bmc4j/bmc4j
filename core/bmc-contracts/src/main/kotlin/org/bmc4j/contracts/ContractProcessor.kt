@@ -87,6 +87,21 @@ class ContractProcessor : AbstractProcessor() {
                 continue
             }
             val mirror = member as ExecutableElement
+            // LOUD reject of Kotlin shapes contracts can't bind. A mirror with a hidden
+            // `kotlin.coroutines.Continuation` parameter is a `suspend` function: it returns
+            // `Object` (the resumed value or COROUTINE_SUSPENDED) over a state machine, not a value,
+            // so it is neither pure nor a legal value-returning target. Reject it by name rather than
+            // letting it silently bind to a `(…,Continuation)Object` shape no caller expects.
+            if (isSuspend(mirror)) {
+                error(mirror, "contract mirror '${mirror.simpleName}' is a suspend function;" +
+                        " suspend functions are not supported (they return a coroutine state machine," +
+                        " not a value). Contract a non-suspend, pure, value-returning method instead")
+                continue
+            }
+            // NOTE on value/inline classes: a mirror that takes or returns one is name-mangled by
+            // Kotlin (`f-<hash>`) and OMITTED from kapt's Java stub, so it never reaches this loop —
+            // the type ends up binding zero contracts and is rejected loudly below. (We can't report
+            // it by name here because the element simply isn't present.)
             val requires = mirror.getAnnotation(Requires::class.java)
             val ensures = mirror.getAnnotation(Ensures::class.java)
             if (requires == null && ensures == null) {
@@ -140,7 +155,18 @@ class ContractProcessor : AbstractProcessor() {
             }
         }
         if (contracts.isEmpty()) {
-            warn(contractType, "@BmcContractsFor type has no @Requires/@Ensures mirror methods")
+            // A @BmcContractsFor type that binds NO contract is always a mistake, and a SILENT one is
+            // the failure mode to kill — so this is a hard error, not a warning. The most common
+            // Kotlin cause is a value/inline-class parameter or return type: kapt name-mangles such a
+            // method (`f-<hash>`) and OMITS it from the Java stub it feeds javac entirely, so the
+            // processor never sees the mirror at all (it can't even be reported by name). Unwrap the
+            // value class at the contract boundary — mirror a method whose parameters and return type
+            // are plain (non-value) types. (Other causes: every mirror is a `suspend` function, or the
+            // type genuinely declares no @Requires/@Ensures method.)
+            error(contractType, "@BmcContractsFor type ${contractType.simpleName} binds no contract:" +
+                    " no @Requires/@Ensures mirror method was visible. If a mirror takes or returns a" +
+                    " Kotlin value/inline class, kapt mangles its name and drops it before the" +
+                    " processor runs — unwrap the value class and contract a plain-typed method instead")
             return
         }
 
@@ -174,6 +200,22 @@ class ContractProcessor : AbstractProcessor() {
             }
         }
         return null
+    }
+
+    /**
+     * True if [mirror] is a Kotlin `suspend` function as seen by kapt: its last parameter is a
+     * `kotlin.coroutines.Continuation`. Kotlin lowers `suspend fun f(args): T` to
+     * `Object f(args, Continuation<? super T>)`, so the Continuation tail is the reliable marker on
+     * the javac-visible signature.
+     */
+    private fun isSuspend(mirror: ExecutableElement): Boolean {
+        val last = mirror.parameters.lastOrNull()?.asType() ?: return false
+        if (last.kind != TypeKind.DECLARED) {
+            return false
+        }
+        val element = (last as DeclaredType).asElement()
+        return element is TypeElement &&
+                element.qualifiedName.toString() == "kotlin.coroutines.Continuation"
     }
 
     /** A readable `(int, java.lang.String)` parameter list for diagnostics. */
