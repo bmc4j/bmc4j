@@ -5,10 +5,20 @@ name: Publish core modules
 # optionally stages the same set (signed) for the release workflow's Maven
 # Central bundle. The five bmc-engine-<platform> jars are published separately
 # by engine-jars.yml — each can only be assembled on its own OS; everything
-# here is plain JVM and publishes from one linux runner.
+# here is plain JVM.
 #
-# GitHub Packages rejects overwrites; the GHP leg skips already-published
-# modules per-version, so re-runs are idempotent.
+# GitHub Packages' Maven endpoint costs a fixed ~30s per publication (every PUT
+# of jar/sources/javadoc/pom/module + .asc + checksums is a redirect round-trip),
+# independent of artifact size - a tiny plain-JVM jar is as slow as a big one.
+# Gradle serialises PublishToMavenRepository tasks that target one repository, so
+# publishing all seven modules in a single Gradle run pays that latency back-to-back
+# (~7x30s of pure upload wall-clock). The GHP leg therefore fans out across a matrix
+# (one runner per module, mirroring engine-jars.yml) so the round-trips overlap and
+# there is no shared-filesystem Gradle lock contention. Central staging stays a
+# single job (release-only; it merges all modules into one artifact).
+#
+# GitHub Packages rejects overwrites; the GHP leg skips already-published modules
+# per-version (computed once in `plan`), so re-runs are idempotent.
 #
 # Also callable from the release workflow (workflow_call), which passes the
 # tag version - the tag is the source of truth, pinned into gradle.properties.
@@ -45,12 +55,53 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  # Compute the module set the GHP matrix should publish: the full non-engine list
+  # minus anything already on GitHub Packages at this version (GHP rejects overwrites
+  # with 409, so skip-if-exists keeps re-runs idempotent). Doing it once here means a
+  # re-run after a partial failure only fans out the modules that still need it.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.plan.outputs.modules }}
+    steps:
+      - id: plan
+        if: ${{ inputs.githubPackages }}
+        shell: bash
+        env:
+          BMC4J_VERSION: ${{ inputs.version }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
+          todo='[]'
+          for mod in bmc-runtime bmc-gradle-plugin bmc-models bmc-kotlin bmc-contracts bmc-constraints bmc-constraints-jakarta; do
+            if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
+                "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$BMC4J_VERSION/$mod-$BMC4J_VERSION.pom"; then
+              echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
+            else
+              todo="$(echo "$todo" | jq -c --arg m "$mod" '. + [$m]')"
+            fi
+          done
+          echo "To publish: $(echo "$todo" | jq -r 'join(", ")')"
+          echo "modules=$todo" >> "$GITHUB_OUTPUT"
+
+  # One runner per module so GitHub Packages' fixed per-publication latency overlaps
+  # instead of summing. Each module's plain-JVM build is cheap (a few seconds of
+  # compile); runners are parallel, so total wall-clock collapses to roughly one
+  # module's build + one ~30s upload regardless of module count.
+  publish-ghp:
+    needs: plan
+    if: ${{ inputs.githubPackages && needs.plan.outputs.modules != '[]' && needs.plan.outputs.modules != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.plan.outputs.modules) }}
     # The tag is the version's source of truth: the build reads BMC4J_VERSION
-    # (empty -> the 0.0.1-local dev default), so every Gradle step in this job
-    # builds/publishes at the requested version with no file edits.
+    # (empty -> the 0.0.1-local dev default), so every Gradle step publishes at the
+    # requested version with no file edits.
     env:
       BMC4J_VERSION: ${{ inputs.version }}
     steps:
@@ -67,14 +118,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       # Signing is conditional in the build (applies only when SIGNING_KEY is
-      # present). GitHub Packages doesn't require signatures, but signing here
-      # keeps the published artifacts identical to the Central-bound ones and
-      # exercises the signing path on every publish. Per-module skip-if-exists
-      # makes re-runs idempotent: GH Packages rejects overwrites with a 409, so a
-      # re-run after a partial failure would otherwise die on the modules that
-      # DID publish.
-      - name: Publish non-engine modules to GitHub Packages
-        if: ${{ inputs.githubPackages }}
+      # present). GitHub Packages doesn't require signatures, but signing here keeps
+      # the published artifacts identical to the Central-bound ones and exercises the
+      # signing path on every publish.
+      - name: Publish ${{ matrix.module }} to GitHub Packages
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
@@ -84,26 +131,33 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
-          tasks=""
-          for mod in bmc-runtime bmc-gradle-plugin bmc-models bmc-kotlin bmc-contracts bmc-constraints bmc-constraints-jakarta; do
-            if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
-                "https://maven.pkg.github.com/${{ github.repository }}/org/bmc4j/$mod/$BMC4J_VERSION/$mod-$BMC4J_VERSION.pom"; then
-              echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
-            else
-              tasks="$tasks :$mod:publishAllPublicationsToGitHubPackagesRepository"
-            fi
-          done
-          if [ -z "$tasks" ]; then
-            echo "every module already published - nothing to do"
-          else
-            ./gradlew -p core --no-daemon $tasks
-          fi
+          ./gradlew -p core --no-daemon ":${{ matrix.module }}:publishAllPublicationsToGitHubPackagesRepository"
 
-      # Maven Central staging: same module set into a local directory repo (signed -
-      # Central requires .asc on every file), handed to the release workflow as an
-      # artifact to merge into the Portal bundle alongside the per-platform engine jars.
+  # Maven Central staging: the whole module set into one local directory repo (signed -
+  # Central requires .asc on every file), handed to the release workflow as a single
+  # artifact to merge into the Portal bundle alongside the per-platform engine jars.
+  # Release-only (centralStaging) and rare, so it stays a single job - the bundle must
+  # be one merged maven-repo layout, which a per-module fan-out would fragment.
+  central-staging:
+    if: ${{ inputs.centralStaging }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BMC4J_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
       - name: Publish to Central staging artifact
-        if: ${{ inputs.centralStaging }}
         shell: bash
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
@@ -120,7 +174,6 @@ jobs:
           :bmc-constraints-jakarta:publishAllPublicationsToCentralStagingRepository
 
       - name: Upload Central staging artifact
-        if: ${{ inputs.centralStaging }}
         uses: actions/upload-artifact@v7
         with:
           name: central-staging-core
