@@ -146,6 +146,20 @@ class JbmcBackend : VerificationBackend {
             if (coreModels != null) {
                 classpath = classpath + File.pathSeparator + coreModels
             }
+            // Purity audit (soundness): a contract redirects every call site of its target to a stub
+            // that summarizes only the RETURN value, so any caller-observable side effect of the body
+            // is silently dropped — and the enforce-proof still passes (it checks @Ensures, not
+            // purity). Certify each contract this proof CONSUMES provably pure-by-construction against
+            // the fully prepared, model-bearing classpath (where JDK calls already resolve to our model
+            // bytecode), or fail the build LOUD via ContractPurityError. Done after the desugar passes
+            // so the walker sees the same sound bytecode JBMC will. Scoped to the redirects relevant to
+            // THIS proof (an enforce-proof's own target; a replace-proof's reachable redirected call
+            // sites) so an impure contract fails exactly the proofs that would unsoundly reuse it, not
+            // every proof in the module. A no-op without contracts.
+            val manifest = ContractManifest.readFromClasspath(request.classpath)
+            ContractPurityAudit.auditRelevant(
+                    manifest, request.entryClass, entryMethodName(request.entryFunction),
+                    request.classpath, classpath)
             return classpath
         }
 
@@ -175,6 +189,12 @@ class JbmcBackend : VerificationBackend {
                 sb.append(File.pathSeparator).append(insertion)
             }
             return sb.toString()
+        }
+
+        /** The method-name half of a `Class.method` entry-function string. */
+        fun entryMethodName(entryFunction: String): String {
+            val dot = entryFunction.lastIndexOf('.')
+            return if (dot >= 0) entryFunction.substring(dot + 1) else entryFunction
         }
 
         /** Apply the contract rewriter to the request's classpath (no-op without a manifest). */

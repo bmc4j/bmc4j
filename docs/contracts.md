@@ -49,8 +49,43 @@ See [`examples/contracts`](../examples/contracts) — the `basics`, `recursion` 
 
 Read these before trusting a contract:
 
-- **Pure only.** Contracts are sound only for side-effect-free, value-returning methods;
-  a contract on an impure method drops its effects at every replaced call site.
+- **Pure only — and now audited, not on you.** Contracts are sound only for
+  side-effect-free, value-returning methods: a contract on an impure method would drop its
+  effects at every replaced call site (the replace-stub summarizes only the return value), yet
+  the enforce-proof — which checks `@Ensures`, not purity — would still pass. That was the last
+  false-green vector in the design. bmc4j now closes it with a **conservative purity audit**:
+  before any proof reuses a contract, the target's body is certified *provably pure by
+  construction* against the rewritten analysis classpath, or the build fails loud with a
+  `ContractPurityError` naming the offending instruction. It is a sound over-approximation —
+  certifying an impure body is impossible by design; the only cost is a false *rejection* of a
+  body it can't see through (the same conservative bias as the verdict cache). A rejection is an
+  **unconditional** build error: unlike a deliberately-false `@Ensures` (which an
+  `@ExpectEnforce(REFUTED)` demo can pin), no annotation can bless an impure target — it simply
+  isn't a legal contract target.
+
+  What the audit **rejects** (caller-observable effects beyond the return value), naming the
+  instruction or the reached-callee chain:
+
+  - **heap writes to pre-existing state** — `PUTFIELD`/array stores on an object the body
+    didn't itself allocate, and any `PUTSTATIC`. A *fresh* allocation populated and returned is
+    fine (escape-aware: writes to a `new` object made in the body don't escape to a caller);
+  - **known-impure calls** — I/O, `System.nanoTime`/`currentTimeMillis`, `Random`,
+    threads/locks, `Unsafe`, reflection/`MethodHandle`s, and native methods;
+  - **`monitorenter`** — a concurrency effect;
+  - **reads of mutable statics** — a `GETSTATIC` of a non-`static final` reference field (its
+    value can differ between the enforce-proof and a real call site, so the contract wouldn't be
+    a function of its inputs);
+  - **anything it can't see through** — a non-devirtualizable virtual/interface call, an
+    unknown jar, or an intrinsified JDK method with no model and not on the pure-JDK floor.
+
+  The audit is **transitive**: a body is pure only if everything it reaches is. It follows the
+  static call graph over the same model-bearing bytecode JBMC analyses (so JDK calls resolve to
+  bmc's sound models), and treats a call to another contract's stub as an already-summarized
+  pure leaf — that callee's purity is its own contract's obligation, exactly like modular
+  enforce. **Exception behaviour is deliberately not audited:** the replace-stub never throws,
+  and the enforce-proof runs the real body under `@Requires`, so enforce-green *already is* a
+  no-throw-under-`requires` proof. The `examples/contracts` `purity` concept ships an
+  intentionally-impure contract whose enforce-proof the audit rejects (its `PUTSTATIC` named).
 - **Enforce-before-reuse is automatic.** A contract is trustworthy only once its
   enforce-proof is green — and that proof is generated for you, so a false contract turns
   the build red rather than silently weakening every caller.
