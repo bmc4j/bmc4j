@@ -13,6 +13,25 @@ plugins {
     id("com.gradleup.shadow") version "9.4.2"
 }
 
+// The Shadow plugin (the only build-classpath plugin here that drags them in) pulls
+// log4j-core and plexus-utils as transitives of its Apache Maven model layer. Those
+// are BUILD-TIME-ONLY (Shadow runs at jar time to relocate gson/asm; nothing here ships
+// or executes them against untrusted input), but Dependabot still flags the vulnerable
+// versions. Shadow 9.4.2 is the latest line and still bundles the old transitives, so we
+// can't fix this by bumping the plugin — force the patched versions on the plugin classpath.
+// Drop these once Shadow ships the patched transitives itself.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy {
+            force(
+                "org.apache.logging.log4j:log4j-core:2.25.4",
+                "org.apache.logging.log4j:log4j-api:2.25.4",
+                "org.codehaus.plexus:plexus-utils:4.0.3",
+            )
+        }
+    }
+}
+
 // Note: withSourcesJar()/withJavadocJar() are applied centrally to every JVM module
 // in core/build.gradle.kts, so they are NOT repeated here.
 
