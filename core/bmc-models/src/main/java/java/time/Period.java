@@ -1,5 +1,9 @@
 package java.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * JBMC model of {@link java.time.Period} as an amount of time in (years, months, days), each an
  * {@code int} stored exactly as supplied (the JDK does NOT auto-normalize: {@code Period.of(0, 13, 0)}
@@ -13,6 +17,9 @@ package java.time;
  * bit-for-bit by the differential suite vs the real JDK across month-ends, leap days and negatives.
  * Arithmetic uses {@code Math.addExact}/{@code multiplyExact} so int overflow is LOUD, like the JDK.
  */
+@BmcModelConforms("(years,months,days) Period — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcNotModelled(member = "parse(java.lang.CharSequence)", reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+@BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), multipliedBy/the ofWeeks-rollups and toString are out of scope; all loud under JBMC")
 public final class Period {
 
     public static final Period ZERO = new Period(0, 0, 0);

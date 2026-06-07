@@ -1,5 +1,9 @@
 package java.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * JBMC model of {@link java.time.Instant} as an epoch-millisecond {@code long}, so
  * temporal logic reduces to integer arithmetic JBMC reasons about precisely.
@@ -8,6 +12,9 @@ package java.time;
  * precision are out of scope (a model, not a reimplementation). {@code now()} is
  * intentionally not modeled — pass Instants as proof parameters (symbolic inputs).
  */
+@BmcModelConforms("epoch-millis Instant — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcNotModelled(member = "now()", reason = "wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters")
+@BmcModelTail(reason = "time-zone/leap-second/sub-milli precision, the Temporal interface plumbing (with/get/until/query/adjustInto/range/isSupported/plus(TemporalAmount)), atZone/atOffset, and text parse/format are out of scope for the epoch-millis model; all loud under JBMC")
 public final class Instant {
 
     final long millis;

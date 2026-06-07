@@ -1,5 +1,9 @@
 package java.math;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * Bounded BMC model of {@link java.math.BigDecimal}: an unscaled {@code long} value plus an
  * {@code int} scale (value = unscaled × 10⁻ˢᶜᵃˡᵉ). All arithmetic is exact integer arithmetic on the
@@ -15,6 +19,9 @@ package java.math;
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
+@BmcModelConforms("unscaled-long + scale exact decimal — differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+@BmcNotModelled(member = "valueOf(double)", reason = "double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values")
+@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/movePoint/scaleByPowerOfTen, the *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     public static final BigDecimal ZERO = new BigDecimal(0L, 0);

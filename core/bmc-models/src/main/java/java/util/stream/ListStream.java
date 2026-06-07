@@ -9,7 +9,10 @@ import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /** Eager, array-backed {@link Stream} model. Each op produces a fresh stream over a bounded list. */
+@BmcModelConforms("concrete eager Stream impl backing the Stream model — @BmcProof (proofs.stream)")
 public final class ListStream<T> implements Stream<T> {
 
     private final ArrayList<T> data;

@@ -125,9 +125,32 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
     val notNeededList = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
     val tail = "Lorg/bmc4j/models/audit/BmcModelTail;"
 
+    // Pre-index every model class by internal name so we can resolve the model inheritance chain: a
+    // member implemented by a modeled SUPERCLASS counts as implemented (e.g. the LinkedList model
+    // inheriting the ArrayList model's add/get/size) and must NOT be overridden with a loud body.
+    val byInternal = HashMap<String, ClassNode>()
+    classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { f ->
+        val n = ClassNode(); ClassReader(f.readBytes()).accept(n, org.objectweb.asm.ClassReader.SKIP_CODE); byInternal[n.name] = n
+    }
+    fun inheritedKeys(start: ClassNode): Set<String> {
+        val keys = HashSet<String>()
+        var cur: ClassNode? = byInternal[start.superName]
+        val seen = HashSet<String>()
+        while (cur != null && seen.add(cur.name)) {
+            for (m in cur.methods) keys.add(m.name + paramsDesc(m.desc))
+            cur = byInternal[cur.superName]
+        }
+        return keys
+    }
+
     classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { classFile ->
         val node = ClassNode()
         ClassReader(classFile.readBytes()).accept(node, 0)
+
+        // Synthesis EXCLUSION: interfaces. Their members are abstract; a loud concrete body can't be
+        // attached to an interface method, and it's the concrete impl (e.g. ListStream for the Stream
+        // model) that JBMC dispatches to — that impl's tail is what gets the loud body. Skip interfaces.
+        if ((node.access and Opcodes.ACC_INTERFACE) != 0) return@forEach
 
         // Named (member, reason) declarations + optional tail reason.
         data class Decl(val member: String, val reason: String)
@@ -180,8 +203,10 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         val real = try { Class.forName(realName, false, ClassLoader.getSystemClassLoader()) }
             catch (e: Throwable) { null }
 
-        // Methods the model already implements: name + erased param descriptor (return-type agnostic).
-        val implemented = node.methods.map { it.name + paramsDesc(it.desc) }.toSet()
+        // Methods the model already implements (own + inherited from modeled superclasses): name +
+        // erased param descriptor (return-type agnostic). Inherited ones must never be overridden with
+        // a loud body — that would shadow a working inherited implementation.
+        val implemented = node.methods.map { it.name + paramsDesc(it.desc) }.toSet() + inheritedKeys(node)
         val className = node.name.replace('/', '.')
         var changed = false
 

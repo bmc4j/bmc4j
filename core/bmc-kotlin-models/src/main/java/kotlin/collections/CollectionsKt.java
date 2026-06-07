@@ -1,5 +1,7 @@
 package kotlin.collections;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -19,6 +21,7 @@ import kotlin.sequences.Sequence;
  * ArrayList} model directly. Only the {@code listOf}/{@code emptyList} members are provided; other
  * {@code CollectionsKt} members remain JBMC stubs (as they already were).
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class CollectionsKt {
 
     private CollectionsKt() {

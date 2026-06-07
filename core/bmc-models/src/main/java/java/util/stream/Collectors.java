@@ -5,12 +5,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * Minimal BMC model of {@link java.util.stream.Collectors}. {@code toList}/{@code toSet} are tags;
  * {@code toMap}/{@code groupingBy} additionally carry their mapper/classifier functions. All are
- * interpreted eagerly by {@link ListStream#collect} into the bounded collection models. Collectors
- * not listed here fall back to JBMC stubs (silently unsound).
+ * interpreted eagerly by {@link ListStream#collect} into the bounded collection models. With the
+ * audit tail + loud-body synthesis, reaching an unmodeled collector now fails loudly under JBMC
+ * naming the member, rather than silently falling back to a nondet stub.
  */
+@BmcModelConforms("eager collector tags — @BmcProof (proofs.stream CollectorsLaws): toList/toSet/toMap/groupingBy/joining")
+@BmcModelTail(reason = "the broad Collectors surface (counting/summing*/averaging*/reducing/mapping/filtering/flatMapping/partitioningBy/collectingAndThen/teeing/toUnmodifiable*/toCollection, the concurrent variants groupingByConcurrent/toConcurrentMap, summarizing*) is out of scope for the minimal eager model; loud under JBMC")
 public final class Collectors {
 
     private Collectors() {

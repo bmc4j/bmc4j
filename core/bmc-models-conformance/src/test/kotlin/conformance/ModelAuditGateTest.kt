@@ -49,7 +49,9 @@ class ModelAuditGateTest : FunSpec({
     // realFqn -> ClassNode (model bytecode, with bmcref. stripped from the class name for keying).
     val nodes = LinkedHashMap<String, ClassNode>()
     JarFile(jarPath).use { jar ->
-        jar.entries().asSequence().filter { it.name.endsWith(".class") && !it.name.endsWith("package-info.class") }
+        jar.entries().asSequence()
+            .filter { it.name.endsWith(".class") && !it.name.endsWith("package-info.class") }
+            .filter { !it.name.contains('$') } // skip nested/inner/anon — not independently-registered models
             .forEach { e ->
                 val node = ClassNode()
                 ClassReader(jar.getInputStream(e).readBytes()).accept(node, 0)

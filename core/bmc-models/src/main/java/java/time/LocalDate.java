@@ -1,5 +1,8 @@
 package java.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+
 /**
  * JBMC model of {@link java.time.LocalDate} as an epoch-day {@code long}. Ordering
  * and day arithmetic are exact. Calendar fields (year/month/day) and calendar-month
@@ -10,6 +13,8 @@ package java.time;
  * differential suite vs the real JDK). {@code of(y, m, d)} is NOT a factory here; build
  * dates via {@link #ofEpochDay} (or via LocalDateTime). Formatters/zones are out of scope.
  */
+@BmcModelConforms("epoch-day LocalDate with proleptic-Gregorian field decode — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcModelTail(reason = "the wide ChronoLocalDate/Temporal surface (with*/getDayOfWeek/getDayOfYear/lengthOfMonth/isLeapYear/until/atStartOfDay/atTime/format/datesUntil/range/query/get(TemporalField)/plus(TemporalAmount)/isAfter-Before-Equal/the of(y,m,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
 public final class LocalDate {
 
     // DAYS from year 0000-01-01 (proleptic) to 1970-01-01.

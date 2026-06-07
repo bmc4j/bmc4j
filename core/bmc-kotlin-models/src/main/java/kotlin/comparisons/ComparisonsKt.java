@@ -1,5 +1,7 @@
 package kotlin.comparisons;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of the {@code kotlin.comparisons.ComparisonsKt} facade members bmc4j needs. The
  * {@code Comparator} that Kotlin generates for {@code sortedBy { keySelector }} (and {@code
@@ -10,6 +12,7 @@ package kotlin.comparisons;
  * nulls ordered first (a null is "less than" any non-null, two nulls are equal). Sound for boxed
  * primitives and Strings' lexicographic compareTo.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class ComparisonsKt {
 
     private ComparisonsKt() {

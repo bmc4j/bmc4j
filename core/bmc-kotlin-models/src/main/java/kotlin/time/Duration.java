@@ -1,5 +1,7 @@
 package kotlin.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of Kotlin's {@code kotlin.time.Duration} value class. Like the real type, {@code Duration}
  * is a {@code @JvmInline value class} over a single unit-discriminating bit-packed {@code Long}
@@ -26,6 +28,7 @@ package kotlin.time;
  * sentinel and parsing are not modeled. Members not modeled here remain JBMC nondet stubs — the same
  * facade-replacement caveat as every other Kotlin model.
  */
+@BmcModelConforms("Kotlin Duration value-class model — differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime); audited at class level (mangled value-class ABI)")
 public final class Duration {
 
     // The ranges mirror the real kotlin.time.Duration: symmetric about zero, non-overlapping but adjacent

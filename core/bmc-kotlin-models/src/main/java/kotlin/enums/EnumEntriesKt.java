@@ -1,5 +1,7 @@
 package kotlin.enums;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 /**
  * Clean model of Kotlin's {@code kotlin.enums.EnumEntriesKt} facade. An {@code enum class}'s
  * {@code <clinit>} initialises its synthetic {@code $ENTRIES} field via
@@ -13,6 +15,7 @@ package kotlin.enums;
  * path, every overload an enum's bytecode or consumer code can reach is modeled; the two unused
  * overloads fail loudly rather than nondet-stub.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class EnumEntriesKt {
 
     private EnumEntriesKt() {

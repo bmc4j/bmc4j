@@ -1,5 +1,7 @@
 package kotlin.collections;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+
 import java.util.HashMap;
 import java.util.Map;
 import kotlin.Pair;
@@ -9,6 +11,7 @@ import kotlin.Pair;
  * mutableMapOf}/{@code emptyMap}), building bmc4j's bounded {@code HashMap} model from Pairs instead
  * of routing through kotlin-stdlib internals JBMC stubs.
  */
+@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class MapsKt {
 
     private MapsKt() {

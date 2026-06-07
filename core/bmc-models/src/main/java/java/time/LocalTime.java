@@ -1,5 +1,9 @@
 package java.time;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotModelled;
+
 /**
  * JBMC model of {@link java.time.LocalTime} backed by a nano-of-day {@code long} in
  * {@code [0, 86_400_000_000_000)} (24h). Field extraction and time arithmetic reduce to integer
@@ -10,6 +14,9 @@ package java.time;
  * Zones, formatters and sub-nano precision are out of scope (a model, not a reimplementation);
  * {@code now()} is intentionally not modeled — pass LocalTimes as proof parameters.
  */
+@BmcModelConforms("nano-of-day LocalTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+@BmcNotModelled(member = "now()", reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
+@BmcModelTail(reason = "the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC")
 public final class LocalTime {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
