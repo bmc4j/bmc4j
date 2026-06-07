@@ -21,7 +21,9 @@ import java.util.jar.JarFile
  *
  *  - implemented by the model AND carrying {@code @BmcModelConforms} (resolved through the model's
  *    inheritance chain — a member implemented by a modeled superclass counts), or
- *  - declared in a class-level {@code @BmcNotModelled} / {@code @BmcNotNeeded}, or
+ *  - waived by a method-level {@code @BmcNotModelled} / {@code @BmcNotNeeded} loud stub, or a
+ *    class-level {@code @BmcNotNeeded(member=…)} declaration ({@code @BmcNotModelled} is method-only —
+ *    it has no class-level form), or
  *  - absorbed by a class-level {@code @BmcModelTail} (the exotic remainder; the build-time synthesis
  *    pass gives every such member a LOUD body, never a silent stub).
  *
@@ -38,8 +40,7 @@ class ModelAuditGateTest : FunSpec({
 
     val auditPkg = "org/bmc4j/models/audit/"
     val conformsDesc = "L${auditPkg}BmcModelConforms;"
-    val notModelledDesc = "L${auditPkg}BmcNotModelled;"
-    val notModelledListDesc = "L${auditPkg}BmcNotModelledList;"
+    val notModelledDesc = "L${auditPkg}BmcNotModelled;"  // method-level only (no class-level / list form)
     val notNeededDesc = "L${auditPkg}BmcNotNeeded;"
     val notNeededListDesc = "L${auditPkg}BmcNotNeededList;"
     val tailDesc = "L${auditPkg}BmcModelTail;"
@@ -87,20 +88,21 @@ class ModelAuditGateTest : FunSpec({
         }
         return if (member != null && reason != null) Decl(member, reason, kind) else null
     }
+    // CLASS-LEVEL declarations are @BmcNotNeeded only. @BmcNotModelled is METHOD-only (its TYPE target
+    // was removed — class-level use was being misused to blanket-exempt whole classes), so it never
+    // appears here; not-modeled waivers are method-level loud stubs (see methodLevelStubKeys).
     fun declarations(node: ClassNode): List<Decl> {
         val out = mutableListOf<Decl>()
         for (ann in anns(node)) {
             when (ann.desc) {
-                notModelledDesc -> readDecl(ann.values, "NotModelled")?.let { out.add(it) }
                 notNeededDesc -> readDecl(ann.values, "NotNeeded")?.let { out.add(it) }
-                notModelledListDesc, notNeededListDesc -> {
-                    val kind = if (ann.desc == notModelledListDesc) "NotModelled" else "NotNeeded"
+                notNeededListDesc -> {
                     val vals = ann.values ?: continue
                     var j = 0
                     while (j + 1 < vals.size) {
                         if (vals[j] == "value") {
                             @Suppress("UNCHECKED_CAST")
-                            (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, kind)?.let { out.add(it) } }
+                            (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, "NotNeeded")?.let { out.add(it) } }
                         }
                         j += 2
                     }
@@ -244,7 +246,7 @@ class ModelAuditGateTest : FunSpec({
                 failures.add("$realFqn: registered for per-member auditing but carries NO audit annotations")
             }
 
-            val decls = declarations(node)                  // class-level (member=) declarations
+            val decls = declarations(node)                  // class-level @BmcNotNeeded(member=) declarations
             val methodStubKeys = methodLevelStubKeys(node)   // method-level NotModelled/NotNeeded stubs
             val tail = tailReason(node)
             val realMembers = realAuditableKeys(real)

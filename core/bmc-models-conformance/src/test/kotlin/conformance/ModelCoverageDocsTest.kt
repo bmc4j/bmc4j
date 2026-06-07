@@ -60,8 +60,7 @@ class ModelCoverageDocsTest : FunSpec({
 private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     val auditPkg = "org/bmc4j/models/audit/"
     val conformsDesc = "L${auditPkg}BmcModelConforms;"
-    val notModelledDesc = "L${auditPkg}BmcNotModelled;"
-    val notModelledListDesc = "L${auditPkg}BmcNotModelledList;"
+    val notModelledDesc = "L${auditPkg}BmcNotModelled;"  // method-level only (no class-level / list form)
     val notNeededDesc = "L${auditPkg}BmcNotNeeded;"
     val notNeededListDesc = "L${auditPkg}BmcNotNeededList;"
     val tailDesc = "L${auditPkg}BmcModelTail;"
@@ -78,18 +77,17 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         }
         return if (member != null && reason != null) Decl(member, reason, kind) else null
     }
+    // Class-level declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (no TYPE target).
     fun declarations(n: ClassNode): List<Decl> {
         val out = mutableListOf<Decl>()
         for (a in anns(n)) when (a.desc) {
-            notModelledDesc -> readDecl(a.values, "NotModelled")?.let { out.add(it) }
             notNeededDesc -> readDecl(a.values, "NotNeeded")?.let { out.add(it) }
-            notModelledListDesc, notNeededListDesc -> {
-                val kind = if (a.desc == notModelledListDesc) "NotModelled" else "NotNeeded"
+            notNeededListDesc -> {
                 val vals = a.values ?: continue; var j = 0
                 while (j + 1 < vals.size) {
                     if (vals[j] == "value") {
                         @Suppress("UNCHECKED_CAST")
-                        (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, kind)?.let { out.add(it) } }
+                        (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, "NotNeeded")?.let { out.add(it) } }
                     }
                     j += 2
                 }
@@ -214,7 +212,7 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         val tail = tailReason(node)
         val covered = conformsKeys(realFqn)
         val declaredByKind = HashMap<String, Decl>()
-        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }   // class-level member= form
+        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }   // class-level @BmcNotNeeded(member=) form
         val stubByKey = methodStubs(realFqn)                                 // method-level stub form
 
         val members = realAuditable(real)

@@ -24,8 +24,7 @@ object TailSet {
 
     private const val AUDIT = "org/bmc4j/models/audit/"
     private const val CONFORMS = "L${AUDIT}BmcModelConforms;"
-    private const val NOT_MODELLED = "L${AUDIT}BmcNotModelled;"
-    private const val NOT_MODELLED_LIST = "L${AUDIT}BmcNotModelledList;"
+    private const val NOT_MODELLED = "L${AUDIT}BmcNotModelled;"  // method-level only (no class-level / list form)
     private const val NOT_NEEDED = "L${AUDIT}BmcNotNeeded;"
     private const val NOT_NEEDED_LIST = "L${AUDIT}BmcNotNeededList;"
     private const val TAIL = "L${AUDIT}BmcModelTail;"
@@ -59,6 +58,8 @@ object TailSet {
     private fun isStub(m: MethodNode): Boolean =
         methodAnns(m).any { it.desc == NOT_MODELLED || it.desc == NOT_NEEDED }
 
+    // Class-level (member=) declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (no
+    // TYPE target), so its waivers are method-level loud stubs (see stubKeys), never class-level here.
     private fun classLevelDeclaredKeys(node: ClassNode): Set<String> {
         val out = mutableSetOf<String>()
         fun read(values: List<Any?>?) {
@@ -68,8 +69,8 @@ object TailSet {
             member?.let { declKey(it)?.let(out::add) }
         }
         for (a in anns(node)) when (a.desc) {
-            NOT_MODELLED, NOT_NEEDED -> read(a.values)
-            NOT_MODELLED_LIST, NOT_NEEDED_LIST -> {
+            NOT_NEEDED -> read(a.values)
+            NOT_NEEDED_LIST -> {
                 val v = a.values ?: continue; var j = 0
                 while (j + 1 < v.size) {
                     if (v[j] == "value") {

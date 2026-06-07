@@ -123,12 +123,13 @@ tasks.named("classes") { dependsOn(renameDurationAbi) }
 
 // ---------------------------------------------------------------------------------------------
 // Loud-body synthesis, mirroring bmc-models: synthesize a message-free sentinel-routing body for
-// every @BmcNotModelled / @BmcNotNeeded member these models declare but do not implement, so a proof
-// reaching an unmodeled member demotes to a member-named UNKNOWN under JBMC instead of silently
-// havocking. (No kotlin model uses these annotations today, so this pass currently synthesizes
-// nothing — it exists so the shape is correct and cheap the moment one does.)
+// every class-level @BmcNotNeeded(member=) member these models declare but do not implement, so a
+// proof reaching an unmodeled member demotes to a member-named UNKNOWN under JBMC instead of silently
+// havocking. (@BmcNotModelled is method-only — its waivers are hand-written stubs, not synthesized.
+// No kotlin model uses these annotations today, so this pass currently synthesizes nothing — it
+// exists so the shape is correct and cheap the moment one does.)
 val synthesizeLoudBodies by tasks.registering {
-    description = "Synthesize loud-failing bodies for @BmcNotModelled/@BmcNotNeeded members."
+    description = "Synthesize loud-failing bodies for class-level @BmcNotNeeded(member=) members."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
     inputs.dir(classesDir)
     outputs.dir(classesDir)
@@ -140,8 +141,9 @@ val synthesizeLoudBodies by tasks.registering {
 tasks.named("classes") { dependsOn(synthesizeLoudBodies) }
 
 fun synthesizeLoudUnmodelledBodies(classesDir: File) {
-    val notModelledDesc = "Lorg/bmc4j/models/audit/BmcNotModelled;"
-    val notModelledListDesc = "Lorg/bmc4j/models/audit/BmcNotModelledList;"
+    // Class-level (member=) declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (no
+    // TYPE target), so its waivers are hand-written method-level stubs, never synthesized from a
+    // class-level declaration.
     val notNeededDesc = "Lorg/bmc4j/models/audit/BmcNotNeeded;"
     val notNeededListDesc = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
 
@@ -167,8 +169,8 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         }
         for (ann in (node.invisibleAnnotations ?: emptyList())) {
             when (ann.desc) {
-                notModelledDesc, notNeededDesc -> readDecl(ann.values)?.let { decls.add(it) }
-                notModelledListDesc, notNeededListDesc -> {
+                notNeededDesc -> readDecl(ann.values)?.let { decls.add(it) }
+                notNeededListDesc -> {
                     val vals = ann.values ?: continue
                     var j = 0
                     while (j + 1 < vals.size) {
