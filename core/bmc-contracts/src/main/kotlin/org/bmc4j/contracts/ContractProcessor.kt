@@ -96,6 +96,20 @@ class ContractProcessor : AbstractProcessor() {
             val params: List<Map.Entry<String, String>> = mirror.parameters.map {
                 AbstractMap.SimpleImmutableEntry(typeSource(it.asType()), it.simpleName.toString())
             }
+            // Resolve the mirror's signature against the target class to learn whether the contracted
+            // method is static or a pure instance method (the receiver is then threaded as `self`). A
+            // mirror that binds to nothing on the target is an orphan — a production rename or typo;
+            // report it now with a clear message rather than letting the generated enforce-proof fail
+            // to compile against a missing method.
+            val bound = resolveTargetMethod(target, mirror)
+            if (bound == null) {
+                error(mirror, "no method on ${target.simpleName} matches the contract mirror" +
+                        " '$name${signature(mirror)}' — the target may have been renamed or its" +
+                        " signature changed; update the mirror or the production method to match")
+                continue
+            }
+            val isInstance = !bound.modifiers.contains(javax.lang.model.element.Modifier.STATIC)
+            val receiverType = if (isInstance) targetFqn else null
             // Per-method @ExpectEnforce wins over the type-level expectEnforce default, so one
             // contract type can mix a deliberately-false demo mirror with genuine contracts.
             val methodExpect = mirror.getAnnotation(ExpectEnforce::class.java)
@@ -103,7 +117,7 @@ class ContractProcessor : AbstractProcessor() {
                     ?: contractType.getAnnotation(BmcContractsFor::class.java).expectEnforce.name
             contracts.add(ContractStubGenerator.Contract(targetFqn, contractFqn, name,
                     typeSource(mirror.returnType), params,
-                    requires?.value, ensures?.value, expectEnforce))
+                    requires?.value, ensures?.value, expectEnforce, receiverType))
             // SOUNDNESS: only a contract whose enforce-proof is expected to VERIFY may publish a
             // reusable redirect. A non-VERIFIED contract (@ExpectEnforce REFUTED/VACUOUS, or a
             // type-level non-VERIFIED expectEnforce) declares the framework KNOWS its @Ensures is
@@ -112,8 +126,17 @@ class ContractProcessor : AbstractProcessor() {
             // refutation/vacuity demo must keep running); we just emit no `contract` redirect line,
             // so JbmcBackend never rewrites any other proof's call sites to that stub.
             if (expectEnforce == "VERIFIED") {
+                // The call-site descriptor: the instance descriptor (no receiver) for matching the
+                // virtual call, plus the receiver-prepended descriptor for the static stub.
+                val instanceDesc = descriptor(mirror)
+                val stubDesc = if (isInstance) {
+                    "(L$targetInternal;" + instanceDesc.removePrefix("(")
+                } else {
+                    instanceDesc
+                }
                 contractRecords.add(ContractManifest.contractLine(
-                        targetInternal, name, descriptor(mirror), stubInternal, "${name}__stub"))
+                        targetInternal, name, instanceDesc, stubInternal, "${name}__stub",
+                        isInstance, stubDesc))
             }
         }
         if (contracts.isEmpty()) {
@@ -129,6 +152,37 @@ class ContractProcessor : AbstractProcessor() {
         manifestLines.add(ContractManifest.enforceLine(
                 qualify(packageName, enforceSimple).replace('.', '/')))
     }
+
+    /**
+     * The method on [target] (or a supertype, via [javax.lang.model.util.Elements]) whose name and
+     * erased parameter types match the contract [mirror], or `null` if none does. Binding is by
+     * signature — exactly like a `src/bmcModel` model binds to its class — so an orphaned mirror (a
+     * production rename) resolves to `null` and is reported. The match determines whether the
+     * contract is static or pure-instance (the caller reads the resolved method's `STATIC` modifier).
+     */
+    private fun resolveTargetMethod(target: TypeElement, mirror: ExecutableElement): ExecutableElement? {
+        val name = mirror.simpleName.toString()
+        val want = mirror.parameters.map { erasedDescriptor(it.asType()) }
+        for (member in processingEnv.elementUtils.getAllMembers(target)) {
+            if (member.kind != ElementKind.METHOD || member.simpleName.toString() != name) {
+                continue
+            }
+            val candidate = member as ExecutableElement
+            val have = candidate.parameters.map { erasedDescriptor(it.asType()) }
+            if (have == want) {
+                return candidate
+            }
+        }
+        return null
+    }
+
+    /** A readable `(int, java.lang.String)` parameter list for diagnostics. */
+    private fun signature(mirror: ExecutableElement): String =
+            mirror.parameters.joinToString(", ", "(", ")") { typeSource(it.asType()) }
+
+    /** Erased JVM descriptor of a single type, for signature-matching the target method. */
+    private fun erasedDescriptor(t: TypeMirror): String = typeDescriptor(
+            processingEnv.typeUtils.erasure(t))
 
     /** The production class named by `@BmcContractsFor(value)`. */
     private fun targetOf(contractType: TypeElement): TypeElement? {
@@ -177,6 +231,10 @@ class ContractProcessor : AbstractProcessor() {
 
     private fun warn(at: Element, message: String) {
         processingEnv.messager.printMessage(Diagnostic.Kind.WARNING, "bmc-contracts: $message", at)
+    }
+
+    private fun error(at: Element, message: String) {
+        processingEnv.messager.printMessage(Diagnostic.Kind.ERROR, "bmc-contracts: $message", at)
     }
 
     private fun internalName(type: TypeElement): String =

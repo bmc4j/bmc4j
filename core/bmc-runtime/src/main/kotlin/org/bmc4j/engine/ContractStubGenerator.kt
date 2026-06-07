@@ -2,7 +2,7 @@ package org.bmc4j.engine
 
 /**
  * Renders the Java source of a contract **stub** method for the replace direction.
- * For a contracted method `T C.f(P... args)` the generated stub has the
+ * For a contracted static method `T C.f(P... args)` the generated stub has the
  * same signature and body:
  *
  * ```
@@ -14,10 +14,24 @@ package org.bmc4j.engine
  * }
  * ```
  *
+ * For a **pure instance** method `T R.f(P... args)` the stub threads the receiver as an
+ * ordinary leading parameter (`self`), exactly where the call site already has it on the
+ * operand stack — the predicates take `self` as their first argument after `result`/before
+ * `args`:
+ *
+ * ```
+ * public static T f__stub(R self, P... args) {
+ *     org.bmc4j.Bmc.check(C.<requires>(self, args));
+ *     T r = org.cprover.CProver.nondetT();
+ *     org.bmc4j.Bmc.assume(C.<ensures>(r, self, args));
+ *     return r;
+ * }
+ * ```
+ *
  * [ContractRewriter] redirects call sites of `C.f` to this stub, so callers
  * reuse the contract instead of re-analyzing the body. The stub is the analysis-time
  * counterpart of the enforce-proof that discharges the same predicates against the real
- * body. v1: static, value-returning methods.
+ * body. Targets: static and **pure instance**, value-returning methods.
  */
 object ContractStubGenerator {
 
@@ -38,10 +52,22 @@ object ContractStubGenerator {
             @JvmField val ensures: String?,
             /** Expected verdict of the generated enforce-proof ("VERIFIED" default; demo contracts
              *  declare "REFUTED"/"VACUOUS" via `@BmcContractsFor(expectEnforce = ...)`). */
-            expectEnforce: String? = "VERIFIED") {
+            expectEnforce: String? = "VERIFIED",
+            /** Receiver type (the target class FQN) for a **pure instance** contract, threaded as the
+             *  leading `self` parameter of the stub/enforce and predicates; `null` for a static target.
+             *  Exact-class binding, like the static case — no virtual dispatch of the target method. */
+            @JvmField val receiverType: String? = null) {
 
         @JvmField
         val expectEnforce: String = expectEnforce ?: "VERIFIED"
+
+        /** True for a pure-instance contract (receiver threaded as `self`). */
+        @JvmField
+        val isInstance: Boolean = receiverType != null
+
+        /** The receiver parameter name used in generated stubs/proofs; "self" by convention. */
+        val receiverName: String
+            get() = "self"
     }
 
     /** Render a stub class holding a `<method>__stub` method per contract. */
@@ -61,28 +87,39 @@ object ContractStubGenerator {
             }
 
     private fun method(c: Contract): String = buildString {
-        val paramList = c.params.joinToString(", ") { "${it.key} ${it.value}" }
-        val argList = c.params.joinToString(", ") { it.value }
+        // The user's parameters, plus the receiver threaded as a leading `self` for an instance
+        // contract. The predicate argument list mirrors the declared predicate shape:
+        //   requires(self?, args...)        ensures(result, self?, args...)
+        val userParamDecls = c.params.map { "${it.key} ${it.value}" }
+        val userArgs = c.params.map { it.value }
+        val paramDecls = if (c.isInstance) {
+            listOf("${c.receiverType} ${c.receiverName}") + userParamDecls
+        } else {
+            userParamDecls
+        }
+        // The arguments passed to the requires predicate: (self?, args...).
+        val preArgs = if (c.isInstance) listOf(c.receiverName) + userArgs else userArgs
 
         append("    public static ").append(c.returnType).append(' ')
-                .append(c.methodName).append("__stub(").append(paramList).append(") {\n")
+                .append(c.methodName).append("__stub(").append(paramDecls.joinToString(", ")).append(") {\n")
         if (c.requires != null) {
             append("        org.bmc4j.Bmc.check(")
                     .append(c.predicateOwnerFqn).append('.').append(c.requires)
-                    .append('(').append(argList).append("));\n")
+                    .append('(').append(preArgs.joinToString(", ")).append("));\n")
         }
         if (c.returnType == "void") {
-            // Degenerate: no result to constrain (v1 targets value-returning methods).
+            // Degenerate: no result to constrain (targets value-returning methods).
             append("    }\n")
             return@buildString
         }
         append("        ").append(c.returnType).append(" r = ")
                 .append(nondetExpr(c.returnType)).append(";\n")
         if (c.ensures != null) {
-            val ensuresArgs = if (argList.isEmpty()) "r" else "r, $argList"
+            // ensures(result, self?, args...).
+            val postArgs = listOf("r") + preArgs
             append("        org.bmc4j.Bmc.assume(")
                     .append(c.predicateOwnerFqn).append('.').append(c.ensures)
-                    .append('(').append(ensuresArgs).append("));\n")
+                    .append('(').append(postArgs.joinToString(", ")).append("));\n")
         }
         append("        return r;\n")
         append("    }\n")

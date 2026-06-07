@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 13
+proofs: 17
 proof-execution: 281s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -14,6 +14,9 @@ be *reused* once it has been *discharged* — and the discharge is automatic. Th
 bounds that make the "contracts beat inlining" point are set with `@BmcProof(unwind = …)`; the
 enforce proofs summarize self-recursion via the contract, so they hold at the default bound.
 
+Targets are `static` **and pure instance** methods; an instance method's receiver is threaded
+into the predicates as a leading `self` (see `instance`).
+
 ```
 ./gradlew :examples:contracts:test
 ./gradlew :examples:contracts:test --tests "proofs.stacking.*"
@@ -26,6 +29,23 @@ reuses `@Ensures result >= 0` instead of unrolling the loop and passes; the iden
 `TriangleNaive` (no contract) must inline and overruns the bound — which reports **UNKNOWN**
 ("bound too small": truncated exploration is incompleteness, not a counterexample). Same code,
 same bound, provable only with the summary. *(1 pass + 1 undecided-on-purpose.)*
+
+## `instance` — pure instance methods (receiver as `self`)
+
+The v2 step over static-only contracts. `Account.project(amount)` is a pure instance method
+(reads `this.balance`, mutates nothing); its contract threads the receiver into the predicates as
+`self`, so `@Ensures result >= self.balance()` is a postcondition over the receiver's field. A
+caller at `unwind = 2` reuses the summary — the `invokevirtual` is redirected to a static stub
+with the receiver prepended — while the no-contract `AccountNaive` overruns the bound (**UNKNOWN**),
+the same "contracts beat inlining" point as `basics`. The auto-generated `enforce__project`
+discharges the contract with a **symbolic receiver** (`self` is nondet, so the postcondition must
+hold for every balance — which is why `@Requires` bounds `self.balance()`, or `balance + amount`
+would overflow). `projectAgain` ships a deliberately-**false** instance contract pinned
+`@ExpectEnforce(REFUTED)` (`result > self.balance()` is a lie at `amount == 0`) — it publishes no
+redirect and its enforce-proof passes by refutation. Receiver *mutation* would be rejected by the
+purity audit (`this`-write = a write to pre-existing state), so instance contracts don't widen the
+unsoundness surface. *(2 caller proofs: 1 pass + 1 undecided-on-purpose; plus 1 green + 1 refuted
+enforce proof.)*
 
 ## `recursion` — recursion as induction
 

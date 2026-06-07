@@ -27,6 +27,31 @@ internal class ContractManifestTest {
     }
 
     @Test
+    fun round_trips_an_instance_contract_line_with_the_prepended_stub_descriptor() {
+        val line = ContractManifest.contractLine("acct/Account", "project", "(I)I",
+                "acct/AccountStubs", "project__stub", true, "(Lacct/Account;I)I")
+        assertTrue(line.endsWith(" instance (Lacct/Account;I)I"), "instance marker + stub desc: $line")
+        val m = ContractManifest.parse(listOf(line))
+        assertEquals(1, m.redirects().size)
+        val r = m.redirects()[0]
+        // Matches the invokevirtual call site, redirects to the static stub with the prepended desc.
+        assertTrue(r.matchesInsn(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, "acct/Account", "project", "(I)I"))
+        assertTrue(r.matchesInsn(org.objectweb.asm.Opcodes.INVOKEINTERFACE, "acct/Account", "project", "(I)I"))
+        assertFalse(r.matchesInsn(org.objectweb.asm.Opcodes.INVOKESTATIC, "acct/Account", "project", "(I)I"))
+        assertEquals("(Lacct/Account;I)I", r.stubDescriptor)
+        assertEquals("acct/AccountStubs", r.stubOwner)
+    }
+
+    @Test
+    fun a_static_contract_line_matches_only_invokestatic() {
+        val m = ContractManifest.parse(listOf(
+                ContractManifest.contractLine("p/C", "f", "(I)I", "p/Stubs", "f__stub")))
+        val r = m.redirects()[0]
+        assertTrue(r.matchesInsn(org.objectweb.asm.Opcodes.INVOKESTATIC, "p/C", "f", "(I)I"))
+        assertFalse(r.matchesInsn(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, "p/C", "f", "(I)I"))
+    }
+
+    @Test
     fun ignores_blank_lines_comments_and_malformed_records() {
         val m = ContractManifest.parse(listOf(
                 "", "   ", "# a comment", "contract too few fields", "enforce", "bogus line"))

@@ -69,6 +69,42 @@ internal class ContractRewriterTest {
     }
 
     @Test
+    fun instance_redirect_rewrites_a_virtual_call_to_the_static_stub_with_receiver_prepended() {
+        // The call site is invokevirtual acct/Account.project(I)I with [receiver, arg] on the stack;
+        // the stub is static project__stub(LAccount;I)I — the operand stack already matches.
+        val redirect = ContractRewriter.Redirect("acct/Account", "project", "(I)I",
+                "acct/AccountStubs", "project__stub", true, "(Lacct/Account;I)I")
+        val out = ContractRewriter.rewriteClass(callerCallingVirtual("acct/Account", "project", "(I)I"),
+                listOf(redirect))
+        val calls = staticCalls(out)
+        assertTrue(calls.contains("acct/AccountStubs.project__stub(Lacct/Account;I)I"),
+                "virtual call must be redirected to the static stub with the receiver-prepended descriptor: $calls")
+        assertTrue(calls.none { it.startsWith("acct/Account.project") })
+    }
+
+    @Test
+    fun instance_redirect_leaves_a_same_name_static_call_untouched() {
+        // An instance redirect must NOT catch a same-name invokestatic (its descriptor is the
+        // un-prepended one, and the kind differs) — only the virtual/interface site is its call site.
+        val redirect = ContractRewriter.Redirect("acct/Account", "project", "(I)I",
+                "acct/AccountStubs", "project__stub", true, "(Lacct/Account;I)I")
+        val out = ContractRewriter.rewriteClass(callerCalling("acct/Account", "project", "(I)I"),
+                listOf(redirect))
+        assertTrue(staticCalls(out).contains("acct/Account.project(I)I"),
+                "an instance redirect must not rewrite an invokestatic call site")
+    }
+
+    @Test
+    fun a_static_redirect_leaves_a_virtual_call_untouched() {
+        // The TRIANGLE redirect is static; a virtual call site of the same owner/name/desc is not its
+        // call site and must pass through.
+        val out = ContractRewriter.rewriteClass(callerCallingVirtual("pkg/C", "triangle", "(I)I"),
+                listOf(TRIANGLE))
+        assertTrue(staticCalls(out).none { it.startsWith("pkg/Stubs") },
+                "a static redirect must not rewrite a virtual call site")
+    }
+
+    @Test
     fun empty_redirects_returns_classpath_unchanged() {
         val cp = "a.jar" + File.pathSeparator + "b.jar"
         assertEquals(cp, ContractRewriter.rewrite(cp, listOf()))
@@ -169,6 +205,28 @@ internal class ContractRewriterTest {
             mv.visitInsn(Opcodes.POP)
             mv.visitInsn(Opcodes.RETURN)
             mv.visitMaxs(2, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** A class pkg/Caller with a method that does: aconst_null (receiver); push arg;
+         *  invokevirtual owner.name desc; return. Models a pure-instance call site. */
+        private fun callerCallingVirtual(owner: String, name: String, desc: String): ByteArray {
+            val cw = ClassWriter(0)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "pkg/Caller", null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "use", "()V", null, null)
+            mv.visitCode()
+            mv.visitInsn(Opcodes.ACONST_NULL)          // receiver
+            if (desc.startsWith("(J)")) {
+                mv.visitInsn(Opcodes.LCONST_0)
+            } else {
+                mv.visitInsn(Opcodes.ICONST_0)
+            }
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, name, desc, false)
+            mv.visitInsn(Opcodes.POP)
+            mv.visitInsn(Opcodes.RETURN)
+            mv.visitMaxs(3, 0)
             mv.visitEnd()
             cw.visitEnd()
             return cw.toByteArray()

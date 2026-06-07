@@ -23,8 +23,13 @@ import org.objectweb.asm.Opcodes
  * (reclassified to UNKNOWN by the engine-error handler) rather than silently analysing the real,
  * un-redirected call sites as if they were the contract proof.
  *
- * v1 redirects `invokestatic` calls to contracted static methods. The stub has the
- * same descriptor, so the operand stack is unchanged.
+ * Redirects `invokestatic` calls to contracted static methods (the stub has the same
+ * descriptor, so the operand stack is unchanged) and `invokevirtual`/`invokeinterface` calls to
+ * contracted **pure instance** methods. An instance call's operand stack is `..., receiver,
+ * args` — exactly the parameter list of the generated static stub `name__stub(Receiver self,
+ * args)` — so the redirect just swaps the `invokevirtual` for an `invokestatic` to the stub
+ * whose descriptor prepends the receiver type; the stack is again unchanged. Binding is to the
+ * exact owner class (no virtual dispatch of the target), matching the static case.
  *
  * **Modular enforce.** A redirect set may be applied with one class *excluded*
  * as a caller: its call sites are left untouched. This is how an enforce-proof analyzes a
@@ -36,21 +41,51 @@ import org.objectweb.asm.Opcodes
  */
 object ContractRewriter {
 
-    /** A single call-site redirect: calls to `owner.name(descriptor)` become
-     *  `invokestatic stubOwner.stubName(descriptor)`. A null descriptor matches any. */
-    class Redirect(
+    /**
+     * A single call-site redirect: calls to `owner.name(descriptor)` become
+     * `invokestatic stubOwner.stubName(stubDescriptor)`. A null descriptor matches any.
+     *
+     * For a **static** target the redirected call keeps its descriptor (`stubDescriptor` ==
+     * `descriptor`) and matches `invokestatic` only. For a **pure instance** target the call site
+     * is `invokevirtual`/`invokeinterface` with the receiver below the args on the stack; the stub
+     * is static with the receiver prepended, so [stubDescriptor] is the receiver-prepended form and
+     * the redirect matches the virtual/interface call (and not a same-name static, which would have
+     * the un-prepended descriptor).
+     */
+    class Redirect @JvmOverloads constructor(
             @JvmField internal val owner: String,
             @JvmField internal val name: String,
             @JvmField internal val descriptor: String?,
             @JvmField internal val stubOwner: String,
-            @JvmField internal val stubName: String) {
+            @JvmField internal val stubName: String,
+            /** True when the target is an instance method (its call site is virtual/interface and the
+             *  stub descriptor prepends the receiver). */
+            @JvmField internal val instance: Boolean = false,
+            /** Descriptor of the static stub method — equal to [descriptor] for a static target, the
+             *  receiver-prepended form for an instance target. Defaults to [descriptor]. */
+            stubDescriptor: String? = null) {
+
+        @JvmField internal val stubDescriptor: String? = stubDescriptor ?: descriptor
+
+        /** True when an instruction at [op] calling `o.n(d)` should be redirected by this entry. */
+        internal fun matchesInsn(op: Int, o: String?, n: String?, d: String?): Boolean {
+            if (owner != o || name != n || (descriptor != null && descriptor != d)) {
+                return false
+            }
+            return if (instance) {
+                op == Opcodes.INVOKEVIRTUAL || op == Opcodes.INVOKEINTERFACE
+            } else {
+                op == Opcodes.INVOKESTATIC
+            }
+        }
 
         internal fun matches(o: String?, n: String?, d: String?): Boolean =
                 owner == o && name == n && (descriptor == null || descriptor == d)
 
         /** Stable, fully-specified form — part of the contract mirror's cache key, so two distinct
          *  redirect sets can never alias the same mirror. */
-        override fun toString(): String = "$owner.$name$descriptor->$stubOwner.$stubName"
+        override fun toString(): String =
+                "$owner.$name$descriptor->$stubOwner.$stubName$stubDescriptor(instance=$instance)"
     }
 
     /** Rewrite directory entries of [classpath], returning the new classpath. */
@@ -115,11 +150,14 @@ object ContractRewriter {
                 return object : MethodVisitor(Opcodes.ASM9, mv) {
                     override fun visitMethodInsn(op: Int, owner: String?, name: String?,
                                                  desc: String?, itf: Boolean) {
-                        if (op == Opcodes.INVOKESTATIC && !excluded) {
-                            val r = redirects.firstOrNull { it.matches(owner, name, desc) }
+                        if (!excluded) {
+                            val r = redirects.firstOrNull { it.matchesInsn(op, owner, name, desc) }
                             if (r != null) {
+                                // Always becomes an invokestatic to the stub. For an instance target the
+                                // stub descriptor prepends the receiver type, which is already on the
+                                // stack below the args — so the operand stack is unchanged either way.
                                 super.visitMethodInsn(Opcodes.INVOKESTATIC, r.stubOwner, r.stubName,
-                                        desc, false)
+                                        r.stubDescriptor ?: desc, false)
                                 return
                             }
                         }

@@ -47,6 +47,35 @@ internal class ContractEnforceProofGeneratorTest {
         assertTrue(src.contains("Bmc.check(p.K.post(result, a0, a1));"))
     }
 
+    @Test
+    fun instance_contract_nondets_a_receiver_calls_it_and_threads_self_into_predicates() {
+        // The enforce-proof for a pure instance contract: nondet a `self`, assume requires(self, args),
+        // call self.method(args) — the REAL body — and check ensures(result, self, args).
+        val src = ContractEnforceProofGenerator.generate("acct", "AccountEnforce", listOf(
+                ContractStubGenerator.Contract("acct.Account", "acct.AccountContract", "project", "int",
+                        listOf(p("int", "amount")), "validAmount", "balanceBounded",
+                        "VERIFIED", "acct.Account")))
+        assertTrue(src.contains("public void enforce__project()"))
+        val self = src.indexOf("acct.Account self = (acct.Account) org.cprover.CProver.nondetWithoutNull();")
+        val arg = src.indexOf("int a0 = org.cprover.CProver.nondetInt();")
+        val req = src.indexOf("Bmc.assume(acct.AccountContract.validAmount(self, a0));")
+        val call = src.indexOf("int result = self.project(a0);")
+        val ens = src.indexOf("Bmc.check(acct.AccountContract.balanceBounded(result, self, a0));")
+        assertTrue(self in 0 until arg && arg < req && req < call && call < ens,
+                "instance enforce body order (self -> args -> assume -> real call -> check):\n$src")
+    }
+
+    @Test
+    fun instance_contract_with_no_params_still_threads_the_receiver() {
+        val src = ContractEnforceProofGenerator.generate("p", "C", listOf(
+                ContractStubGenerator.Contract("p.Box", "p.BoxContract", "size", "int",
+                        listOf(), "open", "nonNeg", "VERIFIED", "p.Box")))
+        assertTrue(src.contains("p.Box self = (p.Box) org.cprover.CProver.nondetWithoutNull();"))
+        assertTrue(src.contains("Bmc.assume(p.BoxContract.open(self));"))      // requires(self)
+        assertTrue(src.contains("int result = self.size();"))
+        assertTrue(src.contains("Bmc.check(p.BoxContract.nonNeg(result, self));")) // ensures(result, self)
+    }
+
     companion object {
         private fun p(type: String, name: String): Map.Entry<String, String> =
                 java.util.Map.entry(type, name)

@@ -44,9 +44,15 @@ object ContractEnforceProofGenerator {
     }
 
     private fun proof(c: ContractStubGenerator.Contract): String = buildString {
-        // a0, a1, ... so generated names never collide with the user's parameter names.
+        // a0, a1, ... so generated names never collide with the user's parameter names; the receiver
+        // (instance contracts) is a nondet `self` of the target type, threaded into the predicates and
+        // used as the call receiver — JBMC treats the entry function's parameters, `this` included, as
+        // nondet, so a nondet `self` symbolizes "all receiver states" exactly like a static input.
         val args = List(c.params.size) { "a$it" }
         val argList = args.joinToString(", ")
+        // The predicate argument list: requires(self?, args...), ensures(result, self?, args...).
+        val preArgs = if (c.isInstance) listOf(SELF) + args else args
+        val preArgList = preArgs.joinToString(", ")
 
         if (c.expectEnforce == "VERIFIED") {
             append("    @org.bmc4j.BmcProof\n")
@@ -59,6 +65,11 @@ object ContractEnforceProofGenerator {
                     .append(c.expectEnforce).append(")\n")
         }
         append("    public void enforce__").append(c.methodName).append("() {\n")
+        if (c.isInstance) {
+            // Symbolic receiver: a nondet (non-null) instance of the target type.
+            append("        ").append(c.receiverType).append(' ').append(SELF)
+                    .append(" = ").append(ContractStubGenerator.nondetExpr(c.receiverType!!)).append(";\n")
+        }
         for (i in c.params.indices) {
             val type = c.params[i].key
             append("        ").append(type).append(' ').append(args[i])
@@ -67,22 +78,27 @@ object ContractEnforceProofGenerator {
         if (c.requires != null) {
             append("        org.bmc4j.Bmc.assume(")
                     .append(c.predicateOwnerFqn).append('.').append(c.requires)
-                    .append('(').append(argList).append("));\n")
+                    .append('(').append(preArgList).append("));\n")
         }
-        val call = "${c.targetFqn}.${c.methodName}($argList)"
+        // Static target: Owner.method(args). Instance target: self.method(args) — the REAL body.
+        val call = if (c.isInstance) "$SELF.${c.methodName}($argList)"
+        else "${c.targetFqn}.${c.methodName}($argList)"
         if (c.returnType == "void") {
-            // Degenerate (v1 targets value-returning methods): exercise the body only.
+            // Degenerate (targets value-returning methods): exercise the body only.
             append("        ").append(call).append(";\n")
             append("    }\n")
             return@buildString
         }
         append("        ").append(c.returnType).append(" result = ").append(call).append(";\n")
         if (c.ensures != null) {
-            val ensuresArgs = if (argList.isEmpty()) "result" else "result, $argList"
+            val ensuresArgs = "result" + if (preArgList.isEmpty()) "" else ", $preArgList"
             append("        org.bmc4j.Bmc.check(")
                     .append(c.predicateOwnerFqn).append('.').append(c.ensures)
                     .append('(').append(ensuresArgs).append("));\n")
         }
         append("    }\n")
     }
+
+    /** The generated receiver-variable name for an instance contract's enforce-proof. */
+    private const val SELF = "self"
 }
