@@ -13,8 +13,14 @@ import java.nio.file.Path
  *
  * ```
  * contract <ownerInternal> <name> <descriptor> <stubOwnerInternal> <stubName>
+ * contract <ownerInternal> <name> <descriptor> <stubOwnerInternal> <stubName> instance <stubDescriptor>
  * enforce  <proofClassInternal>
  * ```
+ *
+ * A 6-token `contract` line is a static target (the call site is `invokestatic`, the stub keeps
+ * the descriptor). An 8-token line with `instance` is a pure-instance target: the call site is
+ * `invokevirtual`/`invokeinterface`, and `<stubDescriptor>` is the receiver-prepended descriptor
+ * of the generated static stub.
  *
  * - `contract` lines become [ContractRewriter.Redirect]s (replace direction).
  * - `enforce` lines name the generated proof classes; when one of *those* is the
@@ -43,10 +49,20 @@ class ContractManifest private constructor(
         // --- formatting (used by the processor) ---
 
         @JvmStatic
+        @JvmOverloads
         fun contractLine(ownerInternal: String, name: String, descriptor: String,
-                         stubOwnerInternal: String, stubName: String): String =
-                listOf("contract", ownerInternal, name, descriptor, stubOwnerInternal, stubName)
-                        .joinToString(" ")
+                         stubOwnerInternal: String, stubName: String,
+                         instance: Boolean = false, stubDescriptor: String? = null): String {
+            val base = listOf("contract", ownerInternal, name, descriptor, stubOwnerInternal, stubName)
+            // A static target stays a 6-token line (unchanged format). A pure-instance target appends
+            // `instance <stubDescriptor>` so the backend knows to match the virtual call site and emit
+            // the receiver-prepended stub descriptor.
+            return if (instance) {
+                (base + listOf("instance", stubDescriptor ?: descriptor)).joinToString(" ")
+            } else {
+                base.joinToString(" ")
+            }
+        }
 
         @JvmStatic
         fun enforceLine(proofClassInternal: String): String = "enforce $proofClassInternal"
@@ -64,7 +80,13 @@ class ContractManifest private constructor(
                 }
                 val t = line.split(Regex("\\s+"))
                 if (t[0] == "contract" && t.size == 6) {
+                    // Static target: invokestatic, stub keeps the descriptor.
                     redirects.add(ContractRewriter.Redirect(t[1], t[2], t[3], t[4], t[5]))
+                } else if (t[0] == "contract" && t.size == 8 && t[6] == "instance") {
+                    // Pure-instance target: invokevirtual/interface call site, receiver-prepended stub
+                    // descriptor in t[7].
+                    redirects.add(ContractRewriter.Redirect(t[1], t[2], t[3], t[4], t[5],
+                            true, t[7]))
                 } else if (t[0] == "enforce" && t.size == 2) {
                     enforce.add(t[1])
                 }

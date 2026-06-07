@@ -300,6 +300,92 @@ internal class ContractPurityAuditTest {
         assertTrue(msg.contains("remove the @Requires/@Ensures contract"), "lists remedies: $msg")
     }
 
+    // ---- pure instance contracts -------------------------------------------------------------
+
+    @Test
+    fun certifies_a_pure_instance_method_reading_this(@TempDir dir: Path) {
+        // int scaled(int by) { return this.value * by; }  — reads `this` but never mutates it.
+        // The receiver is conservatively pre-existing (ALOAD 0 is non-fresh), but a READ of its
+        // field is pure: only a WRITE to pre-existing state disqualifies. Must certify.
+        emit(dir, "pkg/Scale") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC, "value", "I", null, null).visitEnd()
+            instanceMethod(cw, "pkg/Scale", "scaled", "(I)I") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)   // this (pre-existing, but only read)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Scale", "value", "I")
+                mv.visitVarInsn(Opcodes.ILOAD, 1)   // by
+                mv.visitInsn(Opcodes.IMUL)
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        // An instance redirect: the descriptor is the instance descriptor (no receiver); the audit
+        // locates the instance method body by it exactly like a static one.
+        ContractPurityAudit.audit(listOf(instanceRedirect("pkg/Scale", "scaled", "(I)I")), dir.toString())
+    }
+
+    @Test
+    fun rejects_receiver_mutation_in_an_instance_contract(@TempDir dir: Path) {
+        // void grow(int by) { this.value += by; }  — mutates `this`, the most common impurity for an
+        // instance method. The receiver is pre-existing (ALOAD 0 is non-fresh), so the PUTFIELD on it
+        // is a heap write to pre-existing state — the audit must REJECT. This is the pinning test the
+        // purity-audit PR flagged: an instance contract must not widen the silent-effect-dropping hole.
+        emit(dir, "pkg/Mut") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC, "value", "I", null, null).visitEnd()
+            instanceMethod(cw, "pkg/Mut", "grow", "(I)I") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)   // this (pre-existing)
+                mv.visitInsn(Opcodes.DUP)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Mut", "value", "I")
+                mv.visitVarInsn(Opcodes.ILOAD, 1)
+                mv.visitInsn(Opcodes.IADD)
+                mv.visitFieldInsn(Opcodes.PUTFIELD, "pkg/Mut", "value", "I") // writes this.value
+                mv.visitVarInsn(Opcodes.ALOAD, 0)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Mut", "value", "I")
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        val ex = assertThrows(ContractPurityError::class.java) {
+            ContractPurityAudit.audit(listOf(instanceRedirect("pkg/Mut", "grow", "(I)I")), dir.toString())
+        }
+        assertTrue(ex.message!!.contains("writes field pkg/Mut.value"),
+                "receiver mutation must be rejected naming the field write: ${ex.message}")
+    }
+
+    @Test
+    fun instance_contract_is_relevant_to_a_proof_that_makes_a_virtual_call(@TempDir dir: Path) {
+        // A proof reaching the impure instance target via an invokevirtual must be scoped-in by
+        // auditRelevant (reachability now records virtual call sites, not just invokestatic ones).
+        emit(dir, "pkg/Mut2") { cw ->
+            cw.visitField(Opcodes.ACC_PUBLIC, "value", "I", null, null).visitEnd()
+            instanceMethod(cw, "pkg/Mut2", "grow", "(I)I") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)
+                mv.visitInsn(Opcodes.DUP)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Mut2", "value", "I")
+                mv.visitVarInsn(Opcodes.ILOAD, 1)
+                mv.visitInsn(Opcodes.IADD)
+                mv.visitFieldInsn(Opcodes.PUTFIELD, "pkg/Mut2", "value", "I")
+                mv.visitVarInsn(Opcodes.ALOAD, 0)
+                mv.visitFieldInsn(Opcodes.GETFIELD, "pkg/Mut2", "value", "I")
+                mv.visitInsn(Opcodes.IRETURN)
+            }
+        }
+        emit(dir, "proofs/VReacher") { cw ->
+            method(cw, "p", "(Lpkg/Mut2;)V") { mv ->
+                mv.visitVarInsn(Opcodes.ALOAD, 0)
+                mv.visitInsn(Opcodes.ICONST_1)
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "pkg/Mut2", "grow", "(I)I", false)
+                mv.visitInsn(Opcodes.POP)
+                mv.visitInsn(Opcodes.RETURN)
+            }
+        }
+        val manifest = ContractManifest.parse(listOf(
+                ContractManifest.contractLine("pkg/Mut2", "grow", "(I)I", "pkg/Mut2\$\$Stubs",
+                        "grow__stub", true, "(Lpkg/Mut2;I)I")))
+        val ex = assertThrows(ContractPurityError::class.java) {
+            ContractPurityAudit.auditRelevant(manifest, "proofs.VReacher", "p",
+                    dir.toString(), dir.toString())
+        }
+        assertTrue(ex.message!!.contains("writes field pkg/Mut2.value"), ex.message)
+    }
+
     @Test
     fun no_redirects_is_a_no_op() {
         // Should not throw even with a bogus classpath — nothing to audit.
@@ -390,6 +476,22 @@ internal class ContractPurityAuditTest {
 
     private fun redirect(owner: String, name: String, desc: String): ContractRewriter.Redirect =
             ContractRewriter.Redirect(owner, name, desc, "$owner\$\$Stubs", "${name}__stub")
+
+    /** An instance redirect: the call-site descriptor is the instance descriptor (no receiver); the
+     *  stub descriptor prepends the receiver type. */
+    private fun instanceRedirect(owner: String, name: String, desc: String): ContractRewriter.Redirect =
+            ContractRewriter.Redirect(owner, name, desc, "$owner\$\$Stubs", "${name}__stub",
+                    true, "(L$owner;" + desc.removePrefix("("))
+
+    /** Emit a `public` (non-static) instance method [name][desc] whose body is built by [code]. */
+    private fun instanceMethod(cw: ClassWriter, internalName: String, name: String, desc: String,
+                               code: (MethodVisitor) -> Unit) {
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, name, desc, null, null)
+        mv.visitCode()
+        code(mv)
+        mv.visitMaxs(0, 0) // COMPUTE_MAXS
+        mv.visitEnd()
+    }
 
     /** Emit a public class [internalName] into [dir] via [body], with a default no-arg ctor omitted
      *  (these fixtures only declare statics / fields). */

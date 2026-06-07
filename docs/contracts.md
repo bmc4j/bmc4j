@@ -95,6 +95,50 @@ Read these before trusting a contract:
 - **Recursion is partial correctness.** A contract proves "*if* the method returns, the
   postcondition holds". Termination is a separate question BMC does not settle.
 
-v1 targets `static`, value-returning methods; predicates are `static boolean` methods on the
-test-side contract type. Binding is by signature, so a production rename can orphan a contract
-(the generated enforce proof then fails to compile against the missing method — a fail-fast).
+## Static and pure-instance methods
+
+Contracts target `static` **and pure instance**, value-returning methods. Predicates are
+`static boolean` methods on the test-side contract type. For an instance method the **receiver is
+threaded into the predicates as a leading `self` parameter** — the mirror's own signature stays
+the production signature (no `self`), but `@Requires`/`@Ensures` see the receiver first:
+
+```java
+// src/main — a pure instance method (reads `this`, mutates nothing)
+public final class Account {
+    private final int balance;
+    public int balance() { return balance; }
+    public int project(int amount) { /* pure projection over this.balance + amount */ }
+}
+
+// src/test — the contract; `self` is the receiver
+@BmcContractsFor(Account.class)
+interface AccountContract {
+    @Requires("nonNegative") @Ensures("atLeastBalance") int project(int amount);
+    static boolean nonNegative(Account self, int amount)            { return self.balance() >= 0 && amount >= 0; }
+    static boolean atLeastBalance(int result, Account self, int amount) { return result >= self.balance(); }
+}
+```
+
+Whether a target is static or instance is decided by **resolving the mirror's signature against the
+`@BmcContractsFor` class** — so the contract type doesn't repeat that fact, and a mirror that binds
+to nothing is reported as an orphan (see below). The replace-stub and the enforce-proof thread the
+receiver as an ordinary symbolic input: JBMC treats the entry function's parameters — `this`
+included — as nondet, so a contract whose postcondition reads a receiver field is only green if it
+holds for **all** receiver states (constrain the receiver in `@Requires` exactly as you would an
+argument; an unbounded balance would let `balance + amount` overflow). The call-site rewrite turns
+the `invokevirtual a.project(amount)` into an `invokestatic` to a stub whose descriptor prepends the
+receiver — which is already on the operand stack below the args, so the stack is unchanged.
+
+**Purity is what makes instance contracts safe.** A pure instance method reads `this` but never
+mutates it, so no `old()`/two-state machinery is needed — `self` in the postcondition is the same
+object state as in the precondition. The purity audit already treats the receiver as
+pre-existing (a `PUTFIELD` on `this` is a write to non-fresh state), so receiver mutation — the most
+common impurity for an instance method — is rejected, exactly like a `PUTSTATIC`. Binding is exact
+to the named class (no virtual dispatch of the *target* method).
+
+Out of scope (future, if ever): mutating methods + `old()` expressions, constructors, and
+virtual/interface binding of the *target* method.
+
+Binding is by signature, so a production rename can orphan a contract — the processor reports a
+**named error** at processing time (naming the contract interface, the missing mirror signature,
+and the target class) rather than letting the generated enforce-proof fail to compile cryptically.

@@ -179,7 +179,7 @@ internal object ContractPurityAudit {
             return
         }
         val reachIndex = ClasspathIndex(proofClasspath ?: "")
-        val reached = reachableStaticCallSites(entryClass.replace('.', '/'), entryMethod, reachIndex)
+        val reached = reachableCallSites(entryClass.replace('.', '/'), entryMethod, reachIndex)
         val relevant = redirects.filter { reached.contains(it.owner + '.' + it.name) }
         if (relevant.isEmpty()) {
             return
@@ -195,18 +195,20 @@ internal object ContractPurityAudit {
     }
 
     /**
-     * The `owner.name` INVOKESTATIC call sites transitively reachable from `entryOwner.entryMethod`,
-     * walking method bodies on [index]. Only call sites with a resolvable body on the classpath are
-     * recursed into (an unresolvable callee can't itself reach a contracted static we'd care about),
-     * but every INVOKESTATIC target is RECORDED whether or not its body resolves — a contracted
-     * target need not have its body on the pre-rewrite proof classpath to be a call site here. This
-     * is a deliberately simple reachability over the static-call graph; virtual dispatch edges are
-     * followed only to a body that resolves on the exact owner, which is enough to find the
-     * generated stub/enforce call sites (all `INVOKESTATIC`) the contract rewriter targets.
+     * The `owner.name` call sites transitively reachable from `entryOwner.entryMethod`, walking
+     * method bodies on [index]. Only call sites with a resolvable body on the classpath are recursed
+     * into (an unresolvable callee can't itself reach a contracted target we'd care about), but every
+     * call target is RECORDED whether or not its body resolves — a contracted target need not have
+     * its body on the pre-rewrite proof classpath to be a call site here. Both `invokestatic` (a
+     * static contract's call site) and `invokevirtual`/`invokeinterface` (a pure-instance contract's
+     * call site) targets are recorded, so a redirect of either kind is correctly judged relevant to a
+     * proof that reaches it. This is a deliberately simple reachability over the call graph; virtual
+     * dispatch edges are followed only to a body that resolves on the exact owner, which is enough to
+     * find the call sites the contract rewriter targets (exact-class binding).
      */
-    private fun reachableStaticCallSites(entryOwner: String, entryMethod: String,
-                                         index: ClasspathIndex): Set<String> {
-        val staticSites = HashSet<String>()
+    private fun reachableCallSites(entryOwner: String, entryMethod: String,
+                                   index: ClasspathIndex): Set<String> {
+        val sites = HashSet<String>()
         val seen = HashSet<String>()
         val work = ArrayDeque<MethodRef>()
         // The entry method's descriptor is unknown to us here; null matches the first overload, which
@@ -219,23 +221,19 @@ internal object ContractPurityAudit {
             val body = index.find(m.owner, m.name, m.descriptor) ?: continue
             val callees = collectCallees(body)
             for (c in callees) {
-                if (c.isStatic) {
-                    staticSites.add(c.ref.owner + '.' + c.ref.name)
-                }
-                val key = "${c.ref.owner}.${c.ref.name}${c.ref.descriptor ?: ""}"
+                sites.add(c.owner + '.' + c.name)
+                val key = "${c.owner}.${c.name}${c.descriptor ?: ""}"
                 if (seen.add(key)) {
-                    work.add(c.ref)
+                    work.add(c)
                 }
             }
         }
-        return staticSites
+        return sites
     }
 
-    private class Callee(@JvmField val ref: MethodRef, @JvmField val isStatic: Boolean)
-
-    /** Every method call site in [body] (for reachability — not purity), with its static-ness. */
-    private fun collectCallees(body: MethodBody): List<Callee> {
-        val out = ArrayList<Callee>()
+    /** Every method call site in [body] (for reachability — not purity). */
+    private fun collectCallees(body: MethodBody): List<MethodRef> {
+        val out = ArrayList<MethodRef>()
         ClassReader(body.classBytes).accept(object : ClassVisitor(Opcodes.ASM9) {
             override fun visitMethod(a: Int, n: String?, d: String?, s: String?,
                                      ex: Array<String>?): MethodVisitor? {
@@ -246,7 +244,7 @@ internal object ContractPurityAudit {
                     override fun visitMethodInsn(op: Int, owner: String?, name: String?,
                                                  desc: String?, itf: Boolean) {
                         if (owner != null && name != null) {
-                            out.add(Callee(MethodRef(owner, name, desc), op == Opcodes.INVOKESTATIC))
+                            out.add(MethodRef(owner, name, desc))
                         }
                     }
                 }

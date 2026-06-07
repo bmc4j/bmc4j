@@ -50,6 +50,30 @@ internal class ContractStubGeneratorTest {
         assertTrue(src.contains("post(r, a, b)"))
     }
 
+    @Test
+    fun instance_contract_threads_the_receiver_as_a_leading_self_param() {
+        // receiverType = the target class -> the stub takes `self` first, predicates take it too:
+        //   requires(self, amount)   ensures(r, self, amount)
+        val src = ContractStubGenerator.generate("acct", "AccountStubs", listOf(
+                ContractStubGenerator.Contract("acct.Account", "acct.AccountContract", "project", "int",
+                        listOf(p("int", "amount")), "validAmount", "balanceBounded",
+                        "VERIFIED", "acct.Account")))
+        assertTrue(src.contains("public static int project__stub(acct.Account self, int amount) {"),
+                "stub must take the receiver as a leading self parameter:\n$src")
+        assertTrue(src.contains("Bmc.check(acct.AccountContract.validAmount(self, amount));"))
+        assertTrue(src.contains("Bmc.assume(acct.AccountContract.balanceBounded(r, self, amount));"))
+    }
+
+    @Test
+    fun instance_contract_with_no_params_threads_only_the_receiver() {
+        val src = ContractStubGenerator.generate("p", "C", listOf(
+                ContractStubGenerator.Contract("p.Box", "p.BoxContract", "size", "int",
+                        listOf(), "open", "nonNeg", "VERIFIED", "p.Box")))
+        assertTrue(src.contains("public static int size__stub(p.Box self) {"))
+        assertTrue(src.contains("Bmc.check(p.BoxContract.open(self));"))   // requires(self)
+        assertTrue(src.contains("Bmc.assume(p.BoxContract.nonNeg(r, self));")) // ensures(r, self)
+    }
+
     companion object {
         private fun p(type: String, name: String): Map.Entry<String, String> =
                 java.util.Map.entry(type, name)
