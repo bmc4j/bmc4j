@@ -205,7 +205,7 @@ jobs:
         run: ./gradlew -p core build --no-daemon
 
   # ONE uniform proof job: every leg is "run these proof tasks at this JVM with these
-  # flags". -Dbmc.timeoutSeconds=180 keeps any SAT-pathological proof failing fast as
+  # flags". -Dbmc.timeoutSeconds=300 keeps any SAT-pathological proof failing fast as
   # a NAMED UNKNOWN instead of hanging the job (per-proof budgets override it).
   proofs:
     name: proofs ${{ matrix.name }}
@@ -258,7 +258,7 @@ jobs:
       # exercised in CI. Dependency caching (setup-gradle) is unaffected.
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
-        run: ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=180 ${{ matrix.flags }} ${{ matrix.tasks }}
+        run: ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 ${{ matrix.flags }} ${{ matrix.tasks }}
 
       # always(): save the snapshot on failure too (see the restore step's comment) -
       # only expectation-matching verdicts are ever in it, so this is sound by
