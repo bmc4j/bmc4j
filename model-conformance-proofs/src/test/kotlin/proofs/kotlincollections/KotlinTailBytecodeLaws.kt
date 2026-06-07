@@ -84,9 +84,12 @@ class KotlinTailBytecodeLaws {
     // ---- CollectionsKt READ-ONLY accessors: indexOf / contains / elementAt / last. These iterate the
     // bounded java.util list model and analyze soundly (probed green). NOTE: the ALLOCATING / builder /
     // throwing CollectionsKt ops (plus/minus/reversed/single/toX, and MapsKt/SetsKt plus/minus/getValue/
-    // toList) were probed and REFUTED — the real stdlib routes them through internal builders that
-    // nondet-stub, so they STAY in the @BmcModelTail residue (future modeling candidates), NOT marked
-    // @BmcNotNeeded. This suite pins only the families whose real bytecode genuinely analyzes.
+    // toList, RangesKt progression first/last) were probed and REFUTED through real stdlib — the chain
+    // routes through internal builders that nondet-stub. Those are now MODELED directly by bmc4j (real
+    // bodies in CollectionsKt/MapsKt/SetsKt/RangesKt, pinned by proofs.kotlincollections.
+    // KotlinCollectionResidueLaws / KotlinMapSetResidueLaws and proofs.kotlinranges.RangeLaws), so they
+    // moved out of the @BmcModelTail residue. This suite pins only the families whose real bytecode
+    // genuinely analyzes (read-only accessors, RangesKt int arithmetic, ComparisonsKt min/max).
 
     @BmcProof
     fun indexOf_and_contains() {

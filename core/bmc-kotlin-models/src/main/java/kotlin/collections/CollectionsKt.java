@@ -370,6 +370,321 @@ public final class CollectionsKt {
         return changed;
     }
 
+    // ---- plus(element) / plus(collection): the Kotlin compiler emits
+    //   CollectionsKt.plus:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/util/List;       for `xs + e`
+    //   CollectionsKt.plus:(Ljava/util/Collection;Ljava/lang/Object;)Ljava/util/List;      (Collection rcvr)
+    //   CollectionsKt.plus:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/List;      for `xs + ys`
+    //   CollectionsKt.plus:(Ljava/util/Collection;Ljava/lang/Iterable;)Ljava/util/List;
+    //   CollectionsKt.plus:(Ljava/lang/Iterable;[Ljava/lang/Object;)Ljava/util/List;       for `xs + arr`
+    //   CollectionsKt.plus:(Ljava/util/Collection;[Ljava/lang/Object;)Ljava/util/List;
+    // The real chain routes through internal builders JBMC nondet-stubs (probed REFUTED), so we build
+    // the bounded ArrayList directly: a NEW list = receiver elements (in order) then the appended
+    // element(s). The source is untouched — matching the Kotlin contract.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Iterable<T> source, T element) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        out.add(element);
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Collection<T> source, T element) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        out.add(element);
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Iterable<T> source, Iterable<? extends T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = elements.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Collection<T> source, Iterable<? extends T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = elements.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Iterable<T> source, T[] elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (T e : elements) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Collection<T> source, T[] elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (T e : elements) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    // ---- minus(element) / minus(collection): the Kotlin compiler emits
+    //   CollectionsKt.minus:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/util/List;       for `xs - e`
+    //   CollectionsKt.minus:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/List;      for `xs - ys`
+    //   CollectionsKt.minus:(Ljava/lang/Iterable;[Ljava/lang/Object;)Ljava/util/List;       for `xs - arr`
+    // Kotlin contract: a NEW list of the source elements with the removed element(s) filtered out.
+    // minus(single) removes only the FIRST occurrence; minus(collection/array) removes ALL elements
+    // present in the removand. Source untouched. (Real chain nondet-stubs builders — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> minus(Iterable<T> source, T element) {
+        ArrayList<T> out = new ArrayList<>();
+        boolean removed = false;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (!removed && (e == null ? element == null : e.equals(element))) {
+                removed = true;
+            } else {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> minus(Iterable<T> source, Iterable<? extends T> elements) {
+        ArrayList<T> remove = new ArrayList<>();
+        for (Iterator<? extends T> it = elements.iterator(); it.hasNext(); ) {
+            remove.add(it.next());
+        }
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (!remove.contains(e)) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> minus(Iterable<T> source, T[] elements) {
+        ArrayList<T> remove = new ArrayList<>();
+        for (T e : elements) {
+            remove.add(e);
+        }
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (!remove.contains(e)) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    // ---- single() / singleOrNull(): the Kotlin compiler emits
+    //   CollectionsKt.single:(Ljava/lang/Iterable;)Ljava/lang/Object;          / (Ljava/util/List;)…
+    //   CollectionsKt.singleOrNull:(Ljava/lang/Iterable;)Ljava/lang/Object;     / (Ljava/util/List;)…
+    // Kotlin contract: single() returns the sole element or throws (NoSuchElementException when empty,
+    // IllegalArgumentException when >1); singleOrNull() returns the sole element or null (empty OR >1).
+    // (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T single(Iterable<T> source) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Collection is empty.");
+        }
+        T single = it.next();
+        if (it.hasNext()) {
+            throw new IllegalArgumentException("Collection has more than one element.");
+        }
+        return single;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T single(List<T> list) {
+        int n = list.size();
+        if (n == 0) {
+            throw new NoSuchElementException("List is empty.");
+        }
+        if (n != 1) {
+            throw new IllegalArgumentException("List has more than one element.");
+        }
+        return list.get(0);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T singleOrNull(Iterable<T> source) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        T single = it.next();
+        if (it.hasNext()) {
+            return null;
+        }
+        return single;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T singleOrNull(List<T> list) {
+        return list.size() == 1 ? list.get(0) : null;
+    }
+
+    // ---- reversed(): CollectionsKt.reversed:(Ljava/lang/Iterable;)Ljava/util/List; — a NEW list of the
+    // source elements in reverse order, source untouched. (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> reversed(Iterable<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        // in-place reverse of the bounded array-backed model
+        int i = 0;
+        int j = out.size() - 1;
+        while (i < j) {
+            T tmp = out.get(i);
+            out.set(i, out.get(j));
+            out.set(j, tmp);
+            i++;
+            j--;
+        }
+        return out;
+    }
+
+    // ---- toList(Iterable): CollectionsKt.toList:(Ljava/lang/Iterable;)Ljava/util/List; — a NEW read-only
+    // snapshot copy in order. (toMutableList(Collection) is already modeled above; add the Iterable
+    // overload of both here.) (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> toList(Iterable<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> toMutableList(Iterable<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    // ---- toMutableSet(Iterable): CollectionsKt.toMutableSet:(Ljava/lang/Iterable;)Ljava/util/Set; — a
+    // NEW LinkedHashSet preserving first-occurrence order (toSet is already modeled; this is the
+    // mutable twin with the same observable). (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> toMutableSet(Iterable<T> source) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    // ---- union / intersect / subtract: set operations producing a NEW LinkedHashSet (first-occurrence
+    //   CollectionsKt.union:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/Set;
+    //   CollectionsKt.intersect:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/Set;
+    //   CollectionsKt.subtract:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/Set;
+    // union = source ∪ other (source order then new-from-other); intersect = elements in BOTH;
+    // subtract = source minus other. (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> union(Iterable<T> source, Iterable<T> other) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<T> it = other.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> intersect(Iterable<T> source, Iterable<T> other) {
+        LinkedHashSet<T> otherSet = new LinkedHashSet<>();
+        for (Iterator<T> it = other.iterator(); it.hasNext(); ) {
+            otherSet.add(it.next());
+        }
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (otherSet.contains(e)) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> subtract(Iterable<T> source, Iterable<T> other) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<T> it = other.iterator(); it.hasNext(); ) {
+            out.remove(it.next());
+        }
+        return out;
+    }
+
+    // ---- averageOfInt / averageOfLong: CollectionsKt.averageOfInt:(Ljava/lang/Iterable;)D and
+    //   averageOfLong:(Ljava/lang/Iterable;)D — sum / count as a double; NaN for an empty source
+    //   (matching Kotlin: 0.0/0). The sum accumulates as a double to mirror the stdlib (it folds into a
+    //   double accumulator), so this is sound under the no-symbolic-double proof policy (concrete only).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfInt(Iterable<Integer> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Integer> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfLong(Iterable<Long> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Long> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    // NOTE: joinToString / joinTo are deliberately NOT modeled in this pass and stay in the
+    // @BmcModelTail residue. They are doubly hostile to bounded proof: (1) STRING-HEAVY (the
+    // StringBuilder/append reasoning is the JBMC string-blowup that OOM'd CI — see #124), and (2) the
+    // Kotlin call site routes through a kotlinc-synthesized `joinToString$default` bridge (default args)
+    // that bmc4j does not model, so JBMC nondet-stubs the bridge and the verdict is UNKNOWN regardless
+    // of the body's correctness. A sound model would need the `$default` bridge + a differential
+    // (not proof) harness for the string output; out of scope here. Loud under JBMC if reached.
+
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
     @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void all(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {

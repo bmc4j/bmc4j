@@ -76,6 +76,110 @@ public final class MapsKt {
         return expectedSize + expectedSize / 3;
     }
 
+    // ---- getValue(map, key): MapsKt.getValue:(Ljava/util/Map;Ljava/lang/Object;)Ljava/lang/Object; —
+    // returns the value for `key` or throws NoSuchElementException if absent (the strict accessor
+    // behind Kotlin's `map.getValue(k)` and delegated properties). (Real chain nondet-stubs — REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> V getValue(Map<K, ? extends V> map, K key) {
+        if (!map.containsKey(key)) {
+            throw new java.util.NoSuchElementException("Key " + key + " is missing in the map.");
+        }
+        return map.get(key);
+    }
+
+    // ---- plus(map, pair) / plus(map, pairs[]) / plus(map, map) / plus(map, iterable<pair>): a NEW map
+    //   MapsKt.plus:(Ljava/util/Map;Lkotlin/Pair;)Ljava/util/Map;
+    //   MapsKt.plus:(Ljava/util/Map;[Lkotlin/Pair;)Ljava/util/Map;
+    //   MapsKt.plus:(Ljava/util/Map;Ljava/util/Map;)Ljava/util/Map;
+    //   MapsKt.plus:(Ljava/util/Map;Ljava/lang/Iterable;)Ljava/util/Map;
+    // Kotlin contract: copy the receiver, then put the added entries (later wins on key collision),
+    // returning a NEW map; receiver untouched. (Real chain nondet-stubs — probed REFUTED.)
+    // NOTE: the HashMap model's putAll is a loud NotNeeded stub — copy entries explicitly via entrySet.
+    private static <K, V> HashMap<K, V> copyOf(Map<? extends K, ? extends V> map) {
+        HashMap<K, V> out = new HashMap<>();
+        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+            out.put(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> plus(Map<? extends K, ? extends V> map, Pair<? extends K, ? extends V> pair) {
+        HashMap<K, V> out = copyOf(map);
+        out.put(pair.getFirst(), pair.getSecond());
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> plus(Map<? extends K, ? extends V> map, Pair<? extends K, ? extends V>[] pairs) {
+        HashMap<K, V> out = copyOf(map);
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> plus(Map<? extends K, ? extends V> map, Map<? extends K, ? extends V> other) {
+        HashMap<K, V> out = copyOf(map);
+        for (Map.Entry<? extends K, ? extends V> e : other.entrySet()) {
+            out.put(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> plus(Map<? extends K, ? extends V> map,
+            java.lang.Iterable<? extends Pair<? extends K, ? extends V>> pairs) {
+        HashMap<K, V> out = copyOf(map);
+        for (java.util.Iterator<? extends Pair<? extends K, ? extends V>> it = pairs.iterator(); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    // ---- minus(map, key) / minus(map, keys[]) / minus(map, iterable<key>): a NEW map with the listed
+    //   MapsKt.minus:(Ljava/util/Map;Ljava/lang/Object;)Ljava/util/Map;
+    //   MapsKt.minus:(Ljava/util/Map;[Ljava/lang/Object;)Ljava/util/Map;
+    //   MapsKt.minus:(Ljava/util/Map;Ljava/lang/Iterable;)Ljava/util/Map;
+    // key(s) removed; receiver untouched. (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> minus(Map<? extends K, ? extends V> map, K key) {
+        HashMap<K, V> out = copyOf(map);
+        out.remove(key);
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> minus(Map<? extends K, ? extends V> map, K[] keys) {
+        HashMap<K, V> out = copyOf(map);
+        for (K k : keys) {
+            out.remove(k);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> minus(Map<? extends K, ? extends V> map, java.lang.Iterable<? extends K> keys) {
+        HashMap<K, V> out = copyOf(map);
+        for (java.util.Iterator<? extends K> it = keys.iterator(); it.hasNext(); ) {
+            out.remove(it.next());
+        }
+        return out;
+    }
+
+    // ---- toList(map): MapsKt.toList:(Ljava/util/Map;)Ljava/util/List; — a NEW list of (key,value)
+    // Pairs in entry-iteration order. (Real chain nondet-stubs — probed REFUTED.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> java.util.List<Pair<K, V>> toList(Map<? extends K, ? extends V> map) {
+        java.util.ArrayList<Pair<K, V>> out = new java.util.ArrayList<>();
+        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+            out.add(new Pair<>(e.getKey(), e.getValue()));
+        }
+        return out;
+    }
+
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
     @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void all(java.util.Map a0, kotlin.jvm.functions.Function1 a1) {

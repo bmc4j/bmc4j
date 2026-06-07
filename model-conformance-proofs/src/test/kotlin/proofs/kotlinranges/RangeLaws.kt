@@ -3,6 +3,8 @@ package proofs.kotlinranges
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
 import org.bmc4j.kotlin.checkThrows
+import kotlin.ranges.IntProgression
+import kotlin.ranges.LongProgression
 
 /**
  * Laws of the `kotlin.ranges.RangesKt` model (`coerceAtLeast` / `coerceAtMost` / `coerceIn`),
@@ -73,5 +75,52 @@ class RangeLaws {
         val hi = Bmc.anyInt(-100, 100)
         Bmc.assume(lo > hi)
         checkThrows<IllegalArgumentException> { 0.coerceIn(lo, hi) }
+    }
+
+    // ---- progression first() / last() (RangesKt.first/last(IntProgression) etc.). PR #129 probed the
+    // allocating progression ops and REFUTED them; now modeled by reading the progression's start/end
+    // accessors directly. Binding the range to an IntProgression-typed val makes `.first()`/`.last()`
+    // resolve to the RangesKt EXTENSION (not the IntRange.first property), exercising the model. We
+    // build the progression from a plain range (NOT `step` — `step` is a deliberately-loud
+    // @BmcNotNeeded member that would trip the sentinel). random/randomOrNull stay tail (nondeterministic).
+
+    @BmcProof
+    fun progression_first_is_start() {
+        val p: IntProgression = 0..6
+        Bmc.check(p.first() == 0 && p.last() == 6)
+    }
+
+    @BmcProof
+    fun progression_firstOrNull_lastOrNull_present() {
+        val p: IntProgression = 1..5
+        Bmc.check(p.firstOrNull() == 1 && p.lastOrNull() == 5)
+    }
+
+    @BmcProof
+    fun progression_empty_firstOrNull_is_null() {
+        // an ascending progression with first > last is empty
+        val p: IntProgression = 5..1
+        Bmc.check(p.firstOrNull() == null && p.lastOrNull() == null)
+    }
+
+    @BmcProof
+    fun progression_empty_first_throws() {
+        val p: IntProgression = 5..1
+        checkThrows<NoSuchElementException> { p.first() }
+    }
+
+    @BmcProof
+    fun progression_long_first_last() {
+        val p: LongProgression = 0L..6L
+        Bmc.check(p.first() == 0L && p.last() == 6L)
+    }
+
+    /** Symbolic progression law: for a..b (a<=b), first()==a and last()==b. */
+    @BmcProof
+    fun symbolic_progression_first_last() {
+        val a = Bmc.anyInt(-100, 0)
+        val b = Bmc.anyInt(1, 100)
+        val p: IntProgression = a..b
+        Bmc.check(p.first() == a && p.last() == b)
     }
 }
