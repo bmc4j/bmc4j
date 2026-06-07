@@ -37,24 +37,29 @@ plugins {
 }
 ```
 
+Kotlin-first: your domain invariants already live in a value class's `require(...)`, so bmc4j
+folds them straight into the proof domain via `assumeValid { ... }` — no assumption restated.
+
 ```kotlin
 import org.bmc4j.Bmc.*
 import org.bmc4j.BmcProof
+import org.bmc4j.kotlin.assumeValid
+
+@JvmInline
+value class Score(val value: Int) { init { require(value in 1..100) } }  // the domain, once
 
 class GradeBandProofs {
 
     @BmcProof
-    fun `gradeBand never throws for valid scores`() {
-        val score = anyInt(1, 100)              // symbolic input, valid domain folded in
-        Example.gradeBand(score)                // proven for every score in range
+    fun `Score invariant holds`() {
+        val s = assumeValid { Score(anyInt()) } // run the constructor over ALL ints,
+        check(s.value in 1..100)                 // keep only the ones it accepts
     }
 
     @BmcProof
-    fun `clamp result is always within bounds`() {
-        val x = anyInt(); val lo = anyInt(); val hi = anyInt()
-        assume(lo <= hi)
-        val r = Example.clamp(x, lo, hi)
-        check(r in lo..hi)                      // a property to prove
+    fun `gradeBand never throws for any Score`() {
+        val score = assumeValid { Score(anyInt()) } // require(...) folded into the domain —
+        gradeBand(score.value)                       // no duplicated assume, proven for every Score
     }
 }
 ```

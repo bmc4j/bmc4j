@@ -13,3 +13,25 @@ object Grades {
         return bands[index].length
     }
 }
+
+/**
+ * A Kotlin value class whose domain invariant lives in the constructor (`init { require(...) }`).
+ * JBMC runs that `init {}` during analysis, so the 1..100 range is verified, not assumed — and
+ * `assumeValid { Score(anyInt()) }` reuses it to fold the same range straight into the proof
+ * domain, with no duplicated `assume`.
+ */
+@JvmInline
+value class Score(val value: Int) {
+    init {
+        require(value in 1..100) { "score out of range: $value" }
+    }
+}
+
+/**
+ * Maps a 1..100 score to one of ten letter bands. The index `(value - 1) / 10` is 0..9 for every
+ * valid [Score], so the lookup is in range for the whole domain the value class admits.
+ */
+fun gradeBand(score: Int): String {
+    val labels = arrayOf("F", "E", "D", "C-", "C", "C+", "B", "B+", "A-", "A")
+    return labels[(score - 1) / 10]
+}
