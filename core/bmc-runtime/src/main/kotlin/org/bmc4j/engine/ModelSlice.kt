@@ -40,11 +40,13 @@ import java.nio.charset.StandardCharsets
  * work), so the engine sees only the cone while the expensive rewrites stay amortized across proofs.
  *
  * ## Soundness
- * The cone is a sound **over**-approximation of the classes a proof depends on (it follows the
- * constant-pool superset: supertypes, interfaces, field/parameter/return/exception types, and every
- * type a body references), so every class the engine can reach by executing the proof is in the cone
- * and survives the slice. A class pruned away is provably never reached, so the engine never loads it
- * and no stub is needed. Two hard rules keep this sound:
+ * The keep-set is the cone walked over the **fully-rewritten** classpath — the exact bytecode the
+ * engine analyses — so it is a sound **over**-approximation of the classes the engine can reach (it
+ * follows the constant-pool superset: supertypes, interfaces, field/parameter/return/exception types,
+ * and every type a body references, including the classes the rewrite chain injects/redirects to:
+ * lambda impls, contract stub/enforce classes, runtime helpers). Every class the engine can reach by
+ * executing the proof is in the cone and survives the slice. A class pruned away is provably never
+ * reached, so the engine never loads it and no stub is needed. Two hard rules keep this sound:
  *  - **Fallback proofs are never sliced.** When the cone can't be bounded (reflection / method
  *    handles, an un-attributable `invokedynamic`, the entry class off the classpath, or any walk
  *    error) [ReachableCone.compute] returns the whole-classpath signal and [sliceForCone] returns the
@@ -66,39 +68,57 @@ internal object ModelSlice {
     private const val DONE_SUFFIX = ".done"
     private const val CACHE_NAME = "model-slice"
 
-    /** Identity of the [shouldKeep] policy, folded into the slice cache key so a policy change never
-     *  serves a slice built under the old rule, AND into the verdict-cache key ([VerdictCache.computeKey])
-     *  so a verdict computed under a different slicing policy (or none) is never served either.
-     *  Bump on any [shouldKeep] semantic change. */
-    internal const val KEEP_POLICY_VERSION = "keep-v2-toplevel-owner"
+    /** Identity of the [shouldKeep] policy AND of the classpath the keep-set cone is walked over, folded
+     *  into the slice cache key so a policy change never serves a slice built under the old rule, AND
+     *  into the verdict-cache key ([VerdictCache.computeKey]) so a verdict computed under a different
+     *  slicing policy (or none) is never served either. Bump on any [shouldKeep] semantic change OR any
+     *  change to which classpath [sliceForCone] computes the keep-set over.
+     *
+     *  - `keep-v2-toplevel-owner`: keep-set = cone of the PRE-rewrite classpath + top-level-owner rule.
+     *  - `keep-v3-rewritten-cone`: keep-set = cone of the REWRITTEN classpath (the bytecode JBMC sees)
+     *    + top-level-owner rule. The rewrite chain injects classes the pre-rewrite cone never names —
+     *    lambda impls, and (the break this fixes) contract redirect TARGETS like `<X>Contract__BmcStubs`,
+     *    whose unrelated top-level name the owner rule can't catch. Walking the rewritten bytecode sees
+     *    those materialized call sites/`new`s directly, so the keep-set covers every post-cone injector
+     *    (contracts, lambdas, switch helpers, residual-indy markers, config bakes, …) by construction. */
+    internal const val KEEP_POLICY_VERSION = "keep-v3-rewritten-cone"
 
     /**
      * Slice [classpath] to the reachable cone of [entryClass], or return it unchanged when the cone
      * can't be bounded (the conservative whole-classpath fallback — a fallback proof is never sliced).
-     * [originalClasspath] is the proof's pre-rewrite classpath that the cone is computed over (so the
-     * slice set matches the verdict cache's cone digest, which keys on the same input); [classpath] is
-     * the fully-rewritten classpath actually handed to the engine, which is what gets pruned.
      *
-     * ## Generated-class hazard (must be kept, not pruned)
-     * The cone is computed over the **pre-rewrite** classpath, but the slice prunes the
-     * **post-rewrite** classpath — and the rewrite chain *adds classes the cone never saw*.
-     * [LambdaBytecode] desugars each lambda / method-reference `invokedynamic` into a fresh generated
-     * class named `<owner>$$Lambda$N` (and an `invokestatic` to a factory inside `<owner>`); that
-     * generated class did not exist when the cone was walked, so it is absent from the cone set. If it
-     * were pruned, the engine would meet `new <owner>$$Lambda$N` with no body, devirtualize its SAM
-     * method to nondet, and a symbolic-input law over the lambda's result would be **REFUTED, not
-     * UNKNOWN** — the exact unsoundness slicing must never produce. The cone walk *does* correctly bound
-     * the lambda site (it follows the `LambdaMetafactory` bootstrap's impl handle, all of which point
-     * inside `<owner>`), so the proof is sliced rather than falling back — which is why this hazard is
-     * the slice's responsibility, not the walk's. We close it by keeping every class whose **top-level
-     * enclosing class is in the cone** (see [shouldKeep]): a generated `<owner>$$Lambda$N` (and any real
-     * nested/anonymous class `<owner>$Inner` an inner-class edge might miss) shares its kept owner's
-     * top-level name, so it survives the slice. Over-keeping a kept owner's unreached nested classes
-     * only costs a little surface; under-keeping a reached generated class is the soundness break.
+     * The keep-set is the cone walked over **[classpath] itself** — the fully-rewritten classpath the
+     * engine is about to analyse — not the pre-rewrite classpath. This is the fix for the post-cone
+     * injection hazard below: the keep-set must be a superset of every class JBMC can actually reach,
+     * and JBMC reaches whatever the *rewritten* bytecode references. Walking the rewritten bytecode is
+     * the only walk that sees the injected classes by their real names. The verdict cache's cone digest
+     * still keys on the proof's pre-rewrite classpath (unchanged keying semantics); slicing only needs
+     * its keep-set to cover the reachable-at-analysis classes, which the rewritten cone guarantees.
+     *
+     * ## Post-cone injection hazard (injected classes must be kept, not pruned)
+     * The rewrite chain *adds / redirects to classes a pre-rewrite cone never named*:
+     *  - [LambdaBytecode] desugars each lambda / method-reference `invokedynamic` into a generated
+     *    `<owner>$$Lambda$N` class (and an `invokestatic` to a factory inside `<owner>`).
+     *  - [ContractRewriter] redirects each contracted call site to an `invokestatic` of a generated
+     *    contract stub class (`<X>Contract__BmcStubs.m__stub`) — an UNRELATED top-level class, not a
+     *    nested class of any cone owner — and enforce proofs analyse generated `__BmcEnforce` bodies.
+     *  - [ResidualIndyBytecode] / [SwitchBytecode] / [Math|String|Config|KotlinParam]Bytecode redirect
+     *    to fixed runtime helpers (`org/bmc4j/...`), which ship in jar entries the slice never prunes.
+     *
+     * If a reached injected class were pruned, the engine would meet a `new`/`invokestatic` with no body,
+     * devirtualize/stub it to nondet, and a symbolic-input law over its result would be **REFUTED, not
+     * UNKNOWN** — the exact unsoundness slicing must never produce. Computing the keep-set over the
+     * rewritten classpath closes this for ALL such injectors at once: the lambda `new`, the contract
+     * `invokestatic <stub>`, the residual-indy marker call are all in the rewritten bytecode the walk
+     * reads, so their target classes land in the cone and survive the slice. The owner-based rule in
+     * [shouldKeep] is retained belt-and-braces (it still catches a nested class an inner-class edge might
+     * miss), but it is no longer load-bearing for the injected classes the rewritten cone already names.
      */
     @JvmStatic
-    fun sliceForCone(classpath: String, entryClass: String, originalClasspath: String): String {
-        val cone = ReachableCone.compute(entryClass, originalClasspath)
+    fun sliceForCone(classpath: String, entryClass: String): String {
+        // Walk the cone over the REWRITTEN classpath (what JBMC analyses), so injected classes the
+        // pre-rewrite cone never named — contract stubs, lambda impls, … — are in the keep-set.
+        val cone = ReachableCone.compute(entryClass, classpath)
         if (cone.whole || cone.classes == null) {
             // Unbounded cone -> no slice. The engine sees the whole surface, as if slicing didn't
             // exist. (This is the reflection / unknown-indy / missing-entry / walk-error case.)
@@ -227,10 +247,11 @@ internal object ModelSlice {
     private fun sliceHash(dir: Path, sortedFiles: List<Path>, keep: Set<String>): String {
         val md = sha256()
         // Fold the keep-policy version in first: the cache hashes (content + cone) but the SLICE a
-        // given (content, cone) yields also depends on the keep RULE (see shouldKeep). When that rule
-        // changes — e.g. now retaining a cone owner's generated/nested classes — the same key must not
-        // serve a slice built under the old rule (which dropped the generated lambda classes and made
-        // a sliced proof REFUTE). Bump this whenever shouldKeep's semantics change.
+        // given (content, cone) yields also depends on the keep RULE (see shouldKeep) AND on which
+        // classpath the cone was walked over (now the rewritten one — see KEEP_POLICY_VERSION). When
+        // either changes the same key must not serve a slice built under the old rule (e.g. one that
+        // dropped contract stub or generated lambda classes and made a sliced proof REFUTE). Bump
+        // KEEP_POLICY_VERSION whenever shouldKeep's semantics or the keep-set's source classpath change.
         run {
             val v = KEEP_POLICY_VERSION.toByteArray(StandardCharsets.UTF_8)
             md.update(intToBytes(v.size))
@@ -263,14 +284,14 @@ internal object ModelSlice {
 
     /**
      * Whether the class [name] survives the slice given the cone set [keep]. A class is kept when it is
-     * itself in the cone, OR when its **top-level enclosing class** is — the latter retains the
-     * rewrite-chain's generated classes (a lambda desugar's `<owner>$$Lambda$N`) and any real
-     * nested/anonymous class (`<owner>$Inner`, `<owner>$1`) of a kept owner, neither of which the cone —
-     * computed over the *pre-rewrite* bytecode and over a constant-pool reference graph — is guaranteed
-     * to list by its own name. The top-level name is the substring before the first `$`; a generated or
-     * nested class can only exist alongside its top-level owner (same source/rewrite unit), so this is a
-     * sound over-approximation: it never keeps a class whose owner the proof can't reach, and never
-     * drops a class generated from one it can.
+     * itself in the cone, OR when its **top-level enclosing class** is. With the keep-set now walked over
+     * the *rewritten* bytecode (see [sliceForCone]), the injected classes — lambda impls, contract stubs —
+     * are already named in the cone by their own internal name, so this top-level-owner rule is retained
+     * **belt-and-braces** rather than load-bearing: it still keeps any real nested/anonymous class
+     * (`<owner>$Inner`, `<owner>$1`) of a kept owner that a constant-pool walk might not reference
+     * directly. The top-level name is the substring before the first `$`; a nested class can only exist
+     * alongside its top-level owner (same source/rewrite unit), so this is a sound over-approximation: it
+     * never keeps a class whose owner the proof can't reach, and never drops a class nested in one it can.
      */
     private fun shouldKeep(name: String, keep: Set<String>): Boolean {
         if (keep.contains(name)) {

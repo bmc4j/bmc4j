@@ -32,7 +32,7 @@ internal class ModelSliceTest {
         writeClass(classes, "pkg/Entry", listOf("pkg/Dep"))
         writeClass(classes, "pkg/Unrelated", emptyList())
 
-        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry", classes.toString())
+        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry")
         val names = classNamesIn(sliced)
 
         assertTrue(names.contains("pkg/Entry"), "the entry class is on the sliced classpath")
@@ -48,7 +48,7 @@ internal class ModelSliceTest {
         // Entry class is NOT on the classpath -> cone can't be bounded -> whole-classpath fallback ->
         // the slice must return the classpath UNCHANGED (a fallback proof keeps the whole surface).
         val cp = classes.toString()
-        val sliced = ModelSlice.sliceForCone(cp, "pkg.NotThere", cp)
+        val sliced = ModelSlice.sliceForCone(cp, "pkg.NotThere")
         assertEquals(cp, sliced, "a proof whose cone fell back to whole-classpath mode is not sliced")
     }
 
@@ -58,7 +58,7 @@ internal class ModelSliceTest {
         // Entry reaches Class.forName -> an opaque dispatch the cone can't bound -> whole fallback.
         writeClassCallingForName(classes, "pkg/Entry")
         val cp = classes.toString()
-        val sliced = ModelSlice.sliceForCone(cp, "pkg.Entry", cp)
+        val sliced = ModelSlice.sliceForCone(cp, "pkg.Entry")
         assertEquals(cp, sliced, "a reflection-reaching proof falls back and is not sliced")
     }
 
@@ -72,7 +72,7 @@ internal class ModelSliceTest {
         writeJar(jar, "org/bmc4j/models/M.class", classBytes("org/bmc4j/models/M"))
 
         val cp = classes.toString() + File.pathSeparator + jar.toString()
-        val sliced = ModelSlice.sliceForCone(cp, "pkg.Entry", cp)
+        val sliced = ModelSlice.sliceForCone(cp, "pkg.Entry")
 
         val entries = sliced.split(File.pathSeparator)
         assertTrue(entries.contains(jar.toString()),
@@ -101,7 +101,7 @@ internal class ModelSliceTest {
         writeClass(classes, "pkg/Unrelated", emptyList())
         writeClass(classes, "pkg/Unrelated\$\$Lambda\$0", emptyList())
 
-        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry", classes.toString())
+        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry")
         val names = classNamesIn(sliced)
 
         assertTrue(names.contains("pkg/Entry"), "the entry class is kept")
@@ -113,6 +113,36 @@ internal class ModelSliceTest {
         assertFalse(names.contains("pkg/Unrelated"), "an out-of-cone class is pruned")
         assertFalse(names.contains("pkg/Unrelated\$\$Lambda\$0"),
                 "a generated class of an OUT-OF-cone owner is still pruned (no over-keeping)")
+    }
+
+    @Test
+    fun slicedDir_keepsAContractRedirectTargetWithAnUnrelatedTopLevelName(@TempDir dir: Path) {
+        // Regression for the SECOND soundness break (alongside the lambda one above): the contract
+        // rewriter redirects a contracted call site to an `invokestatic` of a generated stub class whose
+        // top-level name is UNRELATED to the caller (`<X>Contract__BmcStubs`, not a nested class of any
+        // cone owner). Computing the keep-set over the PRE-rewrite classpath missed it (the original call
+        // pointed at the real owner, so the stub was never named) and the top-level-owner rule could not
+        // catch it (different top-level name) — so the stub was pruned, the engine met `invokestatic
+        // <stub>.m__stub` with no body, stubbed it to nondet, and the contract proof REFUTED instead of
+        // verifying. Computing the keep-set over the REWRITTEN classpath (what JBMC analyses) fixes it:
+        // the walk sees the materialized `invokestatic <stub>` and keeps the stub class. This pins that.
+        val classes = Files.createDirectory(dir.resolve("classes"))
+        // The post-rewrite Entry: its body calls a static on an unrelated top-level stub class, exactly
+        // as ContractRewriter leaves it. (No `$` link to Entry — the owner rule cannot save it.)
+        writeClassCallingStatic(classes, "pkg/Entry", "other/ChainContract__BmcStubs", "f__stub")
+        writeClass(classes, "other/ChainContract__BmcStubs", emptyList())
+        // An unrelated grown-model class with no edge from Entry must still be pruned (no over-keeping).
+        writeClass(classes, "pkg/Unrelated", emptyList())
+
+        val sliced = ModelSlice.sliceForCone(classes.toString(), "pkg.Entry")
+        val names = classNamesIn(sliced)
+
+        assertTrue(names.contains("pkg/Entry"), "the entry class is kept")
+        assertTrue(names.contains("other/ChainContract__BmcStubs"),
+                "a contract redirect TARGET (unrelated top-level name) reached only in the REWRITTEN " +
+                        "bytecode must survive the slice (else REFUTED, not UNKNOWN)")
+        assertFalse(names.contains("pkg/Unrelated"),
+                "an out-of-cone class with no edge from the entry is still pruned")
     }
 
     @Test
@@ -172,6 +202,25 @@ internal class ModelSliceTest {
         val f = dir.resolve("$internalName.class")
         Files.createDirectories(f.parent)
         Files.write(f, classBytes(internalName, callees))
+    }
+
+    /** A class whose `run()` body does `invokestatic <targetOwner>.<targetName>()V` — the shape a
+     *  contract redirect leaves behind (a static call to an unrelated stub class), used to assert the
+     *  rewritten-classpath cone keeps that target. */
+    private fun writeClassCallingStatic(dir: Path, internalName: String, targetOwner: String,
+                                        targetName: String) {
+        val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "run", "()V", null, null)
+        mv.visitCode()
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, targetOwner, targetName, "()V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+        val f = dir.resolve("$internalName.class")
+        Files.createDirectories(f.parent)
+        Files.write(f, cw.toByteArray())
     }
 
     private fun writeClassCallingForName(dir: Path, internalName: String) {
