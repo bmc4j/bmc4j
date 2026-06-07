@@ -17,6 +17,17 @@ java {
     toolchain { languageVersion.set(JavaLanguageVersion.of(bmcJvmTarget.toInt())) }
 }
 
+// Proofs that reference Java 21+ API (e.g. ArrayList's SequencedCollection head/tail methods:
+// addFirst/addLast/getFirst/getLast/removeFirst/removeLast) cannot COMPILE on the JDK-17 floor leg,
+// where those members do not exist on java.util.List. Keep them in a dedicated src/test21 tree that
+// is only added to the test compilation when the target floor is 21 or newer, so the 17 conformance
+// leg still builds while 21/25 legs keep exercising that surface.
+if (bmcJvmTarget.toInt() >= 21) {
+    kotlin.sourceSets.named("test") {
+        kotlin.srcDir("src/test21/kotlin")
+    }
+}
+
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(bmcJvmTarget)) }
 }
