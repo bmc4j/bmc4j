@@ -31,6 +31,7 @@ object JbmcOutputParser {
         return parseVerdict(root, json, entryFunctionFqn)
                 .withStubbedMethods(harvestStubs(root))
                 .withUnmodelledMembers(harvestUnmodelledMembers(root))
+                .withLinkFailureStubs(harvestLinkFailureStubMembers(root))
     }
 
     private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?): JbmcResult {
@@ -295,6 +296,66 @@ object JbmcOutputParser {
             }
         }
         return out.joinToString(", ")
+    }
+
+    /**
+     * The variable-name prefix JBMC stamps on the (discarded) parameters of a nondet *stub body*: when
+     * it has no body for a callee it synthesizes one that ignores its arguments and returns nondet,
+     * naming each ignored parameter `stub_ignored_arg<n>`. So an assignment to a `stub_ignored_arg*`
+     * variable in a counterexample trace is the fingerprint of a refutation that ran THROUGH a nondet
+     * stub — the "counterexample" rests on that method's havoc'd result. (Not an engine contract; pinned
+     * by [JbmcOutputParserTest] against the bundled cbmc 6.9.0, whose identity is in the verdict-cache
+     * key, so a bump forces re-validation — same discipline as [OPAQUE_MARKER].)
+     */
+    private const val STUB_IGNORED_ARG_PREFIX = "stub_ignored_arg"
+
+    /**
+     * Harvest the STUBBED MEMBERS whose nondet body a FAILURE trace ran through: for every FAILURE
+     * property, scan its trace for an `assignment` to a `stub_ignored_arg*` variable (the fingerprint of
+     * a synthesized nondet stub body — see [STUB_IGNORED_ARG_PREFIX]) and record the owning function,
+     * rendered `pkg.Class.method(params)` like [harvestUnmodelledMembers]. Deduped, first-seen order.
+     * Empty on a clean run. Pure; never throws.
+     *
+     * This is the parse-time FACT that a refutation passed through a nondet stub. The POLICY — demote
+     * such a REFUTED to a member-named UNKNOWN when the stub's owning class is nonetheless PRESENT on the
+     * analysis classpath (a transient engine link failure, not a real counterexample) — is applied by
+     * [org.bmc4j.junit.BmcProofExtension], which alone knows the classpath. A genuinely absent class
+     * (sliced away / a missing dependency) is the [harvestStubs] / SliceSoundnessProbe path and is left
+     * to the nondet-stub footnote ladder; the present-on-classpath check is what separates the two.
+     */
+    internal fun harvestLinkFailureStubMembers(root: JsonArray): List<String> {
+        var resultArray: JsonArray? = null
+        for (e in root) {
+            if (e.isJsonObject && e.asJsonObject.has("result")) {
+                resultArray = e.asJsonObject.getAsJsonArray("result")
+            }
+        }
+        if (resultArray == null) {
+            return emptyList()
+        }
+        val members = LinkedHashSet<String>()
+        for (pe in resultArray) {
+            val p = pe.asJsonObject
+            if (str(p, "status") != "FAILURE" || !p.has("trace")) {
+                continue
+            }
+            for (se in p.getAsJsonArray("trace")) {
+                val step = se.asJsonObject
+                if (str(step, "stepType") != "assignment") {
+                    continue
+                }
+                val lhs = str(step, "lhs") ?: continue
+                if (!lhs.startsWith(STUB_IGNORED_ARG_PREFIX)) {
+                    continue
+                }
+                val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
+                val fn = if (loc != null) str(loc, "function") else null
+                if (fn != null && fn.startsWith("java::") && !fn.contains("<clinit")) {
+                    members.add(renderMember(fn))
+                }
+            }
+        }
+        return members.toList()
     }
 
     /**

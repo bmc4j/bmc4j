@@ -300,6 +300,73 @@ internal class JbmcOutputParserTest {
         assertTrue(r.unmodelledMembers.isEmpty())
     }
 
+    // --- link-failure stub harvest (verdict honesty) ----------
+    // A REFUTED whose counterexample ran THROUGH a nondet stub leaves a stub_ignored_arg* assignment
+    // in the trace (JBMC names a synthesized stub body's ignored params that way). The parser harvests
+    // the stubbed MEMBER (the assignment's owning function) so the interpreter can demote the would-be
+    // REFUTED to a member-named UNKNOWN when that member's class is nonetheless on the classpath.
+
+    @Test
+    fun refuted_trace_with_stub_ignored_arg_harvests_the_stubbed_member() {
+        // The real-world shape (RangeLaws.coerceAtMost_long_is_min): JBMC nondet-stubbed
+        // RangesKt.coerceAtMost(J,J)J — its synthesized body assigns the ignored params
+        // stub_ignored_arg0/1, which surface in the counterexample trace.
+        val json = """
+            [
+              {"result":[
+                {"name":"f.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"RangeLaws.java","line":"12","function":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V"},
+                    "sourceLocation":{"file":"RangeLaws.java","line":"5"}},
+                   {"stepType":"function-call","function":{"identifier":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
+                    "sourceLocation":{"file":"RangeLaws.java","line":"7"}},
+                   {"stepType":"assignment","lhs":"stub_ignored_arg0",
+                    "sourceLocation":{"function":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
+                    "value":{"name":"integer","data":"0"}},
+                   {"stepType":"assignment","lhs":"stub_ignored_arg1",
+                    "sourceLocation":{"function":"java::kotlin.ranges.RangesKt.coerceAtMost:(JJ)J"},
+                    "value":{"name":"integer","data":"0"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min:()V","file":"RangeLaws.java","line":"12"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, "proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min")
+        // The verdict FACT is still a refutation here — the parser only attaches the stub member; the
+        // demote-to-UNKNOWN policy (which needs the classpath) lives in BmcProofExtension.
+        assertFalse(r.isVerified)
+        // The member is harvested once (deduped across the two stub_ignored_arg* assignments).
+        assertEquals(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"), r.linkFailureStubs)
+    }
+
+    @Test
+    fun a_genuine_refutation_with_no_stub_in_the_trace_harvests_no_link_failure() {
+        // No stub_ignored_arg* anywhere -> a real counterexample, nothing to demote: stays REFUTED.
+        val json = """
+            [
+              {"result":[
+                {"name":"f.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"12","function":"java::pkg.Example.f:(I)V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"5"}},
+                   {"stepType":"assignment","lhs":"score",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"100"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"12"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertFalse(r.isVerified)
+        assertEquals(1, r.violations.size)
+        assertTrue(r.linkFailureStubs.isEmpty())
+    }
+
     // --- vacuity check: the injected reachability marker ----------
     // The marker is identified by the sentinel source line BmcReachability.SENTINEL_LINE.
 

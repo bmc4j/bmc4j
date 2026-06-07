@@ -567,6 +567,77 @@ internal class BmcProofExtensionTest {
         }
     }
 
+    // --- Link-failure demotion (REFUTED + nondet stub of a PRESENT class -> UNKNOWN) ---
+
+    @Test
+    fun ownerClassOf_dropsParamsAndTrailingMethod() {
+        assertEquals("kotlin.ranges.RangesKt",
+                BmcProofExtension.ownerClassOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"))
+        assertEquals("pkg.C", BmcProofExtension.ownerClassOf("pkg.C.m()"))
+        // No method part -> null (can't resolve an owner).
+        assertEquals(null, BmcProofExtension.ownerClassOf("bare"))
+    }
+
+    @Test
+    fun classIsPresentOnClasspath_findsClassInADirectoryEntry_butNotAMissingOne(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "kotlin.ranges.RangesKt")
+        assertTrue(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.RangesKt", dir.toString()))
+        assertFalse(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.Absent", dir.toString()))
+    }
+
+    @Test
+    fun classIsPresentOnClasspath_findsClassInsideAJarEntry(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        val jar = dir.resolve("lib.jar")
+        java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(jar)).use { zos ->
+            zos.putNextEntry(java.util.zip.ZipEntry("kotlin/ranges/RangesKt.class"))
+            zos.write(byteArrayOf(0xCA.toByte(), 0xFE.toByte()))
+            zos.closeEntry()
+        }
+        assertTrue(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.RangesKt", jar.toString()))
+        assertFalse(BmcProofExtension.classIsPresentOnClasspath("kotlin.ranges.Absent", jar.toString()))
+    }
+
+    @Test
+    fun linkFailuresPresentOnClasspath_keepsPresentClasses_dropsAbsentOnes(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        writeModelClass(dir, "kotlin.ranges.RangesKt")
+        // The harvested fact: a refutation ran through stubs of two members. Only the one whose class
+        // is on the classpath is a (demotable) link failure; the absent one stays an ordinary stub.
+        val refuted = refutedResult().withLinkFailureStubs(listOf(
+                "kotlin.ranges.RangesKt.coerceAtMost(long, long)",
+                "com.absent.Gone.compute(int)"))
+        assertEquals(listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"),
+                BmcProofExtension.linkFailuresPresentOnClasspath(refuted, dir.toString()),
+                "only the present-on-classpath stub member demotes the refutation")
+    }
+
+    @Test
+    fun linkFailuresPresentOnClasspath_isEmptyForAGenuineRefutationWithNoStub(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // A genuine refutation has no harvested link-failure stubs -> nothing to demote, stays REFUTED.
+        assertTrue(BmcProofExtension.linkFailuresPresentOnClasspath(refutedResult(), dir.toString()).isEmpty())
+    }
+
+    @Test
+    fun linkFailureUndecided_isInfraUnknown_namesMember_andDoesNotSatisfyExpectUnknown() {
+        val err = BmcProofExtension.linkFailureUndecided("jbmc", "proofs.kotlinranges.RangeLaws.coerceAtMost_long_is_min",
+                listOf("kotlin.ranges.RangesKt.coerceAtMost(long, long)"))
+        assertTrue(err.message!!.contains("(UNKNOWN)"), err.message)
+        assertTrue(err.message!!.contains("kotlin.ranges.RangesKt.coerceAtMost"), err.message)
+        assertTrue(err.message!!.contains("link failure"), err.message)
+        assertFalse(err.message!!.contains("refuted "),
+                "a link failure is UNKNOWN, never a refutation: " + err.message)
+        // A transient link failure is engine infrastructure: it must NOT satisfy expect=UNKNOWN.
+        assertTrue(err.isEngineInfrastructure())
+        val rejected = assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            BmcProofExtension.enforceExpectation(
+                    "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, err)
+        }
+        assertTrue(rejected.message!!.contains("not a real UNKNOWN"), rejected.message)
+    }
+
     companion object {
         /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
         private fun writeModelClass(root: java.nio.file.Path, fqn: String) {
