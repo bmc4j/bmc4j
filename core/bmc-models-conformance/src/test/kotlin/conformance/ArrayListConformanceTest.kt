@@ -18,6 +18,22 @@ private class Op(val desc: String, val method: String, val types: Array<Class<*>
     override fun toString() = desc
 }
 
+/** A relocated-model ArrayList holding the given elements (built element-by-element, no copy-ctor). */
+private fun modelList(items: List<Int>): bmcref.java.util.ArrayList<Int> {
+    val l = bmcref.java.util.ArrayList<Int>()
+    for (x in items) l.add(x)
+    return l
+}
+
+/** Assert the real list and the relocated model hold the same elements, in the same order. */
+private fun assertSameElements(real: Any, model: Any) {
+    val rn = call(real, "size", arrayOf()).getOrThrow() as Int
+    assertEquivalent("size", call(real, "size", arrayOf()), call(model, "size", arrayOf()))
+    for (i in 0 until rn) {
+        assertEquivalent("get[$i]", call(real, "get", arrayOf(INT), i), call(model, "get", arrayOf(INT), i))
+    }
+}
+
 private val value: Arb<Int?> = Arb.int(-3..5).orNull(0.1)  // small, collision-dense domain incl. negatives + null
 private val index: Arb<Int> = Arb.int(-1..8)               // includes out-of-range, to compare exceptions
 
@@ -94,6 +110,102 @@ class ArrayListConformanceTest : FunSpec({
             for (idx in 0 until n) {
                 assertEquivalent("get[$idx]", call(r, "get", arrayOf(INT), idx), call(m, "get", arrayOf(INT), idx))
             }
+        }
+    }
+
+    // --- LinkedList Deque/Queue surface ------------------------------------------------------------
+    // The deque/queue ops (addFirst/addLast/get/peek/poll/removeFirst/removeLast/push/pop/offer) over
+    // the same bounded backing array, differentially vs the JDK LinkedList — including the empty-list
+    // exception/null split (getFirst/removeFirst/pop throw NoSuchElementException; peek/poll → null)
+    // and the interplay with the inherited List surface (addFirst then get(0), addLast then get(last)).
+    test("LinkedList Deque/Queue surface conforms") {
+        val v: Arb<Int?> = Arb.int(-3..5).orNull(0.1)
+        val dequeOp: Arb<Op> = Arb.choice(
+            v.map { Op("addFirst($it)", "addFirst", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("addLast($it)", "addLast", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("offer($it)", "offer", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("offerFirst($it)", "offerFirst", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("offerLast($it)", "offerLast", arrayOf(OBJECT), arrayOf(it)) },
+            v.map { Op("push($it)", "push", arrayOf(OBJECT), arrayOf(it)) },
+            Arb.constant(Op("getFirst", "getFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("getLast", "getLast", arrayOf(), arrayOf())),
+            Arb.constant(Op("peek", "peek", arrayOf(), arrayOf())),
+            Arb.constant(Op("peekFirst", "peekFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("peekLast", "peekLast", arrayOf(), arrayOf())),
+            Arb.constant(Op("element", "element", arrayOf(), arrayOf())),
+            Arb.constant(Op("poll", "poll", arrayOf(), arrayOf())),
+            Arb.constant(Op("pollFirst", "pollFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("pollLast", "pollLast", arrayOf(), arrayOf())),
+            Arb.constant(Op("removeFirst", "removeFirst", arrayOf(), arrayOf())),
+            Arb.constant(Op("removeLast", "removeLast", arrayOf(), arrayOf())),
+            Arb.constant(Op("pop", "pop", arrayOf(), arrayOf())),
+            Arb.constant(Op("remove", "remove", arrayOf(), arrayOf())),
+        )
+        checkAll(Arb.list(dequeOp, 0..40)) { ops ->
+            val r = java.util.LinkedList<Any?>()
+            val m = bmcref.java.util.LinkedList<Any?>()
+            ops.forEachIndexed { i, op -> assertEquivalent("op[$i]=$op", op.on(r), op.on(m)) }
+            assertEquivalent("size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+            val n = call(r, "size", arrayOf()).getOrThrow() as Int
+            for (idx in 0 until n) {
+                assertEquivalent("get[$idx]", call(r, "get", arrayOf(INT), idx), call(m, "get", arrayOf(INT), idx))
+            }
+        }
+    }
+
+    // --- bulk ops (addAll / removeAll / retainAll / removeIf / forEach / toArray) -------------------
+    // Build two seed lists identically, then apply a bulk op against a source collection and compare
+    // the resulting elements + the boolean "changed" return, vs the JDK ArrayList/LinkedList.
+    test("ArrayList/LinkedList bulk ops conform") {
+        val seedAndSource = Arb.bind(
+            Arb.list(Arb.int(-3..5), 0..20),
+            Arb.list(Arb.int(-3..5), 0..8),
+        ) { a, b -> a to b }
+        checkAll(seedAndSource) { (seed, src) ->
+            // addAll appends the source collection.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                assertEquivalent("addAll.changed",
+                    call(r, "addAll", arrayOf(java.util.Collection::class.java), java.util.ArrayList<Int>(src)),
+                    call(m, "addAll", arrayOf(bmcref.java.util.Collection::class.java), modelList(src)))
+                assertSameElements(r, m)
+            }
+            // removeAll / retainAll vs a source collection.
+            for (method in listOf("removeAll", "retainAll")) {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                assertEquivalent("$method.changed",
+                    call(r, method, arrayOf(java.util.Collection::class.java), java.util.ArrayList<Int>(src)),
+                    call(m, method, arrayOf(bmcref.java.util.Collection::class.java), modelList(src)))
+                assertSameElements(r, m)
+            }
+            // toArray contents in order.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                val ra = call(r, "toArray", arrayOf()).getOrThrow() as Array<*>
+                val ma = call(m, "toArray", arrayOf()).getOrThrow() as Array<*>
+                ma.toList() shouldBe ra.toList()
+            }
+        }
+    }
+
+    // removeIf/forEach take a lambda; exercise them directly (not via reflection) since the SAM type
+    // differs between the JDK and the relocated model.
+    test("ArrayList removeIf/forEach conform") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { seed ->
+            val r = java.util.ArrayList<Int>(); val m = bmcref.java.util.ArrayList<Int>()
+            for (x in seed) { r.add(x); m.add(x) }
+            val rChanged = r.removeIf { it < 0 }
+            val mChanged = m.removeIf { it < 0 }
+            mChanged shouldBe rChanged
+            val rSum = intArrayOf(0); val mSum = intArrayOf(0)
+            r.forEach { rSum[0] += it }
+            m.forEach { mSum[0] += it }
+            mSum[0] shouldBe rSum[0]
+            (call(m, "size", arrayOf()).getOrThrow() as Int) shouldBe r.size
+            for (i in 0 until r.size) call(m, "get", arrayOf(INT), i).getOrThrow() shouldBe r[i]
         }
     }
 

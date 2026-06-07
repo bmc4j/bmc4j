@@ -92,4 +92,51 @@ class ArrayListLaws {
         val copy = ArrayList<Int>(src)
         Bmc.check(copy.size == 2 && copy[0] == a && copy[1] == b)
     }
+
+    // --- bulk ops: addAll / removeIf / forEach (lambdas through the model) --------------------------
+
+    @BmcProof
+    fun addAll_appends_in_order() {
+        val src = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        src.add(a); src.add(b)
+        val dst = ArrayList<Int>()
+        val z = Bmc.anyInt()
+        dst.add(z)
+        val changed = dst.addAll(src)               // [z, a, b]
+        Bmc.check(changed && dst.size == 3 && dst[0] == z && dst[1] == a && dst[2] == b)
+    }
+
+    @BmcProof
+    fun removeIf_drops_matching_via_lambda() {
+        // A real lambda passed through removeIf must devirtualize (bmc4j desugars it). Pin both that
+        // the negatives are dropped and that the survivor is the one we kept.
+        val l = ArrayList<Int>()
+        val p = Bmc.anyInt(0, 100)                  // positive
+        val n = Bmc.anyInt(-100, -1)                // negative
+        l.add(p); l.add(n)
+        val changed = l.removeIf { it < 0 }
+        Bmc.check(changed && l.size == 1 && l[0] == p)
+    }
+
+    @BmcProof
+    fun forEach_visits_every_element_via_lambda() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt(0, 1000)
+        val b = Bmc.anyInt(0, 1000)
+        l.add(a); l.add(b)
+        val sum = intArrayOf(0)
+        l.forEach { sum[0] += it }                  // lambda accumulates through the model's forEach
+        Bmc.check(sum[0] == a + b)
+    }
+
+    @BmcProof
+    fun removeIf_no_match_leaves_list_unchanged() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt(0, 100)
+        l.add(a)
+        val changed = l.removeIf { it < 0 }         // a >= 0, nothing removed
+        Bmc.check(!changed && l.size == 1 && l[0] == a)
+    }
 }

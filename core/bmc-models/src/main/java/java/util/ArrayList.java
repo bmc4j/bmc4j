@@ -131,6 +131,82 @@ public class ArrayList<E> implements List<E> {
         size = 0;
     }
 
+    // --- bulk ops over the bounded backing array -----------------------------
+    // addAll appends (loud out-of-bounds past CAPACITY, never a silent drop); removeAll/retainAll/
+    // removeIf compact in place; forEach/toArray read in index order. Functional arguments are plain
+    // SAM calls (bmc4j desugars the lambda so JBMC devirtualizes test/accept).
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        boolean changed = false;
+        for (E e : c) {
+            elements[size] = e;     // out of bounds past CAPACITY → loud model-bound signal
+            size++;
+            changed = true;
+        }
+        return changed;
+    }
+
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        return removeWhere(c, true);
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        return removeWhere(c, false);
+    }
+
+    /** Compact in place, dropping elements whose membership in {@code c} equals {@code removeMatched}. */
+    private boolean removeWhere(Collection<?> c, boolean removeMatched) {
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            Object e = elements[r];
+            if (c.contains(e) == removeMatched) {
+                changed = true;             // dropped
+            } else {
+                elements[w++] = e;          // kept
+            }
+        }
+        size = w;
+        return changed;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean removeIf(java.util.function.Predicate<? super E> filter) {
+        int w = 0;
+        boolean changed = false;
+        for (int r = 0; r < size; r++) {
+            E e = (E) elements[r];
+            if (filter.test(e)) {
+                changed = true;
+            } else {
+                elements[w++] = e;
+            }
+        }
+        size = w;
+        return changed;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void forEach(java.util.function.Consumer<? super E> action) {
+        for (int i = 0; i < size; i++) {
+            action.accept((E) elements[i]);
+        }
+    }
+
+    @Override
+    public Object[] toArray() {
+        Object[] out = new Object[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = elements[i];
+        }
+        return out;
+    }
+
     @Override
     public Iterator<E> iterator() {
         return new Itr();

@@ -29,6 +29,24 @@ public interface List<E> extends Collection<E> {
 
     java.util.stream.Stream<E> stream();
 
+    /** Append every element of {@code c} (in iteration order); true if anything was added. */
+    boolean addAll(Collection<? extends E> c);
+
+    /** Remove every element also contained in {@code c}; true if this list changed. */
+    boolean removeAll(Collection<?> c);
+
+    /** Retain only the elements contained in {@code c}; true if this list changed. */
+    boolean retainAll(Collection<?> c);
+
+    /** Remove every element matching {@code filter}; true if any were removed. */
+    boolean removeIf(java.util.function.Predicate<? super E> filter);
+
+    /** Apply {@code action} to each element, in index order. */
+    void forEach(java.util.function.Consumer<? super E> action);
+
+    /** A new array holding every element, in index order. */
+    Object[] toArray();
+
     // Immutable factories (java.util.List.of) — javac emits the fixed-arity overload for small
     // counts and the varargs one beyond. We return a (mutable) ArrayList; proofs only read it.
 
