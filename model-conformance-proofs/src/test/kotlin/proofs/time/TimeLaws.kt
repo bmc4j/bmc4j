@@ -70,6 +70,63 @@ class TimeLaws {
         Bmc.check(Duration.ofMillis(1500).seconds == 1L)
     }
 
+    @BmcProof
+    fun duration_plusSeconds_then_minusSeconds_round_trips() {
+        val d = Duration.ofSeconds(anySec())
+        val n = anySec()
+        Bmc.check(d.plusSeconds(n).minusSeconds(n) == d)
+    }
+
+    @BmcProof
+    fun duration_plusMinutes_then_minusMinutes_round_trips() {
+        val d = Duration.ofMillis(anySec())   // any millis count, small magnitude
+        val n = Bmc.anyInt(-100, 100).toLong()
+        Bmc.check(d.plusMinutes(n).minusMinutes(n) == d)
+    }
+
+    @BmcProof
+    fun duration_multipliedBy_one_is_identity_and_negone_negates() {
+        val d = Duration.ofMillis(anySec())
+        Bmc.check(d.multipliedBy(1) == d)
+        Bmc.check(d.multipliedBy(-1) == d.negated())
+    }
+
+    @BmcProof
+    fun duration_abs_is_nonnegative_and_magnitude() {
+        val s = anySec()
+        val d = Duration.ofSeconds(s)
+        // abs() is never negative, and equals the duration or its negation.
+        Bmc.check(!d.abs().isNegative)
+        Bmc.check(d.abs() == (if (d.isNegative) d.negated() else d))
+    }
+
+    @BmcProof
+    fun duration_isPositive_iff_millis_positive() {
+        val s = anySec()
+        val d = Duration.ofSeconds(s)
+        Bmc.check(d.isPositive == (s > 0L))
+        Bmc.check(d.isZero == (s == 0L))
+        Bmc.check(d.isNegative == (s < 0L))
+    }
+
+    @BmcProof
+    fun duration_ofMinutes_toMillis_scales() {
+        // ofMinutes/ofHours/ofDays scale a unit count into millis (loud past the bound). Pin the scale
+        // concretely under JBMC; the wide differential axis covers the symbolic range + saturation.
+        Bmc.check(Duration.ofMinutes(3).toMillis() == 180_000L)
+        Bmc.check(Duration.ofHours(2).toMillis() == 7_200_000L)
+        Bmc.check(Duration.ofDays(1).toMillis() == 86_400_000L)
+        Bmc.check(Duration.ofMinutes(-3).toMillis() == -180_000L)
+    }
+
+    // NOTE: Duration.toMinutes/toHours/toDays divide the floored second count by the fixed constants
+    // 60/3600/86400 — a wide-DIVISOR division inherently SAT-slow on the @BmcProof axis regardless of
+    // input range (the LocalTime precedent: tightening inputs doesn't shrink a constant divisor). They
+    // are validated on the differential axis (TimeConformanceTest) vs the real JDK, including the
+    // floor-vs-truncate behavior for negatives (toSeconds floors, toMinutes truncates the floored
+    // seconds). plusHours/plusDays + minus mirrors are likewise differential-only past the concrete
+    // pins above (their scale multiply is covered by the ofX pins and the round-trip laws).
+
     // --- LocalDate ---
 
     @BmcProof
@@ -83,6 +140,14 @@ class TimeLaws {
         val d = LocalDate.ofEpochDay(anyDay())
         val n = anyDay()
         Bmc.check(d.plusDays(n).minusDays(n) == d)
+    }
+
+    @BmcProof
+    fun localdate_plusWeeks_is_seven_days_and_round_trips() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        val w = Bmc.anyInt(-10_000, 10_000).toLong()
+        Bmc.check(d.plusWeeks(w) == d.plusDays(w * 7L))
+        Bmc.check(d.plusWeeks(w).minusWeeks(w) == d)
     }
 
     // --- LocalDate calendar-month arithmetic ---

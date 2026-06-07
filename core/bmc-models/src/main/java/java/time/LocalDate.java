@@ -54,6 +54,16 @@ public final class LocalDate {
         return new LocalDate(this.epochDay - days);
     }
 
+    // A week is exactly 7 epoch-days; route the *7 through a checked multiply so a week count past the
+    // long/7 bound fails LOUDLY (the JDK uses Math.multiplyExact too) rather than silently wrapping.
+    public LocalDate plusWeeks(long weeksToAdd) {
+        return new LocalDate(this.epochDay + Math.multiplyExact(weeksToAdd, 7L));
+    }
+
+    public LocalDate minusWeeks(long weeksToSubtract) {
+        return new LocalDate(this.epochDay - Math.multiplyExact(weeksToSubtract, 7L));
+    }
+
     // --- calendar fields: decode epoch-day to proleptic-Gregorian y/m/d (mirrors the JDK ofEpochDay) ---
 
     private static boolean isLeapYear(long year) {
