@@ -28,9 +28,12 @@ class BmcConstraintsProcessor : AbstractProcessor() {
 
     // The extractor surfaces skipped/defaulted decisions (unmodeled temporal type, missing
     // @Size(max) on a container, deferred Map elements, …) as processor NOTEs so no bound is silent.
-    private val extractor: ConstraintExtractor = JakartaConstraintExtractor { msg, element ->
-        processingEnv.messager.printMessage(Diagnostic.Kind.NOTE, msg, element)
-    }
+    // The second hook reads container type-argument annotations from the attributed source tree:
+    // javac ≤ 22 drops TYPE_USE annotations from Element.asType()'s type arguments (fixed for 23),
+    // which would otherwise silently drop element constraints on the verified JDK 17/21 toolchains.
+    private val extractor: ConstraintExtractor = JakartaConstraintExtractor(
+            { msg, element -> processingEnv.messager.printMessage(Diagnostic.Kind.NOTE, msg, element) },
+            { field, index -> TypeUseTrees.typeArgumentMirror(processingEnv, field, index) })
     private val generated = mutableSetOf<String>()
 
     override fun process(annotations: Set<TypeElement>, round: RoundEnvironment): Boolean {

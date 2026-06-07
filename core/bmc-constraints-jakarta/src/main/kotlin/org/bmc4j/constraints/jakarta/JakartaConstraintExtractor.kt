@@ -27,6 +27,7 @@ import org.bmc4j.constraints.ConstraintExtractor
 import org.bmc4j.constraints.Constraints
 import org.bmc4j.constraints.ExtractedConstraints
 import org.bmc4j.constraints.StatementConstraint
+import javax.lang.model.element.AnnotationMirror
 import javax.lang.model.element.Element
 import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
@@ -62,7 +63,15 @@ import javax.lang.model.type.TypeMirror
  */
 class JakartaConstraintExtractor @JvmOverloads constructor(
         /** Surfaces a processor NOTE for a skipped/defaulted decision so no bound is ever silent. */
-        private val note: (String, Element) -> Unit = { _, _ -> }
+        private val note: (String, Element) -> Unit = { _, _ -> },
+        /**
+         * Fallback mirror for a field's container type argument, read from the attributed source
+         * tree ([TypeUseTrees]). javac ≤ 22 drops TYPE_USE annotations from the type arguments of
+         * `Element.asType()` (JDK-8225377 family, fixed for 23), so without this the element
+         * constraints in `List<@Min(1) Integer>` are invisible on JDK 17/21 — and the generated
+         * `assumeValid` would silently skip them.
+         */
+        private val typeArgMirror: (Element, Int) -> TypeMirror? = { _, _ -> null }
 ) : ConstraintExtractor {
 
     /** Boolean-only view for the [ConstraintExtractor] contract; richer shapes via [extractAll]. */
@@ -218,9 +227,10 @@ class JakartaConstraintExtractor @JvmOverloads constructor(
 
         // The element type-use carries the constraint annotations (Jakarta 3.0 are @Target TYPE_USE).
         val elementArg: TypeMirror = when {
-            isSupportedContainer && typeArgs.size == 1 -> typeArgs[0]
+            isSupportedContainer && typeArgs.size == 1 -> withTreeFallback(element, typeArgs[0], 0)
             isMap && typeArgs.size == 2 -> {
-                if (hasAnyElementConstraint(typeArgs[0]) || hasAnyElementConstraint(typeArgs[1])) {
+                if (hasAnyElementConstraint(withTreeFallback(element, typeArgs[0], 0)) ||
+                        hasAnyElementConstraint(withTreeFallback(element, typeArgs[1], 1))) {
                     note("bmc-constraints: Map key/value element constraints are deferred; skipped",
                             element)
                 }
@@ -233,7 +243,7 @@ class JakartaConstraintExtractor @JvmOverloads constructor(
         }
 
         val elemConstraints = elementNumericConstraints(elementArg)
-        val hasValid = elementArg.getAnnotation(Valid::class.java) != null
+        val hasValid = typeUseAnnotation(elementArg, "jakarta.validation.Valid") != null
         if (elemConstraints.isEmpty() && !hasValid) {
             return
         }
@@ -261,23 +271,62 @@ class JakartaConstraintExtractor @JvmOverloads constructor(
         }
     }
 
-    /** The element-level numeric / @NotNull constraints on a container's element type-use. */
+    /**
+     * The element-level numeric / @NotNull constraints on a container's element type-use.
+     *
+     * Read via [TypeMirror.getAnnotationMirrors], NOT `getAnnotation(Class)`: on the
+     * attributed-tree mirrors that [typeArgMirror] returns (the javac ≤ 22 path), javac
+     * populates the mirror list but the reflective-proxy lookup still answers null —
+     * the mirror API is the only read that works on every supported javac.
+     */
     private fun elementNumericConstraints(elem: TypeMirror): List<Constraint> {
         val out = mutableListOf<Constraint>()
         // Element type is always a reference type (generics) — use the nullable factories.
-        if (elem.getAnnotation(NotNull::class.java) != null) out.add(Constraints.notNull())
-        elem.getAnnotation(Min::class.java)?.let { out.add(Constraints.minNullable(it.value)) }
-        elem.getAnnotation(Max::class.java)?.let { out.add(Constraints.maxNullable(it.value)) }
-        if (elem.getAnnotation(Positive::class.java) != null) out.add(Constraints.minNullable(1))
-        if (elem.getAnnotation(PositiveOrZero::class.java) != null) out.add(Constraints.minNullable(0))
-        if (elem.getAnnotation(Negative::class.java) != null) out.add(Constraints.maxNullable(-1))
-        if (elem.getAnnotation(NegativeOrZero::class.java) != null) out.add(Constraints.maxNullable(0))
+        if (typeUseAnnotation(elem, "jakarta.validation.constraints.NotNull") != null) {
+            out.add(Constraints.notNull())
+        }
+        typeUseAnnotation(elem, "jakarta.validation.constraints.Min")?.let {
+            out.add(Constraints.minNullable(longMember(it, "value")))
+        }
+        typeUseAnnotation(elem, "jakarta.validation.constraints.Max")?.let {
+            out.add(Constraints.maxNullable(longMember(it, "value")))
+        }
+        if (typeUseAnnotation(elem, "jakarta.validation.constraints.Positive") != null) {
+            out.add(Constraints.minNullable(1))
+        }
+        if (typeUseAnnotation(elem, "jakarta.validation.constraints.PositiveOrZero") != null) {
+            out.add(Constraints.minNullable(0))
+        }
+        if (typeUseAnnotation(elem, "jakarta.validation.constraints.Negative") != null) {
+            out.add(Constraints.maxNullable(-1))
+        }
+        if (typeUseAnnotation(elem, "jakarta.validation.constraints.NegativeOrZero") != null) {
+            out.add(Constraints.maxNullable(0))
+        }
         return out
     }
 
     private fun hasAnyElementConstraint(elem: TypeMirror): Boolean =
-            elem.getAnnotation(Valid::class.java) != null ||
+            typeUseAnnotation(elem, "jakarta.validation.Valid") != null ||
                     elementNumericConstraints(elem).isNotEmpty()
+
+    private fun typeUseAnnotation(elem: TypeMirror, fqn: String): AnnotationMirror? =
+            elem.annotationMirrors.firstOrNull {
+                (it.annotationType.asElement() as? TypeElement)?.qualifiedName?.contentEquals(fqn) == true
+            }
+
+    /** A mandatory long member (e.g. `@Min(value)` — no default, so always explicit). */
+    private fun longMember(ann: AnnotationMirror, name: String): Long =
+            ann.elementValues.entries.first { it.key.simpleName.contentEquals(name) }
+                    .value.value as Long
+
+    /**
+     * The type-argument mirror to read element constraints from: the plain mirror when it already
+     * shows constraints (javac 23+), else the attributed-source-tree mirror (javac ≤ 22 drops
+     * TYPE_USE annotations from type arguments — see [typeArgMirror]), else the plain one.
+     */
+    private fun withTreeFallback(field: Element, mirror: TypeMirror, index: Int): TypeMirror =
+            if (hasAnyElementConstraint(mirror)) mirror else typeArgMirror(field, index) ?: mirror
 
     /** `<Type>Constraints` FQN if [type] is a declared type, else null (caller checks existence). */
     private fun nestedConstraintsFqn(type: TypeMirror): String? {
