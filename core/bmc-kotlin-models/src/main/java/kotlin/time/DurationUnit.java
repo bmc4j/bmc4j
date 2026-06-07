@@ -12,7 +12,6 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * {@code Duration.Companion.getSeconds} passes {@code DurationUnit.SECONDS}); the {@code nanosScale}
  * field is internal to the model.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public enum DurationUnit {
     NANOSECONDS(1L),
     MICROSECONDS(1_000L),

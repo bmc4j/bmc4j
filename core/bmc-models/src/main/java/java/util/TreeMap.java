@@ -20,7 +20,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * key exists. The comparator-taking constructor and the sub/head/tail-map and descending/poll
  * navigation views are out of scope (tail; loud under JBMC).
  */
-@BmcModelConforms("inherits the HashMap model surface; NavigableMap navigation (firstKey/lastKey/firstEntry/lastEntry/ceilingKey/floorKey/higherKey/lowerKey/comparator) by bounded sorted scan — differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
 @BmcModelTail(reason = "NavigableMap/SortedMap range-view and bulk-navigation surface (ceilingEntry/floorEntry/higherEntry/lowerEntry/firstKey-as-entry variants, headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/pollFirstEntry/pollLastEntry) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC")
 public class TreeMap<K, V> extends HashMap<K, V> {
 
@@ -33,10 +32,12 @@ public class TreeMap<K, V> extends HashMap<K, V> {
     }
 
     /** Natural ordering only (no explicit comparator), so this is always {@code null}, like the JDK. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public Comparator<? super K> comparator() {
         return null;
     }
 
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K firstKey() {
         K min = extreme(true);
         if (min == null && isEmpty()) {
@@ -45,6 +46,7 @@ public class TreeMap<K, V> extends HashMap<K, V> {
         return min;
     }
 
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K lastKey() {
         K max = extreme(false);
         if (max == null && isEmpty()) {
@@ -53,6 +55,7 @@ public class TreeMap<K, V> extends HashMap<K, V> {
         return max;
     }
 
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public Map.Entry<K, V> firstEntry() {
         if (isEmpty()) {
             return null;
@@ -61,6 +64,7 @@ public class TreeMap<K, V> extends HashMap<K, V> {
         return new Entry<>(k, get(k));
     }
 
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public Map.Entry<K, V> lastEntry() {
         if (isEmpty()) {
             return null;
@@ -70,21 +74,25 @@ public class TreeMap<K, V> extends HashMap<K, V> {
     }
 
     /** Least key &gt;= {@code key} (inclusive lower bound), or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K ceilingKey(K key) {
         return bound(key, true, true);
     }
 
     /** Greatest key &lt;= {@code key} (inclusive upper bound), or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K floorKey(K key) {
         return bound(key, false, true);
     }
 
     /** Least key strictly &gt; {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K higherKey(K key) {
         return bound(key, true, false);
     }
 
     /** Greatest key strictly &lt; {@code key}, or {@code null} if none. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public K lowerKey(K key) {
         return bound(key, false, false);
     }

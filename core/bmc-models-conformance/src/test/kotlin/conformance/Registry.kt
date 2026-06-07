@@ -37,6 +37,22 @@ val COVERED: Set<String> = setOf(
     "java.util.stream.LongStream", "java.util.stream.LongArrayStream",
 )
 
+/**
+ * COVERED models that have NO own auditable surface to pin a method-level [BmcModelConforms] on, yet
+ * are genuinely covered structurally — so the per-member auditing gate must not demand an annotation
+ * they have nowhere to put. (Before the annotation went method-only these carried a class-level
+ * blanket `@BmcModelConforms`; with no own conforming members, there is no method to move it to.)
+ *
+ *  - `kotlin.enums.EnumEntries`: a marker sub-interface of `List` with ZERO own members; all behavior
+ *    is supplied (and audited) by the concrete `kotlin.enums.EnumEntriesList` model.
+ *  - `kotlin.time.DurationUnit`: an enum of constants only (no conforming instance methods); exercised
+ *    via the `kotlin.time.Duration` model's conversions.
+ */
+val COVERED_NO_OWN_SURFACE: Set<String> = setOf(
+    "kotlin.enums.EnumEntries",
+    "kotlin.time.DurationUnit",
+)
+
 /** Models intentionally not given a dedicated suite, each with the reason it's safe. */
 val WAIVED: Map<String, String> = mapOf(
     "java.lang.Iterable" to "interface — exercised via concrete impls",

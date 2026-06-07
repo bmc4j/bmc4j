@@ -12,7 +12,6 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelConforms("dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll")
 @BmcModelTail(reason = "exotic remainder: newHashSet(int) factory, spliterator/parallelStream, toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
@@ -50,16 +49,19 @@ public class HashSet<E> implements Set<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public int size() {
         return size;
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean isEmpty() {
         return size == 0;
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean add(E e) {
         if (indexOf(e) >= 0) {
             return false;
@@ -70,11 +72,13 @@ public class HashSet<E> implements Set<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean contains(Object o) {
         return indexOf(o) >= 0;
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean remove(Object o) {
         int i = indexOf(o);
         if (i < 0) {
@@ -88,11 +92,13 @@ public class HashSet<E> implements Set<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public void clear() {
         size = 0;
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Iterator<E> iterator() {
         return new Itr();
     }
@@ -100,6 +106,7 @@ public class HashSet<E> implements Set<E> {
     /** A sequential stream over the set's elements — a thin adapter over the existing ListStream. */
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public java.util.stream.Stream<E> stream() {
         ArrayList<E> snapshot = new ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -116,6 +123,7 @@ public class HashSet<E> implements Set<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public void forEach(java.util.function.Consumer<? super E> action) {
         for (int i = 0; i < size; i++) {
             action.accept((E) elements[i]);
@@ -124,6 +132,7 @@ public class HashSet<E> implements Set<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean removeIf(java.util.function.Predicate<? super E> filter) {
         int w = 0;
         boolean changed = false;
@@ -140,6 +149,7 @@ public class HashSet<E> implements Set<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean addAll(Collection<? extends E> c) {
         boolean changed = false;
         for (E e : c) {
@@ -151,11 +161,13 @@ public class HashSet<E> implements Set<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean removeAll(Collection<?> c) {
         return removeWhere(c, true);
     }
 
     @Override
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean retainAll(Collection<?> c) {
         return removeWhere(c, false);
     }
@@ -179,21 +191,25 @@ public class HashSet<E> implements Set<E> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
     @BmcNotNeeded(reason = "array snapshot — iterate the model instead")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object[] toArray() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
     }
 
     @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
     }
 
     @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.clone() — shallow copy of a bounded model — construct a fresh set from the elements instead");
     }

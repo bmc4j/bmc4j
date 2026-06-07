@@ -24,10 +24,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * {@code ofMillis(-90000).toMinutes() == -1}, not {@code -2}). {@code Math.floorDiv} is unmodeled by
  * JBMC, so the floor is inlined with explicit sign handling.
  */
-@BmcModelConforms("millis-backed Duration — differential (TimeConformanceTest) + @BmcProof (proofs.time): "
-    + "ofMillis/ofSeconds/ofMinutes/ofHours/ofDays, plus/minus(Duration), plusMillis/plusSeconds/plusMinutes/"
-    + "plusHours/plusDays + minus* mirror, multipliedBy(long), negated/abs/isPositive/isNegative/isZero, "
-    + "toMillis/toSeconds/toMinutes/toHours/toDays + getSeconds, compareTo/equals/hashCode/between(Instant,Instant)")
 @BmcModelTail(reason = "the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, "
     + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), Duration/long division (dividedBy), and ISO "
     + "formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC")
@@ -40,6 +36,7 @@ public final class Duration {
     }
 
     @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Duration.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
@@ -49,37 +46,45 @@ public final class Duration {
     // Each ofX routes the unit->millis scale through Math.multiplyExact, which MathBytecode redirects
     // to the loud BmcMath under analysis: an out-of-bound count fails LOUDLY rather than wrapping.
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofMillis(long millis) {
         return new Duration(millis);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofSeconds(long seconds) {
         return new Duration(Math.multiplyExact(seconds, 1000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofMinutes(long minutes) {
         return new Duration(Math.multiplyExact(minutes, 60_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofHours(long hours) {
         return new Duration(Math.multiplyExact(hours, 3_600_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofDays(long days) {
         return new Duration(Math.multiplyExact(days, 86_400_000L));
     }
 
     @BmcNotModelled(reason = "sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofNanos(long nanos) {
         throw fail("bmc4j: unmodelled member java.time.Duration.ofNanos(long) — sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing");
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration between(Instant start, Instant end) {
         return new Duration(end.toEpochMilli() - start.toEpochMilli());
     }
 
     // --- conversions -------------------------------------------------------------------------------
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toMillis() {
         return millis;
     }
@@ -97,10 +102,12 @@ public final class Duration {
         return s;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long getSeconds() {
         return floorSeconds();
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toSeconds() {
         return floorSeconds();
     }
@@ -110,103 +117,127 @@ public final class Duration {
      * ofMillis(-90000).toMinutes() is -1 (not the -2 a millis-floor would give). So they divide the
      * FLOORED second count, never the raw millis.
      */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toMinutes() {
         return floorSeconds() / 60L;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toHours() {
         return floorSeconds() / 3600L;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toDays() {
         return floorSeconds() / 86400L;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isNegative() {
         return millis < 0L;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isPositive() {
         return millis > 0L;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isZero() {
         return millis == 0L;
     }
 
     // --- arithmetic --------------------------------------------------------------------------------
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plus(Duration other) {
         return new Duration(this.millis + other.millis);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minus(Duration other) {
         return new Duration(this.millis - other.millis);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plusMillis(long millisToAdd) {
         return new Duration(this.millis + millisToAdd);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusMillis(long millisToSubtract) {
         return new Duration(this.millis - millisToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plusSeconds(long secondsToAdd) {
         return new Duration(this.millis + Math.multiplyExact(secondsToAdd, 1000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusSeconds(long secondsToSubtract) {
         return new Duration(this.millis - Math.multiplyExact(secondsToSubtract, 1000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plusMinutes(long minutesToAdd) {
         return new Duration(this.millis + Math.multiplyExact(minutesToAdd, 60_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusMinutes(long minutesToSubtract) {
         return new Duration(this.millis - Math.multiplyExact(minutesToSubtract, 60_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plusHours(long hoursToAdd) {
         return new Duration(this.millis + Math.multiplyExact(hoursToAdd, 3_600_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusHours(long hoursToSubtract) {
         return new Duration(this.millis - Math.multiplyExact(hoursToSubtract, 3_600_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration plusDays(long daysToAdd) {
         return new Duration(this.millis + Math.multiplyExact(daysToAdd, 86_400_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration minusDays(long daysToSubtract) {
         return new Duration(this.millis - Math.multiplyExact(daysToSubtract, 86_400_000L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration multipliedBy(long multiplicand) {
         // Loud on overflow (Math.multiplyExact redirected to BmcMath under analysis), never wrap.
         return new Duration(Math.multiplyExact(this.millis, multiplicand));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration negated() {
         return new Duration(Math.negateExact(this.millis));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Duration abs() {
         return new Duration(Math.absExact(this.millis));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(Duration other) {
         return this.millis < other.millis ? -1 : (this.millis == other.millis ? 0 : 1);
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean equals(Object o) {
         return (o instanceof Duration) && ((Duration) o).millis == this.millis;
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int hashCode() {
         return (int) (millis ^ (millis >>> 32));
     }

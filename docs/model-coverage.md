@@ -6,8 +6,6 @@ Every public/protected member of each per-member-audited model's real JDK target
 
 ## `java.math.BigDecimal`
 
-_unscaled-long + scale exact decimal — differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)_
-
 Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 
 **Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `compareTo(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `doubleValue()`, `floatValue()`, `intValue()`, `longValue()`, `max(BigDecimal)`, `min(BigDecimal)`, `multiply(BigDecimal)`, `negate()`, `scale()`, `setScale(int, RoundingMode)`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
@@ -61,8 +59,6 @@ Real surface: 60 members — modeled 22, not-modeled 1, not-needed 0, tail 37.
 
 ## `java.math.BigInteger`
 
-_long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger); valueOf/add/subtract/multiply/divide/mod/remainder/negate/abs/gcd/pow/signum/compareTo/min/max/intValue_
-
 Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
 
 **Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `doubleValue()`, `floatValue()`, `gcd(BigInteger)`, `intValue()`, `longValue()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `pow(int)`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
@@ -106,8 +102,6 @@ Real surface: 50 members — modeled 19, not-modeled 0, not-needed 0, tail 31.
 
 ## `java.time.Duration`
 
-_millis-backed Duration — differential (TimeConformanceTest) + @BmcProof (proofs.time): ofMillis/ofSeconds/ofMinutes/ofHours/ofDays, plus/minus(Duration), plusMillis/plusSeconds/plusMinutes/plusHours/plusDays + minus* mirror, multipliedBy(long), negated/abs/isPositive/isNegative/isZero, toMillis/toSeconds/toMinutes/toHours/toDays + getSeconds, compareTo/equals/hashCode/between(Instant,Instant)_
-
 Real surface: 57 members — modeled 30, not-modeled 2, not-needed 0, tail 25.
 
 **Modeled** (`@BmcModelConforms`): `abs()`, `compareTo(Duration)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toHours()`, `toMillis()`, `toMinutes()`, `toSeconds()`
@@ -150,8 +144,6 @@ Real surface: 57 members — modeled 30, not-modeled 2, not-needed 0, tail 25.
 
 ## `java.time.Instant`
 
-_epoch-millis Instant — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
-
 Real surface: 36 members — modeled 11, not-modeled 5, not-needed 0, tail 20.
 
 **Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `getEpochSecond()`, `isAfter(Instant)`, `isBefore(Instant)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plusMillis(long)`, `plusSeconds(long)`, `toEpochMilli()`
@@ -191,8 +183,6 @@ Real surface: 36 members — modeled 11, not-modeled 5, not-needed 0, tail 20.
 
 
 ## `java.time.LocalDate`
-
-_epoch-day LocalDate with proleptic-Gregorian field decode — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
 
 Real surface: 65 members — modeled 13, not-modeled 0, not-needed 0, tail 52.
 
@@ -257,8 +247,6 @@ Real surface: 65 members — modeled 13, not-modeled 0, not-needed 0, tail 52.
 
 
 ## `java.time.LocalDateTime`
-
-_epoch-day + nano-of-day LocalDateTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
 
 Real surface: 76 members — modeled 25, not-modeled 1, not-needed 0, tail 50.
 
@@ -326,17 +314,15 @@ Real surface: 76 members — modeled 25, not-modeled 1, not-needed 0, tail 50.
 
 ## `java.time.LocalTime`
 
-_nano-of-day LocalTime — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
+Real surface: 52 members — modeled 20, not-modeled 1, not-needed 0, tail 31.
 
-Real surface: 52 members — modeled 21, not-modeled 1, not-needed 0, tail 30.
-
-**Modeled** (`@BmcModelConforms`): `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`
+**Modeled** (`@BmcModelConforms`): `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`
 
 | Not modeled (cannot) | Reason |
 |---|---|
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 30 members, all loud): the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 31 members, all loud): the wide LocalTime/Temporal surface (with*/truncatedTo/until/atDate/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toSecondOfDay/ofSecondOfDay/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atDate(LocalDate)`
@@ -357,6 +343,7 @@ Real surface: 52 members — modeled 21, not-modeled 1, not-needed 0, tail 30.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `plus(long, TemporalUnit)`
+- `plusNanos(long)`
 - `query(TemporalQuery)`
 - `range(TemporalField)`
 - `toEpochSecond(LocalDate, ZoneOffset)`
@@ -373,8 +360,6 @@ Real surface: 52 members — modeled 21, not-modeled 1, not-needed 0, tail 30.
 
 
 ## `java.time.Period`
-
-_(years,months,days) Period — differential (TimeConformanceTest) + @BmcProof (proofs.time)_
 
 Real surface: 33 members — modeled 20, not-modeled 1, not-needed 0, tail 12.
 
@@ -403,8 +388,6 @@ Real surface: 33 members — modeled 20, not-modeled 1, not-needed 0, tail 12.
 
 
 ## `java.util.ArrayList`
-
-_array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray() and the SequencedCollection head/tail ops getFirst/getLast/addFirst/addLast/removeFirst/removeLast + lastIndexOf_
 
 Real surface: 42 members — modeled 25, not-modeled 2, not-needed 5, tail 10.
 
@@ -440,8 +423,6 @@ Real surface: 42 members — modeled 25, not-modeled 2, not-needed 5, tail 10.
 
 
 ## `java.util.Arrays`
-
-_models asList (the listOf / Arrays.asList route); the rest is the tail_
 
 Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 
@@ -668,8 +649,6 @@ Real surface: 214 members — modeled 1, not-modeled 0, not-needed 0, tail 213.
 
 ## `java.util.HashMap`
 
-_parallel-array map — differential (MapConformanceTest) + @BmcProof (proofs.hashmap); incl. the modeled functional ops compute*/merge/forEach/replace_
-
 Real surface: 25 members — modeled 20, not-modeled 1, not-needed 3, tail 1.
 
 **Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
@@ -693,8 +672,6 @@ Real surface: 25 members — modeled 20, not-modeled 1, not-needed 3, tail 1.
 
 ## `java.util.HashSet`
 
-_dedup array set — differential (SetConformanceTest) + @BmcProof (proofs.hashset); incl. stream() (thin ListStream adapter) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
-
 Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
@@ -717,8 +694,6 @@ Real surface: 21 members — modeled 13, not-modeled 0, not-needed 4, tail 4.
 
 
 ## `java.util.LinkedHashMap`
-
-_inherits the HashMap model surface; insertion order preserved by the backing arrays_
 
 Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
 
@@ -755,8 +730,6 @@ Real surface: 37 members — modeled 20, not-modeled 1, not-needed 3, tail 13.
 
 ## `java.util.LinkedHashSet`
 
-_inherits the HashSet model surface (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); insertion order preserved by the backing array_
-
 Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
@@ -787,8 +760,6 @@ Real surface: 29 members — modeled 13, not-modeled 0, not-needed 4, tail 12.
 
 
 ## `java.util.LinkedList`
-
-_inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof_
 
 Real surface: 56 members — modeled 38, not-modeled 2, not-needed 5, tail 11.
 
@@ -826,16 +797,12 @@ Real surface: 56 members — modeled 38, not-modeled 2, not-needed 5, tail 11.
 
 ## `java.util.Optional`
 
-_present-flag model — differential (OptionalArraysConformanceTest) + @BmcProof (proofs.optional); full surface modeled (empty/of/ofNullable/get/isPresent/isEmpty/orElse*/ifPresent*/map/filter/flatMap/or/stream)_
-
 Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `empty()`, `filter(Predicate)`, `flatMap(Function)`, `get()`, `ifPresent(Consumer)`, `ifPresentOrElse(Consumer, Runnable)`, `isEmpty()`, `isPresent()`, `map(Function)`, `of(Object)`, `ofNullable(Object)`, `or(Supplier)`, `orElse(Object)`, `orElseGet(Supplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
 
 
 ## `java.util.TreeMap`
-
-_inherits the HashMap model surface; NavigableMap navigation (firstKey/lastKey/firstEntry/lastEntry/ceilingKey/floorKey/higherKey/lowerKey/comparator) by bounded sorted scan — differential (MapConformanceTest) + @BmcProof (proofs.treemap)_
 
 Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 
@@ -880,8 +847,6 @@ Real surface: 54 members — modeled 29, not-modeled 1, not-needed 3, tail 21.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-_bounded array FIFO — differential (non-blocking surface) + @BmcProof (put/take assume-prune); incl. stream() (thin ListStream adapter, FIFO order) and the modeled functional/bulk ops forEach/removeIf/addAll/removeAll/retainAll_
-
 Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
@@ -905,8 +870,6 @@ Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
 
 ## `java.util.concurrent.CompletableFuture`
-
-_ready-value future — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
 Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 
@@ -987,8 +950,6 @@ Real surface: 79 members — modeled 12, not-modeled 0, not-needed 0, tail 67.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-_inherits the HashMap model surface; adds null-key/value rejection (differential + @BmcProof)_
-
 Real surface: 62 members — modeled 20, not-modeled 1, not-needed 3, tail 38.
 
 **Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
@@ -1049,8 +1010,6 @@ Real surface: 62 members — modeled 20, not-modeled 1, not-needed 3, tail 38.
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-_inherits the ArrayList model surface; differential (sequential semantics)_
-
 Real surface: 43 members — modeled 25, not-modeled 2, not-needed 5, tail 11.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
@@ -1087,16 +1046,12 @@ Real surface: 43 members — modeled 25, not-modeled 2, not-needed 5, tail 11.
 
 ## `java.util.concurrent.CountDownLatch`
 
-_floored-counter latch — differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)_
-
 Real surface: 4 members — modeled 4, not-modeled 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `await()`, `await(long, TimeUnit)`, `countDown()`, `getCount()`
 
 
 ## `java.util.concurrent.Executors`
-
-_immediate-executor factories — the common newFixedThreadPool/newSingleThreadExecutor/newCachedThreadPool/newWorkStealing*/newVirtualThreadPerTaskExecutor route to the same-thread model_
 
 Real surface: 24 members — modeled 6, not-modeled 0, not-needed 0, tail 18.
 
@@ -1128,8 +1083,6 @@ Real surface: 24 members — modeled 6, not-modeled 0, not-needed 0, tail 18.
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-_inherits the ArrayBlockingQueue FIFO model (incl. stream() and forEach/removeIf/addAll/removeAll/retainAll); unbounded-by-default logical capacity_
-
 Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
@@ -1154,8 +1107,6 @@ Real surface: 31 members — modeled 22, not-modeled 0, not-needed 3, tail 6.
 
 ## `java.util.concurrent.Semaphore`
 
-_permit-counter — differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)_
-
 Real surface: 17 members — modeled 10, not-modeled 0, not-needed 0, tail 7.
 
 **Modeled** (`@BmcModelConforms`): `acquire()`, `acquire(int)`, `acquireUninterruptibly()`, `availablePermits()`, `drainPermits()`, `release()`, `release(int)`, `tryAcquire()`, `tryAcquire(int)`, `tryAcquire(long, TimeUnit)`
@@ -1174,8 +1125,6 @@ Real surface: 17 members — modeled 10, not-modeled 0, not-needed 0, tail 7.
 
 
 ## `java.util.concurrent.atomic.AtomicBoolean`
-
-_mutable-boolean holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
 Real surface: 19 members — modeled 5, not-modeled 0, not-needed 0, tail 14.
 
@@ -1203,8 +1152,6 @@ Real surface: 19 members — modeled 5, not-modeled 0, not-needed 0, tail 14.
 
 ## `java.util.concurrent.atomic.AtomicInteger`
 
-_mutable-int holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
-
 Real surface: 35 members — modeled 21, not-modeled 0, not-needed 0, tail 14.
 
 **Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetPlain(int, int)`
@@ -1230,8 +1177,6 @@ Real surface: 35 members — modeled 21, not-modeled 0, not-needed 0, tail 14.
 
 
 ## `java.util.concurrent.atomic.AtomicLong`
-
-_mutable-long holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
 
 Real surface: 35 members — modeled 19, not-modeled 0, not-needed 0, tail 16.
 
@@ -1261,8 +1206,6 @@ Real surface: 35 members — modeled 19, not-modeled 0, not-needed 0, tail 16.
 
 ## `java.util.concurrent.atomic.AtomicReference`
 
-_mutable-reference holder — differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)_
-
 Real surface: 23 members — modeled 8, not-modeled 0, not-needed 0, tail 15.
 
 **Modeled** (`@BmcModelConforms`): `accumulateAndGet(Object, BinaryOperator)`, `compareAndSet(Object, Object)`, `get()`, `getAndSet(Object)`, `getAndUpdate(UnaryOperator)`, `lazySet(Object)`, `set(Object)`, `updateAndGet(UnaryOperator)`
@@ -1289,8 +1232,6 @@ Real surface: 23 members — modeled 8, not-modeled 0, not-needed 0, tail 15.
 
 
 ## `java.util.stream.Collectors`
-
-_eager collector tags — @BmcProof (proofs.stream CollectorsLaws): toList/toSet/toMap/groupingBy/joining_
 
 Real surface: 44 members — modeled 7, not-modeled 0, not-needed 0, tail 37.
 
@@ -1340,8 +1281,6 @@ Real surface: 44 members — modeled 7, not-modeled 0, not-needed 0, tail 37.
 
 
 ## `java.util.stream.IntStream`
-
-_eager bounded int stream — @BmcProof (proofs.stream): of/range/map/filter/sum/count_
 
 Real surface: 52 members — modeled 9, not-modeled 0, not-needed 0, tail 43.
 
@@ -1398,8 +1337,6 @@ Real surface: 52 members — modeled 9, not-modeled 0, not-needed 0, tail 43.
 
 ## `java.util.stream.LongStream`
 
-_eager bounded long stream — @BmcProof (proofs.stream): of/range/map/filter/sum/count/mapToLong_
-
 Real surface: 51 members — modeled 9, not-modeled 0, not-needed 0, tail 42.
 
 **Modeled** (`@BmcModelConforms`): `anyMatch(LongPredicate)`, `boxed()`, `count()`, `filter(LongPredicate)`, `map(LongUnaryOperator)`, `of(long[])`, `range(long, long)`, `rangeClosed(long, long)`, `sum()`
@@ -1453,8 +1390,6 @@ Real surface: 51 members — modeled 9, not-modeled 0, not-needed 0, tail 42.
 
 
 ## `java.util.stream.Stream`
-
-_eager bounded stream — @BmcProof (proofs.stream StreamLaws): filter/map/mapToInt/mapToLong/count/anyMatch/allMatch/forEach/reduce/collect/toList/of_
 
 Real surface: 56 members — modeled 12, not-modeled 0, not-needed 0, tail 44.
 

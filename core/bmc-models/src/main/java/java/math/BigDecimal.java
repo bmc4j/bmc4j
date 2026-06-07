@@ -21,7 +21,6 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
-@BmcModelConforms("unscaled-long + scale exact decimal — differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
 @BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/movePoint/scaleByPowerOfTen, the *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
@@ -38,6 +37,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     @BmcNotModelled(reason = "double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values")
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public static BigDecimal valueOf(double val) {
         throw fail("bmc4j: unmodelled member java.math.BigDecimal.valueOf(double) — double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values");
     }
@@ -89,10 +89,12 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         this.scale = sc;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public static BigDecimal valueOf(long val) {
         return new BigDecimal(val, 0);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public static BigDecimal valueOf(long unscaledVal, int scale) {
         return new BigDecimal(unscaledVal, scale);
     }
@@ -166,20 +168,24 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     // --- arithmetic ----------------------------------------------------------
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal add(BigDecimal o) {
         int s = Math.max(scale, o.scale);
         return new BigDecimal(rescale(unscaled, scale, s) + rescale(o.unscaled, o.scale, s), s);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal subtract(BigDecimal o) {
         int s = Math.max(scale, o.scale);
         return new BigDecimal(rescale(unscaled, scale, s) - rescale(o.unscaled, o.scale, s), s);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal multiply(BigDecimal o) {
         return new BigDecimal(mul(unscaled, o.unscaled), scale + o.scale);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal divide(BigDecimal divisor, int newScale, RoundingMode mode) {
         int e = divisor.scale + newScale - scale;
         long num = e >= 0 ? mul(unscaled, pow10(e)) : unscaled;
@@ -187,10 +193,12 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return new BigDecimal(roundDiv(num, den, mode), newScale);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal divide(BigDecimal divisor, RoundingMode mode) {
         return divide(divisor, scale, mode);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal setScale(int newScale, RoundingMode mode) {
         if (newScale >= scale) {
             return new BigDecimal(rescale(unscaled, scale, newScale), newScale);
@@ -198,26 +206,32 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return new BigDecimal(roundDiv(unscaled, pow10(scale - newScale), mode), newScale);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal negate() {
         return new BigDecimal(-unscaled, scale);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal abs() {
         return unscaled < 0 ? negate() : this;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public int signum() {
         return unscaled < 0 ? -1 : unscaled > 0 ? 1 : 0;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal min(BigDecimal o) {
         return compareTo(o) <= 0 ? this : o;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal max(BigDecimal o) {
         return compareTo(o) >= 0 ? this : o;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal stripTrailingZeros() {
         if (unscaled == 0) {
             return new BigDecimal(0L, 0);
@@ -231,14 +245,17 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return new BigDecimal(u, s);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public int scale() {
         return scale;
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigInteger unscaledValue() {
         return BigInteger.valueOf(unscaled);
     }
 
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigInteger toBigInteger() {
         return BigInteger.valueOf(truncatedToLong());
     }
@@ -246,6 +263,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     // --- comparison ----------------------------------------------------------
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public int compareTo(BigDecimal o) {
         int s = Math.max(scale, o.scale);
         return Long.compare(rescale(unscaled, scale, s), rescale(o.unscaled, o.scale, s));
@@ -253,6 +271,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     /** Scale-sensitive, like the real BigDecimal: 2.0 and 2.00 are NOT equal (use compareTo). */
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public boolean equals(Object x) {
         if (!(x instanceof BigDecimal)) {
             return false;
@@ -262,6 +281,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public int hashCode() {
         return 31 * (int) (unscaled ^ (unscaled >>> 32)) + scale;
     }
@@ -269,21 +289,25 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     // --- Number --------------------------------------------------------------
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public int intValue() {
         return (int) truncatedToLong();
     }
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public long longValue() {
         return truncatedToLong();
     }
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public float floatValue() {
         return (float) doubleValue();
     }
 
     @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public double doubleValue() {
         return scale <= 0 ? (double) (unscaled * pow10(-scale)) : (double) unscaled / (double) pow10(scale);
     }

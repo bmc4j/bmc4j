@@ -18,33 +18,44 @@ import org.bmc4j.models.audit.BmcModelTail;
  * ({@code map}/{@code filter}) call their functional-interface arguments, which bmc4j desugars from
  * lambdas — so {@code stream.filter(p).map(f).count()} analyses soundly.
  */
-@BmcModelConforms("eager bounded stream — @BmcProof (proofs.stream StreamLaws): filter/map/mapToInt/mapToLong/count/anyMatch/allMatch/forEach/reduce/collect/toList/of")
 @BmcModelTail(reason = "the broad lazy Stream surface (sorted/distinct/limit/skip/peek/flatMap/findFirst/findAny/min/max/noneMatch/takeWhile/dropWhile/iterate/generate/concat/mapToObj/toArray/reduce-overloads/collect(supplier,accumulator,combiner)/…) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
 public interface Stream<T> {
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     Stream<T> filter(Predicate<? super T> predicate);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     <R> Stream<R> map(Function<? super T, ? extends R> mapper);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     IntStream mapToInt(ToIntFunction<? super T> mapper);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     LongStream mapToLong(ToLongFunction<? super T> mapper);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     long count();
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     boolean anyMatch(Predicate<? super T> predicate);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     boolean allMatch(Predicate<? super T> predicate);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     void forEach(Consumer<? super T> action);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     T reduce(T identity, BinaryOperator<T> accumulator);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     <R, A> R collect(Collector<? super T, A, R> collector);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     List<T> toList();
 
     @SafeVarargs
+    @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     static <T> Stream<T> of(T... values) {
         return new ListStream<>(values);
     }

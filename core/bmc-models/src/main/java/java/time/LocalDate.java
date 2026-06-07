@@ -13,7 +13,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * differential suite vs the real JDK). {@code of(y, m, d)} is NOT a factory here; build
  * dates via {@link #ofEpochDay} (or via LocalDateTime). Formatters/zones are out of scope.
  */
-@BmcModelConforms("epoch-day LocalDate with proleptic-Gregorian field decode — differential (TimeConformanceTest) + @BmcProof (proofs.time)")
 @BmcModelTail(reason = "the wide ChronoLocalDate/Temporal surface (with*/getDayOfWeek/getDayOfYear/lengthOfMonth/isLeapYear/until/atStartOfDay/atTime/format/datesUntil/range/query/get(TemporalField)/plus(TemporalAmount)/isAfter-Before-Equal/the of(y,m,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
 public final class LocalDate {
 
@@ -26,40 +25,49 @@ public final class LocalDate {
         this.epochDay = epochDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDate ofEpochDay(long epochDay) {
         return new LocalDate(epochDay);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public long toEpochDay() {
         return epochDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isBefore(LocalDate other) {
         return this.epochDay < other.epochDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean isAfter(LocalDate other) {
         return this.epochDay > other.epochDay;
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(LocalDate other) {
         return this.epochDay < other.epochDay ? -1 : (this.epochDay == other.epochDay ? 0 : 1);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate plusDays(long days) {
         return new LocalDate(this.epochDay + days);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate minusDays(long days) {
         return new LocalDate(this.epochDay - days);
     }
 
     // A week is exactly 7 epoch-days; route the *7 through a checked multiply so a week count past the
     // long/7 bound fails LOUDLY (the JDK uses Math.multiplyExact too) rather than silently wrapping.
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate plusWeeks(long weeksToAdd) {
         return new LocalDate(this.epochDay + Math.multiplyExact(weeksToAdd, 7L));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate minusWeeks(long weeksToSubtract) {
         return new LocalDate(this.epochDay - Math.multiplyExact(weeksToSubtract, 7L));
     }
@@ -109,14 +117,17 @@ public final class LocalDate {
         return new int[]{(int) yearEst, month, dom};
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getYear() {
         return ymd()[0];
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getMonthValue() {
         return ymd()[1];
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getDayOfMonth() {
         return ymd()[2];
     }
@@ -178,6 +189,7 @@ public final class LocalDate {
         return (int) (a - 12L * floorDiv12(a));
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate plusMonths(long monthsToAdd) {
         if (monthsToAdd == 0) {
             return this;
@@ -191,6 +203,7 @@ public final class LocalDate {
         return resolvePreviousValid(newYear, newMonth, day);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate plusYears(long yearsToAdd) {
         if (yearsToAdd == 0) {
             return this;
@@ -201,10 +214,12 @@ public final class LocalDate {
         return resolvePreviousValid(newYear, month, day);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate minusMonths(long monthsToSubtract) {
         return plusMonths(-monthsToSubtract);
     }
 
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public LocalDate minusYears(long yearsToSubtract) {
         return plusYears(-yearsToSubtract);
     }
@@ -223,11 +238,13 @@ public final class LocalDate {
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public boolean equals(Object o) {
         return (o instanceof LocalDate) && ((LocalDate) o).epochDay == this.epochDay;
     }
 
     @Override
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int hashCode() {
         return (int) (epochDay ^ (epochDay >>> 32));
     }

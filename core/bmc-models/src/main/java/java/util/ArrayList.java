@@ -17,7 +17,6 @@ import org.bmc4j.models.audit.BmcNotNeeded;
  * primitives (modeled). String elements use JBMC's native {@code String.equals}; prefer the
  * dedicated string support for string-keyed lookups.
  */
-@BmcModelConforms("array-backed list — differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist); incl. the modeled bulk/functional ops addAll(Collection)/removeAll/retainAll/forEach/removeIf/toArray() and the SequencedCollection head/tail ops getFirst/getLast/addFirst/addLast/removeFirst/removeLast + lastIndexOf")
 @BmcModelTail(reason = "exotic remainder: reversed() view, listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
 public class ArrayList<E> implements List<E> {
 
@@ -54,16 +53,19 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public int size() {
         return size;
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean isEmpty() {
         return size == 0;
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean add(E e) {
         elements[size] = e;
         size++;
@@ -72,6 +74,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E get(int index) {
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException();
@@ -81,6 +84,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E set(int index, E element) {
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException();
@@ -91,11 +95,13 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean contains(Object o) {
         return indexOf(o) >= 0;
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public int indexOf(Object o) {
         for (int i = 0; i < size; i++) {
             if (o == null ? elements[i] == null : o.equals(elements[i])) {
@@ -106,6 +112,7 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public int lastIndexOf(Object o) {
         for (int i = size - 1; i >= 0; i--) {
             if (o == null ? elements[i] == null : o.equals(elements[i])) {
@@ -123,6 +130,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E getFirst() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -132,6 +140,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E getLast() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -140,6 +149,7 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void addFirst(E e) {
         // Append a slot (loud if past capacity), then shift the tail one position toward the end.
         elements[size] = null;
@@ -151,11 +161,13 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void addLast(E e) {
         add(e);
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E removeFirst() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -164,6 +176,7 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E removeLast() {
         if (size == 0) {
             throw new NoSuchElementException();
@@ -173,6 +186,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public E remove(int index) {
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException();
@@ -192,6 +206,7 @@ public class ArrayList<E> implements List<E> {
      * (notably Kotlin's {@code MutableList.remove}) resolved to a JBMC nondet stub.
      */
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean remove(Object o) {
         int i = indexOf(o);
         if (i < 0) {
@@ -202,6 +217,7 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void clear() {
         size = 0;
     }
@@ -212,6 +228,7 @@ public class ArrayList<E> implements List<E> {
     // SAM calls (bmc4j desugars the lambda so JBMC devirtualizes test/accept).
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean addAll(Collection<? extends E> c) {
         boolean changed = false;
         for (E e : c) {
@@ -223,11 +240,13 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean removeAll(Collection<?> c) {
         return removeWhere(c, true);
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean retainAll(Collection<?> c) {
         return removeWhere(c, false);
     }
@@ -250,6 +269,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean removeIf(java.util.function.Predicate<? super E> filter) {
         int w = 0;
         boolean changed = false;
@@ -267,6 +287,7 @@ public class ArrayList<E> implements List<E> {
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void forEach(java.util.function.Consumer<? super E> action) {
         for (int i = 0; i < size; i++) {
             action.accept((E) elements[i]);
@@ -274,6 +295,7 @@ public class ArrayList<E> implements List<E> {
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public Object[] toArray() {
         Object[] out = new Object[size];
         for (int i = 0; i < size; i++) {
@@ -290,46 +312,55 @@ public class ArrayList<E> implements List<E> {
     // stub, next to the surface it waives.
 
     @BmcNotModelled(reason = "functional-arg map — JBMC stubs the operator dispatch")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void replaceAll(java.util.function.UnaryOperator<E> operator) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.replaceAll(java.util.function.UnaryOperator) — functional-arg map — JBMC stubs the operator dispatch");
     }
 
     @BmcNotModelled(reason = "comparator-driven sort over the bounded array — not modeled")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void sort(Comparator<? super E> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array — not modeled");
     }
 
     @BmcNotNeeded(reason = "positional bulk add — exotic; add elements explicitly")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean addAll(int index, Collection<? extends E> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.addAll(int,java.util.Collection) — positional bulk add — exotic; add elements explicitly");
     }
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
     @BmcNotNeeded(reason = "positional insert — exotic; append + shift not modeled")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public void add(int index, E element) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.add(int,java.lang.Object) — positional insert — exotic; append + shift not modeled");
     }
 
     @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
     }
 
     @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.clone() — shallow copy of a bounded model — construct a fresh list from the elements instead");
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public Iterator<E> iterator() {
         return new Itr();
     }
 
     @Override
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public java.util.stream.Stream<E> stream() {
         return new java.util.stream.ListStream<>(this);
     }

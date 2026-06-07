@@ -15,7 +15,6 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * path, every overload an enum's bytecode or consumer code can reach is modeled; the two unused
  * overloads fail loudly rather than nondet-stub.
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class EnumEntriesKt {
 
     private EnumEntriesKt() {
@@ -25,6 +24,7 @@ public final class EnumEntriesKt {
      * The overload an {@code enum class}'s {@code <clinit>} actually calls:
      * {@code EnumEntriesKt.enumEntries($VALUES)} with the synthetic {@code $VALUES} array.
      */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <E extends Enum<E>> EnumEntries<E> enumEntries(E[] entries) {
         return new EnumEntriesList<>(entries);
     }
@@ -33,6 +33,7 @@ public final class EnumEntriesKt {
      * Pre-1.9 / lambda-provider overload {@code enumEntries(() -> values())}. Modeled by invoking the
      * provider and wrapping the array, so it stays sound if a consumer reaches it.
      */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <E extends Enum<E>> EnumEntries<E> enumEntries(kotlin.jvm.functions.Function0<E[]> entriesProvider) {
         return new EnumEntriesList<>(entriesProvider.invoke());
     }
@@ -42,6 +43,7 @@ public final class EnumEntriesKt {
      * {@code Enum[]} overload above, so this body is unreachable on the analysis path; it fails loudly
      * (never a silent nondet stub) if some path somehow reaches it.
      */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <E extends Enum<E>> EnumEntries<E> enumEntries() {
         throw new UnsupportedOperationException(
                 "EnumEntriesKt.enumEntries() (reified intrinsic) is inlined by kotlinc; model not reachable");

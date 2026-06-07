@@ -31,7 +31,6 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * sentinel and parsing are not modeled. Members not modeled here remain JBMC nondet stubs — the same
  * facade-replacement caveat as every other Kotlin model.
  */
-@BmcModelConforms("Kotlin Duration value-class model — differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime); audited at class level (mangled value-class ABI)")
 public final class Duration {
 
     // The ranges mirror the real kotlin.time.Duration: symmetric about zero, non-overlapping but adjacent
@@ -143,6 +142,7 @@ public final class Duration {
     // ---- construction (used by DurationKt.toDuration) ----
 
     /** Mirrors {@code Long.toDuration(unit)} for the integer-unit construction path. */
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long toDuration(long value, DurationUnit unit) {
         long maxNsInUnit = convertNanosToUnitSaturating(MAX_NANOS, unit);
         if (value >= -maxNsInUnit && value <= maxNsInUnit) {
@@ -178,6 +178,7 @@ public final class Duration {
 
     // ---- arithmetic ----
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long plus(long a, long b) {
         if (unitDiscriminator(a) == unitDiscriminator(b)) {
             if (isInNanos(a)) {
@@ -209,10 +210,12 @@ public final class Duration {
         return durationOfMillis(resultMillis);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long unaryMinus(long raw) {
         return durationOf(-value(raw), unitDiscriminator(raw));
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long minus(long a, long b) {
         return plus(a, unaryMinus(b));
     }
@@ -232,6 +235,7 @@ public final class Duration {
         return v < 0 ? -1 : (v > 0 ? 1 : 0);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long times(long raw, int scale) {
         if (isInfinite(raw)) {
             if (scale == 0) {
@@ -271,6 +275,7 @@ public final class Duration {
         return signOf(value) * signOf(scale) > 0 ? INFINITE_RAW : NEG_INFINITE_RAW;
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long div(long raw, int scale) {
         if (scale == 0) {
             if (isPositive(raw)) {
@@ -299,28 +304,34 @@ public final class Duration {
 
     // ---- predicates ----
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static boolean isNegative(long raw) {
         return raw < 0;
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static boolean isPositive(long raw) {
         return raw > 0;
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static boolean isInfinite(long raw) {
         return raw == INFINITE_RAW || raw == NEG_INFINITE_RAW;
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static boolean isFinite(long raw) {
         return !isInfinite(raw);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getAbsoluteValue(long raw) {
         return isNegative(raw) ? unaryMinus(raw) : raw;
     }
 
     // ---- comparison ----
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static int compareTo(long a, long b) {
         long compareBits = a ^ b;
         if (compareBits < 0 || ((int) compareBits & 1) == 0) {
@@ -334,6 +345,7 @@ public final class Duration {
 
     // ---- conversion to Long units ----
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long toLong(long raw, DurationUnit unit) {
         if (raw == INFINITE_RAW) {
             return Long.MAX_VALUE;
@@ -362,22 +374,27 @@ public final class Duration {
         }
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeDays(long raw) {
         return toLong(raw, DurationUnit.DAYS);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeHours(long raw) {
         return toLong(raw, DurationUnit.HOURS);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeMinutes(long raw) {
         return toLong(raw, DurationUnit.MINUTES);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeSeconds(long raw) {
         return toLong(raw, DurationUnit.SECONDS);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeMilliseconds(long raw) {
         if (isInMillis(raw) && isFinite(raw)) {
             return value(raw);
@@ -385,10 +402,12 @@ public final class Duration {
         return toLong(raw, DurationUnit.MILLISECONDS);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeMicroseconds(long raw) {
         return toLong(raw, DurationUnit.MICROSECONDS);
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static long getInWholeNanoseconds(long raw) {
         long v = value(raw);
         if (isInNanos(raw)) {
@@ -405,10 +424,12 @@ public final class Duration {
 
     // ---- equals / hashCode (value-class ABI: equals-impl0(long,long), hashCode-impl(long)) ----
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static boolean equals0(long a, long b) {
         return a == b;
     }
 
+    @BmcModelConforms("differential (KotlinDurationConformanceTest) + @BmcProof (proofs.kotlintime)")
     public static int hashCode(long raw) {
         return (int) (raw ^ (raw >>> 32));
     }

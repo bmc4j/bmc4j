@@ -102,14 +102,6 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         }
         return null
     }
-    fun conformsNote(n: ClassNode): String? {
-        for (a in anns(n)) if (a.desc == conformsDesc) {
-            val vals = a.values ?: return ""; var j = 0
-            while (j + 1 < vals.size) { if (vals[j] == "value") return vals[j + 1] as? String; j += 2 }
-            return ""
-        }
-        return null
-    }
 
     val objectKeys = java.lang.Object::class.java.methods
         .map { it.name + "(" + it.parameterTypes.joinToString("") { p -> Type.getType(p).descriptor } + ")" }.toSet()
@@ -146,7 +138,6 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         val out = mutableSetOf<String>()
         var cur: ClassNode? = nodes[realFqn]
         while (cur != null) {
-            val blanket = anns(cur).any { it.desc == conformsDesc }
             for (m in cur.methods) {
                 if (m.name == "<init>" || m.name == "<clinit>") continue
                 if ((m.access and Opcodes.ACC_SYNTHETIC) != 0 || (m.access and Opcodes.ACC_BRIDGE) != 0) continue
@@ -154,7 +145,7 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
                 if (isSynth) continue // loud stub, not a genuine model implementation
                 if (methodStubKind(m) != null) continue // method-level NotModelled/NotNeeded stub: not modeled
                 val mc = methodAnns(m).any { it.desc == conformsDesc }
-                if (blanket || mc) out.add(m.name + paramsDescDoc(m.desc))
+                if (mc) out.add(m.name + paramsDescDoc(m.desc))
             }
             val sup = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
             cur = if (sup != null && nodes.containsKey(sup)) nodes[sup] else null
@@ -207,7 +198,6 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     for (realFqn in PER_MEMBER_ENFORCED.sorted()) {
         val node = nodes[realFqn] ?: continue
         val real = try { Class.forName(realFqn) } catch (e: Throwable) { continue }
-        val note = conformsNote(node)
         val decls = declarations(node)
         val tail = tailReason(node)
         val covered = conformsKeys(realFqn)
@@ -237,7 +227,6 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         }
 
         sb.append("\n## `").append(realFqn).append("`\n\n")
-        if (!note.isNullOrBlank()) sb.append("_").append(note).append("_\n\n")
         sb.append("Real surface: ${members.size} members — ")
         sb.append("modeled ${modeled.size}, not-modeled ${notModelled.size}, not-needed ${notNeeded.size}, tail ${tailed.size}.\n\n")
         if (modeled.isNotEmpty()) {

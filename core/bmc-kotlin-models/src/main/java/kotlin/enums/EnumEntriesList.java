@@ -25,7 +25,6 @@ import java.util.ListIterator;
  *
  * @param <T> the enum type
  */
-@BmcModelConforms("Kotlin stdlib model — @BmcProof (model-conformance-proofs); facade/value model, audited at class level")
 public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> {
 
     private final ArrayList<T> backing;
@@ -38,42 +37,50 @@ public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> 
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public int size() {
         return backing.size();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean isEmpty() {
         return backing.isEmpty();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public T get(int index) {
         return backing.get(index);
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean contains(Object o) {
         return backing.contains(o);
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public int indexOf(Object o) {
         return backing.indexOf(o);
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public int lastIndexOf(Object o) {
         // EnumEntries holds distinct constants, so last == first occurrence.
         return backing.indexOf(o);
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public Iterator<T> iterator() {
         return backing.iterator();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean containsAll(Collection<?> c) {
         for (Object o : c) {
             if (!backing.contains(o)) {
@@ -84,6 +91,7 @@ public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> 
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public Object[] toArray() {
         Object[] out = new Object[backing.size()];
         for (int i = 0; i < backing.size(); i++) {
@@ -94,6 +102,7 @@ public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> 
 
     @Override
     @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public <E> E[] toArray(E[] a) {
         for (int i = 0; i < backing.size(); i++) {
             a[i] = (E) backing.get(i);
@@ -104,66 +113,79 @@ public final class EnumEntriesList<T extends Enum<T>> implements EnumEntries<T> 
     // ---- immutable: mutators throw, matching the real EnumEntries (an immutable List) ----
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean add(T t) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean remove(Object o) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean addAll(Collection<? extends T> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean addAll(int index, Collection<? extends T> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean removeAll(Collection<?> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public boolean retainAll(Collection<?> c) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public void clear() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public T set(int index, T element) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public void add(int index, T element) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public T remove(int index) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public ListIterator<T> listIterator() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public ListIterator<T> listIterator(int index) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public List<T> subList(int fromIndex, int toIndex) {
         throw new UnsupportedOperationException();
     }

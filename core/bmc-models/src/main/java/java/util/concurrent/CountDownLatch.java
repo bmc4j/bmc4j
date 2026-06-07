@@ -26,7 +26,6 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * the JVM-runnable differential axis. The non-blocking surface ({@link #countDown()} /
  * {@link #getCount()}) stays pure Java and is differential-tested against the real JDK.
  */
-@BmcModelConforms("floored-counter latch — differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
 public class CountDownLatch {
 
     private long count;
@@ -39,12 +38,14 @@ public class CountDownLatch {
     }
 
     /** Decrement the count toward 0; counting down a latch already at 0 is a no-op (matches the JDK). */
+    @BmcModelConforms("differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
     public void countDown() {
         if (count > 0) {
             count--;
         }
     }
 
+    @BmcModelConforms("differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
     public long getCount() {
         return count;
     }
@@ -56,6 +57,7 @@ public class CountDownLatch {
      * NOT an unconditional no-op). An {@code await()} with no way to reach zero leaves no feasible
      * path, so the proof is correctly flagged vacuous.
      */
+    @BmcModelConforms("differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
     public void await() {
         CProver.assume(count == 0);
     }
@@ -67,12 +69,14 @@ public class CountDownLatch {
      * false branch, which is unsound — so we prune to the success precondition, consistent with
      * {@link #await()}.)
      */
+    @BmcModelConforms("differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
     public boolean await(long timeout, TimeUnit unit) {
         CProver.assume(count == 0);
         return true;
     }
 
     @Override
+    @BmcModelConforms("differential (countDown/getCount) + @BmcProof (await + timed await assume-prune)")
     public String toString() {
         return super.toString() + "[Count = " + count + "]";
     }

@@ -26,7 +26,6 @@ import org.bmc4j.models.audit.BmcModelTail;
 // (addFirst/addLast/getFirst/getLast/removeFirst/removeLast/offer*/poll*/peek*/push/pop, plus the
 // Queue offer/poll/peek/remove/element) is implemented here. Blanket-conforms covers both; the tail
 // is the remaining Deque/List surface still unmodeled.
-@BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface; differential (LinkedList) + @BmcProof")
 @BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator/descendingDeque ops, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC")
 public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
 
@@ -43,42 +42,50 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     // (its SequencedCollection ops have identical array-backed semantics) — head is index 0, tail is
     // size-1, the throwing-on-empty split matches. Only the Deque-specific surface lives here.
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public boolean offerFirst(E e) {
         addFirst(e);
         return true;
     }
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public boolean offerLast(E e) {
         addLast(e);
         return true;
     }
 
     /** Deque/Stack push: insert at the head (equivalent to {@link #addFirst}). */
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public void push(E e) {
         addFirst(e);
     }
 
     // --- Deque: head/tail peek (null on empty) -------------------------------
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E peekFirst() {
         return isEmpty() ? null : get(0);
     }
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E peekLast() {
         return isEmpty() ? null : get(size() - 1);
     }
 
     /** Deque/Stack pop: remove and return the head; throws when empty (like the JDK). */
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E pop() {
         return removeFirst();
     }
 
     // --- Deque: head/tail removal (null on empty) ----------------------------
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E pollFirst() {
         return isEmpty() ? null : remove(0);
     }
 
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E pollLast() {
         return isEmpty() ? null : remove(size() - 1);
     }
@@ -86,26 +93,31 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     // --- Queue surface (FIFO: enqueue at tail, dequeue at head) --------------
 
     @Override
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public boolean offer(E e) {
         return offerLast(e);
     }
 
     @Override
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E poll() {
         return pollFirst();
     }
 
     @Override
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E peek() {
         return peekFirst();
     }
 
     @Override
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E remove() {
         return removeFirst();
     }
 
     @Override
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
     public E element() {
         return getFirst();
     }

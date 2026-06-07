@@ -14,8 +14,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
-@BmcModelConforms("long-backed bounded BigInteger — differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger); "
-    + "valueOf/add/subtract/multiply/divide/mod/remainder/negate/abs/gcd/pow/signum/compareTo/min/max/intValue")
 @BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
@@ -64,26 +62,32 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         this.value = neg ? Math.negateExact(acc) : acc;
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public static BigInteger valueOf(long value) {
         return new BigInteger(value);
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger add(BigInteger other) {
         return new BigInteger(Math.addExact(value, other.value));
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger subtract(BigInteger other) {
         return new BigInteger(Math.subtractExact(value, other.value));
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger multiply(BigInteger other) {
         return new BigInteger(Math.multiplyExact(value, other.value));
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger divide(BigInteger other) {
         return new BigInteger(value / other.value);
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger mod(BigInteger m) {
         if (m.value <= 0L) {
             throw new ArithmeticException("BigInteger: modulus not positive");
@@ -92,6 +96,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         return new BigInteger(r < 0 ? r + m.value : r);
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger remainder(BigInteger other) {
         return new BigInteger(value % other.value);
     }
@@ -107,6 +112,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * arbitrary-precision JDK returns; {@code Math.absExact} makes the bounded model throw there rather
      * than wrap. Every other gcd fits, because a gcd never exceeds {@code max(|a|, |b|)}.
      */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger gcd(BigInteger val) {
         long a = value;
         long b = val.value;
@@ -124,6 +130,7 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
      * {@link ArithmeticException}. Loud, never silent: an intermediate product that leaves the
      * {@code long} range fails via {@code Math.multiplyExact} rather than wrapping.
      */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger pow(int exponent) {
         if (exponent < 0) {
             throw new ArithmeticException("Negative exponent");
@@ -135,57 +142,69 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         return new BigInteger(r);
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger negate() {
         return new BigInteger(Math.negateExact(value));
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger abs() {
         return new BigInteger(Math.absExact(value));
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public int signum() {
         return Long.compare(value, 0L);
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public int compareTo(BigInteger other) {
         return Long.compare(value, other.value);
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger min(BigInteger other) {
         return value <= other.value ? this : other;
     }
 
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger max(BigInteger other) {
         return value >= other.value ? this : other;
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public boolean equals(Object o) {
         return o instanceof BigInteger && ((BigInteger) o).value == value;
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public int hashCode() {
         return (int) (value ^ (value >>> 32));
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public int intValue() {
         return (int) value;
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public long longValue() {
         return value;
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public float floatValue() {
         return (float) value;
     }
 
     @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public double doubleValue() {
         return (double) value;
     }

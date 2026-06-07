@@ -84,18 +84,17 @@ object TailSet {
         return out
     }
 
-    /** Keys covered by @BmcModelConforms (blanket or method-level), resolved up the model chain. */
+    /** Keys covered by a method-level @BmcModelConforms, resolved up the model chain. */
     private fun coveredKeys(nodes: Map<String, ClassNode>, realFqn: String): Set<String> {
         val out = mutableSetOf<String>()
         var cur: ClassNode? = nodes[realFqn]
         while (cur != null) {
-            val blanket = anns(cur).any { it.desc == CONFORMS }
             for (m in cur.methods) {
                 if (m.name == "<init>" || m.name == "<clinit>") continue
                 if ((m.access and Opcodes.ACC_SYNTHETIC) != 0 || (m.access and Opcodes.ACC_BRIDGE) != 0) continue
                 if (methodAnns(m).any { it.desc == SYNTHESIZED }) continue
                 if (isStub(m)) continue
-                if (blanket || methodAnns(m).any { it.desc == CONFORMS }) out.add(m.name + paramsDesc(m.desc))
+                if (methodAnns(m).any { it.desc == CONFORMS }) out.add(m.name + paramsDesc(m.desc))
             }
             val sup = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
             cur = if (sup != null && nodes.containsKey(sup)) nodes[sup] else null
