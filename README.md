@@ -52,8 +52,8 @@ class GradeBandProofs {
 
     @BmcProof
     fun `Score invariant holds`() {
-        val s = assumeValid { Score(anyInt()) } // run the constructor over ALL ints,
-        check(s.value in 1..100)                 // keep only the ones it accepts
+        val s = assumeValid { Score(anyInt()) } // run the constructor over ALL ints
+        check(s.value in 1..100)                 // checks the invariant is never violated
     }
 
     @BmcProof
@@ -120,6 +120,30 @@ scaffold matches the language of the proof: a Kotlin proof class gets a `.kt` re
 (`val` bindings, Kotlin literals), a Java proof class gets a `.java` one. Pin the language
 with `bmc { replayLanguage = "kotlin" }` (or `"java"` / `"auto"`, the default), overridable
 per run with `-Pbmc.replayLanguage=...`.
+
+## Key principles
+
+1. **Soundness & three-way verification.** A wrong verdict is worse than no verdict: anything
+   bmc4j can't analyse fails loud and named (an unmodelled JDK member is a member-named UNKNOWN,
+   never a quiet green), and the stand-in models are held to three independent checks —
+   differential testing against the real JDK, algebraic law proofs under JBMC itself, and an
+   enforced per-member audit the coverage docs are generated from.
+2. **Developer experience.** Proofs are ordinary JUnit 5 tests: one Gradle plugin, the IDE
+   gutter, real stack traces, counterexamples as runnable replay tests in your proof's language.
+
+**What's supported today:**
+
+- **Kotlin (2.0–2.4) and Java (17–25)** as first-class, re-verified-on-every-merge languages — analysis is bytecode-level, so the build doesn't change beyond the plugin
+- `@BmcProof` JUnit 5 proofs with symbolic inputs (`anyInt(...)` & friends), `assume`/`check`, and expected-verdict pins (`expect = REFUTED/UNKNOWN/...`) so deliberate failures are regression-tested
+- `assumeValid { ... }` — Kotlin `require(...)`/`init` invariants (value classes included) folded straight into the proof domain
+- **Method contracts** (`@Requires`/`@Ensures`): modular proofs via contract redirect, auto-generated enforce proofs, a conservative purity audit — Kotlin-first, including `suspend` functions
+- **Jakarta validation integration**: `assumeValid(bean)` generated from constraint annotations, including `@Valid` cascades and container-element constraints
+- Conformance-proven **JDK + Kotlin stdlib models** (collections, streams, BigDecimal/BigInteger, java.time, coroutines under the immediate-dispatch idealization) with the per-member audit above
+- **Counterexample replays**: refuted proofs write a ready-to-run scratch test in your proof's language
+- **Fast re-runs**: proofs run in parallel, and verdict caching skips proofs whose module hasn't changed
+- **Vacuity detection** — a proof whose assumptions rule out every input is flagged, not passed
+- **User models with declared intent** (`conformant`/`domain`) — shadow any class on the analysis path, with provenance footnotes naming every model/stub a green verdict relied on
+- **Bundled engines** for windows-x64, linux-x64/arm64 (glibc), linux-x64 (musl/Alpine), and macos-x64/arm64 — no install
 
 ## What is bounded model checking?
 
