@@ -41,9 +41,19 @@ dependencies {
     // consumer never loads the class. Pinned to the plugin's own build KGP (2.3.21); the
     // compilerOptions.javaParameters property is ABI-stable across the 2.x KGPs consumers use.
     compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
+    // The KSP Gradle plugin, so the bmc plugin can `pluginManager.apply("com.google.devtools.ksp")`
+    // for a Kotlin consumer with zero ceremony (the consumer needn't declare KSP itself). Unlike kapt
+    // — which ships inside KGP and is on the consumer classpath automatically — KSP is a separate
+    // plugin, so it must travel with this plugin to be applyable programmatically. KSP2 runs as its
+    // own compiler invocation and drives a newer consumer Kotlin than its own version, so pinning
+    // 2.3.9 here still works under the -PbmcKotlinVersion legs. `implementation`: it is on the
+    // plugin's runtime/buildscript classpath, but only ever applied inside the Kotlin-JVM `withPlugin`
+    // block, so a Java-only consumer never triggers KSP.
+    implementation("com.google.devtools.ksp:symbol-processing-gradle-plugin:2.3.9")
     testImplementation(gradleTestKit())
-    // ProjectBuilder tests apply the Kotlin JVM + kapt plugins to assert the Kotlin contracts wiring,
-    // so KGP must be on the test classpath (it is only compileOnly for main).
+    // ProjectBuilder tests apply the Kotlin JVM + KSP plugins to assert the Kotlin contracts wiring,
+    // so KGP must be on the test classpath (it is only compileOnly for main); KSP comes via the
+    // implementation dependency above.
     testImplementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
 }
 

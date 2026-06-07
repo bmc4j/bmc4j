@@ -75,9 +75,9 @@ class BmcPlugin : Plugin<Project> {
         // processor runs on the TEST sources and generates replace-stubs, enforce-@BmcProofs, and a
         // manifest into the test output. Test code already has bmc-runtime, so the generated code
         // compiles; production code stays free of any bmc reference. No contracts -> nothing generated.
-        // This wires the processor onto the JAVA test compile (`testAnnotationProcessor`); a Kotlin
-        // consumer additionally gets it onto kapt below (the processor is a javac AP — KSP can't run
-        // it, so Kotlin test sources need kapt to embed javac).
+        // This wires the JAVAC processor onto the Java test compile (`testAnnotationProcessor`) for
+        // pure-Java consumers; a Kotlin consumer additionally gets the KSP SymbolProcessor onto
+        // `kspTest` below (KSP replaces the deprecated kapt for the Kotlin path).
         project.dependencies.add("testAnnotationProcessor", "$GROUP:bmc-contracts:$VERSION")
 
         // A `src/bmcModel/` source set for consumer-authored JBMC models: a class here
@@ -354,35 +354,32 @@ class BmcPlugin : Plugin<Project> {
 }
 
 /**
- * Wire method contracts for a Kotlin consumer with zero ceremony. The `bmc-contracts` processor is
- * a **javac** annotation processor, so Kotlin TEST sources need **kapt** to embed javac and run it
- * (KSP cannot host a javac AP). Mirrors the Java side's `testAnnotationProcessor` wiring:
+ * Wire method contracts for a Kotlin consumer with zero ceremony. The contracts processor ships in
+ * two forms in `bmc-contracts`: a javac annotation processor (the Java path) and a **KSP**
+ * `SymbolProcessor` (the Kotlin path). KSP replaces the deprecated kapt — it runs natively over the
+ * Kotlin declarations instead of over kapt's generated Java stubs, and emits the SAME replace-stubs /
+ * enforce-`@BmcProof`s / manifest into the test output, so generated output is equivalent and no
+ * downstream proof is affected. This:
  *
- * - applies `org.jetbrains.kotlin.kapt` (ships with the Kotlin Gradle plugin the consumer already
- *   applied, so no extra version to resolve);
- * - adds `bmc-contracts` to the `kaptTest` configuration (the kapt analogue of
- *   `testAnnotationProcessor`), so the processor runs on the Kotlin `src/test` contract types and
- *   emits the same replace-stubs / enforce-`@BmcProof`s / manifest into the test output;
+ * - applies `com.google.devtools.ksp` (the version is supplied by the consumer's `pluginManagement`,
+ *   exactly as the Kotlin plugin version is — see the examples' root settings);
+ * - adds `bmc-contracts` to the `kspTest` configuration (the KSP analogue of
+ *   `testAnnotationProcessor`), so the SymbolProcessor runs on the Kotlin `src/test` contract types;
  * - sets `javaParameters = true` on every Kotlin compile so predicate parameter names survive into
- *   bytecode — the enforce-proof and replace-stub call the contract's `static boolean` predicates by
- *   the names the processor read from the mirror, exactly as bmc-runtime's own build does for parity
+ *   bytecode — the enforce-proof and replace-stub call the contract's `boolean` predicates by the
+ *   names the processor read from the mirror, exactly as bmc-runtime's own build does for parity
  *   with javac's `-parameters`.
+ *
+ * Unlike kapt, KSP does NOT take annotation processing off javac, so a mixed-source consumer's other
+ * javac processors (declared on `testAnnotationProcessor`, e.g. bmc-constraints-jakarta) keep running
+ * normally — no configuration bridging is needed.
  *
  * Called only from inside `withPlugin("org.jetbrains.kotlin.jvm")`, so the `KotlinCompile` class
  * reference is never loaded in a Java-only consumer (whose Gradle daemon may not carry KGP).
  */
 private fun wireKotlinContracts(project: Project) {
-    project.pluginManager.apply("org.jetbrains.kotlin.kapt")
-    project.dependencies.add("kaptTest", "$GROUP:bmc-contracts:$VERSION")
-    // Applying kapt moves ALL annotation processing off javac (kapt runs the APs over the
-    // Kotlin stubs + Java sources itself and javac compiles with processing disabled), so a
-    // mixed-source consumer's other javac processors — declared on annotationProcessor /
-    // testAnnotationProcessor, e.g. bmc-constraints-jakarta — would silently stop running.
-    // Carry every declared javac processor over to the kapt configurations.
-    project.configurations.getByName("kapt")
-            .extendsFrom(project.configurations.getByName("annotationProcessor"))
-    project.configurations.getByName("kaptTest")
-            .extendsFrom(project.configurations.getByName("testAnnotationProcessor"))
+    project.pluginManager.apply("com.google.devtools.ksp")
+    project.dependencies.add("kspTest", "$GROUP:bmc-contracts:$VERSION")
     project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
         task.compilerOptions.javaParameters.set(true)
     }

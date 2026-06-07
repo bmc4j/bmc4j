@@ -1,12 +1,12 @@
 // Contracts (Kotlin) — method contracts (@Requires/@Ensures) declared test-side from KOTLIN, with
-// the processor wired via kapt by the org.bmc4j plugin (the processor is a javac annotation
-// processor; KSP can't host it). One package per concept (basics, instance, defaults, soundness,
+// the contracts processor wired via KSP by the org.bmc4j plugin (a native KSP SymbolProcessor,
+// replacing the deprecated kapt). One package per concept (basics, instance, defaults, soundness,
 // purity, suspendcontracts). The low per-proof bounds that make the "contracts beat inlining" point are set with
 // @BmcProof(unwind = …); the auto-generated enforce proofs discharge each @Ensures against the real
 // Kotlin body. The Kotlin counterpart of examples/contracts.
 plugins {
     kotlin("jvm") // version from the root settings pluginManagement (-PbmcKotlinVersion overrides)
-    id("org.bmc4j") // applies kapt + wires kaptTest(bmc-contracts) + javaParameters automatically
+    id("org.bmc4j") // applies KSP + wires kspTest(bmc-contracts) + javaParameters automatically
 }
 
 dependencies {
