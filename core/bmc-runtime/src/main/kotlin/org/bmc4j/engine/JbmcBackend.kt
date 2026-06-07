@@ -49,7 +49,7 @@ class JbmcBackend : VerificationBackend {
         val result = Jbmc(jbmcPath).run(
                 request.entryClass, request.entryFunction, classpath,
                 request.unwind, request.unwindingAssertions,
-                request.maxStringLength, request.concurrent, request.solver,
+                request.maxStringLength, request.solver,
                 request.timeoutSeconds)
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

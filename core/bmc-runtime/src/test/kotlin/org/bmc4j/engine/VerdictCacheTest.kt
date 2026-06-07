@@ -67,7 +67,7 @@ internal class VerdictCacheTest {
     @Test
     fun entryFunction_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.otherProof", "/some/classes",
-                16, true, 16, false, "", 0)
+                16, true, 16, "", 0)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -75,7 +75,7 @@ internal class VerdictCacheTest {
     @Test
     fun unwind_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                8, true, 16, false, "", 0)
+                8, true, 16, "", 0)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -83,7 +83,7 @@ internal class VerdictCacheTest {
     @Test
     fun unwindingAssertions_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, false, 16, false, "", 0)
+                16, false, 16, "", 0)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -91,7 +91,7 @@ internal class VerdictCacheTest {
     @Test
     fun solver_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, true, 16, false, "z3", 0)
+                16, true, 16, "z3", 0)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -99,7 +99,7 @@ internal class VerdictCacheTest {
     @Test
     fun maxStringLength_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, true, 4, false, "", 0)
+                16, true, 4, "", 0)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -129,15 +129,7 @@ internal class VerdictCacheTest {
     @Test
     fun timeoutSeconds_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, true, 16, false, "", 30)
-        assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
-                VerdictCache.computeKey(other, ENGINE))
-    }
-
-    @Test
-    fun concurrent_perturbsKey() {
-        val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, true, 16, true, "", 0)
+                16, true, 16, "", 30)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(other, ENGINE))
     }
@@ -626,7 +618,7 @@ internal class VerdictCacheTest {
             assertFalse(VerdictCache.isVerified(r, ENGINE), "-Dbmc.noCache=true must force a miss")
             // And a write while disabled must not persist.
             val r2 = BmcRequest("pkg.C", "pkg.C.other", dir.resolve("classes").toString(),
-                    16, true, 16, false, "", 0)
+                    16, true, 16, "", 0)
             VerdictCache.storeIfVerified(r2, ENGINE, JbmcResult(true, listOf(), "raw"))
             System.clearProperty("bmc.noCache")
             assertFalse(VerdictCache.isVerified(r2, ENGINE), "no write happens while disabled")
@@ -652,7 +644,7 @@ internal class VerdictCacheTest {
 
         private fun req(classpath: String): BmcRequest {
             return BmcRequest("pkg.C", "pkg.C.proof", classpath,
-                    16, true, 16, false, "", 0)
+                    16, true, 16, "", 0)
         }
 
         private fun baseReq(): BmcRequest {

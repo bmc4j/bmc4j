@@ -58,7 +58,7 @@ a stream of emissions), and a **suspend function whose declared result type is u
 Most Kotlin is written `suspend`, so contracts cover suspend targets too. A `suspend fun f(args): R` is
 compiled to `Object f(args, Continuation)` over a state machine; bmc4j analyses it under the same
 **immediate-dispatch idealization** the coroutine proofs use (see
-[`examples/concurrency-kotlin`](../examples/concurrency-kotlin) and [limits](limits.md)): a suspend call
+[`examples/kotlin-coroutines-and-lincheck`](../examples/kotlin-coroutines-and-lincheck) and [limits](limits.md)): a suspend call
 completes linearly in one call — every nested suspension point resolves synchronously — so the
 processor binds the **declared** Kotlin shape. The trailing `Continuation` is coroutine plumbing, hidden
 from the predicates; the declared result type `R` is recovered from it, so `@Requires`/`@Ensures` see

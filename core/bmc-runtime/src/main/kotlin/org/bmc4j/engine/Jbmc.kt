@@ -20,16 +20,15 @@ class Jbmc(private val executable: String) {
      * @param unwind        loop unwinding bound
      * @param unwindingAssertions add --unwinding-assertions to flag insufficient bounds
      * @param maxStringLength bound on nondeterministic (input) string length; ignored if `<= 0`
-     * @param concurrent      explore thread interleavings (--java-threading)
      */
     @JvmOverloads
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-            concurrent: Boolean, solver: String?, timeoutSeconds: Int = 0): JbmcResult {
+            solver: String?, timeoutSeconds: Int = 0): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, concurrent, solver))
+                maxStringLength, solver))
         return exec(command, entryFunction, timeoutSeconds)
     }
 
@@ -93,7 +92,7 @@ class Jbmc(private val executable: String) {
         /** The JBMC argument list — everything after the executable. */
         internal fun args(entryClass: String, entryFunction: String, classpath: String,
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-                          concurrent: Boolean, solver: String?): List<String> {
+                          solver: String?): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
@@ -108,9 +107,6 @@ class Jbmc(private val executable: String) {
             if (maxStringLength > 0) {
                 cmd.add("--max-nondet-string-length")
                 cmd.add(maxStringLength.toString())
-            }
-            if (concurrent) {
-                cmd.add("--java-threading")
             }
             addSolver(cmd, solver)
             cmd.add("--json-ui")

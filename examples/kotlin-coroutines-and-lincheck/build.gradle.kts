@@ -1,4 +1,4 @@
-// Concurrency (Kotlin) — two concepts:
+// Kotlin coroutines and Lincheck — two concepts:
 //   - coroutines: proving `suspend` functions via clean bundled models of the coroutine runtime
 //   - lincheck:   logic (@BmcProof) vs concurrency (Lincheck) are different concerns, each blind
 //                 to the other. The Lincheck tests are opt-in: -Dbmc.lincheck=true (not our library).

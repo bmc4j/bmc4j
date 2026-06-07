@@ -116,7 +116,7 @@ jobs:
           # conformance suite + every Kotlin-facing example.
           conformance=":model-conformance-proofs:test"
           full="test :model-conformance-proofs:jarModelsConformanceTest"
-          kotlin=":model-conformance-proofs:test :examples:fundamentals-kotlin:test :examples:language-kotlin:test :examples:concurrency-kotlin:test :examples:contracts-kotlin:test :examples:integrations:test"
+          kotlin=":model-conformance-proofs:test :examples:fundamentals-kotlin:test :examples:language-kotlin:test :examples:kotlin-coroutines-and-lincheck:test :examples:contracts-kotlin:test :examples:integrations:test"
 
           # jdk_leg <jdk> / kotlin_leg <version>: one uniform leg each. Host JDK ==
           # toolchain == bytecode target (-PbmcJvmTarget), so the leg's name is the

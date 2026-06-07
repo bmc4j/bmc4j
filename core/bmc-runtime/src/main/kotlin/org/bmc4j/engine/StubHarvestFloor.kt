@@ -135,7 +135,7 @@ internal object StubHarvestFloor {
             Files.write(probe, probeClass())
             val result = Jbmc(jbmcPath).run(
                     "bmc.canary.Probe", "bmc.canary.Probe.probe", dir.toString(),
-                    2, false, 0, false, "", CANARY_TIMEOUT_SECONDS)
+                    2, false, 0, "", CANARY_TIMEOUT_SECONDS)
             return result.stubbedMethods.contains(CANARY_STUB_FQN)
         } catch (e: IOException) {
             return false // can't run the canary -> can't trust an empty harvest

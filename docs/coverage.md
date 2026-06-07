@@ -66,7 +66,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | Default / named arguments | ✅ | |
 | `inline fun` (+ inlined lambdas) | ✅ | how `assumeValid` stays analysable |
 | Lambdas / SAM / method refs | ✅ | desugared ([`examples/language-java`](../examples/language-java)) |
-| Coroutines (`suspend`, `runBlocking`, `async`/`await`, `withContext`) | ✅ | clean bundled models ([`examples/concurrency-kotlin`](../examples/concurrency-kotlin)) |
+| Coroutines (`suspend`, `runBlocking`, `async`/`await`, `withContext`) | ✅ | clean bundled models, **sequential logic only** ([`examples/kotlin-coroutines-and-lincheck`](../examples/kotlin-coroutines-and-lincheck)) |
 | String templates — `"a$str"` (String interp) | ✅ | via concat desugaring |
 | String templates — `"a$int"` (primitive interp) | ⚠️ | routed via `Integer/Long.toString`; content + multi-digit length sound; `Integer.toString(0)` length quirk → exact-length-with-0 may spuriously fail |
 | `object` / `companion object` | ✅ | confirmed |

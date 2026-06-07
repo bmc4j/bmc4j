@@ -59,7 +59,7 @@ a verification, and the demo's pass *is* the refutation. The cache key composes 
 that can change a verdict: the analysis-classpath **content** (every compiled class in the module plus
 the model jars — the `expect` attribute lives in the compiled test class, so changing it invalidates
 too), the effective request (`unwind`, `unwindingAssertions`, `maxStringLength`,
-`timeoutSeconds`, `concurrent`, and the external-solver identity when set), the engine identity
+`timeoutSeconds`, and the external-solver identity when set), the engine identity
 (bundled engine version, or a content hash of an explicit `jbmcPath` binary), and the bmc4j
 runtime's analysis-semantics version (its bytecode-rewrite layer). Change any of them — edit a class, bump `unwind`, swap the engine — and the affected verdicts
 re-run. It is deliberately coarse and **biased toward over-invalidation**: a *stale pass is a soundness

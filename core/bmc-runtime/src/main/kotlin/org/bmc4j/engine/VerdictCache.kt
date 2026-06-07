@@ -227,7 +227,7 @@ object VerdictCache {
      *    defines the proof's semantics, so a layer change must bust the cache;
      * 2. the engine identity (bundled engine version, or a hash of an explicit `jbmcPath` binary);
      * 3. the effective request: entry function, unwind, unwinding-assertions, solver,
-     *    maxStringLength, timeoutSeconds, concurrent;
+     *    maxStringLength, timeoutSeconds;
      * 4. the proof's **reachable-cone content**: only the `.class` files transitively reachable from
      *    this proof's entry class (a constant-pool / call-graph walk, [ReachableCone]) — so touching a
      *    class outside the cone no longer invalidates this proof. When the cone can't be bounded
@@ -271,7 +271,6 @@ object VerdictCache {
         update(md, "solver", request.solver)
         update(md, "msl", request.maxStringLength.toString())
         update(md, "timeout", request.timeoutSeconds.toString())
-        update(md, "concurrent", request.concurrent.toString())
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
         //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).
