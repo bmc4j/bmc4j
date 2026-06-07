@@ -62,6 +62,39 @@ class ContractProcessorInstanceTest {
                 "the error must name the missing mirror signature: $errors")
     }
 
+    @Test
+    fun a_suspend_mirror_is_rejected_with_a_named_error(@TempDir out: Path) {
+        // A suspend function, as kapt lowers it for javac: a trailing kotlin.coroutines.Continuation
+        // parameter and an Object return. The processor must reject it by name, not bind a
+        // (…,Continuation)Object shape no caller expects.
+        val (ok, _, diagnostics) = process(out,
+                StringSource("kotlin.coroutines.Continuation", CONTINUATION_STUB),
+                StringSource("demo.Worker", WORKER_SRC),
+                StringSource("demo.WorkerContract", SUSPEND_CONTRACT_SRC))
+        assertFalse(ok, "a suspend contract mirror must fail compilation")
+        val errors = diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }
+                .joinToString("\n") { it.getMessage(null) }
+        assertTrue(errors.contains("is a suspend function"),
+                "the processor must reject a suspend mirror, naming it: $errors")
+    }
+
+    @Test
+    fun a_contract_type_with_no_visible_mirror_is_a_hard_error(@TempDir out: Path) {
+        // The value/inline-class case as kapt presents it: the mangled mirror is OMITTED from the Java
+        // stub, so the type has no visible @Requires/@Ensures method. That silent no-bind must be a
+        // hard error, and the message must point at the value-class cause.
+        val (ok, _, diagnostics) = process(out,
+                StringSource("demo.Empty", EMPTY_TARGET_SRC),
+                StringSource("demo.EmptyContract", EMPTY_CONTRACT_SRC))
+        assertFalse(ok, "a @BmcContractsFor type that binds no contract must fail compilation")
+        val errors = diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }
+                .joinToString("\n") { it.getMessage(null) }
+        assertTrue(errors.contains("binds no contract"),
+                "the no-mirror case must be a hard error: $errors")
+        assertTrue(errors.contains("value/inline class"),
+                "the error must name the value/inline-class cause: $errors")
+    }
+
     // --- harness ---
 
     private data class Result(val ok: Boolean, val manifest: List<String>, val diagnostics: List<Diagnostic<out JavaFileObject>>)
@@ -114,6 +147,55 @@ class ContractProcessorInstanceTest {
                 @Requires("ok") @Ensures("atLeast") int project(int amount);
                 static boolean ok(Account self, int amount) { return amount >= 0; }
                 static boolean atLeast(int result, Account self, int amount) { return result >= self.balance(); }
+            }
+            """.trimIndent()
+
+        // A minimal stand-in for kotlin.coroutines.Continuation so the suspend mirror's signature
+        // resolves under plain javac (the processor matches it by fully-qualified name).
+        val CONTINUATION_STUB = """
+            package kotlin.coroutines;
+            public interface Continuation<T> { }
+            """.trimIndent()
+
+        val WORKER_SRC = """
+            package demo;
+            public final class Worker {
+                public int compute(int n) { return n; }
+            }
+            """.trimIndent()
+
+        // A suspend mirror as kapt lowers it: trailing Continuation parameter.
+        val SUSPEND_CONTRACT_SRC = """
+            package demo;
+            import org.bmc4j.BmcContractsFor;
+            import org.bmc4j.Ensures;
+            import org.bmc4j.Requires;
+            import kotlin.coroutines.Continuation;
+
+            @BmcContractsFor(Worker.class)
+            interface WorkerContract {
+                @Requires("ok") @Ensures("nn") Object compute(int n, Continuation<? super Integer> ${'$'}c);
+                static boolean ok(int n) { return n >= 0; }
+                static boolean nn(Object result, int n) { return true; }
+            }
+            """.trimIndent()
+
+        val EMPTY_TARGET_SRC = """
+            package demo;
+            public final class Empty {
+                public int f(int n) { return n; }
+            }
+            """.trimIndent()
+
+        // A @BmcContractsFor type with NO @Requires/@Ensures method visible — exactly what kapt leaves
+        // behind after dropping a value-class-typed mirror.
+        val EMPTY_CONTRACT_SRC = """
+            package demo;
+            import org.bmc4j.BmcContractsFor;
+
+            @BmcContractsFor(Empty.class)
+            interface EmptyContract {
+                static boolean ok(int n) { return n >= 0; }
             }
             """.trimIndent()
 

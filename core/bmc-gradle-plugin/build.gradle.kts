@@ -34,7 +34,17 @@ kotlin {
 }
 
 dependencies {
+    // The Kotlin Gradle plugin API, for the (Kotlin-only) `wireKotlinContracts` path that sets
+    // `javaParameters` on KotlinCompile tasks. compileOnly: it is NEVER a runtime/POM dependency of
+    // this plugin — at apply time in a Kotlin consumer the consumer's own KGP is on the classpath
+    // (the wiring runs only inside `withPlugin("org.jetbrains.kotlin.jvm")`), and a Java-only
+    // consumer never loads the class. Pinned to the plugin's own build KGP (2.3.21); the
+    // compilerOptions.javaParameters property is ABI-stable across the 2.x KGPs consumers use.
+    compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
     testImplementation(gradleTestKit())
+    // ProjectBuilder tests apply the Kotlin JVM + kapt plugins to assert the Kotlin contracts wiring,
+    // so KGP must be on the test classpath (it is only compileOnly for main).
+    testImplementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
 }
 
 gradlePlugin {

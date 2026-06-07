@@ -44,6 +44,32 @@ class BmcPluginTest {
     }
 
     @Test
+    fun a_java_only_project_does_not_apply_kapt() {
+        // kapt + kaptTest are Kotlin-only: a Java consumer must never get them (no kotlin-stdlib pull).
+        val p = applied()
+        assertTrue(!p.plugins.hasPlugin("org.jetbrains.kotlin.kapt"),
+                "kapt must not be applied to a Java-only project")
+        assertTrue(p.configurations.findByName("kaptTest") == null,
+                "no kaptTest configuration on a Java-only project")
+    }
+
+    @Test
+    fun a_kotlin_project_gets_kapt_and_the_contracts_processor_on_kaptTest() {
+        val p = ProjectBuilder.builder().build()
+        // Apply the Kotlin JVM plugin first, then bmc4j — the wiring runs inside
+        // withPlugin("org.jetbrains.kotlin.jvm").
+        p.pluginManager.apply("org.jetbrains.kotlin.jvm")
+        p.pluginManager.apply(BmcPlugin::class.java)
+        assertTrue(p.plugins.hasPlugin("org.jetbrains.kotlin.kapt"),
+                "the Kotlin path must apply kapt to host the javac contracts processor")
+        assertTrue(hasDependency(p, "kaptTest", "bmc-contracts"),
+                "bmc-contracts must be wired onto kaptTest for a Kotlin consumer")
+        // bmc-kotlin helpers come along too.
+        assertTrue(hasDependency(p, "testImplementation", "bmc-kotlin"),
+                "Kotlin consumers get the bmc-kotlin helpers")
+    }
+
+    @Test
     fun wires_runtime_junit_and_jdk_models_dependencies() {
         val p = applied()
         assertTrue(hasDependency(p, "testImplementation", "bmc-runtime"),

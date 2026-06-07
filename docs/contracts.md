@@ -5,7 +5,55 @@ especially one with a loop or recursion — that re-analysis dominates, and a ca
 `unwind` bound has to be large enough to cover the callee. **Method contracts** make
 proofs modular: prove a method's postcondition *once*, then let callers assume it.
 
-Contracts live **in your tests, not your production code**. Production stays plain:
+Contracts live **in your tests, not your production code**. Production stays plain.
+
+## Kotlin (kapt)
+
+bmc4j is Kotlin-first, and so are contracts. The `bmc-contracts` processor is a **javac** annotation
+processor, so Kotlin test sources run it through **kapt** (KSP can't host a javac AP). The `org.bmc4j`
+plugin wires this for you the moment the Kotlin plugin is applied — it applies kapt, adds
+`bmc-contracts` to `kaptTest`, and sets `javaParameters = true` so predicate parameter names survive
+into bytecode. There is no kapt block to write:
+
+```kotlin
+plugins {
+    kotlin("jvm")
+    id("org.bmc4j") // applies kapt + wires kaptTest(bmc-contracts) + javaParameters
+}
+```
+
+```kotlin
+// src/main — plain Kotlin, no bmc references. A top-level fun's facade class is unnameable from
+// Kotlin (no `FooKt::class`), so expose the target on an `object`/`companion` with @JvmStatic.
+object Recursive {
+    @JvmStatic fun sumTo(n: Int): Int = if (n <= 0) 0 else n + sumTo(n - 1)
+}
+```
+
+```kotlin
+// src/test — the contract, declared against the production class. @JvmStatic predicates in the
+// companion become the static boolean predicates the generated stub/enforce-proof call.
+@BmcContractsFor(Recursive::class)
+interface SumToContract {
+    @Requires("inRange") @Ensures("closedForm") fun sumTo(n: Int): Int   // mirrors the target
+    companion object {
+        @JvmStatic fun inRange(n: Int): Boolean = n in 0..12
+        @JvmStatic fun closedForm(result: Int, n: Int): Boolean = result == n * (n + 1) / 2
+    }
+}
+```
+
+**Kotlin shapes** that bind: `object`/`companion` `@JvmStatic` methods (static targets), pure instance
+methods (receiver threaded as `self`), and methods with **default parameters** (the `$default`
+synthetic's call is redirected too). Shapes the processor rejects **loudly** (a silent failure to bind
+is a hard error): a **value/inline-class** parameter or return (kapt mangles the JVM name and drops the
+annotations — unwrap the value class at the boundary), a bare **top-level `fun`** (its facade class is
+unnameable from Kotlin — use an `object`/`companion`), and **`suspend`** functions (they return a
+coroutine state machine, not a value). See [`examples/contracts-kotlin`](../examples/contracts-kotlin).
+
+## Java
+
+Java contracts are wired the same way, via `testAnnotationProcessor` (no kapt). Production stays plain:
 
 ```java
 // src/main — no bmc references

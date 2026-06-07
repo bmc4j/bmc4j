@@ -9,6 +9,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.concurrent.ConcurrentHashMap
 
 // The version this plugin was published at, read from its own jar manifest
@@ -64,6 +65,7 @@ class BmcPlugin : Plugin<Project> {
         // Kotlin JVM plugin is applied, so Java-only projects never pull in kotlin-stdlib.
         project.pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
             project.dependencies.add("testImplementation", "$GROUP:bmc-kotlin:$VERSION")
+            wireKotlinContracts(project)
         }
         // JBMC models for JDK types (e.g. java.time). On the analysis classpath only;
         // the real JVM ignores these java.* classes (bootstrap loader wins).
@@ -73,6 +75,9 @@ class BmcPlugin : Plugin<Project> {
         // processor runs on the TEST sources and generates replace-stubs, enforce-@BmcProofs, and a
         // manifest into the test output. Test code already has bmc-runtime, so the generated code
         // compiles; production code stays free of any bmc reference. No contracts -> nothing generated.
+        // This wires the processor onto the JAVA test compile (`testAnnotationProcessor`); a Kotlin
+        // consumer additionally gets it onto kapt below (the processor is a javac AP — KSP can't run
+        // it, so Kotlin test sources need kapt to embed javac).
         project.dependencies.add("testAnnotationProcessor", "$GROUP:bmc-contracts:$VERSION")
 
         // A `src/bmcModel/` source set for consumer-authored JBMC models: a class here
@@ -329,6 +334,41 @@ class BmcPlugin : Plugin<Project> {
                 }
             }
         }
+    }
+}
+
+/**
+ * Wire method contracts for a Kotlin consumer with zero ceremony. The `bmc-contracts` processor is
+ * a **javac** annotation processor, so Kotlin TEST sources need **kapt** to embed javac and run it
+ * (KSP cannot host a javac AP). Mirrors the Java side's `testAnnotationProcessor` wiring:
+ *
+ * - applies `org.jetbrains.kotlin.kapt` (ships with the Kotlin Gradle plugin the consumer already
+ *   applied, so no extra version to resolve);
+ * - adds `bmc-contracts` to the `kaptTest` configuration (the kapt analogue of
+ *   `testAnnotationProcessor`), so the processor runs on the Kotlin `src/test` contract types and
+ *   emits the same replace-stubs / enforce-`@BmcProof`s / manifest into the test output;
+ * - sets `javaParameters = true` on every Kotlin compile so predicate parameter names survive into
+ *   bytecode — the enforce-proof and replace-stub call the contract's `static boolean` predicates by
+ *   the names the processor read from the mirror, exactly as bmc-runtime's own build does for parity
+ *   with javac's `-parameters`.
+ *
+ * Called only from inside `withPlugin("org.jetbrains.kotlin.jvm")`, so the `KotlinCompile` class
+ * reference is never loaded in a Java-only consumer (whose Gradle daemon may not carry KGP).
+ */
+private fun wireKotlinContracts(project: Project) {
+    project.pluginManager.apply("org.jetbrains.kotlin.kapt")
+    project.dependencies.add("kaptTest", "$GROUP:bmc-contracts:$VERSION")
+    // Applying kapt moves ALL annotation processing off javac (kapt runs the APs over the
+    // Kotlin stubs + Java sources itself and javac compiles with processing disabled), so a
+    // mixed-source consumer's other javac processors — declared on annotationProcessor /
+    // testAnnotationProcessor, e.g. bmc-constraints-jakarta — would silently stop running.
+    // Carry every declared javac processor over to the kapt configurations.
+    project.configurations.getByName("kapt")
+            .extendsFrom(project.configurations.getByName("annotationProcessor"))
+    project.configurations.getByName("kaptTest")
+            .extendsFrom(project.configurations.getByName("testAnnotationProcessor"))
+    project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
+        task.compilerOptions.javaParameters.set(true)
     }
 }
 

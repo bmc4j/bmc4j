@@ -16,6 +16,7 @@ pluginManagement {
     // vary with the consumer's compiler.
     plugins {
         id("org.jetbrains.kotlin.jvm") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
+        id("org.jetbrains.kotlin.kapt") version (providers.gradleProperty("bmcKotlinVersion").orNull ?: "2.4.0")
     }
 }
 
@@ -54,6 +55,7 @@ include(
     "examples:concurrency-java",
     "examples:concurrency-kotlin",
     "examples:contracts",
+    "examples:contracts-kotlin",
 )
 
 // Model proofs: @BmcProof proofs of the bmc-models' own algebraic laws, verified by JBMC itself
