@@ -1461,29 +1461,121 @@ Real surface: 3 members — modeled 1, not-modeled 0, not-needed 0, tail 2.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
+Real surface: 253 members — modeled 23, not-modeled 0, not-needed 99, tail 131.
 
 **Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asSequence(Iterable)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `mutableListOf(Object[])`, `sorted(Iterable)`, `sortedWith(Iterable, Comparator)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `toMutableList(Collection)`, `toSet(Iterable)`, `zip(Iterable, Iterable)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 230 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `all(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Iterable, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Iterable, Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `binarySearchBy(List, Comparable, int, int, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `contains(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `count(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `elementAt(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `elementAtOrNull(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `filter(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(Iterable, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequence(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequenceTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(Iterable, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(Iterable, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(List, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(List, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(Iterator, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getOrNull(List, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `groupBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(Iterable, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Iterable, Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `indexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `indexOfFirst(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(Iterable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `last(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastIndexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `lastIndexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `lastOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNull(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(Iterable, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(Iterable, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `onEach(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `onEachIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(List, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(List, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(List, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(List, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningFold(Iterable, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningFoldIndexed(Iterable, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningReduce(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningReduceIndexed(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `scan(Iterable, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `scanIndexed(Iterable, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortBy(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortByDescending(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(Iterable, Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 131 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `addAll(Collection, Object[])`
 - `addAll(Collection, Sequence)`
-- `all(Iterable, Function1)`
 - `any(Iterable)`
-- `any(Iterable, Function1)`
 - `arrayListOf(Object[])`
 - `asCollection(Object[], boolean)`
 - `asReversed(List)`
 - `asReversedMutable(List)`
-- `associate(Iterable, Function1)`
-- `associateBy(Iterable, Function1)`
-- `associateBy(Iterable, Function1, Function1)`
-- `associateByTo(Iterable, Map, Function1)`
-- `associateByTo(Iterable, Map, Function1, Function1)`
-- `associateTo(Iterable, Map, Function1)`
-- `associateWith(Iterable, Function1)`
-- `associateWithTo(Iterable, Map, Function1)`
 - `averageOfByte(Iterable)`
 - `averageOfDouble(Iterable)`
 - `averageOfFloat(Iterable)`
@@ -1493,97 +1585,39 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
 - `binarySearch(List, Comparable, int, int)`
 - `binarySearch(List, Object, Comparator, int, int)`
 - `binarySearch(List, int, int, Function1)`
-- `binarySearchBy(List, Comparable, int, int, Function1)`
 - `build(List)`
 - `chunked(Iterable, int)`
 - `chunked(Iterable, int, Function1)`
 - `collectionSizeOrNull(Iterable)`
 - `collectionToArrayCommonImpl(Collection)`
 - `collectionToArrayCommonImpl(Collection, Object[])`
-- `contains(Iterable, Object)`
 - `convertToListIfNotCollection(Iterable)`
 - `copyToArrayOfAny(Object[], boolean)`
 - `count(Iterable)`
-- `count(Iterable, Function1)`
 - `createListBuilder()`
 - `createListBuilder(int)`
-- `distinctBy(Iterable, Function1)`
 - `dropLast(List, int)`
-- `dropLastWhile(List, Function1)`
-- `dropWhile(Iterable, Function1)`
-- `elementAt(Iterable, int)`
 - `elementAtOrElse(Iterable, int, Function1)`
-- `elementAtOrNull(Iterable, int)`
-- `filter(Iterable, Function1)`
-- `filterIndexed(Iterable, Function2)`
-- `filterIndexedTo(Iterable, Collection, Function2)`
 - `filterIsInstance(Iterable, Class)`
 - `filterIsInstanceTo(Iterable, Collection, Class)`
-- `filterNot(Iterable, Function1)`
 - `filterNotNull(Iterable)`
 - `filterNotNullTo(Iterable, Collection)`
-- `filterNotTo(Iterable, Collection, Function1)`
-- `filterTo(Iterable, Collection, Function1)`
-- `first(Iterable, Function1)`
 - `firstOrNull(Iterable)`
-- `firstOrNull(Iterable, Function1)`
 - `firstOrNull(List)`
-- `flatMap(Iterable, Function1)`
-- `flatMapSequence(Iterable, Function1)`
-- `flatMapSequenceTo(Iterable, Collection, Function1)`
-- `flatMapTo(Iterable, Collection, Function1)`
 - `flatten(Iterable)`
-- `fold(Iterable, Object, Function2)`
-- `foldIndexed(Iterable, Object, Function3)`
-- `foldRight(List, Object, Function2)`
-- `foldRightIndexed(List, Object, Function3)`
-- `forEach(Iterable, Function1)`
-- `forEach(Iterator, Function1)`
-- `forEachIndexed(Iterable, Function2)`
 - `getIndices(Collection)`
 - `getLastIndex(List)`
-- `getOrNull(List, int)`
-- `groupBy(Iterable, Function1)`
-- `groupBy(Iterable, Function1, Function1)`
-- `groupByTo(Iterable, Map, Function1)`
-- `groupByTo(Iterable, Map, Function1, Function1)`
-- `groupingBy(Iterable, Function1)`
-- `indexOf(Iterable, Object)`
-- `indexOf(List, Object)`
-- `indexOfFirst(Iterable, Function1)`
-- `indexOfFirst(List, Function1)`
-- `indexOfLast(Iterable, Function1)`
-- `indexOfLast(List, Function1)`
 - `intersect(Iterable, Iterable)`
 - `iterator(Enumeration)`
 - `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `last(Iterable)`
-- `last(Iterable, Function1)`
-- `last(List, Function1)`
-- `lastIndexOf(Iterable, Object)`
-- `lastIndexOf(List, Object)`
 - `lastOrNull(Iterable)`
-- `lastOrNull(Iterable, Function1)`
 - `lastOrNull(List)`
-- `lastOrNull(List, Function1)`
 - `listOfNotNull(Object)`
 - `listOfNotNull(Object[])`
-- `map(Iterable, Function1)`
-- `mapIndexed(Iterable, Function2)`
-- `mapIndexedNotNull(Iterable, Function2)`
-- `mapIndexedNotNullTo(Iterable, Collection, Function2)`
-- `mapIndexedTo(Iterable, Collection, Function2)`
-- `mapNotNull(Iterable, Function1)`
-- `mapNotNullTo(Iterable, Collection, Function1)`
-- `mapTo(Iterable, Collection, Function1)`
-- `maxByOrNull(Iterable, Function1)`
-- `maxByOrThrow(Iterable, Function1)`
 - `maxOrThrow(Iterable)`
 - `maxWithOrNull(Iterable, Comparator)`
 - `maxWithOrThrow(Iterable, Comparator)`
-- `minByOrNull(Iterable, Function1)`
-- `minByOrThrow(Iterable, Function1)`
 - `minOrThrow(Iterable)`
 - `minWithOrNull(Iterable, Comparator)`
 - `minWithOrThrow(Iterable, Comparator)`
@@ -1592,11 +1626,7 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
 - `minus(Iterable, Object[])`
 - `minus(Iterable, Sequence)`
 - `none(Iterable)`
-- `none(Iterable, Function1)`
-- `onEach(Iterable, Function1)`
-- `onEachIndexed(Iterable, Function2)`
 - `optimizeReadOnlyList(List)`
-- `partition(Iterable, Function1)`
 - `plus(Collection, Iterable)`
 - `plus(Collection, Object)`
 - `plus(Collection, Object[])`
@@ -1607,14 +1637,6 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
 - `plus(Iterable, Sequence)`
 - `random(Collection, Random)`
 - `randomOrNull(Collection, Random)`
-- `reduce(Iterable, Function2)`
-- `reduceIndexed(Iterable, Function3)`
-- `reduceIndexedOrNull(Iterable, Function3)`
-- `reduceOrNull(Iterable, Function2)`
-- `reduceRight(List, Function2)`
-- `reduceRightIndexed(List, Function3)`
-- `reduceRightIndexedOrNull(List, Function3)`
-- `reduceRightOrNull(List, Function2)`
 - `removeAll(Collection, Iterable)`
 - `removeAll(Collection, Object[])`
 - `removeAll(Collection, Sequence)`
@@ -1633,41 +1655,25 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
 - `retainAll(List, Function1)`
 - `reverse(List)`
 - `reversed(Iterable)`
-- `runningFold(Iterable, Object, Function2)`
-- `runningFoldIndexed(Iterable, Object, Function3)`
-- `runningReduce(Iterable, Function2)`
-- `runningReduceIndexed(Iterable, Function3)`
-- `scan(Iterable, Object, Function2)`
-- `scanIndexed(Iterable, Object, Function3)`
 - `shuffle(List, Random)`
 - `shuffled(Iterable)`
 - `shuffled(Iterable, Random)`
 - `shuffled(Iterable, Random)`
 - `single(Iterable)`
-- `single(Iterable, Function1)`
 - `single(List)`
 - `singleOrNull(Iterable)`
-- `singleOrNull(Iterable, Function1)`
 - `singleOrNull(List)`
 - `slice(List, IntRange)`
 - `slice(List, Iterable)`
 - `sort(List)`
-- `sortBy(List, Function1)`
-- `sortByDescending(List, Function1)`
 - `sortDescending(List)`
 - `sortWith(List, Comparator)`
-- `sortedBy(Iterable, Function1)`
-- `sortedByDescending(Iterable, Function1)`
 - `sortedDescending(Iterable)`
 - `subtract(Iterable, Iterable)`
-- `sumBy(Iterable, Function1)`
-- `sumByDouble(Iterable, Function1)`
 - `sumOfByte(Iterable)`
 - `sumOfFloat(Iterable)`
 - `sumOfShort(Iterable)`
 - `takeLast(List, int)`
-- `takeLastWhile(List, Function1)`
-- `takeWhile(Iterable, Function1)`
 - `terminateCollectionToArray(int, Object[])`
 - `throwCountOverflow()`
 - `throwIndexOverflow()`
@@ -1692,67 +1698,67 @@ Real surface: 253 members — modeled 23, not-modeled 0, not-needed 0, tail 230.
 - `windowed(Iterable, int, int, boolean, Function1)`
 - `withIndex(Iterable)`
 - `withIndex(Iterator)`
-- `zip(Iterable, Iterable, Function2)`
 - `zip(Iterable, Object[])`
-- `zip(Iterable, Object[], Function2)`
 - `zipWithNext(Iterable)`
-- `zipWithNext(Iterable, Function2)`
 
 </details>
 
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 5, not-modeled 0, not-needed 0, tail 70.
+Real surface: 75 members — modeled 5, not-modeled 0, not-needed 28, tail 42.
 
 **Modeled** (`@BmcModelConforms`): `emptyMap()`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `mutableMapOf(Pair[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 70 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `all(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterKeys(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(Map, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(Map, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterValues(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequence(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequenceTo(Map, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(Map, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getOrElseNullable(Map, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getOrPut(ConcurrentMap, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getOrPut(Map, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapKeys(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapKeysTo(Map, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(Map, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(Map, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapValues(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapValuesTo(Map, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `onEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-- `all(Map, Function1)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 42 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
 - `any(Map)`
-- `any(Map, Function1)`
 - `asSequence(Map)`
 - `build(Map)`
 - `copy(Entry)`
-- `count(Map, Function1)`
 - `createMapBuilder()`
 - `createMapBuilder(int)`
-- `filter(Map, Function1)`
-- `filterKeys(Map, Function1)`
-- `filterNot(Map, Function1)`
-- `filterNotTo(Map, Map, Function1)`
-- `filterTo(Map, Map, Function1)`
-- `filterValues(Map, Function1)`
-- `flatMap(Map, Function1)`
-- `flatMapSequence(Map, Function1)`
-- `flatMapSequenceTo(Map, Collection, Function1)`
-- `flatMapTo(Map, Collection, Function1)`
-- `forEach(Map, Function1)`
-- `getOrElseNullable(Map, Object, Function0)`
 - `getOrImplicitDefaultNullable(Map, Object)`
-- `getOrPut(ConcurrentMap, Object, Function0)`
-- `getOrPut(Map, Object, Function0)`
 - `getValue(Map, Object)`
 - `hashMapOf(Pair[])`
 - `linkedMapOf(Pair[])`
-- `map(Map, Function1)`
 - `mapEntryOf(Object, Object)`
-- `mapKeys(Map, Function1)`
-- `mapKeysTo(Map, Map, Function1)`
-- `mapNotNull(Map, Function1)`
-- `mapNotNullTo(Map, Collection, Function1)`
-- `mapTo(Map, Collection, Function1)`
-- `mapValues(Map, Function1)`
-- `mapValuesTo(Map, Map, Function1)`
 - `minus(Map, Iterable)`
 - `minus(Map, Object)`
 - `minus(Map, Object[])`
 - `minus(Map, Sequence)`
 - `none(Map)`
-- `none(Map, Function1)`
-- `onEach(Map, Function1)`
-- `onEachIndexed(Map, Function2)`
 - `optimizeReadOnlyMap(Map)`
 - `plus(Map, Iterable)`
 - `plus(Map, Map)`
@@ -1815,45 +1821,49 @@ Real surface: 22 members — modeled 4, not-modeled 0, not-needed 0, tail 18.
 
 ## `kotlin.comparisons.ComparisonsKt`
 
-Real surface: 34 members — modeled 1, not-modeled 0, not-needed 0, tail 33.
+Real surface: 34 members — modeled 1, not-modeled 0, not-needed 33, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `compareValues(Comparable, Comparable)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `compareBy(Function1[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `compareValuesBy(Object, Object, Function1[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Comparable, Comparable[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Object, Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(Object, Object[], Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(byte, byte[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(double, double[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(float, float[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(int, int[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(long, long[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `maxOf(short, short[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Comparable, Comparable[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Object, Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(Object, Object[], Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(byte, byte[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(double, double[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(float, float[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(int, int[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(long, long[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `minOf(short, short[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `naturalOrder()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `nullsFirst(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `nullsLast(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reverseOrder()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reversed(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `then(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `thenDescending(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-- `compareBy(Function1[])`
-- `compareValuesBy(Object, Object, Function1[])`
-- `maxOf(Comparable, Comparable)`
-- `maxOf(Comparable, Comparable, Comparable)`
-- `maxOf(Comparable, Comparable[])`
-- `maxOf(Object, Object, Comparator)`
-- `maxOf(Object, Object, Object, Comparator)`
-- `maxOf(Object, Object[], Comparator)`
-- `maxOf(byte, byte[])`
-- `maxOf(double, double[])`
-- `maxOf(float, float[])`
-- `maxOf(int, int[])`
-- `maxOf(long, long[])`
-- `maxOf(short, short[])`
-- `minOf(Comparable, Comparable)`
-- `minOf(Comparable, Comparable, Comparable)`
-- `minOf(Comparable, Comparable[])`
-- `minOf(Object, Object, Comparator)`
-- `minOf(Object, Object, Object, Comparator)`
-- `minOf(Object, Object[], Comparator)`
-- `minOf(byte, byte[])`
-- `minOf(double, double[])`
-- `minOf(float, float[])`
-- `minOf(int, int[])`
-- `minOf(long, long[])`
-- `minOf(short, short[])`
-- `naturalOrder()`
-- `nullsFirst(Comparator)`
-- `nullsLast(Comparator)`
-- `reverseOrder()`
-- `reversed(Comparator)`
-- `then(Comparator, Comparator)`
-- `thenDescending(Comparator, Comparator)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
@@ -1873,198 +1883,249 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `kotlin.jvm.internal.Intrinsics`
 
-Real surface: 40 members — modeled 16, not-modeled 0, not-needed 0, tail 24.
+Real surface: 40 members — modeled 16, not-modeled 0, not-needed 24, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `areEqual(Object, Object)`, `checkExpressionValueIsNotNull(Object, String)`, `checkFieldIsNotNull(Object, String)`, `checkNotNull(Object)`, `checkNotNull(Object, String)`, `checkNotNullExpressionValue(Object, String)`, `checkNotNullParameter(Object, String)`, `checkParameterIsNotNull(Object, String)`, `checkReturnedValueIsNotNull(Object, String)`, `compare(int, int)`, `compare(long, long)`, `stringPlus(String, Object)`, `throwJavaNpe()`, `throwNpe()`, `throwNpe(String)`, `throwUninitializedPropertyAccessException(String)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `areEqual(Double, Double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(Double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(Float, Float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(Float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(double, Double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(float, Float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `checkFieldIsNotNull(Object, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `checkHasClass(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `checkHasClass(String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `checkReturnedValueIsNotNull(Object, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `needClassReification()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `needClassReification(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reifiedOperationMarker(int, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reifiedOperationMarker(int, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwAssert()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwAssert(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwIllegalArgument()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwIllegalArgument(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwIllegalState()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwIllegalState(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwJavaNpe(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwUndefinedForReified()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwUndefinedForReified(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `throwUninitializedProperty(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-- `areEqual(Double, Double)`
-- `areEqual(Double, double)`
-- `areEqual(Float, Float)`
-- `areEqual(Float, float)`
-- `areEqual(double, Double)`
-- `areEqual(float, Float)`
-- `checkFieldIsNotNull(Object, String, String)`
-- `checkHasClass(String)`
-- `checkHasClass(String, String)`
-- `checkReturnedValueIsNotNull(Object, String, String)`
-- `needClassReification()`
-- `needClassReification(String)`
-- `reifiedOperationMarker(int, String)`
-- `reifiedOperationMarker(int, String, String)`
-- `throwAssert()`
-- `throwAssert(String)`
-- `throwIllegalArgument()`
-- `throwIllegalArgument(String)`
-- `throwIllegalState()`
-- `throwIllegalState(String)`
-- `throwJavaNpe(String)`
-- `throwUndefinedForReified()`
-- `throwUndefinedForReified(String)`
-- `throwUninitializedProperty(String)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `kotlin.ranges.RangesKt`
 
-Real surface: 131 members — modeled 6, not-modeled 0, not-needed 0, tail 125.
+Real surface: 131 members — modeled 6, not-modeled 0, not-needed 107, tail 18.
 
 **Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 125 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `byteRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `checkStepIsPositive(boolean, Number)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtLeast(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtLeast(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtLeast(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtLeast(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtLeast(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtMost(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtMost(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtMost(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtMost(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceAtMost(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(Comparable, ClosedFloatingPointRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(Comparable, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(byte, byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(double, double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(float, float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(int, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(long, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `coerceIn(short, short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `doubleRangeContains(ClosedRange, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `doubleRangeContains(OpenEndRange, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `downTo(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `floatRangeContains(ClosedRange, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `intRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `longRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeTo(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeTo(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeTo(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeUntil(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeUntil(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeUntil(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reversed(CharProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reversed(IntProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `reversed(LongProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `shortRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `step(CharProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `step(IntProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `step(LongProgression, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toByteExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toByteExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toByteExactOrNull(int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toByteExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toByteExactOrNull(short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toIntExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toIntExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toIntExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toLongExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toLongExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toShortExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toShortExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toShortExactOrNull(int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `toShortExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-- `byteRangeContains(ClosedRange, int)`
-- `byteRangeContains(ClosedRange, long)`
-- `byteRangeContains(ClosedRange, short)`
-- `byteRangeContains(OpenEndRange, int)`
-- `byteRangeContains(OpenEndRange, long)`
-- `byteRangeContains(OpenEndRange, short)`
-- `checkStepIsPositive(boolean, Number)`
-- `coerceAtLeast(Comparable, Comparable)`
-- `coerceAtLeast(byte, byte)`
-- `coerceAtLeast(double, double)`
-- `coerceAtLeast(float, float)`
-- `coerceAtLeast(short, short)`
-- `coerceAtMost(Comparable, Comparable)`
-- `coerceAtMost(byte, byte)`
-- `coerceAtMost(double, double)`
-- `coerceAtMost(float, float)`
-- `coerceAtMost(short, short)`
-- `coerceIn(Comparable, ClosedFloatingPointRange)`
-- `coerceIn(Comparable, ClosedRange)`
-- `coerceIn(Comparable, Comparable, Comparable)`
-- `coerceIn(byte, byte, byte)`
-- `coerceIn(double, double, double)`
-- `coerceIn(float, float, float)`
-- `coerceIn(int, ClosedRange)`
-- `coerceIn(long, ClosedRange)`
-- `coerceIn(short, short, short)`
-- `doubleRangeContains(ClosedRange, float)`
-- `doubleRangeContains(OpenEndRange, float)`
-- `downTo(byte, byte)`
-- `downTo(byte, int)`
-- `downTo(byte, long)`
-- `downTo(byte, short)`
-- `downTo(char, char)`
-- `downTo(int, byte)`
-- `downTo(int, int)`
-- `downTo(int, long)`
-- `downTo(int, short)`
-- `downTo(long, byte)`
-- `downTo(long, int)`
-- `downTo(long, long)`
-- `downTo(long, short)`
-- `downTo(short, byte)`
-- `downTo(short, int)`
-- `downTo(short, long)`
-- `downTo(short, short)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
 - `first(CharProgression)`
 - `first(IntProgression)`
 - `first(LongProgression)`
 - `firstOrNull(CharProgression)`
 - `firstOrNull(IntProgression)`
 - `firstOrNull(LongProgression)`
-- `floatRangeContains(ClosedRange, double)`
-- `intRangeContains(ClosedRange, byte)`
-- `intRangeContains(ClosedRange, long)`
-- `intRangeContains(ClosedRange, short)`
-- `intRangeContains(OpenEndRange, byte)`
-- `intRangeContains(OpenEndRange, long)`
-- `intRangeContains(OpenEndRange, short)`
 - `last(CharProgression)`
 - `last(IntProgression)`
 - `last(LongProgression)`
 - `lastOrNull(CharProgression)`
 - `lastOrNull(IntProgression)`
 - `lastOrNull(LongProgression)`
-- `longRangeContains(ClosedRange, byte)`
-- `longRangeContains(ClosedRange, int)`
-- `longRangeContains(ClosedRange, short)`
-- `longRangeContains(OpenEndRange, byte)`
-- `longRangeContains(OpenEndRange, int)`
-- `longRangeContains(OpenEndRange, short)`
 - `random(CharRange, Random)`
 - `random(IntRange, Random)`
 - `random(LongRange, Random)`
 - `randomOrNull(CharRange, Random)`
 - `randomOrNull(IntRange, Random)`
 - `randomOrNull(LongRange, Random)`
-- `rangeTo(Comparable, Comparable)`
-- `rangeTo(double, double)`
-- `rangeTo(float, float)`
-- `rangeUntil(Comparable, Comparable)`
-- `rangeUntil(double, double)`
-- `rangeUntil(float, float)`
-- `reversed(CharProgression)`
-- `reversed(IntProgression)`
-- `reversed(LongProgression)`
-- `shortRangeContains(ClosedRange, byte)`
-- `shortRangeContains(ClosedRange, int)`
-- `shortRangeContains(ClosedRange, long)`
-- `shortRangeContains(OpenEndRange, byte)`
-- `shortRangeContains(OpenEndRange, int)`
-- `shortRangeContains(OpenEndRange, long)`
-- `step(CharProgression, int)`
-- `step(IntProgression, int)`
-- `step(LongProgression, long)`
-- `toByteExactOrNull(double)`
-- `toByteExactOrNull(float)`
-- `toByteExactOrNull(int)`
-- `toByteExactOrNull(long)`
-- `toByteExactOrNull(short)`
-- `toIntExactOrNull(double)`
-- `toIntExactOrNull(float)`
-- `toIntExactOrNull(long)`
-- `toLongExactOrNull(double)`
-- `toLongExactOrNull(float)`
-- `toShortExactOrNull(double)`
-- `toShortExactOrNull(float)`
-- `toShortExactOrNull(int)`
-- `toShortExactOrNull(long)`
-- `until(byte, byte)`
-- `until(byte, int)`
-- `until(byte, long)`
-- `until(byte, short)`
-- `until(char, char)`
-- `until(int, byte)`
-- `until(int, int)`
-- `until(int, long)`
-- `until(int, short)`
-- `until(long, byte)`
-- `until(long, int)`
-- `until(long, long)`
-- `until(long, short)`
-- `until(short, byte)`
-- `until(short, int)`
-- `until(short, long)`
-- `until(short, short)`
 
 </details>
 
 
 ## `kotlin.sequences.SequencesKt`
 
-Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
+Real surface: 164 members — modeled 11, not-modeled 0, not-needed 51, tail 102.
 
 **Modeled** (`@BmcModelConforms`): `count(Sequence)`, `distinct(Sequence)`, `drop(Sequence, int)`, `filter(Sequence, Function1)`, `flatMap(Sequence, Function1)`, `map(Sequence, Function1)`, `sequenceOf(Object[])`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `toList(Sequence)`, `toSet(Sequence)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 153 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
+| Not needed (exotic) | Reason |
+|---|---|
+| `all(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Sequence, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Sequence, Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapIterableTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(Sequence, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(Sequence, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(Sequence, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Sequence, Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-- `all(Sequence, Function1)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 102 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
 - `any(Sequence)`
-- `any(Sequence, Function1)`
 - `asIterable(Sequence)`
 - `asSequence(Iterator)`
-- `associate(Sequence, Function1)`
-- `associateBy(Sequence, Function1)`
-- `associateBy(Sequence, Function1, Function1)`
-- `associateByTo(Sequence, Map, Function1)`
-- `associateByTo(Sequence, Map, Function1, Function1)`
-- `associateTo(Sequence, Map, Function1)`
-- `associateWith(Sequence, Function1)`
-- `associateWithTo(Sequence, Map, Function1)`
 - `averageOfByte(Sequence)`
 - `averageOfDouble(Sequence)`
 - `averageOfFloat(Sequence)`
@@ -2075,7 +2136,6 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
 - `chunked(Sequence, int, Function1)`
 - `constrainOnce(Sequence)`
 - `contains(Sequence, Object)`
-- `count(Sequence, Function1)`
 - `distinctBy(Sequence, Function1)`
 - `dropWhile(Sequence, Function1)`
 - `elementAt(Sequence, int)`
@@ -2083,65 +2143,37 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
 - `elementAtOrNull(Sequence, int)`
 - `emptySequence()`
 - `filterIndexed(Sequence, Function2)`
-- `filterIndexedTo(Sequence, Collection, Function2)`
 - `filterIsInstance(Sequence, Class)`
 - `filterIsInstanceTo(Sequence, Collection, Class)`
 - `filterNot(Sequence, Function1)`
 - `filterNotNull(Sequence)`
 - `filterNotNullTo(Sequence, Collection)`
-- `filterNotTo(Sequence, Collection, Function1)`
-- `filterTo(Sequence, Collection, Function1)`
 - `first(Sequence)`
-- `first(Sequence, Function1)`
 - `firstOrNull(Sequence)`
-- `firstOrNull(Sequence, Function1)`
 - `flatMapIndexed(Sequence, Function2, Function1)`
 - `flatMapIndexedIterable(Sequence, Function2)`
 - `flatMapIndexedSequence(Sequence, Function2)`
 - `flatMapIterable(Sequence, Function1)`
-- `flatMapIterableTo(Sequence, Collection, Function1)`
-- `flatMapTo(Sequence, Collection, Function1)`
 - `flatten(Sequence)`
 - `flattenSequenceOfIterable(Sequence)`
-- `fold(Sequence, Object, Function2)`
-- `foldIndexed(Sequence, Object, Function3)`
-- `forEach(Sequence, Function1)`
-- `forEachIndexed(Sequence, Function2)`
 - `generateSequence(Function0)`
 - `generateSequence(Function0, Function1)`
 - `generateSequence(Object, Function1)`
-- `groupBy(Sequence, Function1)`
-- `groupBy(Sequence, Function1, Function1)`
-- `groupByTo(Sequence, Map, Function1)`
-- `groupByTo(Sequence, Map, Function1, Function1)`
-- `groupingBy(Sequence, Function1)`
 - `ifEmpty(Sequence, Function0)`
 - `indexOf(Sequence, Object)`
-- `indexOfFirst(Sequence, Function1)`
-- `indexOfLast(Sequence, Function1)`
 - `iterator(Function2)`
 - `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `last(Sequence)`
-- `last(Sequence, Function1)`
 - `lastIndexOf(Sequence, Object)`
 - `lastOrNull(Sequence)`
-- `lastOrNull(Sequence, Function1)`
 - `mapIndexed(Sequence, Function2)`
 - `mapIndexedNotNull(Sequence, Function2)`
-- `mapIndexedNotNullTo(Sequence, Collection, Function2)`
-- `mapIndexedTo(Sequence, Collection, Function2)`
 - `mapNotNull(Sequence, Function1)`
-- `mapNotNullTo(Sequence, Collection, Function1)`
-- `mapTo(Sequence, Collection, Function1)`
-- `maxByOrNull(Sequence, Function1)`
-- `maxByOrThrow(Sequence, Function1)`
 - `maxOrNull(Sequence)`
 - `maxOrThrow(Sequence)`
 - `maxWithOrNull(Sequence, Comparator)`
 - `maxWithOrThrow(Sequence, Comparator)`
-- `minByOrNull(Sequence, Function1)`
-- `minByOrThrow(Sequence, Function1)`
 - `minOrNull(Sequence)`
 - `minOrThrow(Sequence)`
 - `minWithOrNull(Sequence, Comparator)`
@@ -2151,18 +2183,12 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
 - `minus(Sequence, Object[])`
 - `minus(Sequence, Sequence)`
 - `none(Sequence)`
-- `none(Sequence, Function1)`
 - `onEach(Sequence, Function1)`
 - `onEachIndexed(Sequence, Function2)`
-- `partition(Sequence, Function1)`
 - `plus(Sequence, Iterable)`
 - `plus(Sequence, Object)`
 - `plus(Sequence, Object[])`
 - `plus(Sequence, Sequence)`
-- `reduce(Sequence, Function2)`
-- `reduceIndexed(Sequence, Function3)`
-- `reduceIndexedOrNull(Sequence, Function3)`
-- `reduceOrNull(Sequence, Function2)`
 - `requireNoNulls(Sequence)`
 - `runningFold(Sequence, Object, Function2)`
 - `runningFoldIndexed(Sequence, Object, Function3)`
@@ -2175,16 +2201,10 @@ Real surface: 164 members — modeled 11, not-modeled 0, not-needed 0, tail 153.
 - `shuffled(Sequence)`
 - `shuffled(Sequence, Random)`
 - `single(Sequence)`
-- `single(Sequence, Function1)`
 - `singleOrNull(Sequence)`
-- `singleOrNull(Sequence, Function1)`
 - `sorted(Sequence)`
-- `sortedBy(Sequence, Function1)`
-- `sortedByDescending(Sequence, Function1)`
 - `sortedDescending(Sequence)`
 - `sortedWith(Sequence, Comparator)`
-- `sumBy(Sequence, Function1)`
-- `sumByDouble(Sequence, Function1)`
 - `sumOfByte(Sequence)`
 - `sumOfDouble(Sequence)`
 - `sumOfFloat(Sequence)`

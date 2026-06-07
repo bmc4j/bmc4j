@@ -1,7 +1,10 @@
 package kotlin.collections;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotNeeded;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -366,5 +369,502 @@ public final class CollectionsKt {
         }
         return changed;
     }
+
+    // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void all(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.all(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void any(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.any(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associate(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associate(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateBy(java.lang.Iterable,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateByTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateByTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateByTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2, kotlin.jvm.functions.Function1 a3) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateByTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateWith(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateWith(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void associateWithTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.associateWithTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void binarySearchBy(java.util.List a0, java.lang.Comparable a1, int a2, int a3, kotlin.jvm.functions.Function1 a4) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.binarySearchBy(java.util.List,java.lang.Comparable,int,int,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void contains(java.lang.Iterable a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.contains(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void count(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.count(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void distinctBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.distinctBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void dropLastWhile(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.dropLastWhile(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void dropWhile(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.dropWhile(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void elementAt(java.lang.Iterable a0, int a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.elementAt(java.lang.Iterable,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void elementAtOrNull(java.lang.Iterable a0, int a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.elementAtOrNull(java.lang.Iterable,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filter(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filter(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterIndexed(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterIndexedTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterIndexedTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterNot(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterNot(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterNotTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterNotTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void filterTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void first(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.first(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void firstOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.firstOrNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMap(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.flatMap(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMapSequence(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.flatMapSequence(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMapSequenceTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.flatMapSequenceTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void flatMapTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.flatMapTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void fold(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.fold(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void foldIndexed(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function3 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.foldIndexed(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void foldRight(java.util.List a0, java.lang.Object a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.foldRight(java.util.List,java.lang.Object,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void foldRightIndexed(java.util.List a0, java.lang.Object a1, kotlin.jvm.functions.Function3 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.foldRightIndexed(java.util.List,java.lang.Object,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void forEach(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.forEach(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void forEach(java.util.Iterator a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.forEach(java.util.Iterator,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void forEachIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.forEachIndexed(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void getOrNull(java.util.List a0, int a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.getOrNull(java.util.List,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupBy(java.lang.Iterable,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupByTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupByTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupByTo(java.lang.Iterable a0, java.util.Map a1, kotlin.jvm.functions.Function1 a2, kotlin.jvm.functions.Function1 a3) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupByTo(java.lang.Iterable,java.util.Map,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void groupingBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupingBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void indexOf(java.lang.Iterable a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOf(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void indexOf(java.util.List a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOf(java.util.List,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfFirst(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfFirst(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfFirst(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfFirst(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfLast(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfLast(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void indexOfLast(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfLast(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void last(java.lang.Iterable a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.lang.Iterable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void last(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void last(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void lastIndexOf(java.lang.Iterable a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastIndexOf(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
+    public static void lastIndexOf(java.util.List a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastIndexOf(java.util.List,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void lastOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastOrNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void lastOrNull(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastOrNull(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void map(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.map(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapIndexed(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexedNotNull(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapIndexedNotNull(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexedNotNullTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapIndexedNotNullTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapIndexedTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapIndexedTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapNotNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapNotNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapNotNullTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapNotNullTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void mapTo(java.lang.Iterable a0, java.util.Collection a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.mapTo(java.lang.Iterable,java.util.Collection,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void maxByOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.maxByOrNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void maxByOrThrow(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.maxByOrThrow(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void minByOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.minByOrNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void minByOrThrow(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.minByOrThrow(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void none(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.none(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void onEach(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.onEach(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void onEachIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.onEachIndexed(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void partition(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.partition(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduce(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduce(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceIndexed(java.lang.Iterable,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceIndexedOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceIndexedOrNull(java.lang.Iterable,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceOrNull(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceRight(java.util.List a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceRight(java.util.List,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceRightIndexed(java.util.List a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceRightIndexed(java.util.List,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceRightIndexedOrNull(java.util.List a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceRightIndexedOrNull(java.util.List,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void reduceRightOrNull(java.util.List a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.reduceRightOrNull(java.util.List,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void runningFold(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.runningFold(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void runningFoldIndexed(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function3 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.runningFoldIndexed(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void runningReduce(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.runningReduce(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void runningReduceIndexed(java.lang.Iterable a0, kotlin.jvm.functions.Function3 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.runningReduceIndexed(java.lang.Iterable,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void scan(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.scan(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void scanIndexed(java.lang.Iterable a0, java.lang.Object a1, kotlin.jvm.functions.Function3 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.scanIndexed(java.lang.Iterable,java.lang.Object,kotlin.jvm.functions.Function3) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void single(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.single(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void singleOrNull(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.singleOrNull(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortBy(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sortBy(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortByDescending(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sortByDescending(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortedBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sortedBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sortedByDescending(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sortedByDescending(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sumBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sumBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void sumByDouble(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.sumByDouble(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void takeLastWhile(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.takeLastWhile(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void takeWhile(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.takeWhile(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void zip(java.lang.Iterable a0, java.lang.Iterable a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.zip(java.lang.Iterable,java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void zip(java.lang.Iterable a0, java.lang.Object[] a1, kotlin.jvm.functions.Function2 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.zip(java.lang.Iterable,java.lang.Object[],kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcNotNeeded(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
+    public static void zipWithNext(java.lang.Iterable a0, kotlin.jvm.functions.Function2 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.zipWithNext(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
 }
 
