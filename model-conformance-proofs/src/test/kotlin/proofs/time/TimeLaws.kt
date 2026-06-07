@@ -100,11 +100,11 @@ class TimeLaws {
         Bmc.check(d.abs() == (if (d.isNegative) d.negated() else d))
     }
 
+    // isPositive (Java 18+) is proven in DurationIsPositiveLaws on the 21+ floor.
     @BmcProof
-    fun duration_isPositive_iff_millis_positive() {
+    fun duration_isZero_isNegative_iff_sign() {
         val s = anySec()
         val d = Duration.ofSeconds(s)
-        Bmc.check(d.isPositive == (s > 0L))
         Bmc.check(d.isZero == (s == 0L))
         Bmc.check(d.isNegative == (s < 0L))
     }
