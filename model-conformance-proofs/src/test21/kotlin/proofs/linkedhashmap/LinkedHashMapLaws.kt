@@ -10,6 +10,12 @@ import org.bmc4j.BmcProof
  * that order (first/last), the read-and-remove poll ops, and the (re)positioning putFirst/putLast
  * (a present key is moved to the addressed end). Concrete keys where the ordering relationship is the
  * point; the empty-map null split is symbolic-agnostic.
+ *
+ * The sequenced VIEW surface (sequencedKeySet/sequencedValues/sequencedEntrySet) is deliberately NOT
+ * proven here: those are java.util.SequencedMap default methods, and JBMC binds the real JDK default
+ * over the model override and havocs the returned view (a devirtualization artifact, same class as the
+ * TreeMap sorted-navigation tail). They are pinned on the differential axis (MapConformanceTest)
+ * instead, which runs the model on a real JVM where the override is honored.
  */
 class LinkedHashMapLaws {
 
@@ -75,17 +81,4 @@ class LinkedHashMapLaws {
         Bmc.check(m.size == 3 && m[1] == 11)
     }
 
-    @BmcProof
-    fun sequenced_views_carry_the_mappings() {
-        val m = LinkedHashMap<Int, Int>()
-        m[1] = 10
-        m[2] = 20
-        Bmc.check(m.sequencedKeySet().size == 2 && m.sequencedKeySet().contains(1))
-        Bmc.check(m.sequencedValues().contains(20))
-        var sum = 0
-        for (e in m.sequencedEntrySet()) {
-            sum += e.value
-        }
-        Bmc.check(sum == 30)
-    }
 }

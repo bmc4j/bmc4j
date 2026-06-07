@@ -93,18 +93,28 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     // The sequenced views: the inherited keySet/values/entrySet already iterate the backing arrays in
     // insertion order, so the order-preserving sequenced snapshots are exactly those.
+    //
+    // Differential-only (no @BmcProof): these are declared on java.util.SequencedMap, which the real
+    // JDK ships as DEFAULT methods on the analysis classpath. JBMC binds the call to that real
+    // SequencedMap default instead of dispatching to this model override, and the default havocs the
+    // returned view — so even `m.sequencedKeySet().size() == 2` is refutable under JBMC (counterexample
+    // injects an out-of-range size). This is the same dynamic-dispatch/devirtualization artifact the
+    // TreeMap sorted-navigation tail documents, not a model defect: the very same view body reached via
+    // the modeled Map.keySet()/values()/entrySet() (declared in the bmc4j Map interface) verifies green.
+    // The behaviour is pinned on the differential axis (MapConformanceTest), which runs the model on a
+    // real JVM where the override is honored.
 
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.linkedhashmap)")
+    @BmcModelConforms("differential (MapConformanceTest) — not @BmcProof: JBMC binds the real SequencedMap default over this override and havocs the view (devirtualization artifact)")
     public Set<K> sequencedKeySet() {
         return keySet();
     }
 
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.linkedhashmap)")
+    @BmcModelConforms("differential (MapConformanceTest) — not @BmcProof: JBMC binds the real SequencedMap default over this override and havocs the view (devirtualization artifact)")
     public Collection<V> sequencedValues() {
         return values();
     }
 
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.linkedhashmap)")
+    @BmcModelConforms("differential (MapConformanceTest) — not @BmcProof: JBMC binds the real SequencedMap default over this override and havocs the view (devirtualization artifact)")
     public Set<Map.Entry<K, V>> sequencedEntrySet() {
         return entrySet();
     }

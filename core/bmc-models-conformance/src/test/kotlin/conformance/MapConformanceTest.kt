@@ -265,6 +265,32 @@ class MapConformanceTest : FunSpec({
             val mIt = call(mKeysC, "iterator", arrayOf()).getOrThrow()!!
             val mKeys = (0 until mn).map { call(mIt, "next", arrayOf()).getOrThrow() }
             mKeys shouldBe rKeys.toList()
+
+            // sequencedValues is the insertion-ordered value snapshot — element-by-element.
+            val rVals = call(r, "sequencedValues", arrayOf()).getOrThrow() as java.util.Collection<*>
+            val mValsC = call(m, "sequencedValues", arrayOf()).getOrThrow()!!
+            val mvn = call(mValsC, "size", arrayOf()).getOrThrow() as Int
+            val mvIt = call(mValsC, "iterator", arrayOf()).getOrThrow()!!
+            val mVals = (0 until mvn).map { call(mvIt, "next", arrayOf()).getOrThrow() }
+            mVals shouldBe rVals.toList()
+
+            // sequencedEntrySet: same (key,value) pairs in insertion order. Entry types differ by the
+            // bmcref. relocation, so read key/value reflectively via getKey/getValue on both sides.
+            val rEntC = call(r, "sequencedEntrySet", arrayOf()).getOrThrow()!!
+            val ren = call(rEntC, "size", arrayOf()).getOrThrow() as Int
+            val reIt = call(rEntC, "iterator", arrayOf()).getOrThrow()!!
+            val rEntries = (0 until ren).map {
+                val e = call(reIt, "next", arrayOf()).getOrThrow()!!
+                call(e, "getKey", arrayOf()).getOrThrow() to call(e, "getValue", arrayOf()).getOrThrow()
+            }
+            val mEntC = call(m, "sequencedEntrySet", arrayOf()).getOrThrow()!!
+            val men = call(mEntC, "size", arrayOf()).getOrThrow() as Int
+            val meIt = call(mEntC, "iterator", arrayOf()).getOrThrow()!!
+            val mEntries = (0 until men).map {
+                val e = call(meIt, "next", arrayOf()).getOrThrow()!!
+                call(e, "getKey", arrayOf()).getOrThrow() to call(e, "getValue", arrayOf()).getOrThrow()
+            }
+            mEntries shouldBe rEntries
         }
     }
 
