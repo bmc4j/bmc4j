@@ -61,11 +61,29 @@ val prepareEngine by tasks.registering {
                 logger.lifecycle("Downloading $url")
                 val client = HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NORMAL).build()
-                val resp = client.send(
-                    HttpRequest.newBuilder(url).GET().build(),
-                    HttpResponse.BodyHandlers.ofFile(deb.toPath()))
-                if (resp.statusCode() != 200) {
-                    throw GradleException("Download failed (${resp.statusCode()}) for $url")
+                // Transient 5xx / IOExceptions from the release CDN flake CI; retry a
+                // few times with a short backoff. 4xx is a real error and fails at once.
+                val backoffMs = longArrayOf(5_000, 15_000)
+                var attempt = 0
+                while (true) {
+                    try {
+                        val resp = client.send(
+                            HttpRequest.newBuilder(url).GET().build(),
+                            HttpResponse.BodyHandlers.ofFile(deb.toPath()))
+                        val code = resp.statusCode()
+                        if (code == 200) break
+                        if (code < 500 || attempt >= backoffMs.size) {
+                            throw GradleException("Download failed ($code) for $url")
+                        }
+                        logger.lifecycle("Download got HTTP $code, retrying in ${backoffMs[attempt] / 1000}s (attempt ${attempt + 2}/${backoffMs.size + 1}) for $url")
+                    } catch (e: java.io.IOException) {
+                        if (attempt >= backoffMs.size) throw GradleException("Download failed (${e.message}) for $url")
+                        logger.lifecycle("Download failed (${e.message}), retrying in ${backoffMs[attempt] / 1000}s (attempt ${attempt + 2}/${backoffMs.size + 1}) for $url")
+                    }
+                    // BodyHandlers.ofFile may have written a partial file; drop it before retrying.
+                    deb.delete()
+                    Thread.sleep(backoffMs[attempt])
+                    attempt++
                 }
             }
 
