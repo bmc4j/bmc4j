@@ -17,6 +17,7 @@ import kotlin.collections.IndexedValue;
 import kotlin.jvm.functions.Function0;
 import kotlin.jvm.functions.Function1;
 import kotlin.jvm.functions.Function2;
+import kotlin.jvm.functions.Function3;
 import org.cprover.CProver;
 
 /**
@@ -916,5 +917,224 @@ public final class SequencesKt {
     public static <T> Sequence<T> generateSequence(
             Function0<? extends T> seedFunction, Function1<? super T, ? extends T> nextFunction) {
         return generateSequence((T) seedFunction.invoke(), nextFunction);
+    }
+
+    // ---- distinctBy(selector): distinct elements keyed by selector(element), keeping the FIRST element
+    // per distinct key, in first-occurrence order. Real chain is a lazy DistinctSequence backed by a
+    // HashSet of keys; we evaluate eagerly with a bounded LinkedHashSet of seen keys. The selector is the
+    // desugared user lambda, genuinely applied. (distinct() — no selector — is already modeled above.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, K> Sequence<T> distinctBy(Sequence<T> source, Function1<? super T, ? extends K> selector) {
+        LinkedHashSet<K> seenKeys = new LinkedHashSet<>();
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            K key = selector.invoke(v);
+            if (seenKeys.add(key)) {
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- filterNot(predicate): the complement of filter — keep elements for which the predicate is
+    // FALSE. Real chain is a lazy FilteringSequence(sendWhen=false); we evaluate eagerly. The predicate is
+    // the desugared user lambda, genuinely applied.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> filterNot(Sequence<T> source, Function1<? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            if (!predicate.invoke(v)) {
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- filterNotNull(): drop null elements, keeping order. stdlib defines it as filterNot { it==null };
+    // we model it directly (and soundly) as a null-dropping pass over the bounded source.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> filterNotNull(Sequence<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            if (v != null) {
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- mapNotNull(transform): map each element then drop null results, keeping order. stdlib defines
+    // it as TransformingSequence(transform).filterNotNull(); we fuse the two passes eagerly. The transform
+    // is the desugared user lambda, genuinely applied.
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> mapNotNull(Sequence<T> source, Function1<? super T, ? extends R> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            R r = (R) transform.invoke(it.next());
+            if (r != null) {
+                out.add(r);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- mapIndexedNotNull(transform): index-aware mapNotNull. stdlib defines it as
+    // TransformingIndexedSequence(transform).filterNotNull(); we fuse the two passes eagerly, indexing from
+    // 0 in iteration order. The transform is the desugared user lambda (Function2), genuinely applied.
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> mapIndexedNotNull(
+            Sequence<T> source, Function2<? super Integer, ? super T, ? extends R> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        int index = 0;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            R r = (R) transform.invoke(index, it.next());
+            if (r != null) {
+                out.add(r);
+            }
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- flatMapIndexedIterable / flatMapIndexedSequence: index-aware flatMap. The Kotlin compiler picks
+    // the JVM name by the transform's return type — @JvmName("flatMapIndexedIterable") for a transform
+    // yielding Iterable<R>, @JvmName("flatMapIndexedSequence") for one yielding Sequence<R> (the bare
+    // `flatMapIndexed(Sequence,Function2,Function1)` is the shared private iterator-extractor helper, never
+    // a Kotlin call site → stays loud in the tail). We concatenate each element's expansion in order,
+    // indexing from 0. The transform is the desugared user lambda (Function2), genuinely applied.
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> flatMapIndexedIterable(
+            Sequence<T> source, Function2<? super Integer, ? super T, ? extends Iterable<? extends R>> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        int index = 0;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            Iterable<? extends R> inner = transform.invoke(index, it.next());
+            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
+                out.add(in.next());
+            }
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> flatMapIndexedSequence(
+            Sequence<T> source, Function2<? super Integer, ? super T, ? extends Sequence<? extends R>> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        int index = 0;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            Sequence<? extends R> inner = transform.invoke(index, it.next());
+            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
+                out.add(in.next());
+            }
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- runningFold / scan (+ Indexed forms): successive accumulation values. The result begins with the
+    // INITIAL value, then each step's accumulator after applying operation left-to-right — so a source of
+    // length n yields n+1 elements. scan/scanIndexed are aliases for runningFold/runningFoldIndexed in
+    // stdlib; we mirror that. These are finite, eager-sound intermediate ops (NOT laziness-observable: the
+    // n+1 prefix is fully determined by the bounded source). The operation is the desugared user lambda.
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> runningFold(
+            Sequence<T> source, R initial, Function2<? super R, ? super T, ? extends R> operation) {
+        ArrayList<R> out = new ArrayList<>();
+        R acc = initial;
+        out.add(acc);
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            acc = (R) operation.invoke(acc, it.next());
+            out.add(acc);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> runningFoldIndexed(
+            Sequence<T> source, R initial, Function3<? super Integer, ? super R, ? super T, ? extends R> operation) {
+        ArrayList<R> out = new ArrayList<>();
+        R acc = initial;
+        out.add(acc);
+        int index = 0;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            acc = (R) operation.invoke(index, acc, it.next());
+            out.add(acc);
+            index++;
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> scan(
+            Sequence<T> source, R initial, Function2<? super R, ? super T, ? extends R> operation) {
+        return runningFold(source, initial, operation);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> scanIndexed(
+            Sequence<T> source, R initial, Function3<? super Integer, ? super R, ? super T, ? extends R> operation) {
+        return runningFoldIndexed(source, initial, operation);
+    }
+
+    // ---- requireNoNulls(): identity over the elements, but throws IllegalArgumentException on the FIRST
+    // null. stdlib defines it as map { it ?: throw IAE }. Eager over the bounded source; a fully non-null
+    // source passes through unchanged.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> requireNoNulls(Sequence<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T v = it.next();
+            if (v == null) {
+                throw new IllegalArgumentException("null element found in " + source + ".");
+            }
+            out.add(v);
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- asIterable(): expose the sequence's elements as an Iterable. The real impl wraps the SAME lazy
+    // sequence's iterator(); we drain into a fresh bounded ArrayList (an Iterable) — observationally
+    // identical for a TERMINATING sequence under the bounded models. (asSequence() the inverse is InlineOnly
+    // and stays not-needed.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Iterable<T> asIterable(Sequence<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    // ---- ifEmpty(defaultValue): yield the source's elements if non-empty, else yield defaultValue()'s.
+    // Kotlin's contract: defaultValue is invoked ONLY when the source is empty. We honour that by draining
+    // the source first and calling defaultValue() exclusively on the empty branch — eager-sound for
+    // terminating sequences. (constrainOnce stays loud: its once-only-iteration semantics are
+    // laziness/iteration-count observable and cannot be modeled eagerly.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> ifEmpty(Sequence<T> source, Function0<? extends Sequence<? extends T>> defaultValue) {
+        ArrayList<T> out = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        if (it.hasNext()) {
+            while (it.hasNext()) {
+                out.add(it.next());
+            }
+        } else {
+            for (Iterator<? extends T> d = defaultValue.invoke().iterator(); d.hasNext(); ) {
+                out.add(d.next());
+            }
+        }
+        return new ListSequence<>(out);
     }
 }
