@@ -609,6 +609,41 @@ Real surface: 54 members — modeled 37, unmodelable 7, not-needed 0, tail 10.
 </details>
 
 
+## `java.util.TreeSet`
+
+Real surface: 44 members — modeled 24, unmodelable 7, not-needed 0, tail 13.
+
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `descendingIterator()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `headSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.headMap); loud under JBMC |
+| `subSet(Object, Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC |
+| `tailSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC |
+| `toArray()` | array snapshot — iterate the model instead |
+| `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the NavigableSet bulk views (descendingSet/reversed), the SequencedCollection positioning ops (addFirst/addLast/getFirst/getLast/removeFirst/removeLast — a sorted set cannot honor an explicit position), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — all live views / out of scope for this bounded backing store; all loud under JBMC</summary>
+
+- `addFirst(Object)`
+- `addLast(Object)`
+- `descendingSet()`
+- `getFirst()`
+- `getLast()`
+- `headSet(Object, boolean)`
+- `removeFirst()`
+- `removeLast()`
+- `reversed()`
+- `spliterator()`
+- `subSet(Object, boolean, Object, boolean)`
+- `tailSet(Object, boolean)`
+- `toArray(IntFunction)`
+
+</details>
+
+
 ## `java.util.concurrent.ArrayBlockingQueue`
 
 Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
