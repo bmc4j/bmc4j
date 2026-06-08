@@ -14,6 +14,9 @@ val COVERED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // java.lang.Float/Double — sound bit-free IEEE total-order compare (jbmc's native compare +
+    // floatToIntBits are unsound); model proofs in proofs.primitives.FloatDoubleCompareLaws.
+    "java.lang.Float", "java.lang.Double",
     // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
     "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
@@ -133,6 +136,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.Arrays",
     "java.math.BigInteger", "java.math.BigDecimal",
+    "java.lang.Float", "java.lang.Double",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
     "java.util.Random",
