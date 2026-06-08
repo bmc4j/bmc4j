@@ -27,6 +27,15 @@ public final class LocalDate implements ChronoLocalDate {
     // DAYS from year 0000-01-01 (proleptic) to 1970-01-01.
     private static final long DAYS_0000_TO_1970 = (146097L * 5L) - (30L * 365L + 7L);
 
+    // Public range constants + the epoch, mirroring the JDK's LocalDate.MIN/MAX/EPOCH. Backed by the
+    // exact epoch-day of each (MIN = -999999999-01-01, MAX = +999999999-12-31, EPOCH = 1970-01-01),
+    // built through the raw epoch-day constructor so the static init never runs the wide-constant
+    // toEpochDay decode. The audit gate/docs track methods, not fields, so these carry no @Bmc*
+    // annotation; the differential suite pins their epoch-days bit-for-bit against the JDK.
+    public static final LocalDate MIN = new LocalDate(-365_243_219_162L);
+    public static final LocalDate MAX = new LocalDate(365_241_780_471L);
+    public static final LocalDate EPOCH = new LocalDate(0L);
+
     final long epochDay;
 
     private LocalDate(long epochDay) {

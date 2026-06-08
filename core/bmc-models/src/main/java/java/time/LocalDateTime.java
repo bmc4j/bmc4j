@@ -33,6 +33,14 @@ public final class LocalDateTime implements ChronoLocalDateTime<LocalDate> {
     private static final long NANOS_PER_HOUR = 60L * NANOS_PER_MINUTE;
     private static final long NANOS_PER_DAY = 24L * NANOS_PER_HOUR;
 
+    // Public range constants, mirroring the JDK's LocalDateTime.MIN/MAX = LocalDate.MIN/MAX at
+    // LocalTime.MIN/MAX. MIN = -999999999-01-01T00:00 (epoch-day -365243219162, nano-of-day 0);
+    // MAX = +999999999-12-31T23:59:59.999999999 (epoch-day 365241780471, last nano of the day). The
+    // audit gate/docs track methods, not fields, so these carry no @Bmc* annotation; the differential
+    // suite pins their (epoch-day, nano-of-day) pair bit-for-bit against the JDK.
+    public static final LocalDateTime MIN = new LocalDateTime(-365_243_219_162L, 0L);
+    public static final LocalDateTime MAX = new LocalDateTime(365_241_780_471L, NANOS_PER_DAY - 1L);
+
     final long epochDay;     // date as days from 1970-01-01 (proleptic Gregorian)
     final long nanoOfDay;    // time within the day, [0, NANOS_PER_DAY)
 
