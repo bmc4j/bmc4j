@@ -1,5 +1,6 @@
 package conformance
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
@@ -663,6 +664,79 @@ class ConcurrencyConformanceTest : FunSpec({
                 call(mf, "get", arrayOf()).getOrThrow() shouldBe realResult
             } finally {
                 real.shutdownNow()
+            }
+        }
+    }
+
+    // --- ConcurrentHashMap KeySetView (keySet() / keySet(mappedValue) / newKeySet()) ----------------
+    // The view returned by keySet()/keySet(mappedValue)/newKeySet() is a bounded Set snapshot of the
+    // backing keys (mirroring HashMap.keySet). Differentially: the keySet() view's size + per-key
+    // membership match the JDK CHM's keySet; keySet(mappedValue).add(key) installs (key, mappedValue)
+    // into the backing map AND adds to the view; newKeySet() is a fresh mutable key set whose add/
+    // contains/remove surface matches a real newKeySet. Iteration order isn't modeled, so membership
+    // (not order) is compared.
+    //
+    // The JDK's ConcurrentHashMap$KeySetView resists reflective invoke of its Set methods (declaring
+    // class IllegalAccessException, the Diff.publicMethod quirk), so on the REAL side we drive the view
+    // through its statically-typed java.util.Set surface directly; the MODEL view is exercised
+    // reflectively as usual (its relocated type is freely invokable).
+    test("ConcurrentHashMap keySet() view snapshots the keys like the JDK") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..30)) { pairs ->
+            val r = java.util.concurrent.ConcurrentHashMap<Any?, Any?>()
+            val m = bmcref.java.util.concurrent.ConcurrentHashMap<Any?, Any?>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            val rKeys = r.keys
+            val mKeys = call(m, "keySet", arrayOf()).getOrThrow()!!
+            (call(mKeys, "size", arrayOf()).getOrThrow() as Int) shouldBe rKeys.size
+            for (k in -3..5) {
+                (call(mKeys, "contains", arrayOf(OBJECT), k).getOrThrow() as Boolean) shouldBe rKeys.contains(k)
+            }
+        }
+    }
+
+    // keySet(mappedValue): add(key) writes (key, mappedValue) THROUGH to the backing map. Add a set of
+    // keys via the view on both the JDK CHM and the model, then the backing map's get(key) must equal
+    // the mapped value for every added key, and the view's membership must match — pinning the
+    // write-through default-mapping semantics.
+    test("ConcurrentHashMap keySet(mappedValue).add writes through to the backing map like the JDK") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { keys ->
+            val r = java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            val m = bmcref.java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            val rView = r.keySet(7)
+            val mView = call(m, "keySet", arrayOf(OBJECT), 7).getOrThrow()!!
+            for (k in keys) {
+                (call(mView, "add", arrayOf(OBJECT), k).getOrThrow() as Boolean) shouldBe rView.add(k)
+            }
+            // Backing map now maps every added key to the default value 7; absent keys are null.
+            for (k in -3..5) {
+                assertEquivalent("backing.get($k)", runCatching { r.get(k) }, call(m, "get", arrayOf(OBJECT), k))
+                (call(mView, "contains", arrayOf(OBJECT), k).getOrThrow() as Boolean) shouldBe rView.contains(k)
+            }
+            (call(mView, "size", arrayOf()).getOrThrow() as Int) shouldBe rView.size
+        }
+    }
+
+    // newKeySet(): a fresh, mutable key set (backed by a CHM mapping keys to Boolean.TRUE). Its add/
+    // contains/remove surface must match a real ConcurrentHashMap.newKeySet across an op sequence.
+    test("ConcurrentHashMap.newKeySet() conforms as a mutable key set") {
+        val e = Arb.int(-3..5)
+        val op = Arb.choice(
+            e.map { Triple("add", it, { s: java.util.concurrent.ConcurrentHashMap.KeySetView<Int, Boolean> -> s.add(it) }) },
+            e.map { Triple("contains", it, { s: java.util.concurrent.ConcurrentHashMap.KeySetView<Int, Boolean> -> s.contains(it) }) },
+            e.map { Triple("remove", it, { s: java.util.concurrent.ConcurrentHashMap.KeySetView<Int, Boolean> -> s.remove(it) }) },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+            val m = staticCall(bmcref.java.util.concurrent.ConcurrentHashMap::class.java, "newKeySet", arrayOf()).getOrThrow()!!
+            ops.forEachIndexed { i, (method, arg, realOp) ->
+                val rRes = realOp(r)
+                val mRes = call(m, method, arrayOf(OBJECT), arg).getOrThrow()
+                withClue("op[$i]=$method($arg)") { mRes shouldBe rRes }
+            }
+            (call(m, "size", arrayOf()).getOrThrow() as Int) shouldBe r.size
+            for (k in -3..5) {
+                (call(m, "contains", arrayOf(OBJECT), k).getOrThrow() as Boolean) shouldBe r.contains(k)
             }
         }
     }

@@ -425,6 +425,88 @@ Real surface: 214 members — modeled 153, unmodelable 0, not-needed 0, tail 61.
 </details>
 
 
+## `java.util.Collections`
+
+Real surface: 71 members — modeled 1, unmodelable 0, not-needed 0, tail 70.
+
+**Modeled** (`@BmcModelConforms`): `enumeration(Collection)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 70 members, all loud): exotic remainder: sort/binarySearch/unmodifiable*/synchronized*/singleton*/shuffle/etc. static utilities — out of scope for the bounded model; all loud under JBMC</summary>
+
+- `addAll(Collection, Object[])`
+- `asLifoQueue(Deque)`
+- `binarySearch(List, Object)`
+- `binarySearch(List, Object, Comparator)`
+- `checkedCollection(Collection, Class)`
+- `checkedList(List, Class)`
+- `checkedMap(Map, Class, Class)`
+- `checkedNavigableMap(NavigableMap, Class, Class)`
+- `checkedNavigableSet(NavigableSet, Class)`
+- `checkedQueue(Queue, Class)`
+- `checkedSet(Set, Class)`
+- `checkedSortedMap(SortedMap, Class, Class)`
+- `checkedSortedSet(SortedSet, Class)`
+- `copy(List, List)`
+- `disjoint(Collection, Collection)`
+- `emptyEnumeration()`
+- `emptyIterator()`
+- `emptyList()`
+- `emptyListIterator()`
+- `emptyMap()`
+- `emptyNavigableMap()`
+- `emptyNavigableSet()`
+- `emptySet()`
+- `emptySortedMap()`
+- `emptySortedSet()`
+- `fill(List, Object)`
+- `frequency(Collection, Object)`
+- `indexOfSubList(List, List)`
+- `lastIndexOfSubList(List, List)`
+- `list(Enumeration)`
+- `max(Collection)`
+- `max(Collection, Comparator)`
+- `min(Collection)`
+- `min(Collection, Comparator)`
+- `nCopies(int, Object)`
+- `newSequencedSetFromMap(SequencedMap)`
+- `newSetFromMap(Map)`
+- `replaceAll(List, Object, Object)`
+- `reverse(List)`
+- `reverseOrder()`
+- `reverseOrder(Comparator)`
+- `rotate(List, int)`
+- `shuffle(List)`
+- `shuffle(List, Random)`
+- `shuffle(List, RandomGenerator)`
+- `singleton(Object)`
+- `singletonList(Object)`
+- `singletonMap(Object, Object)`
+- `sort(List)`
+- `sort(List, Comparator)`
+- `swap(List, int, int)`
+- `synchronizedCollection(Collection)`
+- `synchronizedList(List)`
+- `synchronizedMap(Map)`
+- `synchronizedNavigableMap(NavigableMap)`
+- `synchronizedNavigableSet(NavigableSet)`
+- `synchronizedSet(Set)`
+- `synchronizedSortedMap(SortedMap)`
+- `synchronizedSortedSet(SortedSet)`
+- `unmodifiableCollection(Collection)`
+- `unmodifiableList(List)`
+- `unmodifiableMap(Map)`
+- `unmodifiableNavigableMap(NavigableMap)`
+- `unmodifiableNavigableSet(NavigableSet)`
+- `unmodifiableSequencedCollection(SequencedCollection)`
+- `unmodifiableSequencedMap(SequencedMap)`
+- `unmodifiableSequencedSet(SequencedSet)`
+- `unmodifiableSet(Set)`
+- `unmodifiableSortedMap(SortedMap)`
+- `unmodifiableSortedSet(SortedSet)`
+
+</details>
+
+
 ## `java.util.HashMap`
 
 Real surface: 25 members — modeled 20, unmodelable 4, not-needed 0, tail 1.
@@ -762,9 +844,9 @@ Real surface: 79 members — modeled 29, unmodelable 0, not-needed 0, tail 50.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 55, unmodelable 4, not-needed 0, tail 3.
+Real surface: 62 members — modeled 56, unmodelable 4, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -773,10 +855,9 @@ Real surface: 62 members — modeled 55, unmodelable 4, not-needed 0, tail 3.
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 | `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 3 members, all loud): the live KeySetView views (keySet(defaultValue)) and the Enumeration views (keys()/elements()) — view/iterator-exotic, out of scope for the bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the Enumeration views (keys()/elements()) — iterator-exotic, out of scope for the bounded model; all loud under JBMC</summary>
 
 - `elements()`
-- `keySet(Object)`
 - `keys()`
 
 </details>
