@@ -219,10 +219,11 @@ Bounded model checking is a power tool with a real contract. The short version:
 - **Three-way verdict.** A proof is **verified**, **refuted** (with a counterexample),
   or **UNKNOWN** — undecided within budget. UNKNOWN fails the test but says so
   distinctly: a solver timeout is not "your code is wrong."
-- **Solver time can blow up** on specific shapes — symbolic division/modulo and long
-  symbolic strings are the classic ones. The levers, in order: shrink the symbolic
-  range (`anyInt(lo, hi)` beats `anyInt()` + `assume`), summarize heavy callees with a
-  [contract](docs/contracts.md), set a `timeoutSeconds` budget.
+- **Solver time can blow up** on specific shapes — symbolic multiply/divide/modulo and
+  long symbolic strings are the classic ones. There's a **toolbox** for it (range
+  reduction, domain splitting, contracts, parallelism/sharding/caching —
+  different levers for different blow-ups, and they compose); a `timeoutSeconds` budget
+  turns a runaway solve into a named UNKNOWN. See [docs/performance.md](docs/performance.md).
 - **The JDK is modeled, not loaded.** bmc4j ships sound bounded models for the common
   surface (collections, `Optional`, `Stream`, `BigInteger`/`BigDecimal`, `java.time`,
   Kotlin stdlib) and **detects** anything unmodeled instead of letting it pass silently
@@ -248,9 +249,11 @@ it take minutes. **That's normal, it isn't a bug in your code, and it's very tun
 the same proof over a sensible input range typically solves orders of magnitude faster
 while still covering every value you'll ever see, and a timeout turns a runaway solve
 into a clean, named UNKNOWN instead of a hung build. Don't let one slow proof scare you
-off — [docs/performance.md](docs/performance.md) is the decision tree: which shapes
-explode, the levers in order of payoff, and what the tool already does for you (the
-verdict cache means the expensive solve happens once per change, not once per run).
+off: hard proofs are tractable because bmc4j gives you a **toolbox** for them — caching,
+parallelism, sharding, domain splitting, and contracts, each aimed at a
+different blow-up and **composable**. [docs/performance.md](docs/performance.md) is the
+decision tree — which shape explodes, which lever fixes it, and how to stack them (a
+domain split can reclaim a slow proof's full range by solving each slice independently).
 
 ## Documentation
 
@@ -258,8 +261,8 @@ verdict cache means the expensive solve happens once per change, not once per ru
 |---|---|
 | [docs/api.md](docs/api.md) | the full `Bmc.*` API: symbolic inputs, `assume`/`check`, symbolic objects & strings, config readers, floating-point rules, stub detection |
 | [docs/contracts.md](docs/contracts.md) | modular proofs: `@Requires`/`@Ensures` method contracts — prove once, reuse at every call site |
-| [docs/configuration.md](docs/configuration.md) | the `bmc { }` block: unwind, parallelism, the external SAT solver, the verdict cache, timeouts, stub policy |
-| [docs/performance.md](docs/performance.md) | when proofs get slow: why formula size explodes and the tuning levers in order of payoff |
+| [docs/configuration.md](docs/configuration.md) | the `bmc { }` block: unwind, parallelism, the verdict cache, timeouts, stub policy |
+| [docs/performance.md](docs/performance.md) | performance & scaling: the toolbox for slow / out-of-memory proofs — caching, parallelism, sharding, domain splitting, contracts — which lever for which blow-up, and how they compose |
 | [docs/trust.md](docs/trust.md) | trust & isolation: the bundled-engine model, `jbmcPath` escape hatch |
 | [docs/model-soundness.md](docs/model-soundness.md) | how we know the models are sound: differential conformance vs the real JDK + the models' own laws proven under the engine, gated in CI |
 | [docs/internals.md](docs/internals.md) | how it works, module layout, platform support, verified Java/Kotlin ranges |

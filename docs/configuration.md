@@ -6,7 +6,6 @@ bmc {
     parallelism = 8                   // proofs verified concurrently (default: CPU count; 1 = serial)
     timeoutSeconds = 120              // default per-proof budget (default: 0 = no timeout)
     cache = true                      // skip re-verifying unchanged green proofs (default: true)
-    // externalSat = "/path/to/cryptominisat" // hand the SAT problem to an external solver
     // jbmcPath = "/opt/cbmc/bin/jbmc" // use a local binary instead of the bundled engine
 
     // Nondet-stub detection (default: lenient — green + footnote)
@@ -38,13 +37,12 @@ custom build, or a binary placed on an air-gapped machine.
 
 ## Solver
 
-Proofs run on JBMC's built-in SAT solver (MiniSat). There is **no in-engine solver
-swap** — JBMC's SMT path is inert on this engine — so the one supported alternative is
-handing the SAT problem to an **external solver binary**:
-`bmc { externalSat = "/path/to/cryptominisat" }`. Worth trying for heavy, string-free
-numeric proofs (~25% in our measurements); for everything else the bigger lever is
-shrinking the symbolic range (`anyInt(lo, hi)` over `anyInt()`) or summarizing the
-heavy callee with a [contract](contracts.md).
+Proofs run on JBMC's built-in SAT solver (MiniSat). There is **no consumer-facing solver
+swap** today — JBMC's SMT path is inert on this engine. When a proof's solve time blows up,
+the levers are shrinking the symbolic range (`anyInt(lo, hi)` over `anyInt()`),
+[splitting the domain](performance.md#4-domain-splitting--for-interval-bound-blow-ups-and-memory),
+or summarizing the heavy callee with a [contract](contracts.md). See
+[performance → the toolbox](performance.md#the-toolbox--which-lever-for-which-blow-up).
 
 ## Parallelism
 
@@ -57,8 +55,8 @@ proofs strain memory; set `1` for serial.
 A proof's deterministic verdict is a pure function of its inputs, so re-verifying a passing
 proof whose inputs haven't changed buys nothing — and BMC is the expensive kind of test. By default
 bmc4j caches each **expectation-matching pass** under `build/bmc4j/verdict-cache/` and skips its engine
-run on the next build when nothing relevant changed, so a "nothing changed" run is near-free (in our
-model-proof suite, a warm second pass runs 131 proofs in ~2s instead of ~80s). A *pass* means
+run on the next build when nothing relevant changed, so a "nothing changed" run is near-free — a
+warm second pass skips the engine entirely and finishes in a fraction of the cold time. A *pass* means
 `VERIFIED` for a normal proof, or `REFUTED`/`VACUOUS` for a fail-on-purpose demo whose
 [`expect`](api.md) declares exactly that verdict — a refutation is as deterministic a fact as
 a verification, and the demo's pass *is* the refutation. The cache key composes everything

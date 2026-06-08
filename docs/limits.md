@@ -3,21 +3,33 @@
 These are inherent to bounded model checking or to the current engine — listed in
 full, because a proof tool that hides its limits is worse than no proof tool.
 
+A word on the difference between a **boundary** and a **scaling cost**. Some things below
+are genuinely *out of scope* — `double`/`float` and transcendental math, time zones/DST,
+thread-interleaving concurrency, residual `invokedynamic`. Those are honest hard edges and
+they're called out as such. But "this proof is slow / runs out of memory" is **not** a
+boundary — it's a scaling cost with a [toolbox](performance.md) of levers (range reduction,
+domain splitting, contracts, parallelism, sharding, caching). Where a limit
+below is really a scaling cost, it points at the lever.
+
 - **Bounded, not unbounded.** Loops/recursion are unwound to `unwind`. Proofs pass
   `--unwinding-assertions` by default, so an insufficient bound is reported rather
   than silently trusted - as **UNKNOWN** (incompleteness: exploration was truncated,
-  nothing was proven wrong), never as a refutation.
+  nothing was proven wrong), never as a refutation. This is a *property* of BMC, not a
+  dead end: when a recursive or deeply-nested callee is what's pushing the bound, a
+  `@Requires`/`@Ensures` [contract](contracts.md) summarizes it (induction over the call
+  boundary) so callers don't re-unwind it — see
+  [performance → contracts](performance.md#6-contracts--for-recursion--unbounded-depth).
 - **Three-way verdict — UNKNOWN is a first-class outcome, not a pass.** A proof is
   **verified**, **refuted** (with a counterexample), or **UNKNOWN** — undecided within
   budget: it timed out (see [configuration → Timeout](configuration.md#timeout)), the
   solver gave up or crashed, or the engine produced output bmc4j couldn't parse. UNKNOWN
   **fails** the test (soundness: the absence of a verdict is not a proof), but with a
   deliberately distinct message — **no counterexample** (nothing was proven wrong) plus
-  guidance to make it decidable (raise `unwind`, raise `timeoutSeconds`, shrink the
-  symbolic range with `assume`, split the proof, add a `@Requires`/`@Ensures` contract
-  for the heavy callee, or switch to an external SAT solver) — and a distinct exception
-  type, `BmcUndecidedError`. So a resource exhaustion in CI is never mistaken for "your
-  code is wrong". See [`examples/fundamentals-java`](../examples/fundamentals-java) `timeout`.
+  guidance to make it decidable, and a distinct exception type, `BmcUndecidedError`. So a
+  resource exhaustion in CI is never mistaken for "your code is wrong" — it points you at
+  the [performance toolbox](performance.md) (tighten the range, `domainSplit` an
+  interval-bound proof, contract a heavy callee, raise `unwind`/`timeoutSeconds`). A *slow*
+  proof is a tunable proof, not a boundary. See [`examples/fundamentals-java`](../examples/fundamentals-java) `timeout`.
 - **Vacuous proofs are caught, not passed.** A proof whose `assume`s are jointly
   *unsatisfiable* checks nothing — it "verifies" over an empty input domain
   (`assume(x > 0); assume(x < 0)`, or a `Bmc.anyString(1)` constrained to a 2-char
