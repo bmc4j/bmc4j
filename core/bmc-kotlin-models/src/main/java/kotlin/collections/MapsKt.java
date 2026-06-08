@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import kotlin.Pair;
+import kotlin.jvm.functions.Function1;
 
 /**
  * Clean model of Kotlin's {@code MapsKt} facade for the map factories ({@code mapOf}/{@code
@@ -57,6 +58,53 @@ public final class MapsKt {
             m.put(p.getFirst(), p.getSecond());
         }
         return m;
+    }
+
+    // ---- buildMap { } : the read-only map builder.
+    //   MapsKt.buildMap:(Lkotlin/jvm/functions/Function1;)Ljava/util/Map;
+    //   MapsKt.buildMap:(ILkotlin/jvm/functions/Function1;)Ljava/util/Map;                (capacity hint)
+    // buildMap is INLINE, so a Kotlin call site inlines its body: createMapBuilder() (a fresh builder),
+    // the user builder action, then build(map) to seal it read-only — so the INLINE path actually reaches
+    // createMapBuilder/build (modeled below), not buildMap. This buildMap facade JVM method is the NON-
+    // inline / Java reach: allocate the bounded HashMap model, run the concrete (devirtualized) builder
+    // lambda on it, return it. Backs onto the bounded HashMap model — matching the established mapOf/
+    // mutableMapOf factories (unordered; the real builder is insertion-ordered, but the existing map
+    // factories already model as HashMap, so this stays consistent). Capacity hint ignored (fixed backing).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> buildMap(Function1<? super Map<K, V>, kotlin.Unit> builderAction) {
+        HashMap<K, V> builder = new HashMap<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> buildMap(int capacity, Function1<? super Map<K, V>, kotlin.Unit> builderAction) {
+        HashMap<K, V> builder = new HashMap<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    // ---- createMapBuilder() / createMapBuilder(int) / build(Map): the INLINE buildMap { } body's
+    //   MapsKt.createMapBuilder:()Ljava/util/Map;
+    //   MapsKt.createMapBuilder:(I)Ljava/util/Map;
+    //   MapsKt.build:(Ljava/util/Map;)Ljava/util/Map;
+    // building blocks. createMapBuilder returns a bounded HashMap builder; build returns it unchanged
+    // (the real seal-to-read-only is the READ observable only — post-seal write rejection NOT modeled,
+    // matching the read-observable precedent). createMapBuilder is what the inlined `buildMap { … }` call
+    // site reaches; without it the path nondet-stubs (silently unsound). Capacity hint ignored.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> createMapBuilder() {
+        return new HashMap<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> createMapBuilder(int capacity) {
+        return new HashMap<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> build(Map<K, V> builder) {
+        return builder;
     }
 
     /**

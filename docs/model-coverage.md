@@ -1179,9 +1179,9 @@ Real surface: 3 members — modeled 1, unmodelable 0, not-needed 0, tail 2.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 106, unmodelable 99, not-needed 0, tail 48.
+Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45.
 
-**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `build(List)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `createListBuilder()`, `createListBuilder(int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1285,7 +1285,7 @@ Real surface: 253 members — modeled 106, unmodelable 99, not-needed 0, tail 48
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 48 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 45 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `addAll(Collection, Object[])`
 - `addAll(Collection, Sequence)`
@@ -1293,15 +1293,12 @@ Real surface: 253 members — modeled 106, unmodelable 99, not-needed 0, tail 48
 - `binarySearch(List, Comparable, int, int)`
 - `binarySearch(List, Object, Comparator, int, int)`
 - `binarySearch(List, int, int, Function1)`
-- `build(List)`
 - `chunked(Iterable, int, Function1)`
 - `collectionSizeOrNull(Iterable)`
 - `collectionToArrayCommonImpl(Collection)`
 - `collectionToArrayCommonImpl(Collection, Object[])`
 - `convertToListIfNotCollection(Iterable)`
 - `copyToArrayOfAny(Object[], boolean)`
-- `createListBuilder()`
-- `createListBuilder(int)`
 - `elementAtOrElse(Iterable, int, Function1)`
 - `filterIsInstance(Iterable, Class)`
 - `filterIsInstanceTo(Iterable, Collection, Class)`
@@ -1354,9 +1351,9 @@ Real surface: 5 members — modeled 4, unmodelable 0, not-needed 0, tail 1.
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 19, unmodelable 29, not-needed 0, tail 27.
+Real surface: 75 members — modeled 22, unmodelable 29, not-needed 0, tail 24.
 
-**Modeled** (`@BmcModelConforms`): `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`, `toSortedMap(Map)`
+**Modeled** (`@BmcModelConforms`): `build(Map)`, `createMapBuilder()`, `createMapBuilder(int)`, `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`, `toSortedMap(Map)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1390,14 +1387,11 @@ Real surface: 75 members — modeled 19, unmodelable 29, not-needed 0, tail 27.
 | `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `toSortedMap(Map, Comparator)` | comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only (no comparator constructor; comparator() is null), so a custom-comparator sort cannot be modeled soundly; loud UNKNOWN under JBMC until the TreeMap model grows a comparator backing |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 27 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Map)`
 - `asSequence(Map)`
-- `build(Map)`
 - `copy(Entry)`
-- `createMapBuilder()`
-- `createMapBuilder(int)`
 - `getOrImplicitDefaultNullable(Map, Object)`
 - `hashMapOf(Pair[])`
 - `linkedMapOf(Pair[])`
@@ -1425,15 +1419,12 @@ Real surface: 75 members — modeled 19, unmodelable 29, not-needed 0, tail 27.
 
 ## `kotlin.collections.SetsKt`
 
-Real surface: 22 members — modeled 14, unmodelable 0, not-needed 0, tail 8.
+Real surface: 22 members — modeled 17, unmodelable 0, not-needed 0, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `emptySet()`, `hashSetOf(Object[])`, `linkedSetOf(Object[])`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`, `setOfNotNull(Object)`, `setOfNotNull(Object[])`
+**Modeled** (`@BmcModelConforms`): `build(Set)`, `createSetBuilder()`, `createSetBuilder(int)`, `emptySet()`, `hashSetOf(Object[])`, `linkedSetOf(Object[])`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`, `setOfNotNull(Object)`, `setOfNotNull(Object[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
-- `build(Set)`
-- `createSetBuilder()`
-- `createSetBuilder(int)`
 - `minus(Set, Sequence)`
 - `optimizeReadOnlySet(Set)`
 - `plus(Set, Sequence)`
@@ -1839,6 +1830,292 @@ Real surface: 164 members — modeled 54, unmodelable 51, not-needed 0, tail 59.
 - `toSortedSet(Sequence)`
 - `toSortedSet(Sequence, Comparator)`
 - `unzip(Sequence)`
+
+</details>
+
+
+## `kotlin.text.StringsKt`
+
+Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 276 members, all loud): exotic StringsKt facade remainder — the bulk of kotlin-stdlib's CharSequence/String extension functions (split/replace/trim/regex/case/parsing/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+
+- `all(CharSequence, Function1)`
+- `any(CharSequence)`
+- `any(CharSequence, Function1)`
+- `append(Appendable, CharSequence[])`
+- `append(StringBuilder, Object[])`
+- `append(StringBuilder, String[])`
+- `appendElement(Appendable, Object, Function1)`
+- `appendRange(Appendable, CharSequence, int, int)`
+- `appendln(Appendable)`
+- `appendln(StringBuilder)`
+- `asIterable(CharSequence)`
+- `asSequence(CharSequence)`
+- `associate(CharSequence, Function1)`
+- `associateBy(CharSequence, Function1)`
+- `associateBy(CharSequence, Function1, Function1)`
+- `associateByTo(CharSequence, Map, Function1)`
+- `associateByTo(CharSequence, Map, Function1, Function1)`
+- `associateTo(CharSequence, Map, Function1)`
+- `associateWith(CharSequence, Function1)`
+- `associateWithTo(CharSequence, Map, Function1)`
+- `capitalize(String)`
+- `capitalize(String, Locale)`
+- `chunked(CharSequence, int)`
+- `chunked(CharSequence, int, Function1)`
+- `chunkedSequence(CharSequence, int)`
+- `chunkedSequence(CharSequence, int, Function1)`
+- `clear(StringBuilder)`
+- `commonPrefixWith(CharSequence, CharSequence, boolean)`
+- `commonSuffixWith(CharSequence, CharSequence, boolean)`
+- `compareTo(String, String, boolean)`
+- `concatToString(char[])`
+- `concatToString(char[], int, int)`
+- `contains(CharSequence, CharSequence, boolean)`
+- `contains(CharSequence, char, boolean)`
+- `contentEquals(CharSequence, CharSequence)`
+- `contentEquals(CharSequence, CharSequence, boolean)`
+- `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`
+- `contentEqualsImpl(CharSequence, CharSequence)`
+- `count(CharSequence, Function1)`
+- `decapitalize(String)`
+- `decapitalize(String, Locale)`
+- `decodeToString(byte[])`
+- `decodeToString(byte[], int, int, boolean)`
+- `drop(CharSequence, int)`
+- `drop(String, int)`
+- `dropLast(CharSequence, int)`
+- `dropLast(String, int)`
+- `dropLastWhile(CharSequence, Function1)`
+- `dropLastWhile(String, Function1)`
+- `dropWhile(CharSequence, Function1)`
+- `dropWhile(String, Function1)`
+- `encodeToByteArray(String)`
+- `encodeToByteArray(String, int, int, boolean)`
+- `endsWith(CharSequence, CharSequence, boolean)`
+- `endsWith(CharSequence, char, boolean)`
+- `endsWith(String, String, boolean)`
+- `equals(String, String, boolean)`
+- `filter(CharSequence, Function1)`
+- `filter(String, Function1)`
+- `filterIndexed(CharSequence, Function2)`
+- `filterIndexed(String, Function2)`
+- `filterIndexedTo(CharSequence, Appendable, Function2)`
+- `filterNot(CharSequence, Function1)`
+- `filterNot(String, Function1)`
+- `filterNotTo(CharSequence, Appendable, Function1)`
+- `filterTo(CharSequence, Appendable, Function1)`
+- `findAnyOf(CharSequence, Collection, int, boolean)`
+- `findLastAnyOf(CharSequence, Collection, int, boolean)`
+- `first(CharSequence)`
+- `first(CharSequence, Function1)`
+- `firstOrNull(CharSequence)`
+- `firstOrNull(CharSequence, Function1)`
+- `flatMap(CharSequence, Function1)`
+- `flatMapTo(CharSequence, Collection, Function1)`
+- `fold(CharSequence, Object, Function2)`
+- `foldIndexed(CharSequence, Object, Function3)`
+- `foldRight(CharSequence, Object, Function2)`
+- `foldRightIndexed(CharSequence, Object, Function3)`
+- `forEach(CharSequence, Function1)`
+- `forEachIndexed(CharSequence, Function2)`
+- `getCASE_INSENSITIVE_ORDER(StringCompanionObject)`
+- `getIndices(CharSequence)`
+- `getLastIndex(CharSequence)`
+- `getOrNull(CharSequence, int)`
+- `groupBy(CharSequence, Function1)`
+- `groupBy(CharSequence, Function1, Function1)`
+- `groupByTo(CharSequence, Map, Function1)`
+- `groupByTo(CharSequence, Map, Function1, Function1)`
+- `groupingBy(CharSequence, Function1)`
+- `hasSurrogatePairAt(CharSequence, int)`
+- `indexOf(CharSequence, String, int, boolean)`
+- `indexOf(CharSequence, char, int, boolean)`
+- `indexOfAny(CharSequence, Collection, int, boolean)`
+- `indexOfAny(CharSequence, char[], int, boolean)`
+- `indexOfFirst(CharSequence, Function1)`
+- `indexOfLast(CharSequence, Function1)`
+- `isBlank(CharSequence)`
+- `iterator(CharSequence)`
+- `last(CharSequence)`
+- `last(CharSequence, Function1)`
+- `lastIndexOf(CharSequence, String, int, boolean)`
+- `lastIndexOf(CharSequence, char, int, boolean)`
+- `lastIndexOfAny(CharSequence, Collection, int, boolean)`
+- `lastIndexOfAny(CharSequence, char[], int, boolean)`
+- `lastOrNull(CharSequence)`
+- `lastOrNull(CharSequence, Function1)`
+- `lineSequence(CharSequence)`
+- `lines(CharSequence)`
+- `map(CharSequence, Function1)`
+- `mapIndexed(CharSequence, Function2)`
+- `mapIndexedNotNull(CharSequence, Function2)`
+- `mapIndexedNotNullTo(CharSequence, Collection, Function2)`
+- `mapIndexedTo(CharSequence, Collection, Function2)`
+- `mapNotNull(CharSequence, Function1)`
+- `mapNotNullTo(CharSequence, Collection, Function1)`
+- `mapTo(CharSequence, Collection, Function1)`
+- `maxByOrNull(CharSequence, Function1)`
+- `maxByOrThrow(CharSequence, Function1)`
+- `maxOrNull(CharSequence)`
+- `maxOrThrow(CharSequence)`
+- `maxWithOrNull(CharSequence, Comparator)`
+- `maxWithOrThrow(CharSequence, Comparator)`
+- `minByOrNull(CharSequence, Function1)`
+- `minByOrThrow(CharSequence, Function1)`
+- `minOrNull(CharSequence)`
+- `minOrThrow(CharSequence)`
+- `minWithOrNull(CharSequence, Comparator)`
+- `minWithOrThrow(CharSequence, Comparator)`
+- `none(CharSequence)`
+- `none(CharSequence, Function1)`
+- `numberFormatError(String)`
+- `onEach(CharSequence, Function1)`
+- `onEachIndexed(CharSequence, Function2)`
+- `padEnd(CharSequence, int, char)`
+- `padEnd(String, int, char)`
+- `padStart(CharSequence, int, char)`
+- `padStart(String, int, char)`
+- `partition(CharSequence, Function1)`
+- `partition(String, Function1)`
+- `prependIndent(String, String)`
+- `random(CharSequence, Random)`
+- `randomOrNull(CharSequence, Random)`
+- `reduce(CharSequence, Function2)`
+- `reduceIndexed(CharSequence, Function3)`
+- `reduceIndexedOrNull(CharSequence, Function3)`
+- `reduceOrNull(CharSequence, Function2)`
+- `reduceRight(CharSequence, Function2)`
+- `reduceRightIndexed(CharSequence, Function3)`
+- `reduceRightIndexedOrNull(CharSequence, Function3)`
+- `reduceRightOrNull(CharSequence, Function2)`
+- `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`
+- `regionMatches(String, int, String, int, int, boolean)`
+- `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`
+- `removePrefix(CharSequence, CharSequence)`
+- `removePrefix(String, CharSequence)`
+- `removeRange(CharSequence, IntRange)`
+- `removeRange(CharSequence, int, int)`
+- `removeSuffix(CharSequence, CharSequence)`
+- `removeSuffix(String, CharSequence)`
+- `removeSurrounding(CharSequence, CharSequence)`
+- `removeSurrounding(CharSequence, CharSequence, CharSequence)`
+- `removeSurrounding(String, CharSequence)`
+- `removeSurrounding(String, CharSequence, CharSequence)`
+- `repeat(CharSequence, int)`
+- `replace(String, String, String, boolean)`
+- `replace(String, char, char, boolean)`
+- `replaceAfter(String, String, String, String)`
+- `replaceAfter(String, char, String, String)`
+- `replaceAfterLast(String, String, String, String)`
+- `replaceAfterLast(String, char, String, String)`
+- `replaceBefore(String, String, String, String)`
+- `replaceBefore(String, char, String, String)`
+- `replaceBeforeLast(String, String, String, String)`
+- `replaceBeforeLast(String, char, String, String)`
+- `replaceFirst(String, String, String, boolean)`
+- `replaceFirst(String, char, char, boolean)`
+- `replaceIndent(String, String)`
+- `replaceIndentByMargin(String, String, String)`
+- `replaceRange(CharSequence, IntRange, CharSequence)`
+- `replaceRange(CharSequence, int, int, CharSequence)`
+- `requireNonNegativeLimit(int)`
+- `reversed(CharSequence)`
+- `runningFold(CharSequence, Object, Function2)`
+- `runningFoldIndexed(CharSequence, Object, Function3)`
+- `runningReduce(CharSequence, Function2)`
+- `runningReduceIndexed(CharSequence, Function3)`
+- `scan(CharSequence, Object, Function2)`
+- `scanIndexed(CharSequence, Object, Function3)`
+- `single(CharSequence)`
+- `single(CharSequence, Function1)`
+- `singleOrNull(CharSequence)`
+- `singleOrNull(CharSequence, Function1)`
+- `skipWhile(String, int, Function1)`
+- `slice(CharSequence, IntRange)`
+- `slice(CharSequence, Iterable)`
+- `slice(String, IntRange)`
+- `split(CharSequence, Pattern, int)`
+- `split(CharSequence, String[], boolean, int)`
+- `split(CharSequence, char[], boolean, int)`
+- `splitToSequence(CharSequence, String[], boolean, int)`
+- `splitToSequence(CharSequence, char[], boolean, int)`
+- `startsWith(CharSequence, CharSequence, boolean)`
+- `startsWith(CharSequence, CharSequence, int, boolean)`
+- `startsWith(CharSequence, char, boolean)`
+- `startsWith(String, String, boolean)`
+- `startsWith(String, String, int, boolean)`
+- `subSequence(CharSequence, IntRange)`
+- `substring(CharSequence, IntRange)`
+- `substring(String, IntRange)`
+- `substringAfter(String, String, String)`
+- `substringAfter(String, char, String)`
+- `substringAfterLast(String, String, String)`
+- `substringAfterLast(String, char, String)`
+- `substringBefore(String, String, String)`
+- `substringBefore(String, char, String)`
+- `substringBeforeLast(String, String, String)`
+- `substringBeforeLast(String, char, String)`
+- `sumBy(CharSequence, Function1)`
+- `sumByDouble(CharSequence, Function1)`
+- `take(CharSequence, int)`
+- `take(String, int)`
+- `takeLast(CharSequence, int)`
+- `takeLast(String, int)`
+- `takeLastWhile(CharSequence, Function1)`
+- `takeLastWhile(String, Function1)`
+- `takeWhile(CharSequence, Function1)`
+- `takeWhile(String, Function1)`
+- `toBigDecimalOrNull(String)`
+- `toBigDecimalOrNull(String, MathContext)`
+- `toBigIntegerOrNull(String)`
+- `toBigIntegerOrNull(String, int)`
+- `toBooleanStrict(String)`
+- `toBooleanStrictOrNull(String)`
+- `toByteOrNull(String)`
+- `toByteOrNull(String, int)`
+- `toCharArray(String, int, int)`
+- `toCollection(CharSequence, Collection)`
+- `toDoubleOrNull(String)`
+- `toFloatOrNull(String)`
+- `toHashSet(CharSequence)`
+- `toIntOrNull(String)`
+- `toIntOrNull(String, int)`
+- `toList(CharSequence)`
+- `toLongOrNull(String)`
+- `toLongOrNull(String, int)`
+- `toMutableList(CharSequence)`
+- `toSet(CharSequence)`
+- `toShortOrNull(String)`
+- `toShortOrNull(String, int)`
+- `toSortedSet(CharSequence)`
+- `trim(CharSequence)`
+- `trim(CharSequence, Function1)`
+- `trim(CharSequence, char[])`
+- `trim(String, Function1)`
+- `trim(String, char[])`
+- `trimEnd(CharSequence)`
+- `trimEnd(CharSequence, Function1)`
+- `trimEnd(CharSequence, char[])`
+- `trimEnd(String, Function1)`
+- `trimEnd(String, char[])`
+- `trimIndent(String)`
+- `trimMargin(String, String)`
+- `trimStart(CharSequence)`
+- `trimStart(CharSequence, Function1)`
+- `trimStart(CharSequence, char[])`
+- `trimStart(String, Function1)`
+- `trimStart(String, char[])`
+- `windowed(CharSequence, int, int, boolean)`
+- `windowed(CharSequence, int, int, boolean, Function1)`
+- `windowedSequence(CharSequence, int, int, boolean)`
+- `windowedSequence(CharSequence, int, int, boolean, Function1)`
+- `withIndex(CharSequence)`
+- `zip(CharSequence, CharSequence)`
+- `zip(CharSequence, CharSequence, Function2)`
+- `zipWithNext(CharSequence)`
+- `zipWithNext(CharSequence, Function2)`
 
 </details>
 
