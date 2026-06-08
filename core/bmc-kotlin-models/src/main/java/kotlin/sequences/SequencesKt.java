@@ -879,6 +879,22 @@ public final class SequencesKt {
         }
     }
 
+    /**
+     * The concrete backing list of a model {@link Sequence}. Every {@code SequencesKt} op (and
+     * {@code sequenceOf}) constructs a {@link ListSequence}, the sole, {@code final} implementor, so
+     * the cast is sound. Reading the backing {@link ArrayList} directly — then iterating it by index —
+     * avoids dispatching the virtual {@code Sequence.iterator()}, which JBMC must devirtualize on the
+     * interface-typed parameter. That devirtualization is fragile across kotlinc versions: on the
+     * kotlin-2.0.21 leg it intermittently failed to bind ("no body for callee
+     * {@code kotlin.sequences.Sequence.iterator()}"), leaving the iterator nondet/null and producing a
+     * false REFUTED for a symbolic-input proof that verifies on 2.4.0. A {@code checkcast} to the
+     * final concrete type is resolved by JBMC where the interface method dispatch is not.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> ArrayList<T> backing(Sequence<? extends T> source) {
+        return (ArrayList<T>) ((ListSequence<? extends T>) source).data;
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static <T> int compare(T x, T y, Comparator<? super T> cmp) {
         if (cmp != null) {
@@ -925,10 +941,11 @@ public final class SequencesKt {
     // desugared user lambda, genuinely applied. (distinct() — no selector — is already modeled above.)
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, K> Sequence<T> distinctBy(Sequence<T> source, Function1<? super T, ? extends K> selector) {
+        ArrayList<T> in = backing(source);
         LinkedHashSet<K> seenKeys = new LinkedHashSet<>();
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
-            T v = it.next();
+        for (int i = 0; i < in.size(); i++) {
+            T v = in.get(i);
             K key = selector.invoke(v);
             if (seenKeys.add(key)) {
                 out.add(v);
