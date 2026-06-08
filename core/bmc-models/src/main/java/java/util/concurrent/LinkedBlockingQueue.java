@@ -1,7 +1,8 @@
 package java.util.concurrent;
 
-import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Sequential BMC model of {@link java.util.concurrent.LinkedBlockingQueue} — functionally the same
@@ -15,8 +16,14 @@ import org.bmc4j.models.audit.BmcModelTail;
  * rejection. The non-blocking surface ({@code offer}/{@code poll}/{@code peek}/{@code add}/
  * {@code remove}/{@code element}/{@code size}) is sound; {@code put}/{@code take} carry the same
  * assume-prune blocking idealization as {@link ArrayBlockingQueue} — see its javadoc.
+ *
+ * <p>The FIFO-snapshot {@code toArray}/{@code toArray(T[])}/{@code toArray(IntFunction)} are inherited,
+ * modeled by the {@link ArrayBlockingQueue} backing. The parallel-decomposition surface
+ * ({@code spliterator}/{@code parallelStream}) is the concurrency wall — re-declared here as loud
+ * waivers because a class-level decision on the superclass does not propagate to the subclass surface.
+ * The inherited {@code containsAll} loud stub is re-declared class-level here for the same reason.
  */
-@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC")
+@BmcUnmodelable(member = "containsAll(java.util.Collection)", reason = "bulk membership — inherited ArrayBlockingQueue-model loud stub; compose contains() explicitly")
 public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     /**
@@ -30,5 +37,17 @@ public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     public LinkedBlockingQueue(int capacity) {
         super(capacity, false, true);
+    }
+
+    /** Parallel-decomposition primitive — true-parallel split is the concurrency wall; use iterator()/stream(). */
+    @BmcUnmodelable(reason = "spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead")
+    public java.util.Spliterator<E> spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.LinkedBlockingQueue.spliterator() — spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead");
+    }
+
+    /** Parallel stream — true-parallel execution is the concurrency wall; use the sequential stream(). */
+    @BmcUnmodelable(reason = "parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead")
+    public java.util.stream.Stream<E> parallelStream() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.LinkedBlockingQueue.parallelStream() — parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead");
     }
 }

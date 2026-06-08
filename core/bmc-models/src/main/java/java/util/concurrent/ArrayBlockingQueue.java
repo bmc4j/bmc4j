@@ -8,7 +8,6 @@ import java.util.NoSuchElementException;
 import org.cprover.CProver;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -36,7 +35,6 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
-@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     static final int MAX_CAPACITY = 64;
@@ -232,6 +230,41 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return new java.util.stream.ListStream<>(snapshot);
     }
 
+    /** Snapshot the queued elements into a fresh {@code Object[]} in FIFO order (sequential, exact). */
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
+    public Object[] toArray() {
+        Object[] out = new Object[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = elements[i];
+        }
+        return out;
+    }
+
+    /**
+     * Typed-array snapshot in FIFO order (sequential): fills {@code a} when it is large enough (null-
+     * terminating the slot after the last element, per the JDK), else allocates a same-component array.
+     */
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
+    public <T> T[] toArray(T[] a) {
+        T[] out = a.length >= size
+                ? a
+                : (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);
+        for (int i = 0; i < size; i++) {
+            out[i] = (T) elements[i];
+        }
+        if (out.length > size) {
+            out[size] = null;
+        }
+        return out;
+    }
+
+    /** Typed-array snapshot via a generator (sequential): {@code toArray(generator.apply(0))}, like the JDK default. */
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
+    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator) {
+        return toArray(generator.apply(0));
+    }
+
     /** Drain all elements into {@code c} (in FIFO order) and return the count moved. */
     @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public int drainTo(Collection<? super E> c) {
@@ -329,6 +362,18 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+    }
+
+    /** Parallel-decomposition primitive — true-parallel split is the concurrency wall; use iterator()/stream(). */
+    @BmcUnmodelable(reason = "spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead")
+    public java.util.Spliterator<E> spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.spliterator() — spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead");
+    }
+
+    /** Parallel stream — true-parallel execution is the concurrency wall; use the sequential stream(). */
+    @BmcUnmodelable(reason = "parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead")
+    public java.util.stream.Stream<E> parallelStream() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.parallelStream() — parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead");
     }
 
     /**
