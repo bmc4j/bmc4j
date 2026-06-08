@@ -107,6 +107,45 @@ Homebrew bottle) ship the engine binaries with MiniSat 2 as the built-in SAT
 solver. If a future engine bump switches or adds a bundled solver (e.g.
 CaDiCaL), its notice must be added here as part of the upgrade.
 
+## KISSAT
+
+The per-platform engine jars (`org.bmc4j:bmc-engine-*`) additionally bundle a
+compiled **KISSAT** SAT solver binary (`bin/kissat[.exe]`), built unmodified from
+the pinned upstream source **`rel-4.0.4`** (commit
+`8af8e56f174b778aef3aa45af9f739b2a5f492c2`,
+https://github.com/arminbiere/kissat) once per platform in
+[bmc4j/kissat-builds](https://github.com/bmc4j/kissat-builds). KISSAT is
+MIT-licensed; its license travels inside each engine jar as
+`jbmc/<platform>/KISSAT-LICENSE`, reproduced below:
+
+```
+Copyright (c) 2021-2025 Armin Biere, University of Freiburg, Germany
+Copyright (c) 2025-2025 Mathias Fleury, University of Freiburg, Germany
+Copyright (c) 2025-2025 Florian Pollitt, University of Freiburg, Germany
+Copyright (c) 2019-2021 Armin Biere, Johannes Kepler University Linz, Austria
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+Audit note: kissat is not bundled for windows-x64 when no upstream Windows build
+is available for the pinned version; that engine jar then ships without it.
+
 ## Gson (bundled, relocated, in bmc-runtime)
 
 `org.bmc4j:bmc-runtime` bundles **Gson 2.11.0** (`com.google.code.gson:gson`),

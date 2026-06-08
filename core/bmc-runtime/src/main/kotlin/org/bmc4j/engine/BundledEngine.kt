@@ -21,6 +21,8 @@ import java.nio.file.StandardCopyOption
  *   jbmc/<p>/version.txt    engine version (used as a cache key)
  *   jbmc/<p>/bin/jbmc[.exe]
  *   jbmc/<p>/lib/core-models.jar
+ *   jbmc/<p>/bin/kissat[.exe]   (optional) bundled KISSAT SAT solver
+ *   jbmc/<p>/KISSAT-LICENSE     (optional) its MIT license
  * ```
  */
 object BundledEngine {
@@ -110,6 +112,33 @@ object BundledEngine {
                 throw IllegalStateException("Failed to extract bundled JBMC engine to $cacheDir", e)
             }
         }
+    }
+
+    /**
+     * Path to the *bundled* KISSAT SAT solver binary extracted next to jbmc, or `null` if no
+     * kissat is bundled for this platform.
+     *
+     * KISSAT is shipped inside the same `bmc-engine-<platform>` jar (an entry in `files.txt`),
+     * so when present it is extracted by [extract] into the same cache dir and is
+     * **integrity-by-construction**: it arrived through the verified jar, exactly like jbmc.
+     *
+     * This is a passive accessor only. It is deliberately **NOT consulted by the jbmc
+     * invocation/run path** — the bundled solver is shipped but unused. (External-SAT routing,
+     * if ever enabled, is driven solely by the `bmc.externalSat` property in [Jbmc], never by
+     * this method.)
+     *
+     * Returns `null` rather than extracting on demand: callers that need the binary on disk run
+     * [extract] first (which unpacks every `files.txt` entry, kissat included). On a platform
+     * whose jar bundles no kissat (e.g. windows-x64 when no Windows build exists), or before
+     * extraction has run, this returns `null`.
+     */
+    @JvmStatic
+    fun kissatPath(): String? {
+        val platform = Platform.current()
+        val version = readResourceAsString("jbmc/" + platform.id + "/version.txt")
+        val cacheDir = baseCacheDir().resolve(platform.id + if (version != null) "-$version" else "")
+        val kissat = cacheDir.resolve("bin/kissat" + if (platform.isWindows) ".exe" else "")
+        return if (Files.isRegularFile(kissat)) kissat.toString() else null
     }
 
     /**

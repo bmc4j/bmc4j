@@ -167,6 +167,36 @@ jobs:
           echo "jbmc --version => $out"
           echo "$out" | grep -q "6.9.0" || { echo "Expected jbmc version 6.9.0, got: $out"; exit 1; }
 
+      # Bundled-but-unused KISSAT: prove it is packed into the jar and runs --version.
+      # kissat is OPTIONAL on windows-x64 (no upstream Windows build): if the jar has
+      # no kissat entry there, that's expected and the step passes without running it.
+      - name: Smoke-check bundled kissat
+        shell: bash
+        run: |
+          set -euo pipefail
+          libs="core/bmc-engine-${{ matrix.platform }}/build/libs"
+          jarfile="$(cd "$libs" && ls bmc-engine-${{ matrix.platform }}-*.jar | grep -vE -- '-(javadoc|sources)\.jar$' | head -n1)"
+          kbin="kissat"
+          [[ "${{ runner.os }}" == "Windows" ]] && kbin="kissat.exe"
+          entry="jbmc/${{ matrix.platform }}/bin/$kbin"
+          work="$(mktemp -d)"
+          cp "$libs/$jarfile" "$work/"
+          if (cd "$work" && jar tf "$jarfile" | grep -qx "$entry"); then
+            (cd "$work" && jar xf "$jarfile" "$entry" "jbmc/${{ matrix.platform }}/KISSAT-LICENSE")
+            bin="$work/$entry"
+            chmod +x "$bin"
+            if [[ "${{ runner.os }}" == "macOS" ]]; then
+              xattr -dr com.apple.quarantine "$bin" || true
+              codesign --force --sign - "$bin" || true
+            fi
+            echo "kissat --version => $("$bin" --version)"
+            test -f "$work/jbmc/${{ matrix.platform }}/KISSAT-LICENSE" || { echo "KISSAT-LICENSE missing from jar"; exit 1; }
+          elif [[ "${{ matrix.platform }}" == "windows-x64" ]]; then
+            echo "kissat not bundled for windows-x64 (expected: no upstream Windows build) - skipping"
+          else
+            echo "::error::kissat binary $entry missing from $jarfile"; exit 1
+          fi
+
       - name: Upload engine jar artifact
         uses: actions/upload-artifact@v7
         with:
@@ -286,6 +316,22 @@ jobs:
           out="$(docker run --rm -v "$work:/w" alpine:3.20 /w/jbmc/linux-x64-musl/bin/jbmc --version)"
           echo "jbmc --version => $out"
           echo "$out" | grep -q "6.9.0" || { echo "Expected jbmc version 6.9.0, got: $out"; exit 1; }
+
+      - name: Smoke-check bundled kissat (musl, in alpine)
+        shell: bash
+        run: |
+          set -euo pipefail
+          libs="core/bmc-engine-linux-x64-musl/build/libs"
+          jarfile="$(cd "$libs" && ls bmc-engine-linux-x64-musl-*.jar | grep -vE -- '-(javadoc|sources)\.jar$' | head -n1)"
+          entry="jbmc/linux-x64-musl/bin/kissat"
+          work="$(mktemp -d)"
+          cp "$libs/$jarfile" "$work/"
+          (cd "$work" && jar tf "$jarfile" | grep -qx "$entry") || { echo "::error::kissat binary $entry missing from $jarfile"; exit 1; }
+          (cd "$work" && jar xf "$jarfile" "$entry" "jbmc/linux-x64-musl/KISSAT-LICENSE")
+          chmod +x "$work/$entry"
+          # Static musl binary: run under alpine to prove it executes there.
+          echo "kissat --version => $(docker run --rm -v "$work:/w" alpine:3.20 /w/$entry --version)"
+          test -f "$work/jbmc/linux-x64-musl/KISSAT-LICENSE" || { echo "KISSAT-LICENSE missing from jar"; exit 1; }
 
       - name: Upload engine jar artifact
         uses: actions/upload-artifact@v7

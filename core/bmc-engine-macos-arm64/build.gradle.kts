@@ -36,6 +36,17 @@ val platformId = "macos-arm64"
 // (matches the macos-14 / Sonoma arm64 assembly runner).
 val bottleSha256 = "311dc85117244dc3fc2bb567d6bdd8d36dbd8dff1bd2f3959546b85224c9e422"
 
+// KISSAT SAT solver, bundled ALONGSIDE jbmc in this engine jar (built once per
+// platform in bmc4j/kissat-builds and published as a SHA-pinned release asset). It is
+// shipped and integrity-verified but NOT wired into the run path - BundledEngine exposes
+// its extracted path; nothing invokes it yet. Bump kissatBuildTag + kissatSha256 together.
+val kissatBuilderRepo = "bmc4j/kissat-builds"
+val kissatVersion = "kissat-4.0.4"
+val kissatBuildTag = "kissat-4.0.4-r1"
+val kissatAsset = "kissat-macos-arm64"
+val kissatSha256 = "e146ffb4306dd85347ccf6365b7ff395aa5af35d658b459d6cb2766c226562e1"
+
+
 val isThisPlatform = org.gradle.internal.os.OperatingSystem.current().isMacOsX &&
     System.getProperty("os.arch", "").lowercase().let { it.contains("aarch64") || it.contains("arm") }
 
@@ -49,6 +60,7 @@ val prepareEngine by tasks.registering {
     val out = engineDir.get().asFile
     val bottle = downloadDir.get().file("cbmc-$platformId-bottle.tar.gz").asFile
     val extractDir = downloadDir.get().dir("extracted").asFile
+    val kissatDl = downloadDir.get().file(kissatAsset).asFile
     outputs.dir(stageDir)
 
     doLast {
@@ -84,9 +96,22 @@ val prepareEngine by tasks.registering {
                 .copyTo(models, overwrite = true)
         }
 
+        // KISSAT: fetch + SHA-verify + stage alongside jbmc as bin/kissat. Bundled, not
+        // wired into the run path. Its LICENSE (MIT) ships inside the jar next to jbmc.
+        val kissat = File(out, "bin/kissat")
+        val staged = stageKissat(kissatDl, kissat, kissatAsset, kissatSha256,
+            "https://github.com/$kissatBuilderRepo/releases/download/$kissatBuildTag/$kissatAsset",
+            "https://raw.githubusercontent.com/$kissatBuilderRepo/main/LICENSE",
+            File(out, "KISSAT-LICENSE"), required = true, logger = logger)
+
         // Manifest of files the runtime extractor should unpack, plus a version
-        // marker used as the extraction cache key.
-        File(out, "files.txt").writeText("bin/jbmc\nlib/core-models.jar\n")
+        // marker used as the extraction cache key. kissat is appended only when staged.
+        val manifest = StringBuilder("bin/jbmc\nlib/core-models.jar\n")
+        if (staged) {
+            manifest.append("bin/kissat\nKISSAT-LICENSE\n")
+            File(out, "kissat-version.txt").writeText(kissatVersion)
+        }
+        File(out, "files.txt").writeText(manifest.toString())
         File(out, "version.txt").writeText(cbmcVersion)
     }
 }
@@ -115,6 +140,65 @@ fun downloadBottle(digest: String, target: File) {
         HttpResponse.BodyHandlers.ofFile(target.toPath()))
     if (resp.statusCode() != 200) {
         throw GradleException("Bottle blob download failed (${resp.statusCode()}) for $blobUrl")
+    }
+}
+
+
+// Fetch a kissat binary (and its LICENSE) from kissat-builds, SHA-256-verify the
+// binary, and stage it as [kissatTarget] (+ the LICENSE). Returns true if staged.
+// When [required] is false a missing release asset (HTTP 404) is tolerated so the
+// engine jar still builds without kissat (the optional-per-platform case, e.g.
+// windows-x64 before its kissat binary exists) - any other failure still fails the build.
+fun stageKissat(download: File, kissatTarget: File, assetName: String, expectedSha: String,
+                assetUrl: String, licenseUrl: String, licenseTarget: File,
+                required: Boolean, logger: org.gradle.api.logging.Logger): Boolean {
+    if (!kissatTarget.exists()) {
+        download.parentFile.mkdirs()
+        val fetched = fetchToFile(URI.create(assetUrl), download, allowMissing = !required, logger = logger)
+        if (!fetched) {
+            logger.lifecycle("kissat not bundled for $assetName (release asset absent; engine jar builds without it)")
+            return false
+        }
+        val actual = sha256(download)
+        if (!actual.equals(expectedSha, ignoreCase = true)) {
+            throw GradleException("Checksum mismatch for $assetName\n  expected $expectedSha\n  actual   $actual")
+        }
+        kissatTarget.parentFile.mkdirs()
+        download.copyTo(kissatTarget, overwrite = true)
+        kissatTarget.setExecutable(true)
+    }
+    // MIT license must travel inside the jar next to the binary.
+    fetchToFile(URI.create(licenseUrl), licenseTarget, allowMissing = false, logger = logger)
+    return true
+}
+
+// Download [url] to [dest] with the same retry/backoff as the engine fetch. Returns
+// false (instead of throwing) on a 404 when [allowMissing] is true.
+fun fetchToFile(url: URI, dest: File, allowMissing: Boolean,
+                logger: org.gradle.api.logging.Logger): Boolean {
+    logger.lifecycle("Downloading $url")
+    val client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
+    val backoffMs = longArrayOf(5_000, 15_000)
+    var attempt = 0
+    while (true) {
+        try {
+            val resp = client.send(
+                HttpRequest.newBuilder(url).GET().build(),
+                HttpResponse.BodyHandlers.ofFile(dest.toPath()))
+            val code = resp.statusCode()
+            if (code == 200) return true
+            if (code == 404 && allowMissing) { dest.delete(); return false }
+            if (code < 500 || attempt >= backoffMs.size) {
+                throw GradleException("Download failed ($code) for $url")
+            }
+            logger.lifecycle("Download got HTTP $code, retrying in ${backoffMs[attempt] / 1000}s (attempt ${attempt + 2}/${backoffMs.size + 1}) for $url")
+        } catch (e: java.io.IOException) {
+            if (attempt >= backoffMs.size) throw GradleException("Download failed (${e.message}) for $url")
+            logger.lifecycle("Download failed (${e.message}), retrying in ${backoffMs[attempt] / 1000}s (attempt ${attempt + 2}/${backoffMs.size + 1}) for $url")
+        }
+        dest.delete()
+        Thread.sleep(backoffMs[attempt])
+        attempt++
     }
 }
 
