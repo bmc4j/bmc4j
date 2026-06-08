@@ -29,12 +29,6 @@ Real surface: 60 members — modeled 44, unmodelable 16, not-needed 0, tail 0.
 | `toPlainString()` | decimal string formatting (dtoa-class) — not soundly modelable in the bounded model |
 | `valueOf(double)` | double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the bounded long-backed model has no exotic remaining surface beyond the per-member-declared MathContext/formatting/double members; the tail catch-all is retained for JDK drift</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.math.BigInteger`
 
@@ -48,12 +42,6 @@ Real surface: 50 members — modeled 46, unmodelable 4, not-needed 0, tail 0.
 | `nextProbablePrime()` | probabilistic primality search — genuine number-theoretic wall, no sound bounded model |
 | `probablePrime(int, Random)` | probabilistic prime generation over a Random source — genuine number-theoretic wall, no sound bounded model |
 | `toString(int)` | radix formatting (dtoa-class) — not soundly modelable in the bounded model |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime) and radix formatting (toString(int)) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.time.Duration`
