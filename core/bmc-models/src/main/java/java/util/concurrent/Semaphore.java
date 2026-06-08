@@ -25,7 +25,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * JVM-runnable differential axis. The non-blocking surface ({@code tryAcquire}/{@code release}/
  * {@code availablePermits}/{@code drainPermits}) stays pure Java and is differential-tested.
  */
-@BmcModelTail(reason = "timed/uninterruptible acquire variants (acquireUninterruptibly/tryAcquire(timeout)), fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) and reducePermits are scheduling/interleaving concerns a sequential model can't represent; all loud under JBMC")
+@BmcModelTail(reason = "fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) are scheduling/interleaving concerns a sequential model can't represent — the concurrency wall; all loud under JBMC")
 public class Semaphore {
 
     private int permits;
@@ -59,6 +59,16 @@ public class Semaphore {
     public void acquireUninterruptibly() {
         CProver.assume(permits > 0);
         permits--;
+    }
+
+    /** Take {@code n} permits at once, uninterruptibly, blocking until available (assume-prune; see {@link #acquire()}). */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
+    public void acquireUninterruptibly(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException();
+        }
+        CProver.assume(permits >= n);
+        permits -= n;
     }
 
     /** Take {@code n} permits at once, blocking until they are available (assume-prune; see {@link #acquire()}). */
@@ -104,6 +114,16 @@ public class Semaphore {
         return tryAcquire();
     }
 
+    /**
+     * Timed n-permit tryAcquire. bmc4j models no time/blocking, so this is the non-blocking probe:
+     * take {@code n} permits if available, else return false immediately (a real timed acquire on an
+     * empty semaphore would block until timeout and then return false — same observable here).
+     */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
+    public boolean tryAcquire(int n, long timeout, TimeUnit unit) throws InterruptedException {
+        return tryAcquire(n);
+    }
+
     @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public void release() {
         permits++;
@@ -115,6 +135,18 @@ public class Semaphore {
             throw new IllegalArgumentException();
         }
         permits += n;
+    }
+
+    /**
+     * Shrink the permit pool by {@code n} (the protected hook a subclass uses to reduce capacity).
+     * Pure sequential permit arithmetic — the count may go negative, exactly like the JDK.
+     */
+    @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
+    protected void reducePermits(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException();
+        }
+        permits -= n;
     }
 
     /** Acquire all currently available permits and return how many were taken. */

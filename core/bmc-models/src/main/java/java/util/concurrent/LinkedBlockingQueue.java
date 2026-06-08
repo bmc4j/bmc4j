@@ -16,7 +16,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * {@code remove}/{@code element}/{@code size}) is sound; {@code put}/{@code take} carry the same
  * assume-prune blocking idealization as {@link ArrayBlockingQueue} — see its javadoc.
  */
-@BmcModelTail(reason = "array-snapshot/parallel-stream views, timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC")
+@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC")
 public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     /**

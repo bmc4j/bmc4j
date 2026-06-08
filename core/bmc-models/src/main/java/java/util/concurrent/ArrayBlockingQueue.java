@@ -36,7 +36,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * out-of-bounds at the store — the documented model-bound signal, same as the other array-backed
  * models — never a silent wrong answer.
  */
-@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC")
+@BmcModelTail(reason = "array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) — out of scope for the bounded FIFO model; all loud under JBMC")
 public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
 
     static final int MAX_CAPACITY = 64;
@@ -242,6 +242,21 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return n;
     }
 
+    /**
+     * Drain at most {@code maxElements} elements into {@code c} (in FIFO order), returning the count
+     * moved. A bounded, fully-sequential transfer — no blocking is involved. {@code maxElements <= 0}
+     * moves nothing (JDK semantics).
+     */
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
+    public int drainTo(Collection<? super E> c, int maxElements) {
+        int n = 0;
+        while (size > 0 && n < maxElements) {
+            c.add(poll());
+            n++;
+        }
+        return n;
+    }
+
     // --- functional / bulk ops over the bounded FIFO backing array ------------------------------
     // forEach reads in FIFO order; removeIf/removeAll/retainAll compact in place (preserving FIFO);
     // addAll enqueues via add() so it honors the logical capacity exactly (IllegalStateException when
@@ -316,14 +331,29 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
-    @BmcUnmodelable(reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
+    /**
+     * Timed offer, modeled as a finite two-outcome state machine: BMC has no wall-clock, so the
+     * timeout duration is dropped and only the two reachable outcomes remain — there is room, so the
+     * element is enqueued and {@code true} returned; or the queue is full, so {@code false} is returned
+     * immediately (a real timed offer that times out also returns {@code false}). NPE on null per the
+     * JDK. Observably identical to {@link #offer(Object)} on the bounded queue.
+     */
+    @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.offer(java.lang.Object,long,java.util.concurrent.TimeUnit) — timed offer — timeout is a scheduling concern; use offer()/put() assume-prune");
+        return offer(e);
     }
 
-    @BmcUnmodelable(reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
+    /**
+     * Timed poll, modeled as a finite two-outcome state machine: BMC has no wall-clock, so the timeout
+     * duration is dropped and only the two reachable outcomes remain — the queue is non-empty, so the
+     * head is dequeued and returned; or the queue is empty, so {@code null} is returned immediately (a
+     * real timed poll that times out also returns {@code null}). Observably identical to {@link #poll()}.
+     */
+    @Override
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E poll(long timeout, TimeUnit unit) throws InterruptedException {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.poll(long,java.util.concurrent.TimeUnit) — timed poll — timeout is a scheduling concern; use poll()/take() assume-prune");
+        return poll();
     }
 
     private final class Itr implements Iterator<E> {
