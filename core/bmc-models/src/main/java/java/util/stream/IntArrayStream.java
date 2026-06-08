@@ -338,7 +338,10 @@ final class IntArrayStream implements IntStream {
         IntArrayStream s = new IntArrayStream();
         for (int i = 0; i < size; i++) {
             IntStream inner = mapper.apply(data[i]);
-            int[] arr = inner.toArray();
+            // Drain via the sole final implementor (invokevirtual), not the IntStream interface — the
+            // interface dispatch is the kotlinc-version-fragile devirtualization behind the #169
+            // false-REFUTED family.
+            int[] arr = ((IntArrayStream) inner).toArray();
             for (int j = 0; j < arr.length; j++) {
                 s.add(arr[j]);
             }

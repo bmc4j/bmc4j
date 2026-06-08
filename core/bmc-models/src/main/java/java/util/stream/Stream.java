@@ -163,11 +163,15 @@ public interface Stream<T> {
     @BmcModelConforms("@BmcProof (proofs.stream StreamTailLaws)")
     static <T> Stream<T> concat(Stream<? extends T> a, Stream<? extends T> b) {
         java.util.ArrayList<T> l = new java.util.ArrayList<>();
-        List<? extends T> la = a.toList();
+        // Cast each interface-typed param to the sole final implementor before reading it, so the
+        // drain is an invokevirtual on the concrete ListStream rather than an invokeinterface on
+        // Stream — the latter is the kotlinc-version-fragile devirtualization that produced the #169
+        // family of false REFUTEDs ("no body for callee") under symbolic inputs / old-kotlin legs.
+        List<? extends T> la = ((ListStream<? extends T>) a).toList();
         for (int i = 0; i < la.size(); i++) {
             l.add(la.get(i));
         }
-        List<? extends T> lb = b.toList();
+        List<? extends T> lb = ((ListStream<? extends T>) b).toList();
         for (int i = 0; i < lb.size(); i++) {
             l.add(lb.get(i));
         }

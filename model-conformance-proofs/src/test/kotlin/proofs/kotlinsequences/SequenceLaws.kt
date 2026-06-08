@@ -338,6 +338,21 @@ class SequenceLaws {
         Bmc.check(d.size == 2 && d[0] == b - a && d[1] == c - b)
     }
 
+    /**
+     * Symbolic zip(Sequence,Sequence) law — pins the SECOND-sequence dispatch the devirt sweep
+     * converted to seqIter (the `other` param). Symbolic operands keep the interface dispatch live;
+     * the concrete zip_with_transform proof would constant-fold it. (#169 family regression.)
+     */
+    @BmcProof
+    fun symbolic_zip_two_sequences() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val c = Bmc.anyInt(-50, 50)
+        val d = Bmc.anyInt(-50, 50)
+        val z = sequenceOf(a, b).zip(sequenceOf(c, d)) { x, y -> x + y }.toList()
+        Bmc.check(z.size == 2 && z[0] == a + c && z[1] == b + d)
+    }
+
     // ---- plus / minus (SequencesKt facade models, eager).
 
     @BmcProof
@@ -379,6 +394,21 @@ class SequenceLaws {
         // Build the base with the 2-arg (vararg) sequenceOf to avoid the single-element overload.
         val xs = (sequenceOf(a, b) + c).toList()
         Bmc.check(xs.size == 3 && xs[0] == a && xs[1] == b && xs[2] == c)
+    }
+
+    /**
+     * Symbolic plus(Sequence,Sequence) law — pins the SECOND-sequence dispatch the devirt sweep
+     * converted to seqIter (the `elements` param). Symbolic operands keep the dispatch live where the
+     * concrete plus_sequence_concatenates proof would constant-fold it. (#169 family regression.)
+     */
+    @BmcProof
+    fun symbolic_plus_two_sequences() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val c = Bmc.anyInt(-50, 50)
+        val d = Bmc.anyInt(-50, 50)
+        val xs = (sequenceOf(a, b) + sequenceOf(c, d)).toList()
+        Bmc.check(xs.size == 4 && xs[0] == a && xs[1] == b && xs[2] == c && xs[3] == d)
     }
 
     // ---- sorted / sortedDescending / sortedWith (SequencesKt insertion-sort facade models).
@@ -589,5 +619,19 @@ class SequenceLaws {
         val empty = sequenceOf(1, 2, 3).filter { it > 100 }
         val xs = empty.ifEmpty { sequenceOf(9, 8) }.toList()
         Bmc.check(xs.size == 2 && xs[0] == 9 && xs[1] == 8)
+    }
+
+    /**
+     * Symbolic ifEmpty law — pins the DEFAULT-sequence dispatch the devirt sweep converted to seqIter
+     * (the `defaultValue.invoke()` Sequence). Symbolic operands keep the dispatch live where the
+     * concrete ifEmpty_empty_uses_default proof would constant-fold it. (#169 family regression.)
+     */
+    @BmcProof
+    fun symbolic_ifEmpty_default_drained() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val empty = sequenceOf(1, 2, 3).filter { it > 100 }
+        val xs = empty.ifEmpty { sequenceOf(a, b) }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == a && xs[1] == b)
     }
 }
