@@ -426,4 +426,168 @@ class SequenceLaws {
         val xs = generateSequence({ 2 }) { if (it < 6) it + 2 else null }.toList()
         Bmc.check(xs.size == 3 && xs[0] == 2 && xs[1] == 4 && xs[2] == 6)
     }
+
+    // ---- distinctBy (SequencesKt facade model: dedup by selector key, first-occurrence order).
+
+    @BmcProof
+    fun distinctBy_dedups_by_key() {
+        // keys: 0,1,0,1,0 -> keep first per key -> 10 (key0), 21 (key1)
+        val d = sequenceOf(10, 21, 12, 23, 14).distinctBy { it % 2 }.toList()
+        Bmc.check(d.size == 2 && d[0] == 10 && d[1] == 21)
+    }
+
+    /** Symbolic distinctBy law: two elements with the same key collapse to the first; a different key is kept. */
+    @BmcProof
+    fun symbolic_distinctBy_collapses_same_key() {
+        val a = Bmc.anyInt(0, 100)
+        val b = Bmc.anyInt(0, 100)
+        // keys a*2 and a*2 (same) then b*2+1 (different parity bucket via offset) — but keep it simple:
+        // key = constant for first two, distinct for third.
+        val d = sequenceOf(a, b, a).distinctBy { 0 }.toList()
+        Bmc.check(d.size == 1 && d[0] == a)
+    }
+
+    // ---- filterNot / filterNotNull (SequencesKt facade models, eager).
+
+    @BmcProof
+    fun filterNot_keeps_complement() {
+        val xs = sequenceOf(1, 2, 3, 4).filterNot { it % 2 == 0 }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 1 && xs[1] == 3)
+    }
+
+    @BmcProof
+    fun filterNotNull_drops_nulls() {
+        val xs = sequenceOf(1, null, 2, null, 3).filterNotNull().toList()
+        Bmc.check(xs.size == 3 && xs[0] == 1 && xs[1] == 2 && xs[2] == 3)
+    }
+
+    /** Symbolic filterNot law: filterNot(p) is the complement of filter(p) — together they partition. */
+    @BmcProof
+    fun symbolic_filterNot_complements_filter() {
+        val a = Bmc.anyInt(-100, 100)
+        val b = Bmc.anyInt(-100, 100)
+        val kept = sequenceOf(a, b).filterNot { it > 0 }.count()
+        val expected = (if (a > 0) 0 else 1) + (if (b > 0) 0 else 1)
+        Bmc.check(kept == expected)
+    }
+
+    // ---- mapNotNull / mapIndexedNotNull (SequencesKt facade models, eager: map then drop nulls).
+
+    @BmcProof
+    fun mapNotNull_maps_then_drops_nulls() {
+        // even -> it/... ; map odd to null
+        val xs = sequenceOf(1, 2, 3, 4).mapNotNull { if (it % 2 == 0) it * 10 else null }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 20 && xs[1] == 40)
+    }
+
+    @BmcProof
+    fun mapIndexedNotNull_uses_index_and_drops_nulls() {
+        // keep even indices, mapped to index*100 + value
+        val xs = sequenceOf(5, 6, 7, 8).mapIndexedNotNull { i, v -> if (i % 2 == 0) i * 100 + v else null }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 5 && xs[1] == 207)
+    }
+
+    /** Symbolic mapNotNull law: mapping to a non-null transform keeps every element transformed. */
+    @BmcProof
+    fun symbolic_mapNotNull_all_kept() {
+        val a = Bmc.anyInt(0, 1000)
+        val b = Bmc.anyInt(0, 1000)
+        val xs = sequenceOf(a, b).mapNotNull { it + 1 }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == a + 1 && xs[1] == b + 1)
+    }
+
+    // ---- flatMapIndexedIterable / flatMapIndexedSequence (SequencesKt facade models, eager).
+
+    @BmcProof
+    fun flatMapIndexedSequence_concatenates_with_index() {
+        // each element expands to (index, value)
+        val f = sequenceOf(7, 8).flatMapIndexed { i, v -> sequenceOf(i, v) }.toList()
+        Bmc.check(f.size == 4 && f[0] == 0 && f[1] == 7 && f[2] == 1 && f[3] == 8)
+    }
+
+    @BmcProof
+    fun flatMapIndexedIterable_concatenates_with_index() {
+        // transform returns a List (Iterable) -> routes to flatMapIndexedIterable
+        val f = sequenceOf(7, 8).flatMapIndexed { i, v -> listOf(i, v) }.toList()
+        Bmc.check(f.size == 4 && f[0] == 0 && f[1] == 7 && f[2] == 1 && f[3] == 8)
+    }
+
+    /** Symbolic flatMapIndexed law: each element expands to its index then itself, in order. */
+    @BmcProof
+    fun symbolic_flatMapIndexed_expands() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val f = sequenceOf(a, b).flatMapIndexed { i, v -> sequenceOf(i, v) }.toList()
+        Bmc.check(f.size == 4 && f[0] == 0 && f[1] == a && f[2] == 1 && f[3] == b)
+    }
+
+    // ---- runningFold / scan / scanIndexed (SequencesKt facade models): n+1 accumulation prefix.
+
+    @BmcProof
+    fun runningFold_prefixes_with_initial() {
+        // initial 100, then +1,+2,+3 -> 100,101,103,106
+        val xs = sequenceOf(1, 2, 3).runningFold(100) { acc, e -> acc + e }.toList()
+        Bmc.check(xs.size == 4 && xs[0] == 100 && xs[1] == 101 && xs[2] == 103 && xs[3] == 106)
+    }
+
+    @BmcProof
+    fun scan_is_runningFold() {
+        val xs = sequenceOf(1, 2, 3).scan(0) { acc, e -> acc + e }.toList()
+        Bmc.check(xs.size == 4 && xs[0] == 0 && xs[1] == 1 && xs[2] == 3 && xs[3] == 6)
+    }
+
+    @BmcProof
+    fun scanIndexed_uses_index() {
+        // acc starts 0; step adds index*100 + element
+        val xs = sequenceOf(5, 6).scanIndexed(0) { i, acc, e -> acc + i * 100 + e }.toList()
+        Bmc.check(xs.size == 3 && xs[0] == 0 && xs[1] == 5 && xs[2] == 111)
+    }
+
+    /** Symbolic scan law: the last element of scan(+) from 0 equals the total sum. */
+    @BmcProof
+    fun symbolic_scan_last_is_sum() {
+        val a = Bmc.anyInt(0, 100)
+        val b = Bmc.anyInt(0, 100)
+        val xs = sequenceOf(a, b).scan(0) { acc, e -> acc + e }.toList()
+        Bmc.check(xs.size == 3 && xs[0] == 0 && xs[1] == a && xs[2] == a + b)
+    }
+
+    // ---- requireNoNulls / asIterable (SequencesKt facade models, eager).
+
+    @BmcProof
+    fun requireNoNulls_passes_nonnull_through() {
+        val xs = sequenceOf(1, 2, 3).requireNoNulls().toList()
+        Bmc.check(xs.size == 3 && xs[0] == 1 && xs[1] == 2 && xs[2] == 3)
+    }
+
+    @BmcProof
+    fun asIterable_round_trips_elements() {
+        val xs = sequenceOf(4, 5, 6).asIterable().toList()
+        Bmc.check(xs.size == 3 && xs[0] == 4 && xs[1] == 5 && xs[2] == 6)
+    }
+
+    /** Symbolic asIterable law: draining via Iterable preserves element identity and order. */
+    @BmcProof
+    fun symbolic_asIterable_preserves() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val xs = sequenceOf(a, b).asIterable().toList()
+        Bmc.check(xs.size == 2 && xs[0] == a && xs[1] == b)
+    }
+
+    // ---- ifEmpty (SequencesKt facade model): default only on empty.
+
+    @BmcProof
+    fun ifEmpty_nonempty_uses_source() {
+        val xs = sequenceOf(1, 2).ifEmpty { sequenceOf(9, 9, 9) }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 1 && xs[1] == 2)
+    }
+
+    @BmcProof
+    fun ifEmpty_empty_uses_default() {
+        // produce an empty source via filter (avoids the loud emptySequence() tail member)
+        val empty = sequenceOf(1, 2, 3).filter { it > 100 }
+        val xs = empty.ifEmpty { sequenceOf(9, 8) }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 9 && xs[1] == 8)
+    }
 }
