@@ -8,7 +8,7 @@ are genuinely *out of scope* — `double`/`float` and transcendental math, time 
 thread-interleaving concurrency, residual `invokedynamic`. Those are honest hard edges and
 they're called out as such. But "this proof is slow / runs out of memory" is **not** a
 boundary — it's a scaling cost with a [toolbox](performance.md) of levers (range reduction,
-domain splitting, external SAT, contracts, parallelism, sharding, caching). Where a limit
+domain splitting, contracts, parallelism, sharding, caching). Where a limit
 below is really a scaling cost, it points at the lever.
 
 - **Bounded, not unbounded.** Loops/recursion are unwound to `unwind`. Proofs pass
@@ -28,9 +28,8 @@ below is really a scaling cost, it points at the lever.
   guidance to make it decidable, and a distinct exception type, `BmcUndecidedError`. So a
   resource exhaustion in CI is never mistaken for "your code is wrong" — it points you at
   the [performance toolbox](performance.md) (tighten the range, `domainSplit` an
-  interval-bound proof, contract a heavy callee, raise `unwind`/`timeoutSeconds`, or route
-  a string-free divider-bound proof through external SAT). A *slow* proof is a tunable
-  proof, not a boundary. See [`examples/fundamentals-java`](../examples/fundamentals-java) `timeout`.
+  interval-bound proof, contract a heavy callee, raise `unwind`/`timeoutSeconds`). A *slow*
+  proof is a tunable proof, not a boundary. See [`examples/fundamentals-java`](../examples/fundamentals-java) `timeout`.
 - **Vacuous proofs are caught, not passed.** A proof whose `assume`s are jointly
   *unsatisfiable* checks nothing — it "verifies" over an empty input domain
   (`assume(x > 0); assume(x < 0)`, or a `Bmc.anyString(1)` constrained to a 2-char
