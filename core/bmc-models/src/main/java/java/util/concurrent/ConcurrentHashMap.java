@@ -1,6 +1,8 @@
 package java.util.concurrent;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -28,7 +30,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <p>Unlike HashMap, ConcurrentHashMap rejects null keys and values (NPE) — modeled here so a proof
  * over code that puts/looks up a null in a concurrent map sees the real failure, not a silent pass.
  */
-@BmcModelTail(reason = "the live KeySetView views (keySet(defaultValue)) and the Enumeration views (keys()/elements()) — view/iterator-exotic, out of scope for the bounded model; all loud under JBMC")
+@BmcModelTail(reason = "the Enumeration views (keys()/elements()) — iterator-exotic, out of scope for the bounded model; all loud under JBMC")
 public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
 
     public ConcurrentHashMap() {
@@ -37,6 +39,11 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
 
     public ConcurrentHashMap(int initialCapacity) {
         super(initialCapacity);
+    }
+
+    /** Package-private bridge to the inherited insertion-ordered key accessor, for the KeySetView. */
+    K keyAtIndex(int i) {
+        return keyAt(i);
     }
 
     @Override
@@ -180,19 +187,94 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
     }
 
     /**
-     * A fresh, empty key set backed by a CHM, like {@code ConcurrentHashMap.newKeySet()}. Modeled as a
-     * plain bounded {@link Set} — for the add/contains/remove/iterate surface a proof exercises, the
-     * KeySetView is observably a Set; the default-value mapping behaviour (only relevant to
-     * {@code keySet(defaultValue)} / {@code add}) is not modeled.
+     * The {@link Set} view of this map's keys, like {@code ConcurrentHashMap.keySet()}. A bounded
+     * {@link KeySetView} snapshot over the backing keys — the same concrete-backing pattern as
+     * {@link HashMap#keySet()} (which returns a bounded HashSet snapshot), but the named CHM view type
+     * so {@code keys()}-style consumers and the {@code keySet(mappedValue)} default carry through.
+     */
+    @Override
+    @BmcModelConforms("differential (MapConformanceTest keySet/values/entrySet snapshot)")
+    public Set<K> keySet() {
+        return new KeySetView<>(this, null);
+    }
+
+    /**
+     * A {@link KeySetView} over the keys whose {@code add(key)} installs {@code mappedValue}, like
+     * {@code ConcurrentHashMap.keySet(mappedValue)}. The snapshot Set surface (contains/iterate/remove)
+     * is bounded over the backing keys; {@code add} writes {@code (key, mappedValue)} into this map.
+     */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest CHM keySet view)")
+    public KeySetView<K, V> keySet(V mappedValue) {
+        if (mappedValue == null) {
+            throw new NullPointerException();
+        }
+        return new KeySetView<>(this, mappedValue);
+    }
+
+    /**
+     * A fresh, empty key set backed by a CHM, like {@code ConcurrentHashMap.newKeySet()}. A bounded
+     * {@link KeySetView} over a fresh backing map (mapped value {@code Boolean.TRUE}, JDK semantics) —
+     * the add/contains/remove/iterate surface a proof exercises is observably a Set.
      */
     @BmcModelConforms("differential — used as a bounded Set (SetConformanceTest covers the Set surface)")
-    public static <K> Set<K> newKeySet() {
-        return new java.util.HashSet<>();
+    public static <K> KeySetView<K, Boolean> newKeySet() {
+        return new KeySetView<>(new ConcurrentHashMap<K, Boolean>(), Boolean.TRUE);
     }
 
     @BmcModelConforms("differential — used as a bounded Set (SetConformanceTest covers the Set surface)")
-    public static <K> Set<K> newKeySet(int initialCapacity) {
-        return new java.util.HashSet<>(initialCapacity);
+    public static <K> KeySetView<K, Boolean> newKeySet(int initialCapacity) {
+        return new KeySetView<>(new ConcurrentHashMap<K, Boolean>(initialCapacity), Boolean.TRUE);
+    }
+
+    /**
+     * Bounded {@link Set} view of a CHM's keys, returned by {@link #keySet()}/{@link #keySet(Object)}/
+     * {@link #newKeySet()}. Modeled as a {@link HashSet} snapshot of the backing keys (inheriting the
+     * audited bounded Set surface — contains/remove/iterate/forEach), the same concrete-backing pattern
+     * as {@link HashMap#keySet()}. It carries the owning map + default {@code mappedValue} so
+     * {@code add(key)} installs {@code (key, mappedValue)} into the backing map (NPE when no default was
+     * set, matching the JDK); {@code getMap()}/{@code getMappedValue()} expose the view's identity.
+     */
+    public static final class KeySetView<K, V> extends HashSet<K> {
+
+        private final ConcurrentHashMap<K, V> map;
+        private final V mappedValue;
+
+        KeySetView(ConcurrentHashMap<K, V> map, V mappedValue) {
+            this.map = map;
+            this.mappedValue = mappedValue;
+            for (int i = 0; i < map.size(); i++) {
+                super.add(map.keyAtIndex(i));
+            }
+        }
+
+        /** The map backing this view. */
+        public ConcurrentHashMap<K, V> getMap() {
+            return map;
+        }
+
+        /** The default value {@link #add(Object)} maps an added key to, or null if none was set. */
+        public V getMappedValue() {
+            return mappedValue;
+        }
+
+        /**
+         * Add {@code key} to the view, installing {@code (key, mappedValue)} into the backing map.
+         * Throws {@link UnsupportedOperationException} when no default mapped value was set (JDK: a
+         * {@code keySet()} view with no default rejects add), and {@link NullPointerException} on a null
+         * key (CHM rejects nulls).
+         */
+        @Override
+        public boolean add(K key) {
+            if (mappedValue == null) {
+                throw new UnsupportedOperationException();
+            }
+            if (key == null) {
+                throw new NullPointerException();
+            }
+            boolean absent = map.get(key) == null;
+            map.put(key, mappedValue);
+            return super.add(key) || absent;
+        }
     }
 
     // --- parallel bulk operations, modeled SEQUENTIALLY -------------------------------------------
