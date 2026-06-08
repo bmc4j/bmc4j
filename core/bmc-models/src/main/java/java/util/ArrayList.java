@@ -16,7 +16,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * primitives (modeled). String elements use JBMC's native {@code String.equals}; prefer the
  * dedicated string support for string-keyed lookups.
  */
-@BmcModelTail(reason = "exotic remainder: reversed() view, listIterator/subList/spliterator/parallelStream, capacity tuning (ensureCapacity/trimToSize), removeRange — out of scope for a bounded array-backed model; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder: listIterator (ListIterator interface), spliterator/parallelStream (parallel split), capacity tuning (ensureCapacity/trimToSize), removeRange, toArray(IntFunction) — out of scope for a bounded array-backed model; all loud under JBMC. subList and reversed are now MODELED as bounded snapshot views")
 public class ArrayList<E> implements List<E> {
 
     private static final int CAPACITY = 64;
@@ -343,6 +343,38 @@ public class ArrayList<E> implements List<E> {
     @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.clone() — shallow copy of a bounded model — construct a fresh list from the elements instead");
+    }
+
+    // --- bounded views: subList / reversed -------------------------------------------------------
+    // The JDK returns live VIEWS; the bounded model returns an independent SNAPSHOT list holding the
+    // same elements (subList over [fromIndex, toIndex); reversed in opposite order). Sound for the
+    // common read-only / build-then-read proof shape: a proof reads the view's elements, size, and
+    // ordering. (Structural write-through to the backing is NOT modeled — mutate the backing list
+    // directly.) Built by index over the concrete array — no iterator() virtual dispatch.
+
+    @Override
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest): subList(int, int) bounded snapshot view")
+    public List<E> subList(int fromIndex, int toIndex) {
+        if (fromIndex < 0 || toIndex > size || fromIndex > toIndex) {
+            throw new IndexOutOfBoundsException();
+        }
+        ArrayList<E> out = new ArrayList<>();
+        for (int i = fromIndex; i < toIndex; i++) {
+            out.add((E) elements[i]);
+        }
+        return out;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest): reversed() bounded snapshot view")
+    public List<E> reversed() {
+        ArrayList<E> out = new ArrayList<>();
+        for (int i = size - 1; i >= 0; i--) {
+            out.add((E) elements[i]);
+        }
+        return out;
     }
 
     @Override

@@ -2,12 +2,15 @@ package java.util;
 
 import java.util.function.IntUnaryOperator;
 import java.util.function.IntToLongFunction;
+import java.util.function.IntToDoubleFunction;
 import java.util.function.IntFunction;
 import java.util.function.IntBinaryOperator;
 import java.util.function.LongBinaryOperator;
+import java.util.function.DoubleBinaryOperator;
 import java.util.function.BinaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
 import org.bmc4j.models.audit.BmcModelConforms;
@@ -58,7 +61,7 @@ import org.bmc4j.models.audit.FpTotalOrder;
  * sizes BMC proofs use. {@code binarySearch} models the JDK contract on an array the caller has
  * sorted (sorted-assume); on an unsorted array the result is unspecified exactly as in the JDK.
  */
-@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper")
+@BmcModelTail(reason = "the remaining Arrays surface stays loud under JBMC: deepToString/deepEquals/deepHashCode (recursive nested-array reflection), spliterator (Spliterator interface / parallel split), compareUnsigned (compare-family — the jbmc exit-6 engine crash, like compare/mismatch over arrays), hashCode(float[])/hashCode(double[]) and toString(float[])/toString(double[]) (need the unsound Float.floatToIntBits / Float.toString FP-to-string), the Comparator-based sort/binarySearch/parallelSort and the Object[]/Comparable[]/Comparator equals/compare/mismatch (comparator-devirt + the engine crash), and copyOf/copyOfRange(…, Class) (reflective Array.newInstance). The pure-store/-copy double copy/fill/setAll/parallelSetAll/parallelPrefix/stream overloads, toString of the integral/char/boolean primitives, and binarySearch(Object[], Object) natural-order are now MODELED; the float/double equals/sort/binarySearch/compare/mismatch overloads are MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper")
 public class Arrays {
 
     private Arrays() {
@@ -157,6 +160,19 @@ public class Arrays {
     @BmcModelConforms("differential: copyOf(float[], int) (pure copy, no IEEE compare)")
     public static float[] copyOf(float[] original, int newLength) {
         float[] out = new float[newLength];
+        int n = Math.min(original.length, newLength);
+        for (int i = 0; i < n; i++) {
+            out[i] = original[i];
+        }
+        return out;
+    }
+
+    // double copyOf is a pure element copy + zero-pad like float — moving a double value is a plain
+    // store, no IEEE comparison (the NaN/-0.0 quirks only bite equals/hashCode/sort/binarySearch, which
+    // route through FpTotalOrder), so it is sound exactly like the float overload.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): copyOf(double[], int) (pure copy, no IEEE compare)")
+    public static double[] copyOf(double[] original, int newLength) {
+        double[] out = new double[newLength];
         int n = Math.min(original.length, newLength);
         for (int i = 0; i < n; i++) {
             out[i] = original[i];
@@ -317,6 +333,24 @@ public class Arrays {
         return out;
     }
 
+    // double copyOfRange is a pure copy + zero-pad (no IEEE compare) — sound like the float overload.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): copyOfRange(double[], int, int) (pure copy, no IEEE compare)")
+    public static double[] copyOfRange(double[] original, int from, int to) {
+        int len = to - from;
+        if (len < 0) {
+            throw new IllegalArgumentException(from + " > " + to);
+        }
+        double[] out = new double[len];
+        int n = Math.min(len, original.length - from);
+        if (from < 0 || n < 0) {
+            throw new ArrayIndexOutOfBoundsException(from);
+        }
+        for (int i = 0; i < n; i++) {
+            out[i] = original[from + i];
+        }
+        return out;
+    }
+
     // --- fill -----------------------------------------------------------------------------------
 
     @BmcModelConforms("differential + @BmcProof: fill(int[], int)")
@@ -376,9 +410,16 @@ public class Arrays {
         }
     }
 
-    // fill stores its value (no IEEE compare) so the float overload is sound. double stays loud.
+    // fill stores its value (no IEEE compare) so the float overload is sound. double stores identically.
     @BmcModelConforms("differential: fill(float[], float) (pure store, no IEEE compare)")
     public static void fill(float[] a, float val) {
+        for (int i = 0; i < a.length; i++) {
+            a[i] = val;
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): fill(double[], double) (pure store, no IEEE compare)")
+    public static void fill(double[] a, double val) {
         for (int i = 0; i < a.length; i++) {
             a[i] = val;
         }
@@ -434,9 +475,17 @@ public class Arrays {
         }
     }
 
-    // fill stores its value (no IEEE compare) so the float range-fill is sound. double stays loud.
+    // fill stores its value (no IEEE compare) so the float range-fill is sound. double stores identically.
     @BmcModelConforms("differential: fill(float[], int, int, float) (pure store, no IEEE compare)")
     public static void fill(float[] a, int fromIndex, int toIndex, float val) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex; i < toIndex; i++) {
+            a[i] = val;
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): fill(double[], int, int, double) (pure store, no IEEE compare)")
+    public static void fill(double[] a, int fromIndex, int toIndex, double val) {
         rangeCheck(a.length, fromIndex, toIndex);
         for (int i = fromIndex; i < toIndex; i++) {
             a[i] = val;
@@ -1082,6 +1131,15 @@ public class Arrays {
             }
         }
         return -(low + 1);
+    }
+
+    // Object[] natural-order full-array search: elements are Comparable and the array is sorted in
+    // their natural order (the JDK's sorted-assume contract). midVal.compareTo(key) is a plain virtual
+    // call on the concrete element (boxed primitives / String), NOT a Comparator devirt — sound. The
+    // ranged twin already exists below; this is the full-array form delegating to it.
+    @BmcModelConforms("differential (ArraysObjectBinarySearchConformanceTest): binarySearch(Object[], Object) natural-order sorted-assume")
+    public static int binarySearch(Object[] a, Object key) {
+        return binarySearch(a, 0, a.length, key);
     }
 
     // --- binarySearch (range, sorted-assume) ----------------------------------------------------
@@ -1909,6 +1967,14 @@ public class Arrays {
         return Stream.of(array);
     }
 
+    // double stream: the elements are streamed verbatim (no IEEE comparison) into the bounded
+    // DoubleStream model — sound exactly like the int/long overloads; the FP quirks only bite the
+    // ordering ops, which DoubleStream itself doesn't perform here.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): stream(double[]) -> DoubleStream")
+    public static DoubleStream stream(double[] array) {
+        return DoubleStream.of(array);
+    }
+
     // --- stream (range) -------------------------------------------------------------------------
     // Streams array[startInclusive, endExclusive). The JDK validates via Objects.checkFromToIndex,
     // which throws ArrayIndexOutOfBoundsException (NOT IllegalArgumentException) on start>end as well
@@ -1948,6 +2014,17 @@ public class Arrays {
         return Stream.of(sub);
     }
 
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): stream(double[], int, int) -> DoubleStream (ranged)")
+    public static DoubleStream stream(double[] array, int startInclusive, int endExclusive) {
+        streamRangeCheck(array.length, startInclusive, endExclusive);
+        int len = endExclusive - startInclusive;
+        double[] sub = new double[len];
+        for (int i = 0; i < len; i++) {
+            sub[i] = array[startInclusive + i];
+        }
+        return DoubleStream.of(sub);
+    }
+
     // --- setAll ---------------------------------------------------------------------------------
 
     @BmcModelConforms("@BmcProof (proofs.arrays): setAll(int[], IntUnaryOperator)")
@@ -1968,6 +2045,15 @@ public class Arrays {
     public static <T> void setAll(T[] array, IntFunction<? extends T> generator) {
         for (int i = 0; i < array.length; i++) {
             array[i] = generator.apply(i);
+        }
+    }
+
+    // The generator (IntToDoubleFunction) is a plain SAM call producing each element; the model just
+    // stores the result (no IEEE comparison), so it is sound exactly like setAll(int[], …).
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): setAll(double[], IntToDoubleFunction)")
+    public static void setAll(double[] array, IntToDoubleFunction generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsDouble(i);
         }
     }
 
@@ -1994,6 +2080,13 @@ public class Arrays {
     public static <T> void parallelSetAll(T[] array, IntFunction<? extends T> generator) {
         for (int i = 0; i < array.length; i++) {
             array[i] = generator.apply(i);
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelSetAll(double[], IntToDoubleFunction) (= setAll)")
+    public static void parallelSetAll(double[] array, IntToDoubleFunction generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsDouble(i);
         }
     }
 
@@ -2099,6 +2192,15 @@ public class Arrays {
         }
     }
 
+    // The op (DoubleBinaryOperator) is a SAM call that does any arithmetic; the model only stores its
+    // result into the bounded array (no IEEE comparison), so the cumulative scan is sound like int/long.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelPrefix(double[], DoubleBinaryOperator) (cumulative fold)")
+    public static void parallelPrefix(double[] array, DoubleBinaryOperator op) {
+        for (int i = 1; i < array.length; i++) {
+            array[i] = op.applyAsDouble(array[i - 1], array[i]);
+        }
+    }
+
     @BmcModelConforms("differential: parallelPrefix(int[], int, int, IntBinaryOperator) (cumulative fold, ranged)")
     public static void parallelPrefix(int[] array, int fromIndex, int toIndex, IntBinaryOperator op) {
         rangeCheck(array.length, fromIndex, toIndex);
@@ -2121,6 +2223,126 @@ public class Arrays {
         for (int i = fromIndex + 1; i < toIndex; i++) {
             array[i] = op.apply(array[i - 1], array[i]);
         }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelPrefix(double[], int, int, DoubleBinaryOperator) (cumulative fold, ranged)")
+    public static void parallelPrefix(double[] array, int fromIndex, int toIndex, DoubleBinaryOperator op) {
+        rangeCheck(array.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            array[i] = op.applyAsDouble(array[i - 1], array[i]);
+        }
+    }
+
+    // --- toString (bounded textual render of a single-dimension primitive/Object array) ----------
+    // JDK format: "null" for a null array, "[]" for empty, otherwise "[e0, e1, …]" with ", "
+    // separators. Built with a StringBuilder over the bounded array length — bmc4j's string layer
+    // desugars the appends, so the loop unwinds to the (concrete) array length. The Object[] overload
+    // renders each element via String.valueOf (so a null element shows as "null"), like the JDK.
+    // deepToString (recursive, nested-array detection) stays in the tail.
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(int[])")
+    public static String toString(int[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(long[])")
+    public static String toString(long[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(short[])")
+    public static String toString(short[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(byte[])")
+    public static String toString(byte[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(char[])")
+    public static String toString(char[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(boolean[])")
+    public static String toString(boolean[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(Object[]) (String.valueOf per element)")
+    public static String toString(Object[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(String.valueOf(a[i]));
+        }
+        return b.append("]").toString();
     }
 
     // --- shared range check (mirrors java.util.Arrays.rangeCheck) --------------------------------

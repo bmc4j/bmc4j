@@ -39,7 +39,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * NavigableSet live views over a bounded unordered store — out of scope for the same reason the TreeMap
  * model stubs {@code subMap}/{@code headMap}/{@code tailMap}; they are loud {@link BmcUnmodelable} stubs.
  */
-@BmcModelTail(reason = "exotic remainder beyond the explicitly-stubbed range views: the NavigableSet bulk views (descendingSet/reversed), the SequencedCollection positioning ops (addFirst/addLast/getFirst/getLast/removeFirst/removeLast — a sorted set cannot honor an explicit position), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — all live views / out of scope for this bounded backing store; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set")
 public class TreeSet<E> implements Set<E> {
 
     /** A TreeSet is the key set of a map to a single dummy value, like the JDK's {@code PRESENT}. */
@@ -273,6 +273,68 @@ public class TreeSet<E> implements Set<E> {
             }
         }
         return keys;
+    }
+
+    // --- SequencedCollection ends (Java 21+) over the SORTED order --------------------------------
+    // For a sorted set, the first/last in encounter order ARE the least/greatest, so getFirst/getLast
+    // delegate to first/last and removeFirst/removeLast to pollFirst/pollLast (which throw on empty via
+    // first()/last() — JDK getFirst/getLast throw NoSuchElementException on an empty sorted set). The
+    // JDK rejects explicit positioning on a sorted set: addFirst/addLast throw UnsupportedOperationException.
+
+    @BmcModelConforms("differential (SetConformanceTest): getFirst() == first() (least element)")
+    public E getFirst() {
+        return first();
+    }
+
+    @BmcModelConforms("differential (SetConformanceTest): getLast() == last() (greatest element)")
+    public E getLast() {
+        return last();
+    }
+
+    @BmcModelConforms("differential (SetConformanceTest): removeFirst() throws when empty, else removes the least")
+    public E removeFirst() {
+        E e = first();   // throws NoSuchElementException when empty, like the JDK
+        remove(e);
+        return e;
+    }
+
+    @BmcModelConforms("differential (SetConformanceTest): removeLast() throws when empty, else removes the greatest")
+    public E removeLast() {
+        E e = last();
+        remove(e);
+        return e;
+    }
+
+    @BmcModelConforms("differential (SetConformanceTest): addFirst throws UnsupportedOperationException (sorted set rejects positioning)")
+    public void addFirst(E e) {
+        throw new UnsupportedOperationException();
+    }
+
+    @BmcModelConforms("differential (SetConformanceTest): addLast throws UnsupportedOperationException (sorted set rejects positioning)")
+    public void addLast(E e) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * A bounded snapshot of the elements in DESCENDING order (NavigableSet, Java 21+). The JDK returns
+     * a live view; the model returns an independent insertion-ordered {@code LinkedHashSet} populated in
+     * descending order (so its iteration order IS descending — a re-sorting {@code TreeSet} snapshot
+     * would lose the reversal). Sound for read-only / build-then-read proofs. Returns the model
+     * {@code Set} type (the audit matches by name+params, return-agnostic).
+     */
+    @BmcModelConforms("differential (SetConformanceTest): descendingSet() bounded snapshot in descending order")
+    public Set<E> descendingSet() {
+        LinkedHashSet<E> out = new LinkedHashSet<>();
+        for (E e : sortedKeys(true)) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    /** SequencedCollection {@code reversed()} — same descending snapshot as {@link #descendingSet()}. */
+    @BmcModelConforms("differential (SetConformanceTest): reversed() == descendingSet() bounded snapshot")
+    public Set<E> reversed() {
+        return descendingSet();
     }
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------

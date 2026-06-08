@@ -26,7 +26,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * (sub/head/tail-map, descendingMap/descendingKeySet/navigableKeySet) are out of scope (tail; loud
  * under JBMC).
  */
-@BmcModelTail(reason = "the NavigableMap bulk-navigation surface beyond the explicitly-stubbed SortedMap range views (descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC")
+@BmcModelTail(reason = "the boolean-inclusive NavigableMap range views (subMap/headMap/tailMap with from/to inclusivity) and the comparator-taking constructor — live range views over a bounded unordered store are out of scope; all loud under JBMC. descendingMap/descendingKeySet/navigableKeySet/reversed and the SequencedMap sequenced* views are now MODELED as bounded ascending/descending snapshots (differential axis for the SequencedMap defaults, like LinkedHashMap)")
 public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
 
     public TreeMap() {
@@ -229,6 +229,76 @@ public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
     private int cmp(K a, K b) {
         return ((Comparable<? super K>) a).compareTo(b);
     }
+
+    // --- bounded sorted-key snapshot (ascending or descending) ------------------------------------
+    // Selection sort over the live key-set snapshot, by natural ordering — the same scan TreeSet uses.
+    // The loop unwinds to the current size, like every other array-backed model op.
+    @SuppressWarnings("unchecked")
+    private ArrayList<K> sortedKeys(boolean descending) {
+        ArrayList<K> keys = new ArrayList<>();
+        for (K k : keySet()) {
+            keys.add(k);
+        }
+        int n = keys.size();
+        for (int i = 0; i < n; i++) {
+            int sel = i;
+            for (int j = i + 1; j < n; j++) {
+                int c = cmp(keys.get(j), keys.get(sel));
+                if (descending ? c > 0 : c < 0) {
+                    sel = j;
+                }
+            }
+            if (sel != i) {
+                K tmp = keys.get(i);
+                keys.set(i, keys.get(sel));
+                keys.set(sel, tmp);
+            }
+        }
+        return keys;
+    }
+
+    // --- NavigableMap / SequencedMap bulk views: bounded snapshots --------------------------------
+    // The JDK returns LIVE views; the model returns independent insertion-ordered snapshots populated
+    // in the requested order (ascending for navigableKeySet/sequenced*; descending for descending*/
+    // reversed), so the snapshot's own iteration order IS the requested order. Sound for read-only /
+    // build-then-read proofs. Differential-only for the SequencedMap defaults (reversed/sequenced*) —
+    // like LinkedHashMap, JBMC binds the real SequencedMap default over the override; pinned on the
+    // differential axis (MapConformanceTest) where the override is honored on a real JVM. Return the
+    // model Set/Map/Collection types (the audit matches by name+params, return-agnostic).
+
+    @BmcModelConforms("differential (MapConformanceTest): navigableKeySet() ascending snapshot of the keys")
+    public Set<K> navigableKeySet() {
+        LinkedHashSet<K> out = new LinkedHashSet<>();
+        for (K k : sortedKeys(false)) {
+            out.add(k);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("differential (MapConformanceTest): descendingKeySet() descending snapshot of the keys")
+    public Set<K> descendingKeySet() {
+        LinkedHashSet<K> out = new LinkedHashSet<>();
+        for (K k : sortedKeys(true)) {
+            out.add(k);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("differential (MapConformanceTest): descendingMap() descending-key snapshot map")
+    public Map<K, V> descendingMap() {
+        LinkedHashMap<K, V> out = new LinkedHashMap<>();
+        for (K k : sortedKeys(true)) {
+            out.put(k, get(k));
+        }
+        return out;
+    }
+
+    // NOTE: the SequencedMap defaults (reversed/sequencedKeySet/sequencedValues/sequencedEntrySet) are
+    // deliberately NOT overridden here. TreeMap implements SortedMap, which on Java 21+ extends
+    // SequencedMap with covariant returns (SequencedSet/SequencedCollection/SequencedMap) that the
+    // bounded model's plain Set/Collection/Map types cannot satisfy. JBMC binds the real SequencedMap
+    // default over any override anyway (the documented devirtualization artifact on the LinkedHashMap
+    // sequenced* views), so they stay in the tail (loud) rather than fighting the covariant signature.
 
     // --- SortedMap range views (out of scope): loud stubs ------------------------------------------
     // The model implements java.util.SortedMap so a `SortedMap`-typed result (e.g. the value of Kotlin's
