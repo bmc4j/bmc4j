@@ -185,13 +185,49 @@ class ConcurrentLaws {
         Bmc.check(r == v * 2);
     }
 
-    // NOTE: thenCombine is NOT proved here. The JDK declares thenCombine(CompletionStage, BiFunction);
-    // the model implements thenCombine(CompletableFuture, BiFunction) (a narrower, JVM-callable
-    // overload). On a real JVM the reflective differential test drives the modeled overload directly
-    // (ConcurrencyConformanceTest covers it), but javac/JBMC bind a source-level fa.thenCombine(fb, …)
-    // call to the CompletionStage overload, which is in the tail (loud). So thenCombine stays on the
-    // DIFFERENTIAL axis only — the established pattern for a JBMC dispatch quirk (see the memory note on
-    // Duration.between / LocalDate.isBefore staying differential-only).
+    /**
+     * thenCombine merges two ready futures through its BiFunction. The model now implements the REAL
+     * {@code thenCombine(CompletionStage, BiFunction)} signature (the future {@code implements
+     * CompletionStage}), so a source-level {@code fa.thenCombine(fb, …)} binds to the modeled overload —
+     * it is no longer stranded in the loud tail, and the law goes through.
+     */
+    @BmcProof
+    void completablefuture_thenCombine_merges_two_stages() {
+        int a = Bmc.anyInt(-50, 50);
+        int b = Bmc.anyInt(-50, 50);
+        CompletableFuture<Integer> fa = CompletableFuture.completedFuture(a);
+        CompletableFuture<Integer> fb = CompletableFuture.completedFuture(b);
+        int r = fa.thenCombine(fb, (x, y) -> x + y).join();
+        Bmc.check(r == a + b);
+    }
+
+    /**
+     * The no-arg {@code *Async} twin reduces to its synchronous combinator under the immediate executor
+     * (a sequential model has no real executor). thenApplyAsync therefore carries the value through
+     * exactly like thenApply — so {@code CompletionStage}-shaped code that reaches for the {@code *Async}
+     * builder still verifies.
+     */
+    @BmcProof
+    void completablefuture_thenApplyAsync_reduces_to_sync() {
+        int v = Bmc.anyInt(-100, 100);
+        int r = CompletableFuture.completedFuture(v).thenApplyAsync(x -> x + 7).join();
+        Bmc.check(r == v + 7);
+    }
+
+    /**
+     * A method TYPED as {@link java.util.concurrent.CompletionStage} devirtualizes to the
+     * {@link CompletableFuture} backing: the stage combinators dispatch to the single model
+     * implementation, and {@code toCompletableFuture().join()} realizes the value. This is the enabling
+     * property — code written against the interface (not the concrete future) now verifies.
+     */
+    @BmcProof
+    void completionStage_typed_usage_devirtualizes() {
+        int v = Bmc.anyInt(-100, 100);
+        java.util.concurrent.CompletionStage<Integer> stage = CompletableFuture.completedFuture(v);
+        int r = stage.thenApply(x -> x + 1).thenCompose(x -> CompletableFuture.completedFuture(x * 2))
+                .toCompletableFuture().join();
+        Bmc.check(r == (v + 1) * 2);
+    }
 
     /** supplyAsync runs the supplier eagerly (single-threaded) and the value reaches get(). */
     @BmcProof

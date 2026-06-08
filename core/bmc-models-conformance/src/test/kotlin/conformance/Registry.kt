@@ -92,6 +92,7 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.ExecutorService" to "interface — via ImmediateExecutorService",
     "java.util.concurrent.ScheduledExecutorService" to "interface — via ImmediateScheduledExecutorService",
     "java.util.concurrent.Future" to "interface — via ImmediateExecutorService's completed future",
+    "java.util.concurrent.CompletionStage" to "interface — via CompletableFuture (its single concrete impl)",
     "java.util.concurrent.ScheduledFuture" to "interface — via ImmediateScheduledExecutorService's completed future",
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
