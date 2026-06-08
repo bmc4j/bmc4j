@@ -155,6 +155,31 @@ object DomainSplitBytecode {
     }
 
     /**
+     * The `maxLocals` the compiler recorded for [methodName] (or 0 when absent). The cover run places
+     * its synthetic accumulator/temp slots *contiguously above* this value, so it never opens a gap of
+     * uninitialised (TOP) local slots — a gap forces ASM's COMPUTE_FRAMES to emit FULL StackMap frames
+     * (declaring every slot up to the synthetic base) at any branch target inside a slice condition,
+     * which JBMC's frontend mis-tracks across the disjunction and turns into a phantom cover gap.
+     */
+    private fun maxLocalsOf(bytes: ByteArray, methodName: String): Int {
+        var max = 0
+        ClassReader(bytes).accept(object : ClassVisitor(Opcodes.ASM9) {
+            override fun visitMethod(a: Int, n: String?, d: String?, s: String?,
+                                     ex: Array<String>?): MethodVisitor? {
+                if (n != methodName) {
+                    return null
+                }
+                return object : MethodVisitor(Opcodes.ASM9) {
+                    override fun visitMaxs(maxStack: Int, maxLocals: Int) {
+                        max = maxLocals
+                    }
+                }
+            }
+        }, 0)
+        return max
+    }
+
+    /**
      * Read the bytes of [internalName] (`a/b/C`) from the first [classpath] entry that holds it
      * (classpath order, exactly as the JVM/JBMC resolve), or null when absent. Both directory and jar
      * entries are searched. Fail-safe: a bad/locked entry is skipped, never throws.
@@ -233,6 +258,9 @@ object DomainSplitBytecode {
         // classes for frame merge.
         val flags = if (run is RunPlan.Cover) ClassWriter.COMPUTE_FRAMES else ClassWriter.COMPUTE_MAXS
         val cw = ClassWriter(cr, flags)
+        // The cover run's synthetic slots sit DIRECTLY above the method's own locals (no gap) so no
+        // FULL frame is forced on the slice conditions' internal branches; computed once here.
+        val synthBase = if (run is RunPlan.Cover) maxLocalsOf(bytes, methodName) else 0
         val cv = object : ClassVisitor(Opcodes.ASM9, cw) {
             override fun visitMethod(a: Int, n: String?, d: String?, s: String?,
                                      ex: Array<String>?): MethodVisitor {
@@ -242,7 +270,7 @@ object DomainSplitBytecode {
                 }
                 return when (run) {
                     is RunPlan.Slice -> SliceMethodVisitor(mv, run.index)
-                    RunPlan.Cover -> CoverMethodVisitor(mv, plan.sliceCount)
+                    RunPlan.Cover -> CoverMethodVisitor(mv, plan.sliceCount, synthBase)
                 }
             }
         }
@@ -291,21 +319,32 @@ object DomainSplitBytecode {
     /**
      * COVER run: build `overall => (c1 || ... || cn)` from the marker conditions and verify it without
      * running the body. `domainSplit(overall)` records `overall` into `overallSlot` and initialises
-     * `unionSlot = false`; each `slice(c_k)` folds `unionSlot |= c_k`; after the LAST marker the cover
-     * check `check(!overall || union)` is injected, then a `return` so the body is skipped.
+     * `unionSlot = false`; each `slice(c_k)` first MATERIALISES `c_k` into its own clean boolean local
+     * (`ISTORE sliceSlot`) — exactly the way `check`/`assume` consume their `(Z)` argument to a value —
+     * then folds `unionSlot |= sliceSlot`; after the LAST marker the cover check `check(!overall ||
+     * union)` is injected, then a `return` so the body is skipped.
      *
-     * The synthetic locals sit above the method's parameter/local slots — ASM's COMPUTE_FRAMES sees
-     * the stores and grows maxLocals — so they never alias a proof variable. The injected `if` is the
-     * only new branch, which is why this run uses COMPUTE_FRAMES.
+     * Materialising c_k to a local before the OR is what makes a compound `||`/`in`-range slice
+     * condition fold soundly: the marker's argument is taken off the stack as a single well-formed 0/1
+     * (its short-circuit / range-desugar branches all join *before* the marker call, just as the
+     * verifier requires), stored, and only then ORed — so the union accumulator can never be corrupted
+     * by an in-flight disjunction. (Earlier the OR was applied straight to the stack value, which left
+     * the disjunction tangled with the accumulator on conditions whose tail isn't a single compare.)
+     *
+     * The synthetic locals sit DIRECTLY above the method's own `maxLocals` ([synthBase]) — contiguous,
+     * never opening a TOP gap that would force ASM's COMPUTE_FRAMES to emit FULL StackMap frames at the
+     * branch targets *inside* a slice condition (frames JBMC's frontend mis-tracks across the
+     * disjunction). The injected `if` is the only new branch, which is why this run uses COMPUTE_FRAMES.
      */
-    private class CoverMethodVisitor(mv: MethodVisitor, private val sliceCount: Int) :
+    private class CoverMethodVisitor(mv: MethodVisitor, private val sliceCount: Int,
+                                     synthBase: Int) :
             MethodVisitor(Opcodes.ASM9, mv) {
 
-        // Synthetic local slots placed well above any realistic method's own locals. The cover proof
-        // body is trivial (a few stores + the check), so a fixed high base is simpler than threading
-        // maxLocals through, and COMPUTE_FRAMES tolerates the gap.
-        private val overallSlot = SYNTH_BASE
-        private val unionSlot = SYNTH_BASE + 1
+        // Synthetic local slots placed CONTIGUOUSLY above the method's own locals (no gap): the overall
+        // condition, the union accumulator, and one scratch slot to materialise each slice condition.
+        private val overallSlot = synthBase
+        private val unionSlot = synthBase + 1
+        private val sliceSlot = synthBase + 2
 
         private var slicesSeen = 0
         private var coverEmitted = false
@@ -322,8 +361,11 @@ object DomainSplitBytecode {
                         super.visitVarInsn(Opcodes.ISTORE, unionSlot)
                     }
                     SLICE -> {
-                        // unionSlot = unionSlot | c_k. The condition c_k is on the stack; OR it in.
+                        // Materialise c_k off the stack into its own local (a clean 0/1), THEN OR it in:
+                        //   sliceSlot = c_k; unionSlot = unionSlot | sliceSlot.
+                        super.visitVarInsn(Opcodes.ISTORE, sliceSlot)
                         super.visitVarInsn(Opcodes.ILOAD, unionSlot)
+                        super.visitVarInsn(Opcodes.ILOAD, sliceSlot)
                         super.visitInsn(Opcodes.IOR)
                         super.visitVarInsn(Opcodes.ISTORE, unionSlot)
                         slicesSeen++
@@ -375,10 +417,6 @@ object DomainSplitBytecode {
             // End the cover proof here — the body never runs. The method is void (a @BmcProof),
             // so a bare RETURN is correct; the reachability pass will later replace it as usual.
             super.visitInsn(Opcodes.RETURN)
-        }
-
-        companion object {
-            private const val SYNTH_BASE = 200
         }
     }
 }
