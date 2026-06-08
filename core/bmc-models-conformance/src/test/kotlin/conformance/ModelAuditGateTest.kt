@@ -313,6 +313,85 @@ class ModelAuditGateTest : FunSpec({
         }
     }
 
+    // ---- MUTUAL EXCLUSIVITY of the four classification annotations -------------------------------
+    // The four audit classifications are MUTUALLY EXCLUSIVE per member: a member is EXACTLY ONE of
+    //   @BmcModelConforms (modeled + conforming), @BmcNotModelled (can't be modeled, loud stub),
+    //   @BmcNotNeeded (exotic/inline, loud stub), or @BmcModelTail (build-synthesized loud tail).
+    // Carrying two is contradictory (e.g. @BmcNotModelled + @BmcModelConforms claims a member is BOTH a
+    // loud unmodelled stub AND a conforming model). The gate counts, per member, how many of the four
+    // are present and FAILS naming the member FQN + the conflicting annotations.
+    //
+    // Scope: @BmcModelConforms/@BmcNotModelled are method-only; @BmcNotNeeded is method-or-class
+    // (repeatable via BmcNotNeededList); @BmcModelTail is class-only. The contradiction surfaces ON A
+    // METHOD (a method carrying ≥2 of {Conforms, NotModelled, NotNeeded}), so we count per method.
+    // Bridge/synthetic methods are SKIPPED (PR #150): a covariant-return bridge carries the source
+    // method's duplicated annotations but is not a hand-written decision, so it must not false-positive.
+    //
+    // descriptors of the four mutually-exclusive classification annotations → display names, in a
+    // stable order. Shared by the gate scan and the focused kernel unit tests below.
+    val classifierDescs = linkedMapOf(
+        conformsDesc to "@BmcModelConforms",
+        notModelledDesc to "@BmcNotModelled",
+        notNeededDesc to "@BmcNotNeeded",
+        tailDesc to "@BmcModelTail",
+    )
+
+    test("the four classification annotations are mutually exclusive on every model member") {
+        val conflicts = mutableListOf<String>()
+
+        for ((realFqn, node) in nodes) {
+            for (m in node.methods) {
+                if (m.name == "<init>" || m.name == "<clinit>") continue
+                // Skip compiler-generated bridge/synthetic methods (PR #150's bridge-skip): a
+                // covariant-return override makes javac emit a bridge with the SAME name+params onto
+                // which the source annotations may be copied. The bridge is not a hand-written
+                // decision, so a duplicated pair on it must not be reported as a contradiction.
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
+                val carried = mutualExclusivityConflict(methodAnns(m).map { it.desc }, classifierDescs)
+                if (carried.size > 1) {
+                    conflicts.add("$realFqn#${m.name}${paramsDesc(m.desc)}: carries ${carried.size} " +
+                        "mutually-exclusive classification annotations ${carried.joinToString(" + ")} " +
+                        "(a member must be EXACTLY ONE classification)")
+                }
+            }
+        }
+
+        withClue("MODEL AUDITING GATE — members carrying MORE THAN ONE mutually-exclusive classification " +
+            "annotation (${conflicts.size}); each member must be exactly one of @BmcModelConforms / " +
+            "@BmcNotModelled / @BmcNotNeeded / @BmcModelTail:\n  " + conflicts.sorted().joinToString("\n  ")) {
+            conflicts.isEmpty() shouldBe true
+        }
+    }
+
+    // ---- FOCUSED unit tests proving the mutual-exclusivity check BITES --------------------------
+    // Hand-built annotation sets over the pure kernel: a double-annotated member is flagged (size > 1),
+    // a single-annotated member passes (size == 1), and the @Repeatable container collapses correctly.
+    test("mutual-exclusivity kernel: a member with two classification annotations is flagged") {
+        // exactly the contradiction PR #150 fixed on ~37 java.time members: NotModelled + ModelConforms.
+        val carried = mutualExclusivityConflict(listOf(notModelledDesc, conformsDesc), classifierDescs)
+        carried shouldBe listOf("@BmcModelConforms", "@BmcNotModelled")
+        (carried.size > 1) shouldBe true
+    }
+
+    test("mutual-exclusivity kernel: a member with one classification annotation passes") {
+        mutualExclusivityConflict(listOf(conformsDesc), classifierDescs).size shouldBe 1
+        mutualExclusivityConflict(listOf(notModelledDesc), classifierDescs).size shouldBe 1
+        // a non-classification annotation alongside a single classifier does NOT count as a conflict.
+        mutualExclusivityConflict(listOf(conformsDesc, "Lorg/bmc4j/models/audit/BmcSynthesizedLoud;"),
+            classifierDescs).size shouldBe 1
+        // no classification annotation at all → nothing carried.
+        mutualExclusivityConflict(emptyList(), classifierDescs).size shouldBe 0
+    }
+
+    test("mutual-exclusivity kernel: the @BmcNotNeeded @Repeatable container collapses to one presence") {
+        // a member with multiple @BmcNotNeeded carries the BmcNotNeededList container, not the bare
+        // annotation — it must still count as exactly ONE classification (NotNeeded), never zero.
+        mutualExclusivityConflict(listOf(notNeededListDesc), classifierDescs) shouldBe listOf("@BmcNotNeeded")
+        // container alongside a second classifier IS a conflict.
+        (mutualExclusivityConflict(listOf(notNeededListDesc, conformsDesc), classifierDescs).size > 1) shouldBe true
+    }
+
     test("annotated-but-not-registered models are still audited; pristine non-registered models warn") {
         val pristine = mutableListOf<String>()
         val failures = mutableListOf<String>()
@@ -400,6 +479,30 @@ class ModelAuditGateTest : FunSpec({
 // member than its real twin.)
 private fun paramsDesc(methodDesc: String): String =
     "(" + Type.getArgumentTypes(methodDesc).joinToString("") { it.descriptor.replace("Lbmcref/", "L") } + ")"
+
+// The @Repeatable container for @BmcNotNeeded (multiple @BmcNotNeeded on one member collapse to this).
+private const val NOT_NEEDED_LIST_DESC = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
+
+/**
+ * Pure mutual-exclusivity kernel (extracted so it is unit-testable in isolation, without needing a
+ * fixture model on the relocated jar). Given the annotation descriptors present on ONE member and the
+ * ordered map of the four classification-annotation descriptors → display names, returns the display
+ * names of the classification annotations the member carries — preserving the map's order. A returned
+ * list of size > 1 is a contradiction (a member must be EXACTLY ONE classification).
+ *
+ * Normalizes the @BmcNotNeeded @Repeatable container ({@code BmcNotNeededList}) to a single
+ * @BmcNotNeeded presence, so the list form counts the same as the bare annotation.
+ */
+private fun mutualExclusivityConflict(
+    presentDescs: List<String>,
+    classifierDescs: Map<String, String>,
+): List<String> {
+    val notNeededDesc = "Lorg/bmc4j/models/audit/BmcNotNeeded;"
+    val present = presentDescs
+        .map { if (it == NOT_NEEDED_LIST_DESC) notNeededDesc else it }
+        .toSet()
+    return classifierDescs.filterKeys { it in present }.values.toList()
+}
 
 private fun render(m: java.lang.reflect.Method): String =
     m.name + "(" + m.parameterTypes.joinToString(",") { erasedName(it) } + ")"
