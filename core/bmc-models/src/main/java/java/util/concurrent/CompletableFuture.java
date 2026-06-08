@@ -24,17 +24,28 @@ import org.bmc4j.models.audit.BmcModelTail;
  * JDK), and the recovery surface ({@code exceptionally}/{@code handle}) and observation surface
  * ({@code whenComplete}) are modeled so exception-flow proofs (recover a failed future) go through.
  *
- * <p><b>{@code *Async} stance (documented, unchanged):</b> the no-arg static <em>builders</em>
- * ({@code supplyAsync(Supplier)}/{@code runAsync(Runnable)}) are modeled as their synchronous
- * equivalents — a sequential model has no executor. The instance {@code then*Async}/{@code handleAsync}/
- * {@code whenCompleteAsync}/{@code exceptionallyAsync} chaining variants and ALL overloads taking an
- * {@link Executor} stay in the <b>tail</b> (loud under JBMC): proofs should call the plain sync
- * combinator, which the model treats as identical to its {@code *Async} twin would be on one thread —
- * so modeling the async overloads would add surface without adding any distinct sequential behavior.
- * This keeps the modeled set to exactly the combinators a sequential logic proof needs to name.
+ * <p><b>{@link CompletionStage} interface surface (devirtualization):</b> the model {@code implements
+ * CompletionStage<T>}, mirroring the real type hierarchy, so code TYPED as {@code CompletionStage<T>}
+ * dispatches to this single backing implementation under JBMC. The stage combinators that work under
+ * immediate semantics ({@code thenApply}/{@code thenAccept}/{@code thenRun}/{@code thenCompose}/
+ * {@code thenCombine}/{@code handle}/{@code whenComplete}/{@code exceptionally}) take the real interface
+ * signatures — notably {@code thenCompose}/{@code thenCombine} take a {@link CompletionStage} (read via
+ * {@link #toCompletableFuture()}), so a source-level {@code fa.thenCombine(fb, …)} now binds to the
+ * modeled overload instead of the loud tail. {@link #toCompletableFuture()} returns the backing
+ * ({@code this}).
+ *
+ * <p><b>{@code *Async} stance:</b> the no-arg static <em>builders</em>
+ * ({@code supplyAsync(Supplier)}/{@code runAsync(Runnable)}) and the no-arg instance {@code *Async}
+ * chaining/recovery twins ({@code thenApplyAsync}/{@code thenAcceptAsync}/{@code thenRunAsync}/
+ * {@code thenComposeAsync}/{@code thenCombineAsync}/{@code handleAsync}/{@code whenCompleteAsync}/
+ * {@code exceptionallyAsync}) are modeled as their synchronous equivalents — a sequential model has no
+ * executor, so the immediate-executor {@code *Async} twin is observably identical to the plain
+ * combinator on one thread. Every overload taking an explicit {@link Executor} stays in the
+ * <b>tail</b> (loud under JBMC): a non-immediate executor's true concurrency is the concurrency wall a
+ * sequential model cannot soundly model.
  */
-@BmcModelTail(reason = "the *Async chaining/recovery overloads (then*Async/handleAsync/whenCompleteAsync/exceptionallyAsync) and every overload taking an Executor — a sequential model adds no distinct behavior over the plain sync combinator; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither), timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/toCompletableFuture/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC")
-public class CompletableFuture<T> {
+@BmcModelTail(reason = "every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither/thenAcceptBoth and their *Async twins), exceptionallyCompose*, timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC")
+public class CompletableFuture<T> implements CompletionStage<T> {
 
     private T value;
     private Throwable ex;
@@ -169,6 +180,7 @@ public class CompletableFuture<T> {
         return new CompletionException(cause);
     }
 
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public <U> CompletableFuture<U> thenApply(Function<? super T, ? extends U> fn) {
         if (ex != null) {
@@ -177,6 +189,13 @@ public class CompletableFuture<T> {
         return completedFuture(fn.apply(value));
     }
 
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public <U> CompletableFuture<U> thenApplyAsync(Function<? super T, ? extends U> fn) {
+        return thenApply(fn);
+    }
+
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public CompletableFuture<Void> thenAccept(Consumer<? super T> action) {
         if (ex != null) {
@@ -186,6 +205,13 @@ public class CompletableFuture<T> {
         return completedFuture(null);
     }
 
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<Void> thenAcceptAsync(Consumer<? super T> action) {
+        return thenAccept(action);
+    }
+
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public CompletableFuture<Void> thenRun(Runnable action) {
         if (ex != null) {
@@ -195,25 +221,47 @@ public class CompletableFuture<T> {
         return completedFuture(null);
     }
 
-    @SuppressWarnings("unchecked")
-    @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
-    public <U> CompletableFuture<U> thenCompose(Function<? super T, ? extends CompletableFuture<U>> fn) {
-        if (ex != null) {
-            return failed(ex);
-        }
-        return (CompletableFuture<U>) fn.apply(value);
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<Void> thenRunAsync(Runnable action) {
+        return thenRun(action);
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
-    public <U, V> CompletableFuture<V> thenCombine(
-            CompletableFuture<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
+    public <U> CompletableFuture<U> thenCompose(Function<? super T, ? extends CompletionStage<U>> fn) {
         if (ex != null) {
             return failed(ex);
         }
-        if (other.ex != null) {
-            return failed(other.ex);
+        return (CompletableFuture<U>) fn.apply(value).toCompletableFuture();
+    }
+
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public <U> CompletableFuture<U> thenComposeAsync(Function<? super T, ? extends CompletionStage<U>> fn) {
+        return thenCompose(fn);
+    }
+
+    @Override
+    @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
+    public <U, V> CompletableFuture<V> thenCombine(
+            CompletionStage<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
+        if (ex != null) {
+            return failed(ex);
         }
-        return completedFuture(fn.apply(value, other.value));
+        CompletableFuture<? extends U> o = other.toCompletableFuture();
+        if (o.ex != null) {
+            return failed(o.ex);
+        }
+        return completedFuture(fn.apply(value, o.value));
+    }
+
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public <U, V> CompletableFuture<V> thenCombineAsync(
+            CompletionStage<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
+        return thenCombine(other, fn);
     }
 
     /**
@@ -221,6 +269,7 @@ public class CompletableFuture<T> {
      * {@code fn.apply(cause)}; otherwise passes the value through unchanged. The JDK passes the RAW
      * cause to {@code fn} (not wrapped in CompletionException), which this matches.
      */
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public CompletableFuture<T> exceptionally(Function<Throwable, ? extends T> fn) {
         if (ex != null) {
@@ -229,14 +278,27 @@ public class CompletableFuture<T> {
         return completedFuture(value);
     }
 
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<T> exceptionallyAsync(Function<Throwable, ? extends T> fn) {
+        return exceptionally(fn);
+    }
+
     /**
      * Handles both outcomes: runs {@code fn.apply(value, cause)} (exactly one of the two is non-null —
      * value on normal completion, cause on exceptional) and completes the result with whatever {@code fn}
      * returns. This RECOVERS a failed future. The JDK passes the RAW cause to {@code fn}, which matches.
      */
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public <U> CompletableFuture<U> handle(BiFunction<? super T, Throwable, ? extends U> fn) {
         return completedFuture(fn.apply(ex != null ? null : value, ex));
+    }
+
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public <U> CompletableFuture<U> handleAsync(BiFunction<? super T, Throwable, ? extends U> fn) {
+        return handle(fn);
     }
 
     /**
@@ -244,6 +306,7 @@ public class CompletableFuture<T> {
      * two is non-null) and returns a future with the SAME completion — value passes through, exception
      * propagates (NOT recovered). The JDK passes the RAW cause to {@code action}, which matches.
      */
+    @Override
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public CompletableFuture<T> whenComplete(BiConsumer<? super T, ? super Throwable> action) {
         action.accept(ex != null ? null : value, ex);
@@ -251,5 +314,18 @@ public class CompletableFuture<T> {
             return failed(ex);
         }
         return completedFuture(value);
+    }
+
+    @Override
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<T> whenCompleteAsync(BiConsumer<? super T, ? super Throwable> action) {
+        return whenComplete(action);
+    }
+
+    /** Returns the backing future ({@code this}) — a {@link CompletableFuture} already IS its own stage. */
+    @Override
+    @BmcModelConforms("differential (ConcurrencyConformanceTest): a CompletableFuture is its own backing stage")
+    public CompletableFuture<T> toCompletableFuture() {
+        return this;
     }
 }

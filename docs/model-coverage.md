@@ -635,11 +635,11 @@ Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 19, unmodelable 0, not-needed 0, tail 60.
+Real surface: 79 members — modeled 29, unmodelable 0, not-needed 0, tail 50.
 
-**Modeled** (`@BmcModelConforms`): `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `exceptionally(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenApply(Function)`, `thenCompose(Function)`, `thenRun(Runnable)`, `whenComplete(BiConsumer)`
+**Modeled** (`@BmcModelConforms`): `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 60 members, all loud): the *Async chaining/recovery overloads (then*Async/handleAsync/whenCompleteAsync/exceptionallyAsync) and every overload taking an Executor — a sequential model adds no distinct behavior over the plain sync combinator; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither), timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/toCompletableFuture/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 50 members, all loud): every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither/thenAcceptBoth and their *Async twins), exceptionallyCompose*, timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
 
 - `acceptEither(CompletionStage, Consumer)`
 - `acceptEitherAsync(CompletionStage, Consumer)`
@@ -657,7 +657,6 @@ Real surface: 79 members — modeled 19, unmodelable 0, not-needed 0, tail 60.
 - `delayedExecutor(long, TimeUnit)`
 - `delayedExecutor(long, TimeUnit, Executor)`
 - `exceptionNow()`
-- `exceptionallyAsync(Function)`
 - `exceptionallyAsync(Function, Executor)`
 - `exceptionallyCompose(Function)`
 - `exceptionallyComposeAsync(Function)`
@@ -666,7 +665,6 @@ Real surface: 79 members — modeled 19, unmodelable 0, not-needed 0, tail 60.
 - `failedStage(Throwable)`
 - `get(long, TimeUnit)`
 - `getNumberOfDependents()`
-- `handleAsync(BiFunction)`
 - `handleAsync(BiFunction, Executor)`
 - `isCancelled()`
 - `minimalCompletionStage()`
@@ -684,22 +682,14 @@ Real surface: 79 members — modeled 19, unmodelable 0, not-needed 0, tail 60.
 - `runAsync(Runnable, Executor)`
 - `state()`
 - `supplyAsync(Supplier, Executor)`
-- `thenAcceptAsync(Consumer)`
 - `thenAcceptAsync(Consumer, Executor)`
 - `thenAcceptBoth(CompletionStage, BiConsumer)`
 - `thenAcceptBothAsync(CompletionStage, BiConsumer)`
 - `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)`
-- `thenApplyAsync(Function)`
 - `thenApplyAsync(Function, Executor)`
-- `thenCombine(CompletionStage, BiFunction)`
-- `thenCombineAsync(CompletionStage, BiFunction)`
 - `thenCombineAsync(CompletionStage, BiFunction, Executor)`
-- `thenComposeAsync(Function)`
 - `thenComposeAsync(Function, Executor)`
-- `thenRunAsync(Runnable)`
 - `thenRunAsync(Runnable, Executor)`
-- `toCompletableFuture()`
-- `whenCompleteAsync(BiConsumer)`
 - `whenCompleteAsync(BiConsumer, Executor)`
 
 </details>

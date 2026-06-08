@@ -278,7 +278,7 @@ class ConcurrencyConformanceTest : FunSpec({
             val mOther = bmcref.java.util.concurrent.CompletableFuture.completedFuture(7)
             val combine = java.util.function.BiFunction<Int, Int, Int> { a, b -> a + b }
             val rComb = r.thenCombine(rOther, combine).join()
-            val mComb = modelJoin(call(m, "thenCombine", arrayOf(CF, BIFUNCTION), mOther, combine))
+            val mComb = modelJoin(call(m, "thenCombine", arrayOf(CS, BIFUNCTION), mOther, combine))
             mComb shouldBe rComb
 
             // handle (normal): cause is null
@@ -298,6 +298,57 @@ class ConcurrencyConformanceTest : FunSpec({
             val rWhen = r.whenComplete(observer).join()
             val mWhen = modelJoin(call(m, "whenComplete", arrayOf(BICONSUMER), observer))
             mWhen shouldBe rWhen
+        }
+    }
+
+    // --- CompletionStage interface surface (devirtualization) --------------------------------------
+    // The model now `implements CompletionStage<T>`, so code typed as CompletionStage devirtualizes to
+    // the CompletableFuture backing. Drive a CompletionStage-TYPED reference (the relocated interface)
+    // through a stage chain and compare against a real CompletionStage. Also exercises the *Async no-arg
+    // twins (which reduce to their synchronous combinator under the immediate executor) and
+    // toCompletableFuture(). The real JDK CompletionStage is the differential oracle.
+    test("CompletionStage-typed chaining + *Async twins + toCompletableFuture conform") {
+        checkAll(Arb.int(0..9)) { v ->
+            val r: java.util.concurrent.CompletionStage<Int> = java.util.concurrent.CompletableFuture.completedFuture(v)
+            val m = bmcref.java.util.concurrent.CompletableFuture.completedFuture(v)  // an instance IS-A relocated CompletionStage
+
+            // thenApplyAsync (no-arg) == thenApply under the immediate executor.
+            val fn = java.util.function.Function<Int, Int> { it + 5 }
+            r.thenApplyAsync(fn).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "thenApplyAsync", arrayOf(FUNCTION), fn))
+
+            // thenComposeAsync flattens a CompletionStage-returning lambda (composes through the interface).
+            val rComposed = r.thenComposeAsync { java.util.concurrent.CompletableFuture.completedFuture(it * 3) }
+                .toCompletableFuture().join()
+            val mCompose = java.util.function.Function<Int, Any?> { bmcref.java.util.concurrent.CompletableFuture.completedFuture(it * 3) }
+            modelJoin(call(m, "thenComposeAsync", arrayOf(FUNCTION), mCompose)) shouldBe rComposed
+
+            // thenCombineAsync over two stages (the `other` is passed as a CompletionStage).
+            val rOther = java.util.concurrent.CompletableFuture.completedFuture(11)
+            val mOther = bmcref.java.util.concurrent.CompletableFuture.completedFuture(11)
+            val combine = java.util.function.BiFunction<Int, Int, Int> { a, b -> a * 10 + b }
+            r.thenCombineAsync(rOther, combine).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "thenCombineAsync", arrayOf(CS, BIFUNCTION), mOther, combine))
+
+            // handleAsync / whenCompleteAsync / thenAcceptAsync / thenRunAsync / exceptionallyAsync.
+            val handler = java.util.function.BiFunction<Int?, Throwable?, Int> { value, _ -> (value ?: -1) + 2 }
+            r.handleAsync(handler).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "handleAsync", arrayOf(BIFUNCTION), handler))
+            val observer = java.util.function.BiConsumer<Int?, Throwable?> { _, _ -> }
+            r.whenCompleteAsync(observer).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "whenCompleteAsync", arrayOf(BICONSUMER), observer))
+            val accept = java.util.function.Consumer<Int> { }
+            r.thenAcceptAsync(accept).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "thenAcceptAsync", arrayOf(CONSUMER), accept))
+            val run = Runnable { }
+            r.thenRunAsync(run).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "thenRunAsync", arrayOf(RUNNABLE), run))
+            val recover = java.util.function.Function<Throwable, Int> { -7 }
+            r.exceptionallyAsync(recover).toCompletableFuture().join() shouldBe
+                modelJoin(call(m, "exceptionallyAsync", arrayOf(FUNCTION), recover))
+
+            // toCompletableFuture() returns a future completing with the same value (backing identity).
+            r.toCompletableFuture().join() shouldBe call(m, "toCompletableFuture", arrayOf()).let { modelJoin(it) }
         }
     }
 
@@ -634,11 +685,17 @@ private fun refClass(name: String): Class<*> = Class.forName(name)
 private val FUNCTION: Class<*> = java.util.function.Function::class.java
 private val BIFUNCTION: Class<*> = java.util.function.BiFunction::class.java
 private val BICONSUMER: Class<*> = java.util.function.BiConsumer::class.java
+private val CONSUMER: Class<*> = java.util.function.Consumer::class.java
+private val RUNNABLE: Class<*> = java.lang.Runnable::class.java
 private val THROWABLE: Class<*> = java.lang.Throwable::class.java
 
 // The relocated CompletableFuture type + its array (allOf/anyOf take a CompletableFuture[] vararg).
 private val CF: Class<*> = bmcref.java.util.concurrent.CompletableFuture::class.java
 private val CF_ARRAY: Class<*> = java.lang.reflect.Array.newInstance(CF, 0).javaClass
+// The relocated CompletionStage interface — the stage combinators (thenCompose/thenCombine and the
+// *Async twins) take it now (matching the real CompletableFuture surface), so reflective lookups of
+// those overloads key on this type, not the concrete CompletableFuture.
+private val CS: Class<*> = bmcref.java.util.concurrent.CompletionStage::class.java
 
 /** Build a relocated-model CompletableFuture[] for the allOf/anyOf vararg parameter. */
 private fun makeRefCfArray(vararg fs: bmcref.java.util.concurrent.CompletableFuture<*>): Any {
