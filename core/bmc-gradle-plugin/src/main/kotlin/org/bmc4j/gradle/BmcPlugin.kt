@@ -176,6 +176,10 @@ class BmcPlugin : Plugin<Project> {
                             // Distinguish UNKNOWN (undecided within budget) from a real REFUTED so the
                             // progress log doesn't call a timeout/engine-error a refutation.
                             isUndecided(r) -> "UNKNOWN"
+                            // A malformed domainSplit (two domainSplit, an orphan slice, a split with no
+                            // slices) fails at PROCESSING time, before any verdict — it is a 0.0s
+                            // configuration error, not a refutation, so don't print "REFUTED" for it.
+                            isProcessingError(r) -> "ERROR"
                             else -> "REFUTED"
                         }
                         // A proof served from the verdict cache says so - a 0.0s "OK" otherwise
@@ -201,6 +205,18 @@ class BmcPlugin : Plugin<Project> {
                         r.exceptions.any { e ->
                             generateSequence(e) { it.cause }
                                     .any { it.message?.contains("(UNKNOWN)") == true }
+                        }
+
+                /**
+                 * True if the failure was a domainSplit PROCESSING error (a malformed split caught at
+                 * analysis time), recognised by the stable tag the runtime prefixes onto every
+                 * DomainSplitError message. Matched on the message (not the type) because the exception
+                 * crosses the boundary as a PlaceholderException, same as [isUndecided].
+                 */
+                private fun isProcessingError(r: TestResult): Boolean =
+                        r.exceptions.any { e ->
+                            generateSequence(e) { it.cause }
+                                    .any { it.message?.contains("domainSplit processing error: ") == true }
                         }
             })
             // A sharded run (-Dbmc.shard.count > 1) legitimately leaves some shards with zero tests

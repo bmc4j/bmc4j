@@ -28,6 +28,51 @@ class DomainSplitProofs {
     }
 
     /**
+     * EXERCISES THE FAN-OUT: an 8-slice split (plus the cover) gives nine independent derived runs that
+     * the extension submits to the shared jbmc pool concurrently, bounded by `bmc { parallelism }` /
+     * `-PbmcParallelism`. The slices tile `[-1000, 1000]` by residue mod 8 (the cover is sound) and the
+     * clamp stays in range in each, so the aggregate is a domain-scoped green. With more slices than the
+     * pool is wide they run in waves — never nine unbounded jbmc processes.
+     */
+    @BmcProof
+    fun `many slices fan out and verify`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in -1000..1000) {
+            slice(((x % 8) + 8) % 8 == 0)
+            slice(((x % 8) + 8) % 8 == 1)
+            slice(((x % 8) + 8) % 8 == 2)
+            slice(((x % 8) + 8) % 8 == 3)
+            slice(((x % 8) + 8) % 8 == 4)
+            slice(((x % 8) + 8) % 8 == 5)
+            slice(((x % 8) + 8) % 8 == 6)
+            slice(((x % 8) + 8) % 8 == 7)
+        }
+        val r = if (x < -5) -5 else if (x > 5) 5 else x
+        Bmc.check(r in -5..5) // holds in every residue slice
+    }
+
+    /**
+     * A REFUTED slice surfaces its counterexample under CONCURRENCY: the three slices tile the domain
+     * (sound cover) but `buggySign` mis-classifies `x == 1`, which lives in the `x > 0` slice — so that
+     * slice REFUTES while the others run alongside it. The early-exit cancels the still-running runs and
+     * surfaces the counterexample, exactly as in the sequential path.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    fun `a refuted slice surfaces its counterexample under fan-out`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in -1000..1000) {
+            slice(x < 0)
+            slice(x == 0)
+            slice(x > 0) // x == 1 is here, and buggySign(1) == 0 (should be 1)
+        }
+        // A buggy sign classifier with a seeded off-by-one: it swallows x == 1 into the zero bucket,
+        // so the x > 0 slice REFUTES at x == 1.
+        val buggySign = if (x < 0) -1 else if (x <= 1) 0 else 1
+        val expected = if (x < 0) -1 else if (x == 0) 0 else 1
+        Bmc.check(buggySign == expected)
+    }
+
+    /**
      * FAILS LOUD via the COVER proof: the slices leave a GAP at `x == 0`, so the cover obligation
      * `overall => (x<0 || x>0)` is REFUTED — never a silent green over the uncovered point.
      */
