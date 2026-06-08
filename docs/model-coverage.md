@@ -1225,6 +1225,22 @@ Real surface: 5 members — modeled 4, not-modeled 0, not-needed 0, tail 1.
 </details>
 
 
+## `kotlin.Result`
+
+Real surface: 8 members — modeled 4, not-modeled 0, not-needed 0, tail 4.
+
+**Modeled** (`@BmcModelConforms`): `constructor-impl(Object)`, `exceptionOrNull-impl(Object)`, `isFailure-impl(Object)`, `isSuccess-impl(Object)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): kotlin.Result value-class boxing/identity remainder under the mangled JVM ABI — toString-impl formatting, equals/hashCode/box/unbox value-class identity, getValue accessor; the getOrNull/fold/map/recover and Companion.success/failure surface is @InlineOnly (no ABI method to model); loud under JBMC if reached</summary>
+
+- `equals-impl(Object, Object)`
+- `equals-impl0(Object, Object)`
+- `hashCode-impl(Object)`
+- `toString-impl(Object)`
+
+</details>
+
+
 ## `kotlin.Triple`
 
 Real surface: 7 members — modeled 6, not-modeled 0, not-needed 0, tail 1.
@@ -1959,32 +1975,21 @@ Real surface: 164 members — modeled 40, not-modeled 0, not-needed 51, tail 73.
 
 ## `kotlin.time.Duration`
 
-Real surface: 41 members — modeled 21, not-modeled 0, not-needed 0, tail 20.
+Real surface: 41 members — modeled 32, not-modeled 0, not-needed 0, tail 9.
 
-**Modeled** (`@BmcModelConforms`): `compareTo-LRDsOJo(long, long)`, `div-UwyO8pc(long, int)`, `equals-impl0(long, long)`, `getAbsoluteValue-UwyO8pc(long)`, `getInWholeDays-impl(long)`, `getInWholeHours-impl(long)`, `getInWholeMicroseconds-impl(long)`, `getInWholeMilliseconds-impl(long)`, `getInWholeMinutes-impl(long)`, `getInWholeNanoseconds-impl(long)`, `getInWholeSeconds-impl(long)`, `hashCode-impl(long)`, `isFinite-impl(long)`, `isInfinite-impl(long)`, `isNegative-impl(long)`, `isPositive-impl(long)`, `minus-LRDsOJo(long, long)`, `plus-LRDsOJo(long, long)`, `times-UwyO8pc(long, int)`, `toLong-impl(long, DurationUnit)`, `unaryMinus-UwyO8pc(long)`
+**Modeled** (`@BmcModelConforms`): `compareTo-LRDsOJo(long, long)`, `constructor-impl(long)`, `div-UwyO8pc(long, int)`, `equals-impl0(long, long)`, `getAbsoluteValue-UwyO8pc(long)`, `getHoursComponent-impl(long)`, `getInWholeDays-impl(long)`, `getInWholeHours-impl(long)`, `getInWholeMicroseconds-impl(long)`, `getInWholeMilliseconds-impl(long)`, `getInWholeMinutes-impl(long)`, `getInWholeNanoseconds-impl(long)`, `getInWholeSeconds-impl(long)`, `getMinutesComponent-impl(long)`, `getNanosecondsComponent-impl(long)`, `getSecondsComponent-impl(long)`, `hashCode-impl(long)`, `isFinite-impl(long)`, `isInfinite-impl(long)`, `isNegative-impl(long)`, `isPositive-impl(long)`, `minus-LRDsOJo(long, long)`, `plus-LRDsOJo(long, long)`, `times-UwyO8pc(long, int)`, `toComponents-impl(long, Function2)`, `toComponents-impl(long, Function3)`, `toComponents-impl(long, Function4)`, `toComponents-impl(long, Function5)`, `toInt-impl(long, DurationUnit)`, `toLong-impl(long, DurationUnit)`, `truncateTo-UwyO8pc$kotlin_stdlib(long, DurationUnit)`, `unaryMinus-UwyO8pc(long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 20 members, all loud): exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), TimeSource/TimeMark wall-clock; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 9 members, all loud): exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), TimeSource/TimeMark wall-clock; loud under JBMC if reached</summary>
 
 - `compareTo-LRDsOJo(long)`
-- `constructor-impl(long)`
 - `div-LRDsOJo(long, long)`
 - `div-UwyO8pc(long, double)`
 - `equals-impl(long, Object)`
-- `getHoursComponent-impl(long)`
-- `getMinutesComponent-impl(long)`
-- `getNanosecondsComponent-impl(long)`
-- `getSecondsComponent-impl(long)`
 - `times-UwyO8pc(long, double)`
-- `toComponents-impl(long, Function2)`
-- `toComponents-impl(long, Function3)`
-- `toComponents-impl(long, Function4)`
-- `toComponents-impl(long, Function5)`
 - `toDouble-impl(long, DurationUnit)`
-- `toInt-impl(long, DurationUnit)`
 - `toIsoString-impl(long)`
 - `toString-impl(long)`
 - `toString-impl(long, DurationUnit, int)`
-- `truncateTo-UwyO8pc$kotlin_stdlib(long, DurationUnit)`
 
 </details>
 
