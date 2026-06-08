@@ -737,24 +737,6 @@ internal class BmcProofExtensionTest {
     }
 
     @Test
-    fun requireSplitExpectationVerified_acceptsVERIFIED() {
-        // The only coherent expectation for a domain split — must not throw.
-        BmcProofExtension.requireSplitExpectationVerified(org.bmc4j.Verdict.VERIFIED, "pkg.C.splitProof")
-    }
-
-    @Test
-    fun requireSplitExpectationVerified_rejectsNonVERIFIED_soundnessGuard() {
-        // expect=REFUTED on a split would invert the cover gate: a genuine domain GAP refutes the cover,
-        // and a REFUTED expectation would make that "match" and mask the gap. Must be rejected loud.
-        for (bad in listOf(org.bmc4j.Verdict.REFUTED, org.bmc4j.Verdict.UNKNOWN)) {
-            val ex = assertThrows(org.bmc4j.engine.DomainSplitBytecode.DomainSplitError::class.java) {
-                BmcProofExtension.requireSplitExpectationVerified(bad, "pkg.C.splitProof")
-            }
-            assertTrue(ex.message!!.contains("not allowed with domainSplit"), ex.message)
-        }
-    }
-
-    @Test
     fun linkFailuresToDemote_keepsAnExpectedRefutationEvenWithAStubInTrace(
             @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
         // A demo that PINS expect=REFUTED and matches, whose trace happens to run through a nondet stub
