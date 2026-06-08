@@ -2,6 +2,7 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAdjuster;
@@ -30,7 +31,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * interface-typed parameter. Those interface abstract methods, {@code getRules}, and the named-region
  * remainder are NOT modeled — each is a LOUD stub, a NAMED UNKNOWN if reached.
  */
-@BmcModelTail(reason = "the TemporalAccessor/TemporalAdjuster query plumbing (get/getLong/isSupported/range/query/adjustInto), getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC")
+@BmcModelTail(reason = "the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC")
 public final class ZoneOffset extends ZoneId implements TemporalAccessor, TemporalAdjuster, Comparable<ZoneOffset> {
 
     /** The JDK's maximum absolute offset: ±18 hours. */
@@ -142,16 +143,38 @@ public final class ZoneOffset extends ZoneId implements TemporalAccessor, Tempor
         throw fail("bmc4j: unmodelled member java.time.ZoneOffset.getRules() — the fixed-offset ZoneRules object is DST-rule machinery out of scope for the total-seconds offset model");
     }
 
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (isSupported) is out of scope for the total-seconds offset model")
+    /** A ZoneOffset supports exactly the OFFSET_SECONDS field, like the JDK. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for the total-seconds offset model");
+        return field == ChronoField.OFFSET_SECONDS;
     }
 
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for the total-seconds offset model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for the total-seconds offset model");
+        if (field == ChronoField.OFFSET_SECONDS) {
+            return totalSeconds;
+        }
+        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.getLong(java.time.temporal.TemporalField) — only OFFSET_SECONDS is modeled for the total-seconds offset");
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public int get(TemporalField field) {
+        if (field == ChronoField.OFFSET_SECONDS) {
+            return totalSeconds;
+        }
+        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.get(java.time.temporal.TemporalField) — only OFFSET_SECONDS is modeled for the total-seconds offset");
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public ValueRange range(TemporalField field) {
+        if (field == ChronoField.OFFSET_SECONDS) {
+            return field.range();
+        }
+        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.range(java.time.temporal.TemporalField) — only OFFSET_SECONDS is modeled for the total-seconds offset");
     }
 
     @BmcUnmodelable(reason = "applying a ZoneOffset to a Temporal (adjustInto) is out of scope for the total-seconds offset model")

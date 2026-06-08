@@ -545,4 +545,48 @@ class TimeLaws {
         Bmc.check((c < 0) == (a.totalSeconds > b.totalSeconds))
         Bmc.check((c == 0) == (a.totalSeconds == b.totalSeconds))
     }
+
+    // --- ChronoField / ChronoUnit accessor plumbing on the temporal models ---
+    // The (now-modeled) ChronoField/ChronoUnit unblock getLong/get/with/plus/until on the date/time
+    // models. These laws pin the field<->value round-trips that the accessors must satisfy under JBMC.
+
+    @BmcProof
+    fun localdate_getLong_epochDay_round_trips() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        // EPOCH_DAY reads the backing exactly; the field's getFrom delegates to getLong.
+        Bmc.check(d.getLong(java.time.temporal.ChronoField.EPOCH_DAY) == d.toEpochDay())
+        Bmc.check(java.time.temporal.ChronoField.EPOCH_DAY.getFrom(d) == d.toEpochDay())
+    }
+
+    @BmcProof
+    fun localdate_with_then_get_dayOfWeek_round_trips() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        val target = Bmc.anyInt(1, 7).toLong()
+        val moved = d.with(java.time.temporal.ChronoField.DAY_OF_WEEK, target)
+        Bmc.check(moved.getLong(java.time.temporal.ChronoField.DAY_OF_WEEK) == target)
+    }
+
+    @BmcProof
+    fun localdate_plus_days_unit_matches_plusDays() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        val n = anyDay()
+        Bmc.check(d.plus(n, java.time.temporal.ChronoUnit.DAYS) == d.plusDays(n))
+    }
+
+    @BmcProof
+    fun localtime_getLong_nanoOfDay_round_trips() {
+        // Tight nano-of-day so the field decode stays a small circuit; the law holds for any value.
+        val nod = Bmc.anyLong(0, 86_400L * 1_000_000_000L - 1L)
+        val t = LocalTime.ofNanoOfDay(nod)
+        Bmc.check(t.getLong(java.time.temporal.ChronoField.NANO_OF_DAY) == nod)
+        Bmc.check(t.getLong(java.time.temporal.ChronoField.HOUR_OF_DAY).toInt() == t.hour)
+    }
+
+    @BmcProof
+    fun chronounit_addTo_delegates_to_plus() {
+        val t = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_400L * 1_000_000_000L - 1L))
+        val h = Bmc.anyInt(-48, 48).toLong()
+        // ChronoUnit.addTo(temporal, n) is defined as temporal.plus(n, this).
+        Bmc.check(java.time.temporal.ChronoUnit.HOURS.addTo(t, h) == t.plus(h, java.time.temporal.ChronoUnit.HOURS))
+    }
 }

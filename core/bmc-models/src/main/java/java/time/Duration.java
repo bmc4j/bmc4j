@@ -2,6 +2,8 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
@@ -340,6 +342,24 @@ public final class Duration {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(Duration other) {
         return this.millis < other.millis ? -1 : (this.millis == other.millis ? 0 : 1);
+    }
+
+    /**
+     * The {@code long} value of the requested unit — the TemporalAmount {@code get(TemporalUnit)} the JDK
+     * supports for exactly SECONDS and NANOS (the two units {@code getUnits()} reports). SECONDS is the
+     * FLOORED seconds; NANOS the floored nano-of-second ({@code [0, 999_999_999]}), which on the millis
+     * backing is exactly {@code milliOfSecond * 1_000_000}. Any other unit throws
+     * {@link java.time.temporal.UnsupportedTemporalTypeException}-shaped (loud), like the JDK.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public long get(TemporalUnit unit) {
+        if (unit == ChronoUnit.SECONDS) {
+            return floorSeconds();
+        }
+        if (unit == ChronoUnit.NANOS) {
+            return (long) toMillisPart() * 1_000_000L;
+        }
+        throw fail("bmc4j: unmodelled member java.time.Duration.get(java.time.temporal.TemporalUnit) — only SECONDS and NANOS are supported units (the JDK throws UnsupportedTemporalTypeException for any other)");
     }
 
     @Override

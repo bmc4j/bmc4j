@@ -3,6 +3,7 @@ package java.time.chrono;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import java.time.DateTimeException;
+import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalField;
 import org.bmc4j.models.audit.BmcModelConforms;
@@ -53,16 +54,20 @@ public enum IsoEra implements Era {
     // --- Era abstract surface: implemented ONLY to make an IsoEra an instanceof Era (so the proof-site
     //     checkcast passes); each is LOUD, never modeled. ---
 
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (isSupported) is out of scope for this BCE/CE enum model")
+    /** An IsoEra supports exactly the ERA field, like the JDK. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.chrono.IsoEra.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this BCE/CE enum model");
+        return field == ChronoField.ERA;
     }
 
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for this BCE/CE enum model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.chrono.IsoEra.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this BCE/CE enum model");
+        if (field == ChronoField.ERA) {
+            return getValue();
+        }
+        throw fail("bmc4j: unmodelled member java.time.chrono.IsoEra.getLong(java.time.temporal.TemporalField) — only ERA is modeled for this BCE/CE enum");
     }
 
     @BmcUnmodelable(reason = "applying an IsoEra to a Temporal (adjustInto) is out of scope for this BCE/CE enum model")
