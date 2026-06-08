@@ -32,4 +32,20 @@ class BmcRequest @JvmOverloads constructor(
          * The orchestration (how N+1 runs are launched and their verdicts aggregated) lives in
          * [org.bmc4j.junit.BmcProofExtension].
          */
-        @get:JvmName("domainSplitRun") val domainSplitRun: DomainSplitBytecode.RunPlan? = null)
+        @get:JvmName("domainSplitRun") val domainSplitRun: DomainSplitBytecode.RunPlan? = null,
+        /**
+         * The RESOLVED external DIMACS SAT solver binary this proof runs under, or empty for the
+         * engine's default/built-in/SMT path. Distinct from [solver] (the requested name): this is the
+         * concrete path the safe-by-default [SolverPlan] decided on — populated ONLY for a proof proven
+         * text-free (or under the expert unsafe override). Part of the verdict-cache identity: the
+         * resolved binary, not just the requested name, must bust the cache.
+         */
+        @get:JvmName("externalSatPath") val externalSatPath: String = "",
+        /**
+         * Whether the engine runs this proof with its String reasoning turned OFF — true exactly when
+         * an external SAT solver is engaged ([externalSatPath] non-empty). A verdict proven with String
+         * reasoning off is NOT interchangeable with one proven with it on, so this is part of the
+         * verdict-cache identity (over-keying is always sound; under-keying would serve a refinement-off
+         * verdict for a refinement-on request, a soundness bug).
+         */
+        @get:JvmName("stringRefinementOff") val stringRefinementOff: Boolean = false)

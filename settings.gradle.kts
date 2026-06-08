@@ -78,3 +78,12 @@ include(
 include(
     "cache-soundness-smoke",
 )
+
+// External-SAT (fast solver) soundness smoke + Step-0 empirical probe: a tiny dedicated module of
+// proofs that genuinely need text/String reasoning, used to prove the cardinal invariant — the fast
+// solver (String reasoning OFF) never serves a false VERIFIED for a text proof. Linux-only (the fast
+// solver ships for linux-x64); runs only in its own workflow. See
+// .github/workflows/external-sat-soundness.yml.
+include(
+    "external-sat-soundness-smoke",
+)

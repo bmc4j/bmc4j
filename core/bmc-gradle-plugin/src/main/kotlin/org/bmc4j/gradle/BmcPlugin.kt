@@ -363,6 +363,24 @@ class BmcPlugin : Plugin<Project> {
                 if (ext.solverPath.isPresent && ext.solverPath.get().isNotBlank()) {
                     test.systemProperty("bmc.solverPath", ext.solverPath.get())
                 }
+                // Fast external SAT solver (text-free proofs only). A command-line -Dbmc.externalSat
+                // (e.g. -PsatPath wired by the benchmark) wins over the build default; both become the
+                // lowest-precedence global request that the runtime's safe-by-default SolverPlan vets per
+                // proof (text-using proofs never run on it). Empty/unset = no external SAT.
+                val cliExternalSat = System.getProperty("bmc.externalSat")
+                if (!cliExternalSat.isNullOrBlank()) {
+                    test.systemProperty("bmc.externalSat", cliExternalSat)
+                } else if (ext.externalSat.isPresent && ext.externalSat.get().isNotBlank()) {
+                    test.systemProperty("bmc.externalSat", ext.externalSat.get())
+                }
+                // Opt-out for the fast-solver-on-a-text-proof fail-loud (default off = fail loud). When
+                // on, those proofs silently fall back to the sound default solver instead of failing.
+                val cliFallback = System.getProperty("bmc.externalSatStringFallback")
+                if (!cliFallback.isNullOrBlank()) {
+                    test.systemProperty("bmc.externalSatStringFallback", cliFallback)
+                } else if (ext.externalSatStringFallback.getOrElse(false)) {
+                    test.systemProperty("bmc.externalSatStringFallback", "true")
+                }
 
                 // Run proofs concurrently — each spawns its own jbmc and proofs are independent, so
                 // this scales near-linearly. JUnit 5 runs the @BmcProof methods on a fixed pool.

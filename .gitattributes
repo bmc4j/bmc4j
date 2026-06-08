@@ -6,3 +6,6 @@ core/bmc-runtime/src/test/resources/jbmc/** -text
 # The verdict-cache soundness smoke script runs under bash on the Linux CI runner; CRLF would
 # break the shebang/parsing, so commit it with LF regardless of the committer's platform.
 cache-soundness-smoke/smoke.sh text eol=lf
+
+# Same for the external-SAT (fast solver) soundness smoke script.
+external-sat-soundness-smoke/smoke.sh text eol=lf
