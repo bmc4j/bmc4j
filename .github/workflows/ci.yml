@@ -261,6 +261,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # Cache the EXTRACTED engine so prepareEngine no-ops on a hit (its existence
+      # check sees build/engine/jbmc/<platform>/{bin/jbmc,lib/core-models.jar} and
+      # skips the GitHub-release-CDN download entirely - that download is the source
+      # of the recurring transient 504s). This runner is linux-x64, so only that
+      # module's engine assembles here. Key captures arch/os + cbmc version + a hash
+      # of every engine build.gradle.kts, so a version bump or download-logic change
+      # invalidates the cache and re-downloads (still SHA-256-verified on the miss).
+      - name: Cache engine (linux-x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-linux-x64/build/engine
+            core/bmc-engine-linux-x64/build/download
+          key: bmc-engine-linux-x64-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-linux-x64-cbmc6.9.0-
+
       - name: Core - build + unit tests
         run: ./gradlew -p core build --no-daemon
 
@@ -289,6 +306,21 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      # Cache the EXTRACTED engine so prepareEngine no-ops on a hit (skips the
+      # GitHub-release-CDN download that flakes with transient 504s). Proof legs run
+      # on ubuntu-latest = linux-x64, so only that engine assembles. Key captures
+      # arch/os + cbmc version + a hash of every engine build.gradle.kts; a version
+      # bump or download-logic change invalidates it and re-downloads (SHA-256-verified).
+      - name: Cache engine (linux-x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-linux-x64/build/engine
+            core/bmc-engine-linux-x64/build/download
+          key: bmc-engine-linux-x64-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-linux-x64-cbmc6.9.0-
 
       # Restore the per-LEG verdict cache (one lineage per leg, shared by all its shards):
       # different JVM targets / kotlinc versions emit different bytecode -> different content
@@ -570,6 +602,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # Cache the EXTRACTED engine for THIS smoke platform so prepareEngine no-ops on
+      # a hit and skips the release-CDN download (the transient-504 source). Each
+      # matrix platform caches its own engine dir under its own arch/os-scoped key -
+      # no cross-arch contamination. cbmc version + the engine build.gradle.kts hash
+      # invalidate on a bump or download-logic change (re-download stays SHA-256-verified).
+      - name: Cache engine (${{ matrix.platform }})
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-${{ matrix.platform }}/build/engine
+            core/bmc-engine-${{ matrix.platform }}/build/download
+          key: bmc-engine-${{ matrix.platform }}-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-${{ matrix.platform }}-cbmc6.9.0-
+
       # One real proof class, end-to-end: assembles this platform's engine jar from
       # the (checksum-verified) upstream artifact, extracts the bundled jbmc, and
       # verifies actual proofs with it. bash on windows runs the sh wrapper fine.
@@ -621,6 +668,22 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v6
+
+      # Cache the EXTRACTED musl engine so prepareEngine no-ops on a hit and skips the
+      # release-asset download (bmc4j/jbmc-musl-builds, same transient-504 CDN). The
+      # cache action runs on the host runner but the workspace-relative path is shared
+      # with the alpine container, so the restored engine dir is visible to the gradle
+      # assemble below. Own key (musl-specific), invalidated by the cbmc version + the
+      # engine build.gradle.kts hash; re-download on a miss stays SHA-256-verified.
+      - name: Cache engine (linux-x64-musl)
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-linux-x64-musl/build/engine
+            core/bmc-engine-linux-x64-musl/build/download
+          key: bmc-engine-linux-x64-musl-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-linux-x64-musl-cbmc6.9.0-
 
       # Assemble the musl engine jar: fetch + verify + extract the prebuilt musl jbmc.
       # The plugin's musl detection would wire this same engine for a real consumer in
