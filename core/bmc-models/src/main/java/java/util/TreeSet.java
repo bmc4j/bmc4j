@@ -275,12 +275,32 @@ public class TreeSet<E> implements Set<E> {
         return keys;
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
+    // --- bulk membership / array snapshot (modeled) ---------------------------------------------
 
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
+    /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.treeset)")
     public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.TreeSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
+
+    /** A new array holding every element in ASCENDING (natural) order — the sorted snapshot, like the JDK. */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.treeset)")
+    public Object[] toArray() {
+        ArrayList<E> sorted = sortedKeys(false);
+        int n = sorted.size();
+        Object[] out = new Object[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = sorted.get(i);
+        }
+        return out;
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
 
     @BmcUnmodelable(reason = "NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC")
     public SortedSet<E> subSet(E fromElement, E toElement) {
@@ -295,11 +315,6 @@ public class TreeSet<E> implements Set<E> {
     @BmcUnmodelable(reason = "NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC")
     public SortedSet<E> tailSet(E fromElement) {
         throw fail("bmc4j: unmodelled member java.util.TreeSet.tailSet(java.lang.Object) — NavigableSet range view over a bounded unordered store; out of scope");
-    }
-
-    @BmcUnmodelable(reason = "array snapshot — iterate the model instead")
-    public Object[] toArray() {
-        throw fail("bmc4j: unmodelled member java.util.TreeSet.toArray() — array snapshot — iterate the model instead");
     }
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")

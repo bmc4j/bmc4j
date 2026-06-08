@@ -144,6 +144,55 @@ class ArrayListLaws {
     // only resolve against java.util.List on the Java 21+ floor, so those proofs live in the
     // jvm21+ source set (see build.gradle.kts). lastIndexOf is on List in every supported floor.
 
+    // --- positional add / addAll(int) / containsAll / replaceAll ------------------------------------
+
+    @BmcProof
+    fun add_at_index_shifts_tail_right() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val x = Bmc.anyInt()
+        l.add(a); l.add(b)
+        l.add(1, x)                                 // [a, x, b]
+        Bmc.check(l.size == 3 && l[0] == a && l[1] == x && l[2] == b)
+    }
+
+    @BmcProof
+    fun addAll_at_index_inserts_in_order() {
+        val src = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        src.add(a); src.add(b)
+        val dst = ArrayList<Int>()
+        val z = Bmc.anyInt()
+        dst.add(z); dst.add(z + 1)
+        val changed = dst.addAll(1, src)            // [z, a, b, z+1]
+        Bmc.check(changed && dst.size == 4 && dst[0] == z && dst[1] == a && dst[2] == b && dst[3] == z + 1)
+    }
+
+    @BmcProof
+    fun containsAll_true_iff_every_element_present() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        l.add(a); l.add(b)
+        val sub = ArrayList<Int>()
+        sub.add(a)
+        val other = ArrayList<Int>()
+        other.add(a); other.add(b + 1)              // b+1 absent (b+1 != a and b+1 != b)
+        Bmc.check(l.containsAll(sub) && !l.containsAll(other))
+    }
+
+    @BmcProof
+    fun replaceAll_maps_every_element_via_lambda() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt(0, 1000)
+        val b = Bmc.anyInt(0, 1000)
+        l.add(a); l.add(b)
+        l.replaceAll { it + 1 }
+        Bmc.check(l.size == 2 && l[0] == a + 1 && l[1] == b + 1)
+    }
+
     @BmcProof
     fun lastIndexOf_finds_the_last_equal_element() {
         val l = ArrayList<Int>()

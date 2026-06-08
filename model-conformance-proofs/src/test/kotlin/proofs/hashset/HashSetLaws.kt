@@ -117,6 +117,21 @@ class HashSetLaws {
     }
 
     @BmcProof
+    fun containsAll_true_iff_every_element_present() {
+        val s = HashSet<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        Bmc.assume(a != b)
+        s.add(a); s.add(b)
+        val sub = ArrayList<Int>()
+        sub.add(a)
+        val other = ArrayList<Int>()
+        other.add(a); other.add(b + 1)
+        Bmc.assume(b + 1 != a)
+        Bmc.check(s.containsAll(sub) && !s.containsAll(other))
+    }
+
+    @BmcProof
     fun retainAll_keeps_only_the_intersection() {
         val s = HashSet<Int>()
         val keep = Bmc.anyInt()

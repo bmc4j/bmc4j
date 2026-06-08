@@ -303,6 +303,67 @@ public class ArrayList<E> implements List<E> {
         return out;
     }
 
+    // --- functional / positional bulk ops over the bounded backing array (modeled) ------------------
+    // replaceAll maps each slot through the operator in index order; containsAll reuses contains(); the
+    // positional add/addAll shift the tail right (loud out-of-bounds past CAPACITY). Functional args are
+    // plain SAM calls (bmc4j desugars the lambda so JBMC devirtualizes apply).
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
+    public void replaceAll(java.util.function.UnaryOperator<E> operator) {
+        for (int i = 0; i < size; i++) {
+            elements[i] = operator.apply((E) elements[i]);
+        }
+    }
+
+    /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
+    public boolean containsAll(Collection<?> c) {
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Positional insert: shift the tail one slot right (loud out-of-bounds past CAPACITY), then place
+     * {@code element} at {@code index}. {@code index == size} appends. Out-of-range indices throw, like
+     * the JDK.
+     */
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
+    public void add(int index, E element) {
+        if (index < 0 || index > size) {
+            throw new IndexOutOfBoundsException();
+        }
+        elements[size] = null;          // claim a slot (loud if past capacity)
+        size++;
+        for (int i = size - 1; i > index; i--) {
+            elements[i] = elements[i - 1];
+        }
+        elements[index] = element;
+    }
+
+    /**
+     * Positional bulk add: insert {@code c}'s elements (in iteration order) starting at {@code index},
+     * shifting the tail right. {@code index == size} appends. Loud out-of-bounds past CAPACITY.
+     */
+    @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
+    public boolean addAll(int index, Collection<? extends E> c) {
+        if (index < 0 || index > size) {
+            throw new IndexOutOfBoundsException();
+        }
+        boolean changed = false;
+        int at = index;
+        for (E e : c) {
+            add(at, e);                 // shift-and-insert each element in turn
+            at++;
+            changed = true;
+        }
+        return changed;
+    }
+
     // --- explicitly UNMODELLED members ---------------------------------------
     // Real ArrayList members this bounded array-backed model deliberately does not implement. Each is
     // a declared stub with a LOUD body (routed through the BmcUnmodelledReached sentinel), so reaching
@@ -310,29 +371,9 @@ public class ArrayList<E> implements List<E> {
     // The decision (@BmcUnmodelable = "can't"; @BmcUnmodelable = "not worth it") + reason live ON the
     // stub, next to the surface it waives.
 
-    @BmcUnmodelable(reason = "functional-arg map — JBMC stubs the operator dispatch")
-    public void replaceAll(java.util.function.UnaryOperator<E> operator) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.replaceAll(java.util.function.UnaryOperator) — functional-arg map — JBMC stubs the operator dispatch");
-    }
-
-    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array — not modeled")
+    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it")
     public void sort(Comparator<? super E> c) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array — not modeled");
-    }
-
-    @BmcUnmodelable(reason = "positional bulk add — exotic; add elements explicitly")
-    public boolean addAll(int index, Collection<? extends E> c) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.addAll(int,java.util.Collection) — positional bulk add — exotic; add elements explicitly");
-    }
-
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
-    public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
-    }
-
-    @BmcUnmodelable(reason = "positional insert — exotic; append + shift not modeled")
-    public void add(int index, E element) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.add(int,java.lang.Object) — positional insert — exotic; append + shift not modeled");
+        throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array: O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof");
     }
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")

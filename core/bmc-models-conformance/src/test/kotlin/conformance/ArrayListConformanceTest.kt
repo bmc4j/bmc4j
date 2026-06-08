@@ -224,6 +224,62 @@ class ArrayListConformanceTest : FunSpec({
         }
     }
 
+    // --- positional add / addAll(int,Collection) / containsAll -------------------------------------
+    // add(index,e) and addAll(index,c) shift the tail right; containsAll reuses contains. Compared vs
+    // the JDK ArrayList/LinkedList incl. out-of-range index exceptions (index in -1..size+1).
+    test("ArrayList/LinkedList positional add / addAll(int) / containsAll conform") {
+        val seedAndArgs = Arb.bind(
+            Arb.list(Arb.int(-3..5), 0..15),
+            Arb.int(-1..16),
+            Arb.list(Arb.int(-3..5), 0..6),
+        ) { seed, idx, src -> Triple(seed, idx, src) }
+        checkAll(seedAndArgs) { (seed, idx, src) ->
+            for ((real, model) in listOf(
+                { java.util.ArrayList<Any?>() } to { bmcref.java.util.ArrayList<Any?>() },
+                { java.util.LinkedList<Any?>() } to { bmcref.java.util.LinkedList<Any?>() },
+            )) {
+                // containsAll: every element of src present?
+                run {
+                    val r = real(); val m = model()
+                    for (x in seed) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                    assertEquivalent("containsAll",
+                        call(r, "containsAll", arrayOf(java.util.Collection::class.java), java.util.ArrayList<Any?>(src)),
+                        call(m, "containsAll", arrayOf(bmcref.java.util.Collection::class.java), bmcref.java.util.ArrayList<Any?>().also { for (x in src) it.add(x) }))
+                }
+                // add(index, element): same exception or same resulting elements.
+                run {
+                    val r = real(); val m = model()
+                    for (x in seed) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                    assertEquivalent("add($idx,99)",
+                        call(r, "add", arrayOf(INT, OBJECT), idx, 99),
+                        call(m, "add", arrayOf(INT, OBJECT), idx, 99))
+                    assertSameElements(r, m)
+                }
+                // addAll(index, collection): same exception or same resulting elements + boolean return.
+                run {
+                    val r = real(); val m = model()
+                    for (x in seed) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                    assertEquivalent("addAll($idx,src)",
+                        call(r, "addAll", arrayOf(INT, java.util.Collection::class.java), idx, java.util.ArrayList<Any?>(src)),
+                        call(m, "addAll", arrayOf(INT, bmcref.java.util.Collection::class.java), idx, bmcref.java.util.ArrayList<Any?>().also { for (x in src) it.add(x) }))
+                    assertSameElements(r, m)
+                }
+            }
+        }
+    }
+
+    // replaceAll(UnaryOperator) maps each element in place; take a lambda directly (SAM type differs).
+    test("ArrayList replaceAll conforms") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { seed ->
+            val r = java.util.ArrayList<Int>(); val m = bmcref.java.util.ArrayList<Int>()
+            for (x in seed) { r.add(x); m.add(x) }
+            r.replaceAll { it * 2 - 1 }
+            m.replaceAll { it * 2 - 1 }
+            (call(m, "size", arrayOf()).getOrThrow() as Int) shouldBe r.size
+            for (i in 0 until r.size) call(m, "get", arrayOf(INT), i).getOrThrow() shouldBe r[i]
+        }
+    }
+
     // removeIf/forEach take a lambda; exercise them directly (not via reflection) since the SAM type
     // differs between the JDK and the relocated model.
     test("ArrayList removeIf/forEach conform") {

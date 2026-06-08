@@ -250,17 +250,30 @@ public class HashSet<E> implements Set<E> {
         return stream();
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+    // --- bulk membership / array snapshot (modeled) ---------------------------------------------
 
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
+    /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    @BmcUnmodelable(reason = "array snapshot — iterate the model instead")
+    /** A new array holding every element in insertion order (allocate {@code Object[size]}, copy by index). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object[] toArray() {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
+        Object[] out = new Object[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = elements[i];
+        }
+        return out;
     }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
     public <T> T[] toArray(T[] a) {
