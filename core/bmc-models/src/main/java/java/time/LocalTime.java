@@ -24,6 +24,15 @@ public final class LocalTime {
     private static final long NANOS_PER_HOUR = 60L * NANOS_PER_MINUTE;
     private static final long NANOS_PER_DAY = 24L * NANOS_PER_HOUR;
 
+    // Public well-known constants, mirroring the JDK's LocalTime.MIN/MAX/MIDNIGHT/NOON. MIN == MIDNIGHT
+    // == 00:00 (nano-of-day 0); NOON == 12:00 (nano-of-day 12h); MAX == 23:59:59.999999999 (the last
+    // nano of the day). The audit gate/docs track methods, not fields, so these carry no @Bmc*
+    // annotation; the differential suite pins their nano-of-day bit-for-bit against the JDK.
+    public static final LocalTime MIN = new LocalTime(0L);
+    public static final LocalTime MIDNIGHT = new LocalTime(0L);
+    public static final LocalTime NOON = new LocalTime(12L * NANOS_PER_HOUR);
+    public static final LocalTime MAX = new LocalTime(NANOS_PER_DAY - 1L);
+
     final long nanoOfDay;
 
     private LocalTime(long nanoOfDay) {

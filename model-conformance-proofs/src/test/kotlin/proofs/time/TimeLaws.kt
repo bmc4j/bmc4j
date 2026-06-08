@@ -234,6 +234,21 @@ class TimeLaws {
         Bmc.check(a.isBefore(b) == (a.toEpochDay() <= b.toEpochDay()))
     }
 
+    // The public range constants are pure field reads (no wide-divisor decode), so their epoch-day
+    // backing and ordering relationships are @BmcProof-clean. EPOCH is exactly 1970-01-01 (epoch-day 0),
+    // and MIN/MAX bracket it (and any in-range date) — the JDK's defining property of MIN/MAX.
+    @BmcProof
+    fun localdate_constants_pin_epoch_and_bracket() {
+        Bmc.check(LocalDate.EPOCH.toEpochDay() == 0L)
+        Bmc.check(LocalDate.MIN.toEpochDay() < LocalDate.MAX.toEpochDay())
+        Bmc.check(!LocalDate.MIN.isAfter(LocalDate.EPOCH))
+        Bmc.check(!LocalDate.MAX.isBefore(LocalDate.EPOCH))
+        // any in-range date sits within [MIN, MAX]
+        val d = LocalDate.ofEpochDay(anyDay())
+        Bmc.check(!d.isBefore(LocalDate.MIN))
+        Bmc.check(!d.isAfter(LocalDate.MAX))
+    }
+
     @BmcProof
     fun localdate_plus_then_minus_days_round_trips() {
         val d = LocalDate.ofEpochDay(anyDay())
@@ -357,6 +372,18 @@ class TimeLaws {
     // so the LocalDateTime arg is checkcast to that interface; the model now `implements
     // ChronoLocalDateTime<LocalDate>` so the cast passes (was a spurious "Dynamic cast check" refute).
     // Same time-of-day on both sides, so ordering reduces to the day shift.
+    // LocalDateTime.MIN/MAX = LocalDate.MIN/MAX at LocalTime.MIN/MAX — pure field reads through
+    // toLocalDate()/toLocalTime(), so the constant relationships are @BmcProof-clean: MIN's date is
+    // LocalDate.MIN at midnight, MAX's time is the day's last nano, and MIN <= MAX.
+    @BmcProof
+    fun localdatetime_constants_compose_date_and_time_extremes() {
+        Bmc.check(LocalDateTime.MIN.toLocalDate().toEpochDay() == LocalDate.MIN.toEpochDay())
+        Bmc.check(LocalDateTime.MIN.toLocalTime().toNanoOfDay() == 0L)
+        Bmc.check(LocalDateTime.MAX.toLocalDate().toEpochDay() == LocalDate.MAX.toEpochDay())
+        Bmc.check(LocalDateTime.MAX.toLocalTime().toNanoOfDay() == 86_399_999_999_999L)
+        Bmc.check(LocalDateTime.MIN.isBefore(LocalDateTime.MAX))
+    }
+
     @BmcProof
     fun localdatetime_isBefore_isAfter_match_day_order() {
         val base = LocalDateTime.of(2020, 6, 15, 10, 30, 0)
@@ -379,6 +406,20 @@ class TimeLaws {
     // --- LocalTime ordering: the model's isBefore/isAfter/compareTo take the CONCRETE LocalTime (the
     // real signatures do too — LocalTime is not part of a Chrono interface), so there was never an
     // interface checkcast to block them; they are @BmcProof-able directly off the nano-of-day backing.
+    // The LocalTime well-known constants are pure nano-of-day field reads (no NANOS_PER_* divide), so
+    // their backing and bracketing are @BmcProof-clean. MIDNIGHT == MIN == nano-of-day 0; NOON == 12h;
+    // MAX is the day's last nano, and brackets any in-range time.
+    @BmcProof
+    fun localtime_constants_pin_nanoofday_and_bracket() {
+        Bmc.check(LocalTime.MIN.toNanoOfDay() == 0L)
+        Bmc.check(LocalTime.MIDNIGHT.toNanoOfDay() == 0L)
+        Bmc.check(LocalTime.NOON.toNanoOfDay() == 43_200_000_000_000L)
+        Bmc.check(LocalTime.MAX.toNanoOfDay() == 86_399_999_999_999L)
+        val t = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_399_999_999_999L))
+        Bmc.check(!t.isBefore(LocalTime.MIN))
+        Bmc.check(!t.isAfter(LocalTime.MAX))
+    }
+
     @BmcProof
     fun localtime_isBefore_isAfter_compareTo_match_nanoofday_order() {
         val a = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_399_999_999_999L))

@@ -179,6 +179,24 @@ class TimeConformanceTest : FunSpec({
         }
     }
 
+    test("LocalDate/LocalTime/LocalDateTime well-known constants conform (MIN/MAX/EPOCH/MIDNIGHT/NOON)") {
+        // The public range/epoch constants are pure field reads over the epoch-day / nano-of-day
+        // backing, so they must match the real JDK's backing values bit-for-bit.
+        java.time.LocalDate.MIN.toEpochDay() shouldBe bmcref.java.time.LocalDate.MIN.toEpochDay()
+        java.time.LocalDate.MAX.toEpochDay() shouldBe bmcref.java.time.LocalDate.MAX.toEpochDay()
+        java.time.LocalDate.EPOCH.toEpochDay() shouldBe bmcref.java.time.LocalDate.EPOCH.toEpochDay()
+
+        java.time.LocalTime.MIN.toNanoOfDay() shouldBe bmcref.java.time.LocalTime.MIN.toNanoOfDay()
+        java.time.LocalTime.MAX.toNanoOfDay() shouldBe bmcref.java.time.LocalTime.MAX.toNanoOfDay()
+        java.time.LocalTime.MIDNIGHT.toNanoOfDay() shouldBe bmcref.java.time.LocalTime.MIDNIGHT.toNanoOfDay()
+        java.time.LocalTime.NOON.toNanoOfDay() shouldBe bmcref.java.time.LocalTime.NOON.toNanoOfDay()
+
+        java.time.LocalDateTime.MIN.toLocalDate().toEpochDay() shouldBe bmcref.java.time.LocalDateTime.MIN.toLocalDate().toEpochDay()
+        java.time.LocalDateTime.MIN.toLocalTime().toNanoOfDay() shouldBe bmcref.java.time.LocalDateTime.MIN.toLocalTime().toNanoOfDay()
+        java.time.LocalDateTime.MAX.toLocalDate().toEpochDay() shouldBe bmcref.java.time.LocalDateTime.MAX.toLocalDate().toEpochDay()
+        java.time.LocalDateTime.MAX.toLocalTime().toNanoOfDay() shouldBe bmcref.java.time.LocalDateTime.MAX.toLocalTime().toNanoOfDay()
+    }
+
     test("LocalDate conforms") {
         checkAll(days, days) { a, b ->
             val ra = java.time.LocalDate.ofEpochDay(a); val rb = java.time.LocalDate.ofEpochDay(b)
