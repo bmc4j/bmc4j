@@ -11,7 +11,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: newHashSet(int) presizing factory, spliterator (parallel-decomposition view), toArray(IntFunction) — out of scope; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder: spliterator (parallel-decomposition view) and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope; all loud under JBMC. newHashSet(int) presizing factory is now MODELED")
 public class HashSet<E> implements Set<E> {
 
     private static final int CAPACITY = 64;
@@ -20,6 +20,19 @@ public class HashSet<E> implements Set<E> {
     private int size;
 
     public HashSet() {
+    }
+
+    /**
+     * Presizing factory ({@code HashSet.newHashSet(numElements)}, Java 19+) — capacity is a hint only,
+     * so the model returns a fresh empty set (its fixed backing absorbs the hint). Negative throws
+     * IllegalArgumentException, like the JDK.
+     */
+    @BmcModelConforms("differential (SetConformanceTest): newHashSet(int) presizing factory -> empty set")
+    public static <T> HashSet<T> newHashSet(int numElements) {
+        if (numElements < 0) {
+            throw new IllegalArgumentException("Negative number of elements: " + numElements);
+        }
+        return new HashSet<>();
     }
 
     public HashSet(int initialCapacity) {

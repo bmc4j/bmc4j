@@ -16,7 +16,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * proof's {@code unwind} bound. Key equality uses {@code equals} (sound for boxed primitives).
  * Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: newHashMap(int) factory — out of scope; loud under JBMC")
+@BmcModelTail(reason = "no remaining tail members: the full audited surface is modeled or declared. newHashMap(int) presizing factory is now MODELED")
 public class HashMap<K, V> implements Map<K, V> {
 
     private static final int CAPACITY = 64;
@@ -26,6 +26,19 @@ public class HashMap<K, V> implements Map<K, V> {
     private int size;
 
     public HashMap() {
+    }
+
+    /**
+     * Presizing factory ({@code HashMap.newHashMap(numMappings)}, Java 19+) — capacity is a hint only,
+     * so the model returns a fresh empty map (its fixed backing absorbs the hint). Negative throws
+     * IllegalArgumentException, like the JDK.
+     */
+    @BmcModelConforms("differential (MapConformanceTest): newHashMap(int) presizing factory -> empty map")
+    public static <K, V> HashMap<K, V> newHashMap(int numMappings) {
+        if (numMappings < 0) {
+            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
+        }
+        return new HashMap<>();
     }
 
     public HashMap(int initialCapacity) {

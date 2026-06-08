@@ -20,7 +20,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * eviction hook) and the {@code reversed()} live view stay loud (tail) — they need a reordering /
  * reversed-view structure this insertion-ordered array doesn't provide.
  */
-@BmcModelTail(reason = "the reversed() live view, the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor), and the newHashMap/newLinkedHashMap presizing factories — out of scope for this insertion-ordered array-backed model; all loud under JBMC")
+@BmcModelTail(reason = "the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED")
 public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     public LinkedHashMap() {
@@ -33,6 +33,19 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     public LinkedHashMap(Map<? extends K, ? extends V> m) {
         super(m);
+    }
+
+    /**
+     * Presizing factory ({@code LinkedHashMap.newLinkedHashMap(numMappings)}, Java 19+) — capacity is a
+     * hint only, so the model returns a fresh empty map. Negative throws IllegalArgumentException, like
+     * the JDK. (The inherited {@code newHashMap} is covered by the HashMap model.)
+     */
+    @BmcModelConforms("differential (MapConformanceTest): newLinkedHashMap(int) presizing factory -> empty map")
+    public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int numMappings) {
+        if (numMappings < 0) {
+            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
+        }
+        return new LinkedHashMap<>();
     }
 
     // --- SequencedMap: ends of the insertion order -------------------------------------------------
@@ -117,6 +130,23 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
     @BmcModelConforms("differential (MapConformanceTest) — not @BmcProof: JBMC binds the real SequencedMap default over this override and havocs the view (devirtualization artifact)")
     public Set<Map.Entry<K, V>> sequencedEntrySet() {
         return entrySet();
+    }
+
+    /**
+     * A bounded snapshot of the map in reverse insertion order (SequencedMap, Java 21+). The JDK
+     * returns a live view; the model returns an independent {@code LinkedHashMap} populated by reading
+     * the backing in reverse (index {@code size-1} → 0). Differential-only (like the sequenced* views):
+     * JBMC binds the real {@code SequencedMap.reversed} default over this override, so this is pinned on
+     * the differential axis (MapConformanceTest) where the override is honored on a real JVM. Built by
+     * index over the concrete backing, no entrySet() virtual dispatch.
+     */
+    @BmcModelConforms("differential (MapConformanceTest) — not @BmcProof: JBMC binds the real SequencedMap default over this override (devirtualization artifact, like sequenced*)")
+    public Map<K, V> reversed() {
+        LinkedHashMap<K, V> out = new LinkedHashMap<>();
+        for (int i = size() - 1; i >= 0; i--) {
+            out.put(keyAt(i), valueAt(i));
+        }
+        return out;
     }
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
