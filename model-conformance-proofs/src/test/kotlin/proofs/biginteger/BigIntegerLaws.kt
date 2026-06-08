@@ -212,11 +212,16 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.valueOf(-1L).toByteArray().let { it.size == 1 && it[0].toInt() == -1 }) // {0xFF}
     }
 
-    // parallelMultiply == multiply within the bound — symbolic, divider-free (a plain multiply).
-    @BmcProof
+    // parallelMultiply delegates to multiply, so this is a full-width multiplier-EQUIVALENCE check —
+    // SAT-pathological at the wide any() bound (two symbolic multipliers proven equal). A tight range
+    // keeps the multiplier circuit small (the same lesson as the divider proofs); wide-value parity is
+    // already on the differential axis (BigIntegerConformanceTest), so this stays a real proof of the
+    // delegation. kissat is markedly faster than the built-in MiniSat on multiplier CNF (falls back to
+    // the default solver if the bundled binary isn't present, which the tight range still discharges).
+    @BmcProof(solver = "kissat")
     fun parallelMultiply_equals_multiply() {
-        val a = any()
-        val b = any()
+        val a = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
+        val b = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
         Bmc.check(a.parallelMultiply(b) == a.multiply(b))
     }
 
