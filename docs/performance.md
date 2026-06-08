@@ -35,7 +35,7 @@ long-string blow-up seen from the RAM side, and the toolbox has levers for that 
 |---|---|---|
 | Re-running unchanged proofs | **verdict caching** | on by default (`bmc { cache = true }`) |
 | Throughput (many proofs) **and** peak memory | **parallelism** (capped) | `bmc { parallelism = N }` |
-| CI wall-clock across the whole suite | **sharding** | `shards` matrix in `ci.yml` |
+| Whole-suite wall-clock | **sharding** | `-Dbmc.shard.count` / `-Dbmc.shard.index` per worker |
 | A wide symbolic **interval** (one slow proof) | **domain splitting** | `Bmc.domainSplit` / `Bmc.slice` |
 | A **multiplier / divider** circuit | **external SAT** | `-Dbmc.externalSat=<path>` |
 | **Recursion / unbounded depth** | **contracts** | `@Requires`/`@Ensures` |
@@ -76,21 +76,21 @@ split on a 4-wide machine must still run 4 at a time, not 50).
 **Turn it on.** `bmc { parallelism = N }` (default = available processors; `1` = serial). The
 underlying concurrency budget can be overridden in a test run with `-Dbmc.parallelism=N`.
 
-### 3. Sharding — *CI wall-clock across runners*
+### 3. Sharding — *split the suite across N workers*
 
-**What it does.** CI fans one proof leg across **N GitHub Actions runners**; a
-`PostDiscoveryFilter` in `bmc-runtime` keeps 1/N of the suite per shard, balanced at the
-*method* level by a hash of each test's id. Because the verdict cache is content-keyed, the
-shards' caches are **mergeable by union** — a `merge-verdict-cache` job `cp -rn`-unions every
-shard's tree into one snapshot that every shard restores next run, so each shard starts from
-*every* shard's proven proofs and only re-solves its own slice plus whatever changed.
+**What it does.** Runs 1/N of the proof suite per worker, so a suite can be spread across as
+many machines/jobs as you have. A `PostDiscoveryFilter` in `bmc-runtime` selects each shard's
+slice, balanced at the *method* level by a hash of each test's id. Because the verdict cache is
+content-keyed, the shards' caches are **mergeable by union** — unioning every shard's cache
+into one snapshot that every shard restores next run, so each shard starts from *every* shard's
+proven proofs and only re-solves its own slice plus whatever changed.
 
-**Blow-up it addresses.** CI wall-clock. Proofs are embarrassingly parallel (per-proof process
-cost dominates), so more runners shrink a leg near-linearly — down to a floor of the slowest
-single proof + setup, past which making slow proofs cheaper is what helps.
+**Blow-up it addresses.** Whole-suite wall-clock. Proofs are embarrassingly parallel (per-proof
+process cost dominates), so more workers shrink a leg near-linearly — down to a floor of the
+slowest single proof + setup, past which making slow proofs cheaper is what helps.
 
-**Turn it on.** The `shards` input in `ci.yml` (default `3`; `1` = unsharded), which sets
-`-Dbmc.shard.count` / `-Dbmc.shard.index` per leg. Pin a known-slow proof or class with
+**Turn it on.** Set `-Dbmc.shard.count` / `-Dbmc.shard.index` per worker (count `1` =
+unsharded). Pin a known-slow proof or class with
 `@org.bmc4j.Shard(N)` so the expensive ones spread one-per-shard instead of hash-clustering.
 
 ### 4. Domain splitting — *for interval-bound blow-ups (and memory)*
@@ -133,11 +133,6 @@ each slice solve a narrow interval independently — fast enough that the **wide
 restored**, making the proof *strictly stronger* than the reduced one. The lever is per-slice
 *interval size*, not operand bit-width (equal-width bands solve in the same time at any
 magnitude), so a plain contiguous sub-range split is the right shape.
-
-> domainSplit is new and validated on interval-bound proofs. It does **not** shrink a
-> *divider-width* blow-up (a `BigDecimal.setScale` style divide isn't an interval problem) —
-> external SAT and range reduction remain the tools there; characterizing divider-width
-> splitting is in progress.
 
 ### 5. External SAT — *for multiplier / divider circuits*
 
@@ -202,7 +197,7 @@ blow-up:
 - **Split × external SAT** — a domain split shrinks each slice's interval; external SAT then
   solves each (string-free, multiplier-heavy) slice faster. The two attack different axes
   (interval size vs. CNF-solver speed), so on the right proof they beat either alone.
-- **Sharding × caching** — sharding fans the suite across runners; the content-keyed cache
+- **Sharding × caching** — sharding splits the suite across workers; the content-keyed cache
   makes the shards' results mergeable, so the union is sound and each shard starts warm.
 - **Parallelism × domainSplit** — the same concurrency budget bounds both normal proofs and a
   split's fan-out, so you get throughput *and* a memory cap without the fan-out overrunning it.
