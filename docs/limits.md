@@ -18,7 +18,7 @@ below is really a scaling cost, it points at the lever.
   dead end: when a recursive or deeply-nested callee is what's pushing the bound, a
   `@Requires`/`@Ensures` [contract](contracts.md) summarizes it (induction over the call
   boundary) so callers don't re-unwind it — see
-  [performance → contracts](performance.md#6-contracts--for-recursion--unbounded-depth).
+  [performance → contracts](performance.md#5-contracts--for-recursion--unbounded-depth).
 - **Three-way verdict — UNKNOWN is a first-class outcome, not a pass.** A proof is
   **verified**, **refuted** (with a counterexample), or **UNKNOWN** — undecided within
   budget: it timed out (see [configuration → Timeout](configuration.md#timeout)), the
