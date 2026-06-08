@@ -1,13 +1,23 @@
 package java.util.stream;
 
+import java.util.Comparator;
+import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Minimal BMC model of {@link java.util.stream.Collector}. The real interface is a
- * supplier/accumulator/combiner/finisher bundle; here it is just a tag identifying the target
- * container (plus, for the map-producing collectors, the key/value/classifier functions), which
- * {@link ListStream#collect} interprets. {@link Collectors} produces these.
+ * supplier/accumulator/combiner/finisher bundle; here it is just a {@link #kind} tag identifying the
+ * target reduction (plus the functions/comparators/downstreams the relevant collectors carry), which
+ * {@link ListStream#collect} interprets eagerly. {@link Collectors} produces these.
+ *
+ * <p>Rather than one constructor per shape, this carries a flexible set of optional fields and a single
+ * canonical constructor; each {@link Collectors} factory fills only the fields its {@link #kind} reads.
+ * Unused fields are {@code null}. The field set is wide enough for the composite collectors
+ * ({@code collectingAndThen}/{@code teeing}/{@code filtering}/{@code flatMapping}/downstream-driven
+ * {@code groupingBy}/{@code partitioningBy}) which nest other collectors and finishers.
  */
 public final class Collector<T, A, R> {
 
@@ -19,66 +29,150 @@ public final class Collector<T, A, R> {
     static final int PARTITIONING_BY = 5;
     static final int COUNTING = 6;
     static final int MAPPING = 7;
+    // tail-2 additions:
+    static final int TO_MAP_MERGE = 8;          // keyFn, valueFn, mergeFn
+    static final int TO_CONCURRENT_MAP = 9;     // keyFn, valueFn
+    static final int TO_CONCURRENT_MAP_MERGE = 10; // keyFn, valueFn, mergeFn
+    static final int GROUPING_BY_DOWNSTREAM = 11;  // keyFn (classifier), downstream
+    static final int PARTITIONING_BY_DOWNSTREAM = 12; // predicate, downstream
+    static final int REDUCING = 13;             // mergeFn (op); identityPresent? identity; keyFn (optional mapper)
+    static final int COLLECTING_AND_THEN = 14;  // downstream, finisher
+    static final int FILTERING = 15;            // predicate, downstream
+    static final int FLAT_MAPPING = 16;         // keyFn (element -> Stream), downstream
+    static final int MIN_BY = 17;               // comparator
+    static final int MAX_BY = 18;               // comparator
+    static final int TEEING = 19;               // downstream, downstream2, merger
+    static final int TO_COLLECTION = 20;        // supplier
 
     final int kind;
 
-    /** For {@link #TO_MAP}: key mapper. For {@link #GROUPING_BY}: the classifier. For {@link #MAPPING}: the per-element mapper. */
+    /** TO_MAP/concurrent: key mapper. GROUPING_BY*: classifier. MAPPING/FLAT_MAPPING: per-element fn. REDUCING: optional element mapper. */
     final Function<?, ?> keyFn;
 
-    /** For {@link #TO_MAP}: value mapper. Unused by {@link #GROUPING_BY}. */
+    /** TO_MAP/concurrent: value mapper. */
     final Function<?, ?> valueFn;
 
-    /** For {@link #JOINING}: the delimiter inserted between elements (empty for {@code joining()}). */
+    /** TO_MAP_MERGE/concurrent-merge: merge function for duplicate keys. REDUCING: the reduction operator. */
+    final BinaryOperator<?> mergeFn;
+
+    /** REDUCING(identity, …): whether an identity/initial value is supplied (distinguishes the Optional-returning overload). */
+    final boolean identityPresent;
+
+    /** REDUCING(identity, …): the identity / initial value. */
+    final Object identity;
+
+    /** JOINING: delimiter inserted between elements (empty for {@code joining()}). */
     final CharSequence delimiter;
 
-    /** For {@link #PARTITIONING_BY}: the predicate that splits elements into the true/false buckets. */
+    /** PARTITIONING_BY / PARTITIONING_BY_DOWNSTREAM / FILTERING: the predicate splitting / selecting elements. */
     final Predicate<?> predicate;
 
-    /** For {@link #MAPPING}: the downstream collector the mapped elements are fed into. */
+    /** MIN_BY/MAX_BY: the comparator. */
+    final Comparator<?> comparator;
+
+    /** TO_COLLECTION: the container supplier. */
+    final Supplier<?> supplier;
+
+    /** COLLECTING_AND_THEN: the finisher applied to the downstream result. */
+    final Function<?, ?> finisher;
+
+    /** TEEING: the BiFunction merging the two downstream results. */
+    final BiFunction<?, ?, ?> merger;
+
+    /** MAPPING/COLLECTING_AND_THEN/FILTERING/FLAT_MAPPING/groupingBy-downstream/teeing: the nested downstream collector. */
     final Collector<?, ?, ?> downstream;
 
-    Collector(int kind) {
-        this(kind, (Function<?, ?>) null, (Function<?, ?>) null);
-    }
+    /** TEEING: the second downstream collector. */
+    final Collector<?, ?, ?> downstream2;
 
-    Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn) {
+    private Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn, BinaryOperator<?> mergeFn,
+            boolean identityPresent, Object identity, CharSequence delimiter, Predicate<?> predicate,
+            Comparator<?> comparator, Supplier<?> supplier, Function<?, ?> finisher,
+            BiFunction<?, ?, ?> merger, Collector<?, ?, ?> downstream, Collector<?, ?, ?> downstream2) {
         this.kind = kind;
         this.keyFn = keyFn;
         this.valueFn = valueFn;
-        this.delimiter = "";
-        this.predicate = null;
-        this.downstream = null;
+        this.mergeFn = mergeFn;
+        this.identityPresent = identityPresent;
+        this.identity = identity;
+        this.delimiter = delimiter;
+        this.predicate = predicate;
+        this.comparator = comparator;
+        this.supplier = supplier;
+        this.finisher = finisher;
+        this.merger = merger;
+        this.downstream = downstream;
+        this.downstream2 = downstream2;
+    }
+
+    Collector(int kind) {
+        this(kind, null, null, null, false, null, "", null, null, null, null, null, null, null);
+    }
+
+    Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn) {
+        this(kind, keyFn, valueFn, null, false, null, "", null, null, null, null, null, null, null);
     }
 
     Collector(int kind, CharSequence delimiter) {
-        this.kind = kind;
-        this.keyFn = null;
-        this.valueFn = null;
-        this.delimiter = delimiter;
-        this.predicate = null;
-        this.downstream = null;
+        this(kind, null, null, null, false, null, delimiter, null, null, null, null, null, null, null);
     }
 
     Collector(int kind, Predicate<?> predicate) {
-        this.kind = kind;
-        this.keyFn = null;
-        this.valueFn = null;
-        this.delimiter = "";
-        this.predicate = predicate;
-        this.downstream = null;
+        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, null, null);
     }
 
     /**
-     * For {@link #MAPPING}: the downstream collector plus the per-element mapper it feeds. The
-     * downstream param comes FIRST so this signature is unambiguous against the
-     * {@code (int, Function, Function)} TO_MAP/GROUPING_BY constructor under {@code null} args.
+     * MAPPING: downstream first so this signature is unambiguous against the {@code (int, Function,
+     * Function)} TO_MAP/GROUPING_BY constructor under {@code null} args.
      */
     Collector(int kind, Collector<?, ?, ?> downstream, Function<?, ?> mapper) {
-        this.kind = kind;
-        this.keyFn = mapper;
-        this.valueFn = null;
-        this.delimiter = "";
-        this.predicate = null;
-        this.downstream = downstream;
+        this(kind, mapper, null, null, false, null, "", null, null, null, null, null, downstream, null);
+    }
+
+    // ---- tail-2 shape constructors --------------------------------------------------------------
+
+    /** TO_MAP_MERGE / TO_CONCURRENT_MAP_MERGE: key + value + merge function. */
+    Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn, BinaryOperator<?> mergeFn) {
+        this(kind, keyFn, valueFn, mergeFn, false, null, "", null, null, null, null, null, null, null);
+    }
+
+    /** GROUPING_BY_DOWNSTREAM / FILTERING / FLAT_MAPPING: a classifier/mapper or predicate + downstream. */
+    Collector(int kind, Function<?, ?> classifierOrMapper, Collector<?, ?, ?> downstream) {
+        this(kind, classifierOrMapper, null, null, false, null, "", null, null, null, null, null, downstream, null);
+    }
+
+    /** PARTITIONING_BY_DOWNSTREAM / FILTERING: predicate + downstream. */
+    Collector(int kind, Predicate<?> predicate, Collector<?, ?, ?> downstream) {
+        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, downstream, null);
+    }
+
+    /** REDUCING(op) — no identity; Optional-returning. */
+    Collector(int kind, BinaryOperator<?> op) {
+        this(kind, null, null, op, false, null, "", null, null, null, null, null, null, null);
+    }
+
+    /** REDUCING(identity, op) and REDUCING(identity, mapper, op). */
+    Collector(int kind, Object identity, Function<?, ?> mapper, BinaryOperator<?> op) {
+        this(kind, mapper, null, op, true, identity, "", null, null, null, null, null, null, null);
+    }
+
+    /** COLLECTING_AND_THEN: downstream + finisher. */
+    Collector(int kind, Collector<?, ?, ?> downstream, Function<?, ?> finisher, boolean isFinisher) {
+        this(kind, null, null, null, false, null, "", null, null, null, finisher, null, downstream, null);
+    }
+
+    /** MIN_BY / MAX_BY: comparator. */
+    Collector(int kind, Comparator<?> comparator) {
+        this(kind, null, null, null, false, null, "", null, comparator, null, null, null, null, null);
+    }
+
+    /** TO_COLLECTION: container supplier. */
+    Collector(int kind, Supplier<?> supplier) {
+        this(kind, null, null, null, false, null, "", null, null, supplier, null, null, null, null);
+    }
+
+    /** TEEING: two downstreams + merger. */
+    Collector(int kind, Collector<?, ?, ?> downstream, Collector<?, ?, ?> downstream2, BiFunction<?, ?, ?> merger) {
+        this(kind, null, null, null, false, null, "", null, null, null, null, merger, downstream, downstream2);
     }
 }

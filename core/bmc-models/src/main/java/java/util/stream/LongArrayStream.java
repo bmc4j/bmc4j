@@ -2,12 +2,15 @@ package java.util.stream;
 
 import java.util.ArrayList;
 import java.util.OptionalLong;
+import java.util.function.BiConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
 import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
+import java.util.function.ObjLongConsumer;
+import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 
@@ -317,5 +320,39 @@ final class LongArrayStream implements LongStream {
             l.add(data[i]);
         }
         return new ListStream<>(l);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream flatMap(LongFunction<? extends LongStream> mapper) {
+        LongArrayStream s = new LongArrayStream();
+        for (int i = 0; i < size; i++) {
+            LongStream inner = mapper.apply(data[i]);
+            long[] arr = inner.toArray();
+            for (int j = 0; j < arr.length; j++) {
+                s.add(arr[j]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public void forEachOrdered(LongConsumer action) {
+        // The eager model is already ordered; forEachOrdered == forEach over the encounter order.
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+        }
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <R> R collect(Supplier<R> supplier, ObjLongConsumer<R> accumulator, BiConsumer<R, R> combiner) {
+        // Sequential mutable reduction; the combiner only joins parallel partials (never here).
+        R container = supplier.get();
+        for (int i = 0; i < size; i++) {
+            accumulator.accept(container, data[i]);
+        }
+        return container;
     }
 }

@@ -977,64 +977,44 @@ Real surface: 23 members — modeled 23, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.stream.Collectors`
 
-Real surface: 44 members — modeled 11, not-modeled 0, not-needed 0, tail 33.
+Real surface: 44 members — modeled 28, not-modeled 0, not-needed 0, tail 16.
 
-**Modeled** (`@BmcModelConforms`): `counting()`, `groupingBy(Function)`, `joining()`, `joining(CharSequence)`, `mapping(Function, Collector)`, `partitioningBy(Predicate)`, `toList()`, `toMap(Function, Function)`, `toSet()`, `toUnmodifiableList()`, `toUnmodifiableSet()`
+**Modeled** (`@BmcModelConforms`): `collectingAndThen(Collector, Function)`, `counting()`, `filtering(Predicate, Collector)`, `flatMapping(Function, Collector)`, `groupingBy(Function)`, `groupingBy(Function, Collector)`, `joining()`, `joining(CharSequence)`, `mapping(Function, Collector)`, `maxBy(Comparator)`, `minBy(Comparator)`, `partitioningBy(Predicate)`, `partitioningBy(Predicate, Collector)`, `reducing(BinaryOperator)`, `reducing(Object, BinaryOperator)`, `reducing(Object, Function, BinaryOperator)`, `teeing(Collector, Collector, BiFunction)`, `toCollection(Supplier)`, `toConcurrentMap(Function, Function)`, `toConcurrentMap(Function, Function, BinaryOperator)`, `toList()`, `toMap(Function, Function)`, `toMap(Function, Function, BinaryOperator)`, `toSet()`, `toUnmodifiableList()`, `toUnmodifiableMap(Function, Function)`, `toUnmodifiableMap(Function, Function, BinaryOperator)`, `toUnmodifiableSet()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): the remaining Collectors surface (summing*/averaging*/summarizing* — need double; reducing/filtering/flatMapping/collectingAndThen/teeing/toCollection, the comparator-driven minBy/maxBy, the multi-arg toMap/groupingBy/joining(prefix,suffix) and concurrent variants groupingByConcurrent/toConcurrentMap) is out of scope for the minimal eager model; loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): the remaining Collectors surface (summing*/averaging*/summarizing* — need double; the map-Supplier-driven groupingBy(Function,Supplier,Collector)/toMap(…,Supplier)/toConcurrentMap(…,Supplier); the concurrent groupingByConcurrent; joining(prefix,suffix)) is out of scope for the minimal eager model; loud under JBMC</summary>
 
 - `averagingDouble(ToDoubleFunction)`
 - `averagingInt(ToIntFunction)`
 - `averagingLong(ToLongFunction)`
-- `collectingAndThen(Collector, Function)`
-- `filtering(Predicate, Collector)`
-- `flatMapping(Function, Collector)`
-- `groupingBy(Function, Collector)`
 - `groupingBy(Function, Supplier, Collector)`
 - `groupingByConcurrent(Function)`
 - `groupingByConcurrent(Function, Collector)`
 - `groupingByConcurrent(Function, Supplier, Collector)`
 - `joining(CharSequence, CharSequence, CharSequence)`
-- `maxBy(Comparator)`
-- `minBy(Comparator)`
-- `partitioningBy(Predicate, Collector)`
-- `reducing(BinaryOperator)`
-- `reducing(Object, BinaryOperator)`
-- `reducing(Object, Function, BinaryOperator)`
 - `summarizingDouble(ToDoubleFunction)`
 - `summarizingInt(ToIntFunction)`
 - `summarizingLong(ToLongFunction)`
 - `summingDouble(ToDoubleFunction)`
 - `summingInt(ToIntFunction)`
 - `summingLong(ToLongFunction)`
-- `teeing(Collector, Collector, BiFunction)`
-- `toCollection(Supplier)`
-- `toConcurrentMap(Function, Function)`
-- `toConcurrentMap(Function, Function, BinaryOperator)`
 - `toConcurrentMap(Function, Function, BinaryOperator, Supplier)`
-- `toMap(Function, Function, BinaryOperator)`
 - `toMap(Function, Function, BinaryOperator, Supplier)`
-- `toUnmodifiableMap(Function, Function)`
-- `toUnmodifiableMap(Function, Function, BinaryOperator)`
 
 </details>
 
 
 ## `java.util.stream.IntStream`
 
-Real surface: 52 members — modeled 33, not-modeled 0, not-needed 0, tail 19.
+Real surface: 52 members — modeled 36, not-modeled 0, not-needed 0, tail 16.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(IntPredicate)`, `anyMatch(IntPredicate)`, `asLongStream()`, `boxed()`, `concat(IntStream, IntStream)`, `count()`, `distinct()`, `dropWhile(IntPredicate)`, `empty()`, `filter(IntPredicate)`, `findAny()`, `findFirst()`, `forEach(IntConsumer)`, `iterate(int, IntPredicate, IntUnaryOperator)`, `limit(long)`, `map(IntUnaryOperator)`, `mapToLong(IntToLongFunction)`, `mapToObj(IntFunction)`, `max()`, `min()`, `noneMatch(IntPredicate)`, `of(int)`, `of(int[])`, `peek(IntConsumer)`, `range(int, int)`, `rangeClosed(int, int)`, `reduce(IntBinaryOperator)`, `reduce(int, IntBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(IntPredicate)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `allMatch(IntPredicate)`, `anyMatch(IntPredicate)`, `asLongStream()`, `boxed()`, `collect(Supplier, ObjIntConsumer, BiConsumer)`, `concat(IntStream, IntStream)`, `count()`, `distinct()`, `dropWhile(IntPredicate)`, `empty()`, `filter(IntPredicate)`, `findAny()`, `findFirst()`, `flatMap(IntFunction)`, `forEach(IntConsumer)`, `forEachOrdered(IntConsumer)`, `iterate(int, IntPredicate, IntUnaryOperator)`, `limit(long)`, `map(IntUnaryOperator)`, `mapToLong(IntToLongFunction)`, `mapToObj(IntFunction)`, `max()`, `min()`, `noneMatch(IntPredicate)`, `of(int)`, `of(int[])`, `peek(IntConsumer)`, `range(int, int)`, `rangeClosed(int, int)`, `reduce(IntBinaryOperator)`, `reduce(int, IntBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(IntPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti (nested IntMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
 
 - `asDoubleStream()`
 - `average()`
 - `builder()`
 - `close()`
-- `collect(Supplier, ObjIntConsumer, BiConsumer)`
-- `flatMap(IntFunction)`
-- `forEachOrdered(IntConsumer)`
 - `generate(IntSupplier)`
 - `isParallel()`
 - `iterate(int, IntUnaryOperator)`
@@ -1053,19 +1033,16 @@ Real surface: 52 members — modeled 33, not-modeled 0, not-needed 0, tail 19.
 
 ## `java.util.stream.LongStream`
 
-Real surface: 51 members — modeled 32, not-modeled 0, not-needed 0, tail 19.
+Real surface: 51 members — modeled 35, not-modeled 0, not-needed 0, tail 16.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(LongPredicate)`, `anyMatch(LongPredicate)`, `boxed()`, `concat(LongStream, LongStream)`, `count()`, `distinct()`, `dropWhile(LongPredicate)`, `empty()`, `filter(LongPredicate)`, `findAny()`, `findFirst()`, `forEach(LongConsumer)`, `iterate(long, LongPredicate, LongUnaryOperator)`, `limit(long)`, `map(LongUnaryOperator)`, `mapToInt(LongToIntFunction)`, `mapToObj(LongFunction)`, `max()`, `min()`, `noneMatch(LongPredicate)`, `of(long)`, `of(long[])`, `peek(LongConsumer)`, `range(long, long)`, `rangeClosed(long, long)`, `reduce(LongBinaryOperator)`, `reduce(long, LongBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(LongPredicate)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `allMatch(LongPredicate)`, `anyMatch(LongPredicate)`, `boxed()`, `collect(Supplier, ObjLongConsumer, BiConsumer)`, `concat(LongStream, LongStream)`, `count()`, `distinct()`, `dropWhile(LongPredicate)`, `empty()`, `filter(LongPredicate)`, `findAny()`, `findFirst()`, `flatMap(LongFunction)`, `forEach(LongConsumer)`, `forEachOrdered(LongConsumer)`, `iterate(long, LongPredicate, LongUnaryOperator)`, `limit(long)`, `map(LongUnaryOperator)`, `mapToInt(LongToIntFunction)`, `mapToObj(LongFunction)`, `max()`, `min()`, `noneMatch(LongPredicate)`, `of(long)`, `of(long[])`, `peek(LongConsumer)`, `range(long, long)`, `rangeClosed(long, long)`, `reduce(LongBinaryOperator)`, `reduce(long, LongBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(LongPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti (nested LongMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
 
 - `asDoubleStream()`
 - `average()`
 - `builder()`
 - `close()`
-- `collect(Supplier, ObjLongConsumer, BiConsumer)`
-- `flatMap(LongFunction)`
-- `forEachOrdered(LongConsumer)`
 - `generate(LongSupplier)`
 - `isParallel()`
 - `iterate(long, LongUnaryOperator)`
@@ -1084,34 +1061,26 @@ Real surface: 51 members — modeled 32, not-modeled 0, not-needed 0, tail 19.
 
 ## `java.util.stream.Stream`
 
-Real surface: 56 members — modeled 33, not-modeled 0, not-needed 0, tail 23.
+Real surface: 56 members — modeled 41, not-modeled 0, not-needed 0, tail 15.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(Predicate)`, `anyMatch(Predicate)`, `collect(Collector)`, `concat(Stream, Stream)`, `count()`, `distinct()`, `dropWhile(Predicate)`, `empty()`, `filter(Predicate)`, `findAny()`, `findFirst()`, `flatMap(Function)`, `flatMapToInt(Function)`, `flatMapToLong(Function)`, `forEach(Consumer)`, `iterate(Object, Predicate, UnaryOperator)`, `limit(long)`, `map(Function)`, `mapToInt(ToIntFunction)`, `mapToLong(ToLongFunction)`, `max(Comparator)`, `min(Comparator)`, `noneMatch(Predicate)`, `of(Object)`, `of(Object[])`, `ofNullable(Object)`, `peek(Consumer)`, `reduce(BinaryOperator)`, `reduce(Object, BinaryOperator)`, `skip(long)`, `sorted(Comparator)`, `takeWhile(Predicate)`, `toList()`
+**Modeled** (`@BmcModelConforms`): `allMatch(Predicate)`, `anyMatch(Predicate)`, `collect(Collector)`, `collect(Supplier, BiConsumer, BiConsumer)`, `concat(Stream, Stream)`, `count()`, `distinct()`, `dropWhile(Predicate)`, `empty()`, `filter(Predicate)`, `findAny()`, `findFirst()`, `flatMap(Function)`, `flatMapToInt(Function)`, `flatMapToLong(Function)`, `forEach(Consumer)`, `forEachOrdered(Consumer)`, `iterate(Object, Predicate, UnaryOperator)`, `limit(long)`, `map(Function)`, `mapMulti(BiConsumer)`, `mapMultiToInt(BiConsumer)`, `mapMultiToLong(BiConsumer)`, `mapToInt(ToIntFunction)`, `mapToLong(ToLongFunction)`, `max(Comparator)`, `min(Comparator)`, `noneMatch(Predicate)`, `of(Object)`, `of(Object[])`, `ofNullable(Object)`, `peek(Consumer)`, `reduce(BinaryOperator)`, `reduce(Object, BiFunction, BinaryOperator)`, `reduce(Object, BinaryOperator)`, `skip(long)`, `sorted(Comparator)`, `takeWhile(Predicate)`, `toArray()`, `toArray(IntFunction)`, `toList()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the remaining lazy Stream surface (unordered sorted(), the infinite iterate(seed,next)/generate, mapToDouble/flatMapToDouble, mapMulti*, toArray/reduce(identity,accumulator,combiner)/collect(supplier,accumulator,combiner), and the lifecycle no-ops onClose/close/parallel/sequential) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the remaining lazy Stream surface (the natural-order sorted() whose boxed Comparable dispatch is unsound under JBMC, the infinite iterate(seed,next)/generate, mapToDouble/flatMapToDouble/mapMultiToDouble, builder()/iterator()/spliterator(), and the lifecycle no-ops onClose/close/parallel/sequential/unordered/forEachOrdered's ordering nuance) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)</summary>
 
 - `builder()`
 - `close()`
-- `collect(Supplier, BiConsumer, BiConsumer)`
 - `flatMapToDouble(Function)`
-- `forEachOrdered(Consumer)`
 - `generate(Supplier)`
 - `isParallel()`
 - `iterate(Object, UnaryOperator)`
 - `iterator()`
-- `mapMulti(BiConsumer)`
 - `mapMultiToDouble(BiConsumer)`
-- `mapMultiToInt(BiConsumer)`
-- `mapMultiToLong(BiConsumer)`
 - `mapToDouble(ToDoubleFunction)`
 - `onClose(Runnable)`
 - `parallel()`
-- `reduce(Object, BiFunction, BinaryOperator)`
 - `sequential()`
 - `sorted()`
 - `spliterator()`
-- `toArray()`
-- `toArray(IntFunction)`
 - `unordered()`
 
 </details>

@@ -2,12 +2,15 @@ package java.util.stream;
 
 import java.util.ArrayList;
 import java.util.OptionalInt;
+import java.util.function.BiConsumer;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import java.util.function.IntToLongFunction;
 import java.util.function.IntUnaryOperator;
+import java.util.function.ObjIntConsumer;
+import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 
@@ -327,5 +330,39 @@ final class IntArrayStream implements IntStream {
             l.add(data[i]);
         }
         return new ListStream<>(l);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream flatMap(IntFunction<? extends IntStream> mapper) {
+        IntArrayStream s = new IntArrayStream();
+        for (int i = 0; i < size; i++) {
+            IntStream inner = mapper.apply(data[i]);
+            int[] arr = inner.toArray();
+            for (int j = 0; j < arr.length; j++) {
+                s.add(arr[j]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public void forEachOrdered(IntConsumer action) {
+        // The eager model is already ordered; forEachOrdered == forEach over the encounter order.
+        for (int i = 0; i < size; i++) {
+            action.accept(data[i]);
+        }
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <R> R collect(Supplier<R> supplier, ObjIntConsumer<R> accumulator, BiConsumer<R, R> combiner) {
+        // Sequential mutable reduction; the combiner only joins parallel partials (never here).
+        R container = supplier.get();
+        for (int i = 0; i < size; i++) {
+            accumulator.accept(container, data[i]);
+        }
+        return container;
     }
 }

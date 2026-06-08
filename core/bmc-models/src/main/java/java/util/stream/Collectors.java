@@ -1,10 +1,15 @@
 package java.util.stream;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
@@ -15,8 +20,16 @@ import org.bmc4j.models.audit.BmcModelTail;
  * interpreted eagerly by {@link ListStream#collect} into the bounded collection models. With the
  * audit tail + loud-body synthesis, reaching an unmodeled collector now fails loudly under JBMC
  * naming the member, rather than silently falling back to a nondet stub.
+ *
+ * <p>The composite collectors ({@code collectingAndThen}/{@code teeing}/{@code filtering}/{@code
+ * flatMapping}, downstream-driven {@code groupingBy}/{@code partitioningBy}) nest other collectors;
+ * {@link ListStream#collect} recurses into the downstream over a fresh bounded sub-stream. The
+ * comparator-driven {@code minBy}/{@code maxBy} carry an explicit {@link Comparator} (NOT
+ * {@code naturalOrder()}, whose boxed {@code Comparable} dispatch is unsound under JBMC — proofs pass
+ * a desugared int-lambda comparator). The {@code summing*}/{@code averaging*}/{@code summarizing*}
+ * collectors stay in the tail (no double in the stream models, by convention).
  */
-@BmcModelTail(reason = "the remaining Collectors surface (summing*/averaging*/summarizing* — need double; reducing/filtering/flatMapping/collectingAndThen/teeing/toCollection, the comparator-driven minBy/maxBy, the multi-arg toMap/groupingBy/joining(prefix,suffix) and concurrent variants groupingByConcurrent/toConcurrentMap) is out of scope for the minimal eager model; loud under JBMC")
+@BmcModelTail(reason = "the remaining Collectors surface (summing*/averaging*/summarizing* — need double; the map-Supplier-driven groupingBy(Function,Supplier,Collector)/toMap(…,Supplier)/toConcurrentMap(…,Supplier); the concurrent groupingByConcurrent; joining(prefix,suffix)) is out of scope for the minimal eager model; loud under JBMC")
 public final class Collectors {
 
     private Collectors() {
@@ -86,7 +99,7 @@ public final class Collectors {
     @BmcModelConforms("@BmcProof (proofs.stream CollectorsLaws)")
     public static <T, K> Collector<T, ?, Map<K, List<T>>> groupingBy(
             Function<? super T, ? extends K> classifier) {
-        return new Collector<>(Collector.GROUPING_BY, classifier, null);
+        return new Collector<>(Collector.GROUPING_BY, classifier, (Function<?, ?>) null);
     }
 
     /**
@@ -121,5 +134,196 @@ public final class Collectors {
     public static <T> Collector<T, ?, Map<Boolean, List<T>>> partitioningBy(
             Predicate<? super T> predicate) {
         return new Collector<>(Collector.PARTITIONING_BY, predicate);
+    }
+
+    // ---- tail-2 additions -----------------------------------------------------------------------
+
+    /**
+     * {@code toMap} with a {@code mergeFunction} resolving duplicate keys (no {@link
+     * IllegalStateException}). Mirrors {@link java.util.stream.Collectors#toMap(Function, Function,
+     * BinaryOperator)}: on a collision the existing and new values are merged. {@link
+     * ListStream#collect} applies the merge in encounter order.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsMapLaws)")
+    public static <T, K, V> Collector<T, ?, Map<K, V>> toMap(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends V> valueMapper,
+            BinaryOperator<V> mergeFunction) {
+        return new Collector<>(Collector.TO_MAP_MERGE, keyMapper, valueMapper, mergeFunction);
+    }
+
+    /** Unmodifiable view of {@link #toMap(Function, Function)} (same eager bounded HashMap). */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsMapLaws)")
+    public static <T, K, V> Collector<T, ?, Map<K, V>> toUnmodifiableMap(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends V> valueMapper) {
+        return new Collector<>(Collector.TO_MAP, keyMapper, valueMapper);
+    }
+
+    /** Unmodifiable view of {@link #toMap(Function, Function, BinaryOperator)}. */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsMapLaws)")
+    public static <T, K, V> Collector<T, ?, Map<K, V>> toUnmodifiableMap(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends V> valueMapper,
+            BinaryOperator<V> mergeFunction) {
+        return new Collector<>(Collector.TO_MAP_MERGE, keyMapper, valueMapper, mergeFunction);
+    }
+
+    /**
+     * Collects into a bounded {@link java.util.concurrent.ConcurrentHashMap}. Mirrors {@link
+     * java.util.stream.Collectors#toConcurrentMap(Function, Function)}: a duplicate key throws
+     * {@link IllegalStateException}. Under the model's sequential semantics this is observably the
+     * same as {@code toMap} but with a concurrent target.
+     *
+     * <p><b>Return type is {@code Map}, not {@code ConcurrentMap}</b> (the real signature's type): the
+     * model's {@link java.util.concurrent.ConcurrentHashMap} {@code extends HashMap} but does not
+     * {@code implement ConcurrentMap}, so a {@code checkcast → ConcurrentMap} on the collected result
+     * would trip JBMC's dynamic-cast check (a false REFUTE, the documented interface-signature
+     * artifact). Declaring {@code Map} avoids the spurious cast; the runtime container is still a
+     * {@code ConcurrentHashMap}, observably identical. The audit gate matches by name+params
+     * (return-agnostic), so this still pins the real {@code toConcurrentMap} member.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsMapLaws)")
+    public static <T, K, V> Collector<T, ?, Map<K, V>> toConcurrentMap(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends V> valueMapper) {
+        return new Collector<>(Collector.TO_CONCURRENT_MAP, keyMapper, valueMapper);
+    }
+
+    /** {@code toConcurrentMap} with a {@code mergeFunction} resolving duplicate keys (return type {@code Map}; see the no-merge overload). */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsMapLaws)")
+    public static <T, K, V> Collector<T, ?, Map<K, V>> toConcurrentMap(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends V> valueMapper,
+            BinaryOperator<V> mergeFunction) {
+        return new Collector<>(Collector.TO_CONCURRENT_MAP_MERGE, keyMapper, valueMapper, mergeFunction);
+    }
+
+    /**
+     * Groups by {@code classifier}, then collects each group with {@code downstream}. Mirrors {@link
+     * java.util.stream.Collectors#groupingBy(Function, Collector)}. {@link ListStream#collect} builds
+     * the per-key element lists in encounter order, then collects each with the downstream.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, K, A, D> Collector<T, ?, Map<K, D>> groupingBy(
+            Function<? super T, ? extends K> classifier,
+            Collector<? super T, A, D> downstream) {
+        return new Collector<>(Collector.GROUPING_BY_DOWNSTREAM, (Function<?, ?>) classifier, downstream);
+    }
+
+    /**
+     * Partitions by {@code predicate}, then collects each (TRUE/FALSE) bucket with {@code downstream}.
+     * Mirrors {@link java.util.stream.Collectors#partitioningBy(Predicate, Collector)}: BOTH keys are
+     * always present (total partition).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, A, D> Collector<T, ?, Map<Boolean, D>> partitioningBy(
+            Predicate<? super T> predicate,
+            Collector<? super T, A, D> downstream) {
+        return new Collector<>(Collector.PARTITIONING_BY_DOWNSTREAM, (Predicate<?>) predicate, downstream);
+    }
+
+    /**
+     * Reduces the elements with {@code op}, no identity. Mirrors {@link
+     * java.util.stream.Collectors#reducing(BinaryOperator)}: yields an {@link Optional} (empty for the
+     * empty stream).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsReducingLaws)")
+    public static <T> Collector<T, ?, Optional<T>> reducing(BinaryOperator<T> op) {
+        return new Collector<>(Collector.REDUCING, (BinaryOperator<?>) op);
+    }
+
+    /**
+     * Reduces with {@code identity} + {@code op}. Mirrors {@link
+     * java.util.stream.Collectors#reducing(Object, BinaryOperator)}: yields the (non-Optional) reduced
+     * value, {@code identity} for the empty stream.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsReducingLaws)")
+    public static <T> Collector<T, ?, T> reducing(T identity, BinaryOperator<T> op) {
+        return new Collector<>(Collector.REDUCING, (Object) identity, (Function<?, ?>) null, (BinaryOperator<?>) op);
+    }
+
+    /**
+     * Maps each element with {@code mapper} then reduces with {@code identity} + {@code op}. Mirrors
+     * {@link java.util.stream.Collectors#reducing(Object, Function, BinaryOperator)}.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsReducingLaws)")
+    public static <T, U> Collector<T, ?, U> reducing(
+            U identity, Function<? super T, ? extends U> mapper, BinaryOperator<U> op) {
+        return new Collector<>(Collector.REDUCING, (Object) identity, (Function<?, ?>) mapper, (BinaryOperator<?>) op);
+    }
+
+    /**
+     * Collects with {@code downstream}, then applies {@code finisher} to the result. Mirrors {@link
+     * java.util.stream.Collectors#collectingAndThen(Collector, Function)}.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, A, R, RR> Collector<T, ?, RR> collectingAndThen(
+            Collector<T, A, R> downstream, Function<R, RR> finisher) {
+        return new Collector<>(Collector.COLLECTING_AND_THEN, downstream, (Function<?, ?>) finisher, true);
+    }
+
+    /**
+     * Keeps only elements satisfying {@code predicate}, feeding them to {@code downstream}. Mirrors
+     * {@link java.util.stream.Collectors#filtering(Predicate, Collector)} — distinct from {@code
+     * Stream.filter} in that excluded elements still reach the collector's account (e.g. a counting
+     * downstream counts only the kept ones, but the grouping key is computed first).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, A, R> Collector<T, ?, R> filtering(
+            Predicate<? super T> predicate, Collector<? super T, A, R> downstream) {
+        return new Collector<>(Collector.FILTERING, (Predicate<?>) predicate, downstream);
+    }
+
+    /**
+     * Maps each element to a {@link Stream} via {@code mapper} and flattens, feeding the elements to
+     * {@code downstream}. Mirrors {@link java.util.stream.Collectors#flatMapping(Function, Collector)}.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, U, A, R> Collector<T, ?, R> flatMapping(
+            Function<? super T, ? extends Stream<? extends U>> mapper,
+            Collector<? super U, A, R> downstream) {
+        return new Collector<>(Collector.FLAT_MAPPING, (Function<?, ?>) mapper, downstream);
+    }
+
+    /**
+     * The minimum element by {@code comparator}. Mirrors {@link
+     * java.util.stream.Collectors#minBy(Comparator)}: yields an {@link Optional} (empty for the empty
+     * stream). Pass an explicit comparator (NOT {@code naturalOrder()} — boxed {@code Comparable}
+     * dispatch is unsound under JBMC).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsReducingLaws)")
+    public static <T> Collector<T, ?, Optional<T>> minBy(Comparator<? super T> comparator) {
+        return new Collector<>(Collector.MIN_BY, (Comparator<?>) comparator);
+    }
+
+    /** The maximum element by {@code comparator}; mirrors {@link java.util.stream.Collectors#maxBy(Comparator)}. */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsReducingLaws)")
+    public static <T> Collector<T, ?, Optional<T>> maxBy(Comparator<? super T> comparator) {
+        return new Collector<>(Collector.MAX_BY, (Comparator<?>) comparator);
+    }
+
+    /**
+     * Collects with both {@code downstream1} and {@code downstream2}, then merges the two results with
+     * {@code merger}. Mirrors {@link java.util.stream.Collectors#teeing(Collector, Collector,
+     * BiFunction)}.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, R1, R2, R> Collector<T, ?, R> teeing(
+            Collector<? super T, ?, R1> downstream1,
+            Collector<? super T, ?, R2> downstream2,
+            BiFunction<? super R1, ? super R2, R> merger) {
+        return new Collector<>(Collector.TEEING, downstream1, downstream2, (BiFunction<?, ?, ?>) merger);
+    }
+
+    /**
+     * Collects into the {@link java.util.Collection} produced by {@code collectionFactory}. Mirrors
+     * {@link java.util.stream.Collectors#toCollection(Supplier)}. The factory supplies a bounded
+     * collection model (e.g. {@code ArrayList::new}); {@link ListStream#collect} adds each element.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsDownstreamLaws)")
+    public static <T, C extends java.util.Collection<T>> Collector<T, ?, C> toCollection(
+            Supplier<C> collectionFactory) {
+        return new Collector<>(Collector.TO_COLLECTION, (Supplier<?>) collectionFactory);
     }
 }
