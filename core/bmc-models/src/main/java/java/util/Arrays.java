@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.FpTotalOrder;
 
 /**
  * Bounded BMC model of {@link java.util.Arrays}. Covers the high-value surface over small arrays:
@@ -36,19 +37,28 @@ import org.bmc4j.models.audit.BmcModelTail;
  * specifies these as observably equivalent to their sequential counterparts; running them on one
  * thread under JBMC is sound because BMC has no notion of wall-clock parallelism to begin with.
  *
- * <p>The remaining formatting/parsing/spliterator/deep/exotic surface — and the {@code float[]}/
- * {@code double[]} equals/hashCode/sort/binarySearch/compare/mismatch overloads, whose IEEE
- * NaN/-0.0 total-order quirks are NOT the plain {@code ==}/{@code >} the integral bodies use, plus
- * everything {@code double} per the no-double convention — stays in the {@code BmcModelTail}: each
- * gets a build-synthesized loud body, so reaching any of them fails NAMED AND LOUD under JBMC rather
- * than silently havocking to a nondet result.
+ * <p>The {@code float[]}/{@code double[]} {@code equals}/{@code sort}/{@code binarySearch}/{@code
+ * compare}/{@code mismatch} overloads (full-array and ranged) ARE now modeled, via the IEEE total
+ * order ({@code -0.0 < +0.0}, NaN largest, {@code NaN compare NaN == 0}) supplied by the {@link
+ * org.bmc4j.models.audit.FpTotalOrder} helper — see that class for why the order is modeled bit-free
+ * (jbmc's {@code floatToIntBits} is unsound) AND why the total order lives in an {@code org.bmc4j}
+ * helper rather than a {@code java.lang.Float}/{@code Double} model (those classes are reached
+ * pervasively — autoboxing, {@code <clinit>} — so modeling them put a bounded FP model on every
+ * proof's classpath and crashed jbmc's solver on unrelated proofs). {@code hashCode(float[])}/
+ * {@code hashCode(double[])} stay LOUD because they need {@code Float.floatToIntBits}, which is the
+ * unsound intrinsic.
+ *
+ * <p>The remaining formatting/parsing/spliterator/deep/exotic surface — plus the all-{@code double}
+ * copy/fill/store overloads per the no-double convention and the float/double {@code hashCode} — stays
+ * in the {@code BmcModelTail}: each gets a build-synthesized loud body, so reaching any of them fails
+ * NAMED AND LOUD under JBMC rather than silently havocking to a nondet result.
  *
  * <p>Loops are bounded by the (concrete) array length, so JBMC unwinds them deterministically. The
  * {@code sort} models are plain insertion sort over the bound: quadratic but small for the array
  * sizes BMC proofs use. {@code binarySearch} models the JDK contract on an array the caller has
  * sorted (sorted-assume); on an unsorted array the result is unspecified exactly as in the JDK.
  */
-@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, float/double overloads with NaN/-0.0 total-order quirks, all-double overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC")
+@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper")
 public class Arrays {
 
     private Arrays() {
@@ -570,6 +580,50 @@ public class Arrays {
         return true;
     }
 
+    // float/double equals use the IEEE TOTAL ORDER, not plain ==: the JDK compares via
+    // Float/Double.floatToIntBits, i.e. FpTotalOrder.compare(a,b)==0. So -0.0 and +0.0 are NOT equal, and two
+    // NaNs ARE equal (same canonical bits) — the exact opposite of the primitive == the integral bodies
+    // use. We route through the modeled FpTotalOrder.compare (sound bit-free total order); floatToIntBits
+    // itself is unsound under jbmc, so hashCode(float[])/hashCode(double[]) stay loud in the tail.
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): equals(float[], float[]) via FpTotalOrder.compare total order (-0!=+0, NaN==NaN)")
+    public static boolean equals(float[] a, float[] a2) {
+        if (a == a2) {
+            return true;
+        }
+        if (a == null || a2 == null) {
+            return false;
+        }
+        if (a.length != a2.length) {
+            return false;
+        }
+        for (int i = 0; i < a.length; i++) {
+            if (FpTotalOrder.compare(a[i], a2[i]) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): equals(double[], double[]) via FpTotalOrder.compare total order (-0!=+0, NaN==NaN)")
+    public static boolean equals(double[] a, double[] a2) {
+        if (a == a2) {
+            return true;
+        }
+        if (a == null || a2 == null) {
+            return false;
+        }
+        if (a.length != a2.length) {
+            return false;
+        }
+        for (int i = 0; i < a.length; i++) {
+            if (FpTotalOrder.compare(a[i], a2[i]) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // --- hashCode -------------------------------------------------------------------------------
     // JDK contract: 1 for null; otherwise the 31*result+element polynomial, with element hash 0 for
     // a null Object element.
@@ -746,6 +800,36 @@ public class Arrays {
         }
     }
 
+    // float/double sorts use the IEEE TOTAL ORDER (NaN sorts last, -0.0 before +0.0), not the plain `>`
+    // the integral bodies use. Insertion sort with the modeled FpTotalOrder.compare as the comparator:
+    // shift while the predecessor is GREATER than the key under the total order (compare(a[j], key) > 0).
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): sort(float[]) insertion sort, FpTotalOrder.compare total order (NaN last, -0<+0)")
+    public static void sort(float[] a) {
+        for (int i = 1; i < a.length; i++) {
+            float key = a[i];
+            int j = i - 1;
+            while (j >= 0 && FpTotalOrder.compare(a[j], key) > 0) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): sort(double[]) insertion sort, FpTotalOrder.compare total order (NaN last, -0<+0)")
+    public static void sort(double[] a) {
+        for (int i = 1; i < a.length; i++) {
+            double key = a[i];
+            int j = i - 1;
+            while (j >= 0 && FpTotalOrder.compare(a[j], key) > 0) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
     // --- sort (range) — insertion sort bounded to [fromIndex, toIndex) --------------------------
     // Same body as the full-array sorts, with the loop floor raised to fromIndex and the inner
     // shift stopping at fromIndex. rangeCheck throws the JDK's exact exceptions on a bad range.
@@ -828,6 +912,34 @@ public class Arrays {
             Object key = a[i];
             int j = i - 1;
             while (j >= fromIndex && ((Comparable) a[j]).compareTo(key) > 0) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): sort(float[], int, int) total order, ranged")
+    public static void sort(float[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            float key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && FpTotalOrder.compare(a[j], key) > 0) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): sort(double[], int, int) total order, ranged")
+    public static void sort(double[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            double key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && FpTotalOrder.compare(a[j], key) > 0) {
                 a[j + 1] = a[j];
                 j--;
             }
@@ -925,6 +1037,45 @@ public class Arrays {
             if (midVal < key) {
                 low = mid + 1;
             } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    // float/double binarySearch use the IEEE TOTAL ORDER (the array is sorted by FpTotalOrder.compare).
+    // Same sorted-assume contract via the modeled compare: <0 -> go right, >0 -> go left, ==0 -> found.
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): binarySearch(float[], float) sorted-assume, total order")
+    public static int binarySearch(float[] a, float key) {
+        int low = 0;
+        int high = a.length - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = FpTotalOrder.compare(a[mid], key);
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): binarySearch(double[], double) sorted-assume, total order")
+    public static int binarySearch(double[] a, double key) {
+        int low = 0;
+        int high = a.length - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = FpTotalOrder.compare(a[mid], key);
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
                 high = mid - 1;
             } else {
                 return mid;
@@ -1054,11 +1205,49 @@ public class Arrays {
         return -(low + 1);
     }
 
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): binarySearch(float[], int, int, float) sorted-assume, ranged, total order")
+    public static int binarySearch(float[] a, int fromIndex, int toIndex, float key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = FpTotalOrder.compare(a[mid], key);
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): binarySearch(double[], int, int, double) sorted-assume, ranged, total order")
+    public static int binarySearch(double[] a, int fromIndex, int toIndex, double key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = FpTotalOrder.compare(a[mid], key);
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
     // --- mismatch (first differing index, sound for integral element types) ---------------------
     // JDK contract: index of the first element that differs; if one array is a proper prefix of the
     // other, the length of the shorter; -1 if the arrays are equal (same length, same elements). A
     // null array throws NullPointerException (the JDK reads a.length). float/double mismatch stay
-    // loud — they compare via Float/Double.compare (NaN/-0.0 total order), not the plain ==.
+    // loud — they compare via FpTotalOrder.compare (NaN/-0.0 total order), not the plain ==.
 
     @BmcModelConforms("differential: mismatch(int[], int[])")
     public static int mismatch(int[] a, int[] b) {
@@ -1120,6 +1309,31 @@ public class Arrays {
         int len = Math.min(a.length, b.length);
         for (int i = 0; i < len; i++) {
             if (a[i] != b[i]) {
+                return i;
+            }
+        }
+        return a.length == b.length ? -1 : len;
+    }
+
+    // float/double mismatch detect a difference via the IEEE TOTAL ORDER (FpTotalOrder.compare != 0),
+    // not plain == — so a -0.0 vs +0.0 pair IS a mismatch and a NaN vs NaN pair is NOT.
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): mismatch(float[], float[]) via FpTotalOrder.compare total order")
+    public static int mismatch(float[] a, float[] b) {
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            if (FpTotalOrder.compare(a[i], b[i]) != 0) {
+                return i;
+            }
+        }
+        return a.length == b.length ? -1 : len;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): mismatch(double[], double[]) via FpTotalOrder.compare total order")
+    public static int mismatch(double[] a, double[] b) {
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            if (FpTotalOrder.compare(a[i], b[i]) != 0) {
                 return i;
             }
         }
@@ -1213,6 +1427,39 @@ public class Arrays {
         for (int i = 0; i < len; i++) {
             if (a[i] != b[i]) {
                 return !a[i] ? -1 : 1;  // false < true
+            }
+        }
+        return a.length - b.length;
+    }
+
+    // float/double compare are lexicographic over the IEEE TOTAL ORDER: the first element where
+    // FpTotalOrder.compare != 0 decides the sign; a proper prefix gives a.length - b.length.
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): compare(float[], float[]) lexicographic via FpTotalOrder.compare")
+    public static int compare(float[] a, float[] b) {
+        if (a == b) {
+            return 0;
+        }
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int cmp = FpTotalOrder.compare(a[i], b[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return a.length - b.length;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): compare(double[], double[]) lexicographic via FpTotalOrder.compare")
+    public static int compare(double[] a, double[] b) {
+        if (a == b) {
+            return 0;
+        }
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int cmp = FpTotalOrder.compare(a[i], b[i]);
+            if (cmp != 0) {
+                return cmp;
             }
         }
         return a.length - b.length;
@@ -1345,6 +1592,40 @@ public class Arrays {
         return true;
     }
 
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): equals(float[], int, int, float[], int, int) via FpTotalOrder.compare total order")
+    public static boolean equals(float[] a, int aFromIndex, int aToIndex, float[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): equals(double[], int, int, double[], int, int) via FpTotalOrder.compare total order")
+    public static boolean equals(double[] a, int aFromIndex, int aToIndex, double[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // --- mismatch (two ranges) ------------------------------------------------------------------
     // JDK contract: the relative index (from the range start) of the first differing element; if one
     // range is a proper prefix of the other, the length of the shorter range; -1 if the ranges are
@@ -1434,6 +1715,36 @@ public class Arrays {
         int len = Math.min(aLen, bLen);
         for (int i = 0; i < len; i++) {
             if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): mismatch(float[], int, int, float[], int, int) via FpTotalOrder.compare total order")
+    public static int mismatch(float[] a, int aFromIndex, int aToIndex, float[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]) != 0) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): mismatch(double[], int, int, double[], int, int) via FpTotalOrder.compare total order")
+    public static int mismatch(double[] a, int aFromIndex, int aToIndex, double[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]) != 0) {
                 return i;
             }
         }
@@ -1544,6 +1855,38 @@ public class Arrays {
             boolean y = b[bFromIndex + i];
             if (x != y) {
                 return !x ? -1 : 1;  // false < true
+            }
+        }
+        return aLen - bLen;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): compare(float[], int, int, float[], int, int) lexicographic via FpTotalOrder.compare")
+    public static int compare(float[] a, int aFromIndex, int aToIndex, float[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            int cmp = FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): compare(double[], int, int, double[], int, int) lexicographic via FpTotalOrder.compare")
+    public static int compare(double[] a, int aFromIndex, int aToIndex, double[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            int cmp = FpTotalOrder.compare(a[aFromIndex + i], b[bFromIndex + i]);
+            if (cmp != 0) {
+                return cmp;
             }
         }
         return aLen - bLen;
@@ -1706,6 +2049,26 @@ public class Arrays {
 
     @BmcModelConforms("differential: parallelSort(short[], int, int) (= sort, ranged)")
     public static void parallelSort(short[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): parallelSort(float[]) (= total-order sort)")
+    public static void parallelSort(float[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): parallelSort(double[]) (= total-order sort)")
+    public static void parallelSort(double[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): parallelSort(float[], int, int) (= total-order sort, ranged)")
+    public static void parallelSort(float[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): parallelSort(double[], int, int) (= total-order sort, ranged)")
+    public static void parallelSort(double[] a, int fromIndex, int toIndex) {
         sort(a, fromIndex, toIndex);
     }
 

@@ -14,6 +14,11 @@ val COVERED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // NB the float/double IEEE total order is NOT a java.lang.Float/Double model — modeling those
+    // pervasively-reached classes put a bounded FP model on every proof's classpath and crashed jbmc's
+    // solver on unrelated proofs. It lives in the org.bmc4j.models.audit.FpTotalOrder helper that
+    // java.util.Arrays calls; the reclaimed Arrays float/double surface is covered under java.util.Arrays
+    // (model proofs proofs.primitives.FloatDoubleArraysLaws + differential conformance.OptionalArraysConformanceTest).
     // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
     "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",

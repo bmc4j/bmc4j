@@ -327,27 +327,19 @@ Real surface: 42 members — modeled 25, not-modeled 2, not-needed 5, tail 10.
 
 ## `java.util.Arrays`
 
-Real surface: 214 members — modeled 129, not-modeled 0, not-needed 0, tail 85.
+Real surface: 214 members — modeled 153, not-modeled 0, not-needed 0, tail 61.
 
-**Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(Object[], int, int, Object)`, `binarySearch(byte[], byte)`, `binarySearch(byte[], int, int, byte)`, `binarySearch(char[], char)`, `binarySearch(char[], int, int, char)`, `binarySearch(int[], int)`, `binarySearch(int[], int, int, int)`, `binarySearch(long[], int, int, long)`, `binarySearch(long[], long)`, `binarySearch(short[], int, int, short)`, `binarySearch(short[], short)`, `compare(boolean[], boolean[])`, `compare(boolean[], int, int, boolean[], int, int)`, `compare(byte[], byte[])`, `compare(byte[], int, int, byte[], int, int)`, `compare(char[], char[])`, `compare(char[], int, int, char[], int, int)`, `compare(int[], int, int, int[], int, int)`, `compare(int[], int[])`, `compare(long[], int, int, long[], int, int)`, `compare(long[], long[])`, `compare(short[], int, int, short[], int, int)`, `compare(short[], short[])`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(float[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `equals(Object[], Object[])`, `equals(Object[], int, int, Object[], int, int)`, `equals(boolean[], boolean[])`, `equals(boolean[], int, int, boolean[], int, int)`, `equals(byte[], byte[])`, `equals(byte[], int, int, byte[], int, int)`, `equals(char[], char[])`, `equals(char[], int, int, char[], int, int)`, `equals(int[], int, int, int[], int, int)`, `equals(int[], int[])`, `equals(long[], int, int, long[], int, int)`, `equals(long[], long[])`, `equals(short[], int, int, short[], int, int)`, `equals(short[], short[])`, `fill(Object[], Object)`, `fill(Object[], int, int, Object)`, `fill(boolean[], boolean)`, `fill(boolean[], int, int, boolean)`, `fill(byte[], byte)`, `fill(byte[], int, int, byte)`, `fill(char[], char)`, `fill(char[], int, int, char)`, `fill(float[], float)`, `fill(float[], int, int, float)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], int, int, long)`, `fill(long[], long)`, `fill(short[], int, int, short)`, `fill(short[], short)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `hashCode(short[])`, `mismatch(boolean[], boolean[])`, `mismatch(boolean[], int, int, boolean[], int, int)`, `mismatch(byte[], byte[])`, `mismatch(byte[], int, int, byte[], int, int)`, `mismatch(char[], char[])`, `mismatch(char[], int, int, char[], int, int)`, `mismatch(int[], int, int, int[], int, int)`, `mismatch(int[], int[])`, `mismatch(long[], int, int, long[], int, int)`, `mismatch(long[], long[])`, `mismatch(short[], int, int, short[], int, int)`, `mismatch(short[], short[])`, `parallelPrefix(Object[], BinaryOperator)`, `parallelPrefix(Object[], int, int, BinaryOperator)`, `parallelPrefix(int[], IntBinaryOperator)`, `parallelPrefix(int[], int, int, IntBinaryOperator)`, `parallelPrefix(long[], LongBinaryOperator)`, `parallelPrefix(long[], int, int, LongBinaryOperator)`, `parallelSetAll(Object[], IntFunction)`, `parallelSetAll(int[], IntUnaryOperator)`, `parallelSetAll(long[], IntToLongFunction)`, `parallelSort(byte[])`, `parallelSort(byte[], int, int)`, `parallelSort(char[])`, `parallelSort(char[], int, int)`, `parallelSort(int[])`, `parallelSort(int[], int, int)`, `parallelSort(long[])`, `parallelSort(long[], int, int)`, `parallelSort(short[])`, `parallelSort(short[], int, int)`, `setAll(Object[], IntFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(Object[], int, int)`, `sort(byte[])`, `sort(byte[], int, int)`, `sort(char[])`, `sort(char[], int, int)`, `sort(int[])`, `sort(int[], int, int)`, `sort(long[])`, `sort(long[], int, int)`, `sort(short[])`, `sort(short[], int, int)`, `stream(Object[])`, `stream(Object[], int, int)`, `stream(int[])`, `stream(int[], int, int)`, `stream(long[])`, `stream(long[], int, int)`
+**Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(Object[], int, int, Object)`, `binarySearch(byte[], byte)`, `binarySearch(byte[], int, int, byte)`, `binarySearch(char[], char)`, `binarySearch(char[], int, int, char)`, `binarySearch(double[], double)`, `binarySearch(double[], int, int, double)`, `binarySearch(float[], float)`, `binarySearch(float[], int, int, float)`, `binarySearch(int[], int)`, `binarySearch(int[], int, int, int)`, `binarySearch(long[], int, int, long)`, `binarySearch(long[], long)`, `binarySearch(short[], int, int, short)`, `binarySearch(short[], short)`, `compare(boolean[], boolean[])`, `compare(boolean[], int, int, boolean[], int, int)`, `compare(byte[], byte[])`, `compare(byte[], int, int, byte[], int, int)`, `compare(char[], char[])`, `compare(char[], int, int, char[], int, int)`, `compare(double[], double[])`, `compare(double[], int, int, double[], int, int)`, `compare(float[], float[])`, `compare(float[], int, int, float[], int, int)`, `compare(int[], int, int, int[], int, int)`, `compare(int[], int[])`, `compare(long[], int, int, long[], int, int)`, `compare(long[], long[])`, `compare(short[], int, int, short[], int, int)`, `compare(short[], short[])`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(float[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `equals(Object[], Object[])`, `equals(Object[], int, int, Object[], int, int)`, `equals(boolean[], boolean[])`, `equals(boolean[], int, int, boolean[], int, int)`, `equals(byte[], byte[])`, `equals(byte[], int, int, byte[], int, int)`, `equals(char[], char[])`, `equals(char[], int, int, char[], int, int)`, `equals(double[], double[])`, `equals(double[], int, int, double[], int, int)`, `equals(float[], float[])`, `equals(float[], int, int, float[], int, int)`, `equals(int[], int, int, int[], int, int)`, `equals(int[], int[])`, `equals(long[], int, int, long[], int, int)`, `equals(long[], long[])`, `equals(short[], int, int, short[], int, int)`, `equals(short[], short[])`, `fill(Object[], Object)`, `fill(Object[], int, int, Object)`, `fill(boolean[], boolean)`, `fill(boolean[], int, int, boolean)`, `fill(byte[], byte)`, `fill(byte[], int, int, byte)`, `fill(char[], char)`, `fill(char[], int, int, char)`, `fill(float[], float)`, `fill(float[], int, int, float)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], int, int, long)`, `fill(long[], long)`, `fill(short[], int, int, short)`, `fill(short[], short)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `hashCode(short[])`, `mismatch(boolean[], boolean[])`, `mismatch(boolean[], int, int, boolean[], int, int)`, `mismatch(byte[], byte[])`, `mismatch(byte[], int, int, byte[], int, int)`, `mismatch(char[], char[])`, `mismatch(char[], int, int, char[], int, int)`, `mismatch(double[], double[])`, `mismatch(double[], int, int, double[], int, int)`, `mismatch(float[], float[])`, `mismatch(float[], int, int, float[], int, int)`, `mismatch(int[], int, int, int[], int, int)`, `mismatch(int[], int[])`, `mismatch(long[], int, int, long[], int, int)`, `mismatch(long[], long[])`, `mismatch(short[], int, int, short[], int, int)`, `mismatch(short[], short[])`, `parallelPrefix(Object[], BinaryOperator)`, `parallelPrefix(Object[], int, int, BinaryOperator)`, `parallelPrefix(int[], IntBinaryOperator)`, `parallelPrefix(int[], int, int, IntBinaryOperator)`, `parallelPrefix(long[], LongBinaryOperator)`, `parallelPrefix(long[], int, int, LongBinaryOperator)`, `parallelSetAll(Object[], IntFunction)`, `parallelSetAll(int[], IntUnaryOperator)`, `parallelSetAll(long[], IntToLongFunction)`, `parallelSort(byte[])`, `parallelSort(byte[], int, int)`, `parallelSort(char[])`, `parallelSort(char[], int, int)`, `parallelSort(double[])`, `parallelSort(double[], int, int)`, `parallelSort(float[])`, `parallelSort(float[], int, int)`, `parallelSort(int[])`, `parallelSort(int[], int, int)`, `parallelSort(long[])`, `parallelSort(long[], int, int)`, `parallelSort(short[])`, `parallelSort(short[], int, int)`, `setAll(Object[], IntFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(Object[], int, int)`, `sort(byte[])`, `sort(byte[], int, int)`, `sort(char[])`, `sort(char[], int, int)`, `sort(double[])`, `sort(double[], int, int)`, `sort(float[])`, `sort(float[], int, int)`, `sort(int[])`, `sort(int[], int, int)`, `sort(long[])`, `sort(long[], int, int)`, `sort(short[])`, `sort(short[], int, int)`, `stream(Object[])`, `stream(Object[], int, int)`, `stream(int[])`, `stream(int[], int, int)`, `stream(long[])`, `stream(long[], int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 85 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, float/double overloads with NaN/-0.0 total-order quirks, all-double overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 61 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper</summary>
 
 - `binarySearch(Object[], Object)`
 - `binarySearch(Object[], Object, Comparator)`
 - `binarySearch(Object[], int, int, Object, Comparator)`
-- `binarySearch(double[], double)`
-- `binarySearch(double[], int, int, double)`
-- `binarySearch(float[], float)`
-- `binarySearch(float[], int, int, float)`
 - `compare(Comparable[], Comparable[])`
 - `compare(Comparable[], int, int, Comparable[], int, int)`
 - `compare(Object[], Object[], Comparator)`
 - `compare(Object[], int, int, Object[], int, int, Comparator)`
-- `compare(double[], double[])`
-- `compare(double[], int, int, double[], int, int)`
-- `compare(float[], float[])`
-- `compare(float[], int, int, float[], int, int)`
 - `compareUnsigned(byte[], byte[])`
 - `compareUnsigned(byte[], int, int, byte[], int, int)`
 - `compareUnsigned(int[], int, int, int[], int, int)`
@@ -365,10 +357,6 @@ Real surface: 214 members — modeled 129, not-modeled 0, not-needed 0, tail 85.
 - `deepToString(Object[])`
 - `equals(Object[], Object[], Comparator)`
 - `equals(Object[], int, int, Object[], int, int, Comparator)`
-- `equals(double[], double[])`
-- `equals(double[], int, int, double[], int, int)`
-- `equals(float[], float[])`
-- `equals(float[], int, int, float[], int, int)`
 - `fill(double[], double)`
 - `fill(double[], int, int, double)`
 - `hashCode(double[])`
@@ -377,10 +365,6 @@ Real surface: 214 members — modeled 129, not-modeled 0, not-needed 0, tail 85.
 - `mismatch(Object[], Object[], Comparator)`
 - `mismatch(Object[], int, int, Object[], int, int)`
 - `mismatch(Object[], int, int, Object[], int, int, Comparator)`
-- `mismatch(double[], double[])`
-- `mismatch(double[], int, int, double[], int, int)`
-- `mismatch(float[], float[])`
-- `mismatch(float[], int, int, float[], int, int)`
 - `parallelPrefix(double[], DoubleBinaryOperator)`
 - `parallelPrefix(double[], int, int, DoubleBinaryOperator)`
 - `parallelSetAll(double[], IntToDoubleFunction)`
@@ -388,17 +372,9 @@ Real surface: 214 members — modeled 129, not-modeled 0, not-needed 0, tail 85.
 - `parallelSort(Comparable[], int, int)`
 - `parallelSort(Object[], Comparator)`
 - `parallelSort(Object[], int, int, Comparator)`
-- `parallelSort(double[])`
-- `parallelSort(double[], int, int)`
-- `parallelSort(float[])`
-- `parallelSort(float[], int, int)`
 - `setAll(double[], IntToDoubleFunction)`
 - `sort(Object[], Comparator)`
 - `sort(Object[], int, int, Comparator)`
-- `sort(double[])`
-- `sort(double[], int, int)`
-- `sort(float[])`
-- `sort(float[], int, int)`
 - `spliterator(Object[])`
 - `spliterator(Object[], int, int)`
 - `spliterator(double[])`
