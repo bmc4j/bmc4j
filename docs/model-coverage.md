@@ -705,6 +705,20 @@ Real surface: 17 members — modeled 17, not-modeled 0, not-needed 0, tail 0.
 **Modeled** (`@BmcModelConforms`): `empty()`, `filter(Predicate)`, `flatMap(Function)`, `get()`, `ifPresent(Consumer)`, `ifPresentOrElse(Consumer, Runnable)`, `isEmpty()`, `isPresent()`, `map(Function)`, `of(Object)`, `ofNullable(Object)`, `or(Supplier)`, `orElse(Object)`, `orElseGet(Supplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
 
 
+## `java.util.OptionalInt`
+
+Real surface: 12 members — modeled 12, not-modeled 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `empty()`, `getAsInt()`, `ifPresent(IntConsumer)`, `ifPresentOrElse(IntConsumer, Runnable)`, `isEmpty()`, `isPresent()`, `of(int)`, `orElse(int)`, `orElseGet(IntSupplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
+
+
+## `java.util.OptionalLong`
+
+Real surface: 12 members — modeled 12, not-modeled 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `empty()`, `getAsLong()`, `ifPresent(LongConsumer)`, `ifPresentOrElse(LongConsumer, Runnable)`, `isEmpty()`, `isPresent()`, `of(long)`, `orElse(long)`, `orElseGet(LongSupplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
+
+
 ## `java.util.TreeMap`
 
 Real surface: 54 members — modeled 35, not-modeled 1, not-needed 3, tail 15.
@@ -1168,19 +1182,17 @@ Real surface: 44 members — modeled 11, not-modeled 0, not-needed 0, tail 33.
 
 ## `java.util.stream.IntStream`
 
-Real surface: 52 members — modeled 28, not-modeled 0, not-needed 0, tail 24.
+Real surface: 52 members — modeled 33, not-modeled 0, not-needed 0, tail 19.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(IntPredicate)`, `anyMatch(IntPredicate)`, `asLongStream()`, `boxed()`, `concat(IntStream, IntStream)`, `count()`, `distinct()`, `dropWhile(IntPredicate)`, `empty()`, `filter(IntPredicate)`, `forEach(IntConsumer)`, `iterate(int, IntPredicate, IntUnaryOperator)`, `limit(long)`, `map(IntUnaryOperator)`, `mapToLong(IntToLongFunction)`, `mapToObj(IntFunction)`, `noneMatch(IntPredicate)`, `of(int)`, `of(int[])`, `peek(IntConsumer)`, `range(int, int)`, `rangeClosed(int, int)`, `reduce(int, IntBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(IntPredicate)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `allMatch(IntPredicate)`, `anyMatch(IntPredicate)`, `asLongStream()`, `boxed()`, `concat(IntStream, IntStream)`, `count()`, `distinct()`, `dropWhile(IntPredicate)`, `empty()`, `filter(IntPredicate)`, `findAny()`, `findFirst()`, `forEach(IntConsumer)`, `iterate(int, IntPredicate, IntUnaryOperator)`, `limit(long)`, `map(IntUnaryOperator)`, `mapToLong(IntToLongFunction)`, `mapToObj(IntFunction)`, `max()`, `min()`, `noneMatch(IntPredicate)`, `of(int)`, `of(int[])`, `peek(IntConsumer)`, `range(int, int)`, `rangeClosed(int, int)`, `reduce(IntBinaryOperator)`, `reduce(int, IntBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(IntPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): the remaining IntStream surface (min/max/average/summaryStatistics + reduce(IntBinaryOperator) — all need the unmodeled OptionalInt/OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
 
 - `asDoubleStream()`
 - `average()`
 - `builder()`
 - `close()`
 - `collect(Supplier, ObjIntConsumer, BiConsumer)`
-- `findAny()`
-- `findFirst()`
 - `flatMap(IntFunction)`
 - `forEachOrdered(IntConsumer)`
 - `generate(IntSupplier)`
@@ -1189,11 +1201,8 @@ Real surface: 52 members — modeled 28, not-modeled 0, not-needed 0, tail 24.
 - `iterator()`
 - `mapMulti(IntMapMultiConsumer)`
 - `mapToDouble(IntToDoubleFunction)`
-- `max()`
-- `min()`
 - `onClose(Runnable)`
 - `parallel()`
-- `reduce(IntBinaryOperator)`
 - `sequential()`
 - `spliterator()`
 - `summaryStatistics()`
@@ -1204,19 +1213,17 @@ Real surface: 52 members — modeled 28, not-modeled 0, not-needed 0, tail 24.
 
 ## `java.util.stream.LongStream`
 
-Real surface: 51 members — modeled 27, not-modeled 0, not-needed 0, tail 24.
+Real surface: 51 members — modeled 32, not-modeled 0, not-needed 0, tail 19.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(LongPredicate)`, `anyMatch(LongPredicate)`, `boxed()`, `concat(LongStream, LongStream)`, `count()`, `distinct()`, `dropWhile(LongPredicate)`, `empty()`, `filter(LongPredicate)`, `forEach(LongConsumer)`, `iterate(long, LongPredicate, LongUnaryOperator)`, `limit(long)`, `map(LongUnaryOperator)`, `mapToInt(LongToIntFunction)`, `mapToObj(LongFunction)`, `noneMatch(LongPredicate)`, `of(long)`, `of(long[])`, `peek(LongConsumer)`, `range(long, long)`, `rangeClosed(long, long)`, `reduce(long, LongBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(LongPredicate)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `allMatch(LongPredicate)`, `anyMatch(LongPredicate)`, `boxed()`, `concat(LongStream, LongStream)`, `count()`, `distinct()`, `dropWhile(LongPredicate)`, `empty()`, `filter(LongPredicate)`, `findAny()`, `findFirst()`, `forEach(LongConsumer)`, `iterate(long, LongPredicate, LongUnaryOperator)`, `limit(long)`, `map(LongUnaryOperator)`, `mapToInt(LongToIntFunction)`, `mapToObj(LongFunction)`, `max()`, `min()`, `noneMatch(LongPredicate)`, `of(long)`, `of(long[])`, `peek(LongConsumer)`, `range(long, long)`, `rangeClosed(long, long)`, `reduce(LongBinaryOperator)`, `reduce(long, LongBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `takeWhile(LongPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): the remaining LongStream surface (min/max/average/summaryStatistics + reduce(LongBinaryOperator) — all need the unmodeled OptionalLong/OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
 
 - `asDoubleStream()`
 - `average()`
 - `builder()`
 - `close()`
 - `collect(Supplier, ObjLongConsumer, BiConsumer)`
-- `findAny()`
-- `findFirst()`
 - `flatMap(LongFunction)`
 - `forEachOrdered(LongConsumer)`
 - `generate(LongSupplier)`
@@ -1225,11 +1232,8 @@ Real surface: 51 members — modeled 27, not-modeled 0, not-needed 0, tail 24.
 - `iterator()`
 - `mapMulti(LongMapMultiConsumer)`
 - `mapToDouble(LongToDoubleFunction)`
-- `max()`
-- `min()`
 - `onClose(Runnable)`
 - `parallel()`
-- `reduce(LongBinaryOperator)`
 - `sequential()`
 - `spliterator()`
 - `summaryStatistics()`

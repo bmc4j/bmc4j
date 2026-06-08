@@ -1,5 +1,6 @@
 package java.util.stream;
 
+import java.util.OptionalInt;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
@@ -11,7 +12,7 @@ import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
 /** Minimal BMC model of {@link java.util.stream.IntStream}, eager over a bounded {@code int[]}. */
-@BmcModelTail(reason = "the remaining IntStream surface (min/max/average/summaryStatistics + reduce(IntBinaryOperator) — all need the unmodeled OptionalInt/OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+@BmcModelTail(reason = "the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface IntStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
@@ -64,6 +65,21 @@ public interface IntStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream IntStreamTailLaws)")
     int reduce(int identity, IntBinaryOperator op);
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamOptionalLaws)")
+    OptionalInt reduce(IntBinaryOperator op);
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamOptionalLaws)")
+    OptionalInt min();
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamOptionalLaws)")
+    OptionalInt max();
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamOptionalLaws)")
+    OptionalInt findFirst();
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamOptionalLaws)")
+    OptionalInt findAny();
 
     @BmcModelConforms("@BmcProof (proofs.stream IntStreamTailLaws)")
     int[] toArray();

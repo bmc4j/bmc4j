@@ -9,8 +9,9 @@ import org.bmc4j.BmcProof;
  * {@link IntStreamTailLaws}: {@code limit}/{@code skip}/{@code takeWhile}/{@code dropWhile}/{@code
  * distinct}/{@code sorted}/{@code peek}/{@code forEach}/{@code allMatch}/{@code noneMatch}/{@code
  * reduce(long,op)}/{@code toArray}/{@code mapToInt}, plus the static {@code of(long)}/{@code empty}/
- * {@code concat}/{@code iterate(3-arg)}. {@code min/max/average/summaryStatistics} stay in the tail
- * (need the unmodeled OptionalLong/OptionalDouble/LongSummaryStatistics + double).
+ * {@code concat}/{@code iterate(3-arg)}. {@code min/max/reduce(op)/findFirst/findAny} (returning the
+ * now-modeled {@code OptionalLong}) are proven in {@link LongStreamOptionalLaws}; {@code
+ * average/summaryStatistics} stay in the tail (need OptionalDouble/LongSummaryStatistics + double).
  */
 class LongStreamTailLaws {
 

@@ -9,7 +9,8 @@ package conformance
 val COVERED: Set<String> = setOf(
     // Differential (this module) — JVM-runnable JDK models.
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
-    "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.Optional", "java.util.Arrays",
+    "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.Optional",
+    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.Arrays",
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
@@ -124,7 +125,8 @@ val WAIVED: Map<String, String> = mapOf(
  */
 val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
-    "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.Optional", "java.util.Arrays",
+    "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.Optional",
+    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.Arrays",
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",

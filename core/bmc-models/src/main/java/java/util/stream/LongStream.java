@@ -1,5 +1,6 @@
 package java.util.stream;
 
+import java.util.OptionalLong;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -11,7 +12,7 @@ import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
 /** Minimal BMC model of {@link java.util.stream.LongStream}, eager over a bounded {@code long[]}. */
-@BmcModelTail(reason = "the remaining LongStream surface (min/max/average/summaryStatistics + reduce(LongBinaryOperator) — all need the unmodeled OptionalLong/OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+@BmcModelTail(reason = "the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
@@ -64,6 +65,21 @@ public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
     long reduce(long identity, LongBinaryOperator op);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    OptionalLong reduce(LongBinaryOperator op);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    OptionalLong min();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    OptionalLong max();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    OptionalLong findFirst();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamOptionalLaws)")
+    OptionalLong findAny();
 
     @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
     long[] toArray();
