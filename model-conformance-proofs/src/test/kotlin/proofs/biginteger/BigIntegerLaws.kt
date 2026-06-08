@@ -212,18 +212,10 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.valueOf(-1L).toByteArray().let { it.size == 1 && it[0].toInt() == -1 }) // {0xFF}
     }
 
-    // parallelMultiply delegates to multiply, so this is a full-width multiplier-EQUIVALENCE check —
-    // SAT-pathological at the wide any() bound (two symbolic multipliers proven equal). A tight range
-    // keeps the multiplier circuit small (the same lesson as the divider proofs); wide-value parity is
-    // already on the differential axis (BigIntegerConformanceTest), so this stays a real proof of the
-    // delegation. kissat is markedly faster than the built-in MiniSat on multiplier CNF (falls back to
-    // the default solver if the bundled binary isn't present, which the tight range still discharges).
-    @BmcProof
-    fun parallelMultiply_equals_multiply() {
-        val a = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
-        val b = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
-        Bmc.check(a.parallelMultiply(b) == a.multiply(b))
-    }
+    // parallelMultiply is a JDK 19+ method, so it cannot be referenced from this proof source on the
+    // Java-17 floor (the jdk17 matrix leg won't compile it). It delegates to multiply with no observable
+    // difference, so it stays model-only (no @BmcProof / differential here); multiply's own proofs cover
+    // the behaviour.
 
     // ~80s, the module's heaviest BigInteger division proof — pinned to shard 3 (setScale → 1,
     // add_then_subtract → 2 in BigDecimalLaws), so the three slow model-conformance proofs spread out.
