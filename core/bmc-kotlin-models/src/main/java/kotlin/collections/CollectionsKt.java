@@ -3,8 +3,8 @@ package kotlin.collections;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
+import org.cprover.CProver;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,9 +33,6 @@ import kotlin.sequences.Sequence;
  * those java.util members are not double-counted. The vast remainder of this multifile facade
  * (~230 stdlib extension functions: aggregation, windowing, grouping, set ops, etc.) is the tail.
  */
-@BmcModelTail(reason = "exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/"
-        + "Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded "
-        + "proofs do not exercise; loud under JBMC if reached")
 public final class CollectionsKt {
 
     private CollectionsKt() {
@@ -1531,20 +1528,441 @@ public final class CollectionsKt {
         return out;
     }
 
-    // NOTE: shuffled / shuffle stay in the @BmcModelTail residue — a Random draw is nondeterministic by
-    // nature, so there is no sound bounded model (matches the RangesKt.random precedent). toSortedSet /
-    // sortedSetOf are NOT modeled here either: they return a java.util.TreeSet, for which bmc4j has no
-    // bounded model (only TreeMap exists) — out of scope until a TreeSet model lands. Loud under JBMC.
+    // ---- addAll(collection, elements[]): CollectionsKt.addAll:(Ljava/util/Collection;[Ljava/lang/Object;)Z
+    // MUTATE the receiver (CONCRETE bounded collection model — add() devirtualizes) by appending the
+    // vararg elements; returns true iff non-empty (the JDK Collection.addAll contract). The Iterable /
+    // Sequence sibling forms are below. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean addAll(Collection<? super T> collection, T[] elements) {
+        boolean changed = false;
+        for (T e : elements) {
+            collection.add(e);
+            changed = true;
+        }
+        return changed;
+    }
 
-    // NOTE: joinToString / joinTo are deliberately NOT modeled in this pass and stay in the
-    // @BmcModelTail residue. They are doubly hostile to bounded proof: (1) STRING-HEAVY (the
-    // StringBuilder/append reasoning is the JBMC string-blowup that OOM'd CI — see #124), and (2) the
-    // Kotlin call site routes through a kotlinc-synthesized `joinToString$default` bridge (default args)
-    // that bmc4j does not model, so JBMC nondet-stubs the bridge and the verdict is UNKNOWN regardless
-    // of the body's correctness. A sound model would need the `$default` bridge + a differential
-    // (not proof) harness for the string output; out of scope here. Loud under JBMC if reached.
+    // addAll(collection, sequence): the Sequence twin — append the sequence's elements (drained via its
+    //   CollectionsKt.addAll:(Ljava/util/Collection;Lkotlin/sequences/Sequence;)Z
+    // concrete backing) to the receiver; returns whether anything was added.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean addAll(Collection<? super T> collection, Sequence<? extends T> elements) {
+        boolean changed = false;
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            collection.add(it.next());
+            changed = true;
+        }
+        return changed;
+    }
 
-    // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
+    // ---- plus(collection/iterable, sequence) / minus(iterable, sequence): the Sequence-arg twins of the
+    //   CollectionsKt.plus:(Ljava/util/Collection;Lkotlin/sequences/Sequence;)Ljava/util/List;
+    //   CollectionsKt.plus:(Ljava/lang/Iterable;Lkotlin/sequences/Sequence;)Ljava/util/List;
+    //   CollectionsKt.minus:(Ljava/lang/Iterable;Lkotlin/sequences/Sequence;)Ljava/util/List;
+    // element/array/iterable plus/minus modeled earlier. plus returns a NEW list = receiver ++ sequence;
+    // minus returns a NEW list with ALL elements contained in the sequence removed (equals). Receiver
+    // untouched. The sequence is drained via its CONCRETE backing (seqIter). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Collection<T> source, Sequence<? extends T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> plus(Iterable<T> source, Sequence<? extends T> elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> minus(Iterable<T> source, Sequence<? extends T> elements) {
+        LinkedHashSet<T> remove = new LinkedHashSet<>();
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            remove.add(it.next());
+        }
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (!remove.contains(e)) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    // ---- removeAll / retainAll (collection, {iterable | elements[] | sequence}): MUTATE the receiver
+    //   CollectionsKt.removeAll:(Ljava/util/Collection;Ljava/lang/Iterable;)Z      (+ Object[] / Sequence)
+    //   CollectionsKt.retainAll:(Ljava/util/Collection;Ljava/lang/Iterable;)Z      (+ Object[] / Sequence)
+    // in place — removeAll drops every element contained in the argument; retainAll keeps only those.
+    // Returns whether the receiver changed. Each materializes the argument into a bounded LinkedHashSet
+    // and delegates to the CONCRETE collection model's removeAll/retainAll(Collection) (modeled, audited).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean removeAll(Collection<? super T> collection, Iterable<? extends T> elements) {
+        return collection.removeAll(toBoundedSet(elements));
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean removeAll(Collection<? super T> collection, T[] elements) {
+        LinkedHashSet<T> set = new LinkedHashSet<>();
+        for (T e : elements) {
+            set.add(e);
+        }
+        return collection.removeAll(set);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean removeAll(Collection<? super T> collection, Sequence<? extends T> elements) {
+        return collection.removeAll(seqToBoundedSet(elements));
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean retainAll(Collection<? super T> collection, Iterable<? extends T> elements) {
+        return collection.retainAll(toBoundedSet(elements));
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean retainAll(Collection<? super T> collection, T[] elements) {
+        LinkedHashSet<T> set = new LinkedHashSet<>();
+        for (T e : elements) {
+            set.add(e);
+        }
+        return collection.retainAll(set);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean retainAll(Collection<? super T> collection, Sequence<? extends T> elements) {
+        return collection.retainAll(seqToBoundedSet(elements));
+    }
+
+    // ---- removeAll / retainAll (iterable | list, predicate): MUTATE the receiver in place by the
+    //   CollectionsKt.removeAll:(Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Z
+    //   CollectionsKt.removeAll:(Ljava/util/List;Lkotlin/jvm/functions/Function1;)Z
+    //   CollectionsKt.retainAll:(Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Z
+    //   CollectionsKt.retainAll:(Ljava/util/List;Lkotlin/jvm/functions/Function1;)Z
+    // PREDICATE (non-inline stdlib functions — the JVM body invokes Function1.invoke per element). The
+    // lambda is concrete-devirtualized (bmc4j desugars it), exactly like the bounded ArrayList.removeIf
+    // model. removeAll drops elements the predicate accepts; retainAll keeps them. Compact in place over
+    // the CONCRETE receiver via its index get/remove; returns whether anything changed.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean removeAll(Iterable<T> source, Function1<? super T, Boolean> predicate) {
+        return filterInPlace(source, predicate, true);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean removeAll(List<T> source, Function1<? super T, Boolean> predicate) {
+        return filterInPlace(source, predicate, true);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean retainAll(Iterable<T> source, Function1<? super T, Boolean> predicate) {
+        return filterInPlace(source, predicate, false);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean retainAll(List<T> source, Function1<? super T, Boolean> predicate) {
+        return filterInPlace(source, predicate, false);
+    }
+
+    // ---- binarySearch(list, element, fromIndex, toIndex): CollectionsKt.binarySearch:
+    //   (Ljava/util/List;Ljava/lang/Comparable;II)I
+    // NATURAL-ORDER binary search over the [fromIndex, toIndex) sub-range of a list assumed sorted by the
+    // element's natural Comparable order. Returns the index of a match, or -(insertionPoint)-1 if absent —
+    // the exact JDK/stdlib contract. Pure Comparable.compareTo arithmetic over the bounded list model
+    // (JBMC's core competence); the COMPARATOR overload below stays a loud wall (total order over
+    // unconstrained T). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <T extends Comparable<? super T>> int binarySearch(
+            List<? extends T> list, T element, int fromIndex, int toIndex) {
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            T midVal = list.get(mid);
+            int cmp;
+            if (midVal == null) {
+                cmp = (element == null) ? 0 : -1;
+            } else if (element == null) {
+                cmp = 1;
+            } else {
+                cmp = ((Comparable) midVal).compareTo(element);
+            }
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    // ---- withIndex(iterator): CollectionsKt.withIndex:(Ljava/util/Iterator;)Ljava/util/Iterator; — wrap an
+    // iterator so each element is paired with its 0-based index as an IndexedValue. The stdlib returns a
+    // LAZY IndexingIterator; we drain the (bounded) source EAGERLY into a list of IndexedValue and return
+    // its iterator (identical read observable over the bounded model). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Iterator<IndexedValue<T>> withIndex(Iterator<T> iterator) {
+        ArrayList<IndexedValue<T>> out = new ArrayList<>();
+        int i = 0;
+        while (iterator.hasNext()) {
+            out.add(new IndexedValue<>(i, iterator.next()));
+            i++;
+        }
+        return out.iterator();
+    }
+
+    // ---- helpers for the set-op / predicate / sequence models above. ---------------------------------
+
+    /** Materialize an Iterable into a bounded LinkedHashSet (for the Collection.removeAll/retainAll arg). */
+    private static <T> LinkedHashSet<T> toBoundedSet(Iterable<? extends T> elements) {
+        LinkedHashSet<T> set = new LinkedHashSet<>();
+        for (Iterator<? extends T> it = elements.iterator(); it.hasNext(); ) {
+            set.add(it.next());
+        }
+        return set;
+    }
+
+    /** Materialize a model Sequence (via its concrete backing) into a bounded LinkedHashSet. */
+    private static <T> LinkedHashSet<T> seqToBoundedSet(Sequence<? extends T> elements) {
+        LinkedHashSet<T> set = new LinkedHashSet<>();
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            set.add(it.next());
+        }
+        return set;
+    }
+
+    /**
+     * In-place predicate filter for removeAll/retainAll(predicate): compact the receiver, dropping
+     * elements whose predicate result equals {@code removeMatched}. Operates on the receiver as a List
+     * (the bounded list model is the concrete receiver; Iterable receivers in idiomatic Kotlin are
+     * MutableList). Returns whether anything was removed.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> boolean filterInPlace(Iterable<T> source, Function1<? super T, Boolean> predicate,
+            boolean removeMatched) {
+        CProver.assume(source instanceof List);
+        List<T> list = (List<T>) source;          // the concrete bounded MutableList receiver
+        int w = 0;
+        boolean changed = false;
+        int n = list.size();
+        for (int r = 0; r < n; r++) {
+            T e = list.get(r);
+            if (predicate.invoke(e).booleanValue() == removeMatched) {
+                changed = true;                    // dropped
+            } else {
+                list.set(w++, e);                  // kept
+            }
+        }
+        // truncate the tail [w, n) by removing from the end
+        for (int r = n - 1; r >= w; r--) {
+            list.remove(r);
+        }
+        return changed;
+    }
+
+    /**
+     * Drain a model {@link Sequence} via its concrete backing {@link ArrayList} snapshot's iterator rather
+     * than the virtual {@code Sequence.iterator()} — {@link ListSequence} is the sole {@code final}
+     * implementor, so the {@code checkcast} is sound and the concrete {@code ArrayList.iterator()} resolves
+     * where the interface dispatch on the {@code Sequence}-typed parameter is kotlinc-version-fragile.
+     * Mirrors {@code SequencesKt}'s {@code seqIter}/{@code backing} pattern.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Iterator<T> seqIter(Sequence<? extends T> source) {
+        CProver.assume(source instanceof ListSequence);
+        return (Iterator<T>) ((ListSequence<? extends T>) source).backingList().iterator();
+    }
+
+    // --- structural / inline / Random / string / reflective walls (loud stubs; reaching one demotes to a
+    //     member-named UNKNOWN). Each names exactly why no sound bounded body exists. -------------------
+
+    @BmcUnmodelable(reason = "comparator total-order over unconstrained T — bmc4j does not reason about a "
+            + "Comparator's contract over symbolic elements (the Double.compare/devirt wall family); the "
+            + "natural-order binarySearch(List,Comparable,int,int) above IS modeled. Loud-if-reached")
+    public static int binarySearch(java.util.List a0, java.lang.Object a1, java.util.Comparator a2, int a3, int a4) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.binarySearch(java.util.List,java.lang.Object,java.util.Comparator,int,int) — comparator total-order over unconstrained T");
+    }
+
+    @BmcUnmodelable(reason = "comparison-function total-order over unconstrained T (Function1<T,Int> sign "
+            + "search) — same total-order-over-T wall as the Comparator overload; loud-if-reached")
+    public static int binarySearch(java.util.List a0, int a1, int a2, kotlin.jvm.functions.Function1 a3) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.binarySearch(java.util.List,int,int,kotlin.jvm.functions.Function1) — comparison-function total-order over unconstrained T");
+    }
+
+    @BmcUnmodelable(reason = "chunked(_,_,transform) is INLINE — the body lands in the caller; the facade JVM "
+            + "method is never called from a Kotlin call site. The no-transform chunked(Iterable,int) IS modeled")
+    public static java.util.List chunked(java.lang.Iterable a0, int a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.chunked(java.lang.Iterable,int,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcUnmodelable(reason = "windowed(_,_,_,_,transform) is INLINE — the body lands in the caller; the facade "
+            + "JVM method is never called from a Kotlin call site. The no-transform windowed(...) IS modeled")
+    public static java.util.List windowed(java.lang.Iterable a0, int a1, int a2, boolean a3, kotlin.jvm.functions.Function1 a4) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.windowed(java.lang.Iterable,int,int,boolean,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcUnmodelable(reason = "elementAtOrElse(_,_,defaultValue) is INLINE — the body lands in the caller; the "
+            + "facade JVM method is never called from a Kotlin call site")
+    public static java.lang.Object elementAtOrElse(java.lang.Iterable a0, int a1, kotlin.jvm.functions.Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.elementAtOrElse(java.lang.Iterable,int,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    @BmcUnmodelable(reason = "kotlin.random.Random draw is nondeterministic — there is no sound bounded model "
+            + "for random()/randomOrNull()/shuffle()/shuffled() (matches the RangesKt.random precedent); loud-if-reached")
+    public static java.lang.Object random(java.util.Collection a0, kotlin.random.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.random(java.util.Collection,kotlin.random.Random) — nondeterministic Random draw; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "kotlin.random.Random draw is nondeterministic — no sound bounded model; loud-if-reached")
+    public static java.lang.Object randomOrNull(java.util.Collection a0, kotlin.random.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.randomOrNull(java.util.Collection,kotlin.random.Random) — nondeterministic Random draw; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "kotlin.random.Random-driven in-place shuffle is nondeterministic — no sound "
+            + "bounded model; loud-if-reached")
+    public static void shuffle(java.util.List a0, kotlin.random.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.shuffle(java.util.List,kotlin.random.Random) — nondeterministic Random-driven shuffle; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "Random-driven shuffled() is nondeterministic — no sound bounded model; loud-if-reached")
+    public static java.util.List shuffled(java.lang.Iterable a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.shuffled(java.lang.Iterable) — nondeterministic shuffle; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "Random-driven shuffled(Random) is nondeterministic — no sound bounded model; loud-if-reached")
+    public static java.util.List shuffled(java.lang.Iterable a0, kotlin.random.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.shuffled(java.lang.Iterable,kotlin.random.Random) — nondeterministic shuffle; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "Random-driven shuffled(java.util.Random) (the JDK-Random overload) is "
+            + "nondeterministic — no sound bounded model; loud-if-reached")
+    public static java.util.List shuffled(java.lang.Iterable a0, java.util.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.shuffled(java.lang.Iterable,java.util.Random) — nondeterministic shuffle; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "filterIsInstance dispatches on java.lang.Class.isInstance — runtime reflective "
+            + "type introspection bmc4j does not model (kotlin.reflect.* is off the modeled surface); loud-if-reached")
+    public static java.util.List filterIsInstance(java.lang.Iterable a0, java.lang.Class a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterIsInstance(java.lang.Iterable,java.lang.Class) — reflective Class.isInstance; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "filterIsInstanceTo dispatches on java.lang.Class.isInstance — reflective type "
+            + "introspection bmc4j does not model; loud-if-reached")
+    public static java.util.Collection filterIsInstanceTo(java.lang.Iterable a0, java.util.Collection a1, java.lang.Class a2) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.filterIsInstanceTo(java.lang.Iterable,java.util.Collection,java.lang.Class) — reflective Class.isInstance; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "joinTo is STRING-HEAVY (Appendable/StringBuilder append is the JBMC string-blowup "
+            + "that OOMs) AND routes through a kotlinc-synthesized joinTo$default bridge bmc4j does not model; "
+            + "a sound model needs a differential (not proof) harness for the string output; loud-if-reached")
+    public static java.lang.Appendable joinTo(java.lang.Iterable a0, java.lang.Appendable a1, java.lang.CharSequence a2,
+            java.lang.CharSequence a3, java.lang.CharSequence a4, int a5, java.lang.CharSequence a6, kotlin.jvm.functions.Function1 a7) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.joinTo(java.lang.Iterable,java.lang.Appendable,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1) — string-heavy; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "joinToString is STRING-HEAVY (the JBMC string-blowup that OOMs CI) AND routes "
+            + "through a kotlinc-synthesized joinToString$default bridge bmc4j does not model; loud-if-reached")
+    public static java.lang.String joinToString(java.lang.Iterable a0, java.lang.CharSequence a1, java.lang.CharSequence a2,
+            java.lang.CharSequence a3, int a4, java.lang.CharSequence a5, kotlin.jvm.functions.Function1 a6) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.joinToString(java.lang.Iterable,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1) — string-heavy; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "toSortedSet returns a java.util.TreeSet — bmc4j has no bounded TreeSet model "
+            + "(only natural-ordering TreeMap); a HashSet substitute would silently drop the sorted-navigation "
+            + "observable; loud UNKNOWN under JBMC until a TreeSet model lands")
+    public static java.util.TreeSet toSortedSet(java.lang.Iterable a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.toSortedSet(java.lang.Iterable) — returns a java.util.TreeSet; bmc4j has no bounded TreeSet model");
+    }
+
+    @BmcUnmodelable(reason = "toSortedSet(Comparator) returns a comparator-ordered java.util.TreeSet — bmc4j "
+            + "has no bounded TreeSet model and the tree models are natural-ordering only; loud-if-reached")
+    public static java.util.TreeSet toSortedSet(java.lang.Iterable a0, java.util.Comparator a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.toSortedSet(java.lang.Iterable,java.util.Comparator) — comparator-ordered java.util.TreeSet; bmc4j has no bounded TreeSet model");
+    }
+
+    @BmcUnmodelable(reason = "iterator(Enumeration) bridges a java.util.Enumeration (legacy external iteration "
+            + "protocol) bmc4j does not model; loud-if-reached")
+    public static java.util.Iterator iterator(java.util.Enumeration a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.iterator(java.util.Enumeration) — Enumeration bridge; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib read-only-list size-optimizer (singleton/empty "
+            + "specialization) on the list-build path; not reachable from idiomatic user code and its real "
+            + "body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached")
+    public static java.util.List optimizeReadOnlyList(java.util.List a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.optimizeReadOnlyList(java.util.List) — internal kotlin-stdlib read-only-list size-optimizer");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib Iterable->Collection size probe (returns the size of a "
+            + "Collection or null) on the conversion fast path; internal plumbing not reachable from idiomatic "
+            + "user code; loud-if-reached")
+    public static java.lang.Integer collectionSizeOrNull(java.lang.Iterable a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.collectionSizeOrNull(java.lang.Iterable) — internal Iterable size probe");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib Iterable->Collection conversion fast path; internal "
+            + "plumbing not reachable from idiomatic user code; loud-if-reached")
+    public static java.util.Collection convertToListIfNotCollection(java.lang.Iterable a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.convertToListIfNotCollection(java.lang.Iterable) — internal conversion fast path");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib Collection.toArray() common implementation — the JVM "
+            + "array-bridge plumbing behind toArray; not reachable from idiomatic user code; loud-if-reached")
+    public static java.lang.Object[] collectionToArrayCommonImpl(java.util.Collection a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.collectionToArrayCommonImpl(java.util.Collection) — internal toArray bridge");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib Collection.toArray(T[]) common implementation — JVM "
+            + "array-bridge plumbing; not reachable from idiomatic user code; loud-if-reached")
+    public static java.lang.Object[] collectionToArrayCommonImpl(java.util.Collection a0, java.lang.Object[] a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.collectionToArrayCommonImpl(java.util.Collection,java.lang.Object[]) — internal toArray bridge");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib toArray reflective array-copy helper (copyToArrayOfAny); "
+            + "JVM array-bridge plumbing not reachable from idiomatic user code; loud-if-reached")
+    public static java.lang.Object[] copyToArrayOfAny(java.lang.Object[] a0, boolean a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.copyToArrayOfAny(java.lang.Object[],boolean) — internal toArray array-copy helper");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib toArray terminator helper (terminateCollectionToArray); "
+            + "JVM array-bridge plumbing not reachable from idiomatic user code; loud-if-reached")
+    public static java.lang.Object[] terminateCollectionToArray(int a0, java.lang.Object[] a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.terminateCollectionToArray(int,java.lang.Object[]) — internal toArray terminator helper");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib vararg->Collection wrapper (asCollection) behind the "
+            + "vararg factory fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached")
+    public static java.util.Collection asCollection(java.lang.Object[] a0, boolean a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.asCollection(java.lang.Object[],boolean) — internal vararg->Collection wrapper");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib count-overflow throw helper — unconditionally throws "
+            + "ArithmeticException; an internal guard not reachable from idiomatic user code; loud-if-reached")
+    public static void throwCountOverflow() {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.throwCountOverflow() — internal count-overflow throw helper");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib index-overflow throw helper — unconditionally throws "
+            + "ArithmeticException; an internal guard not reachable from idiomatic user code; loud-if-reached")
+    public static void throwIndexOverflow() {
+        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.throwIndexOverflow() — internal index-overflow throw helper");
+    }
+
+    // --- inline lambda-taking members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void all(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.all(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");

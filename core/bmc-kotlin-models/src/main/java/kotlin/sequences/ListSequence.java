@@ -40,11 +40,22 @@ public final class ListSequence<T> implements Sequence<T> {
         return data.iterator();
     }
 
-    List<T> snapshot() {
+    public List<T> snapshot() {
         ArrayList<T> copy = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {
             copy.add(data.get(i));
         }
         return copy;
+    }
+
+    /**
+     * The concrete backing list, returned DIRECTLY (no copy) — the {@code CollectionsKt}/{@code MapsKt}/
+     * {@code SetsKt} facades drain a {@code Sequence} parameter via this concrete {@link ArrayList} (whose
+     * {@code iterator()} JBMC resolves) rather than the virtual {@code Sequence.iterator()}, mirroring
+     * {@code SequencesKt}'s {@code backing}. Returning {@code data} directly avoids the extra bounded
+     * element-by-element copy {@link #snapshot()} performs (which doubled the symbolic proof circuit).
+     */
+    public ArrayList<T> backingList() {
+        return data;
     }
 }

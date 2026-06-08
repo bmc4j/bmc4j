@@ -1,21 +1,29 @@
 package kotlin.collections;
 
-import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcUnmodelable;
+
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.Set;
 import kotlin.jvm.functions.Function1;
+import kotlin.sequences.ListSequence;
+import kotlin.sequences.Sequence;
+import org.cprover.CProver;
 
 /**
  * Clean model of Kotlin's {@code SetsKt} facade for the set factories ({@code setOf}/{@code
  * mutableSetOf}/{@code emptySet}), returning bmc4j's bounded {@code HashSet} model directly instead
- * of routing through kotlin-stdlib internals JBMC stubs. Other members remain JBMC stubs.
+ * of routing through kotlin-stdlib internals JBMC stubs. The whole {@code SetsKt} surface is now
+ * accounted for PER MEMBER (no class-level {@code @BmcModelTail} catch-all): the bounded set ops are
+ * modeled with real delegating bodies, and the genuine walls (a {@code TreeSet} return — bmc4j has no
+ * bounded {@code TreeSet} model — and the internal stdlib read-only optimizer) carry a per-member
+ * loud {@code @BmcUnmodelable}.
  */
-@BmcModelTail(reason = "exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation "
-        + "extensions the bounded proofs do not exercise; loud under JBMC if reached")
 public final class SetsKt {
 
     private SetsKt() {
@@ -236,7 +244,79 @@ public final class SetsKt {
         return out;
     }
 
-    // NOTE: sortedSetOf / toSortedSet stay in the @BmcModelTail residue — they return a java.util.TreeSet,
-    // for which bmc4j has no bounded model (only TreeMap is modeled). Out of scope until a TreeSet model
-    // lands. optimizeReadOnlySet is an internal stdlib size-optimizer, also left loud. Loud under JBMC.
+    // ---- plus(set, sequence) / minus(set, sequence): the Sequence-arg twins of the element/array/
+    //   SetsKt.plus:(Ljava/util/Set;Lkotlin/sequences/Sequence;)Ljava/util/Set;
+    //   SetsKt.minus:(Ljava/util/Set;Lkotlin/sequences/Sequence;)Ljava/util/Set;
+    // iterable overloads above. A NEW set = receiver ∪ / \ the sequence's elements, first-occurrence
+    // order preserved (LinkedHashSet, dedup via equals); receiver untouched. The Sequence is drained via
+    // its CONCRETE backing ArrayList iterator (seqIter) — never the virtual Sequence.iterator() — exactly
+    // as the SequencesKt facade does, so the dispatch devirtualizes robustly under JBMC.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> plus(Set<T> source, Sequence<? extends T> elements) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> minus(Set<T> source, Sequence<? extends T> elements) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        for (Iterator<? extends T> it = seqIter(elements); it.hasNext(); ) {
+            out.remove(it.next());
+        }
+        return out;
+    }
+
+    /**
+     * Drain a model {@link Sequence} via its concrete backing {@link ArrayList}'s iterator rather than
+     * the virtual {@code Sequence.iterator()} — {@link ListSequence} is the sole {@code final}
+     * implementor, so the {@code checkcast} is sound and {@code ArrayList.iterator()} is a concrete-typed
+     * call JBMC resolves where the interface dispatch on the {@code Sequence}-typed parameter is
+     * kotlinc-version-fragile. Mirrors {@code SequencesKt}'s {@code seqIter}/{@code backing} pattern.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Iterator<T> seqIter(Sequence<? extends T> source) {
+        CProver.assume(source instanceof ListSequence);
+        return (Iterator<T>) ((ListSequence<? extends T>) source).backingList().iterator();
+    }
+
+    // ---- sortedSetOf / optimizeReadOnlySet: the genuine walls. ----------------------------------------
+    //   SetsKt.sortedSetOf:([Ljava/lang/Object;)Ljava/util/TreeSet;
+    //   SetsKt.sortedSetOf:(Ljava/util/Comparator;[Ljava/lang/Object;)Ljava/util/TreeSet;
+    // sortedSetOf returns a java.util.TreeSet, for which bmc4j has NO bounded model (only TreeMap is
+    // modeled, and TreeMap is natural-ordering only). Modeling it as a HashSet would silently drop the
+    // sorted-navigation observable; the comparator form additionally needs a comparator-ordered backing
+    // that bmc4j's tree models do not have. Both stay loud until a bounded TreeSet model lands.
+    @BmcUnmodelable(reason = "returns a java.util.TreeSet — bmc4j has no bounded TreeSet model (only "
+            + "natural-ordering TreeMap); a HashSet substitute would silently drop the sorted-navigation "
+            + "observable; loud UNKNOWN under JBMC until a TreeSet model lands")
+    public static java.util.TreeSet sortedSetOf(java.lang.Object[] a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.SetsKt.sortedSetOf(java.lang.Object[]) — returns a java.util.TreeSet; bmc4j has no bounded TreeSet model");
+    }
+
+    @BmcUnmodelable(reason = "returns a comparator-ordered java.util.TreeSet — bmc4j has no bounded TreeSet "
+            + "model, and the tree models are natural-ordering only (no comparator backing); loud UNKNOWN "
+            + "under JBMC until a comparator-ordered TreeSet model lands")
+    public static java.util.TreeSet sortedSetOf(java.util.Comparator a0, java.lang.Object[] a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.SetsKt.sortedSetOf(java.util.Comparator,java.lang.Object[]) — comparator-ordered java.util.TreeSet; bmc4j has no bounded TreeSet model");
+    }
+
+    //   SetsKt.optimizeReadOnlySet:(Ljava/util/Set;)Ljava/util/Set;
+    // An INTERNAL kotlin-stdlib size-optimizer (0→emptySet, 1→singleton, else the set itself) on the
+    // read-only set-build path. Not called from idiomatic user code; the real body routes through stdlib
+    // singleton-collection internals JBMC stubs. Loud-if-reached rather than a fictional passthrough.
+    @BmcUnmodelable(reason = "internal kotlin-stdlib read-only-set size-optimizer (singleton/empty "
+            + "specialization) on the set-build path; not reachable from idiomatic user code and its real "
+            + "body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached")
+    public static java.util.Set optimizeReadOnlySet(java.util.Set a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.SetsKt.optimizeReadOnlySet(java.util.Set) — internal kotlin-stdlib read-only-set size-optimizer");
+    }
 }

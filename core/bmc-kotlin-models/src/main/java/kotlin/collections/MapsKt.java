@@ -3,23 +3,34 @@ package kotlin.collections;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import kotlin.Pair;
 import kotlin.jvm.functions.Function1;
+import kotlin.sequences.ListSequence;
+import kotlin.sequences.Sequence;
+import org.cprover.CProver;
 
 /**
  * Clean model of Kotlin's {@code MapsKt} facade for the map factories ({@code mapOf}/{@code
  * mutableMapOf}/{@code emptyMap}), building bmc4j's bounded {@code HashMap} model from Pairs instead
  * of routing through kotlin-stdlib internals JBMC stubs.
+ *
+ * <p>The whole {@code MapsKt} surface is now accounted for PER MEMBER (no class-level
+ * {@code @BmcModelTail} catch-all): the bounded map-building / association / snapshot ops are modeled
+ * with real delegating bodies over the bounded {@code HashMap}/{@code LinkedHashMap}/{@code TreeMap}
+ * models; the inline lambda-taking extensions (filter/map/getOrPut/…) and the genuine walls
+ * (comparator-ordered {@code TreeMap}, the {@code MapWithDefault} wrapper, {@code Map.Entry} factories
+ * with no modeled entry type, the internal read-only optimizer) carry a per-member loud
+ * {@code @BmcUnmodelable}.
  */
-@BmcModelTail(reason = "exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions "
-        + "(getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached")
 public final class MapsKt {
 
     private MapsKt() {
@@ -290,6 +301,204 @@ public final class MapsKt {
         return out;
     }
 
+    // ---- sortedMapOf(pairs[]): MapsKt.sortedMapOf:([Lkotlin/Pair;)Ljava/util/SortedMap; — a NEW
+    // natural-ordering SortedMap (TreeMap) of the given pairs (keys must be Comparable), exactly the JDK's
+    // TreeMap-fill. Sibling of toSortedMap(Map) above and built over the same bounded natural-ordering
+    // TreeMap model. The comparator overload stays a loud wall (below). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> SortedMap<K, V> sortedMapOf(Pair<? extends K, ? extends V>[] pairs) {
+        TreeMap<K, V> out = new TreeMap<>();
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    // ---- hashMapOf(pairs[]) / linkedMapOf(pairs[]): a NEW HashMap / LinkedHashMap of the given pairs
+    //   MapsKt.hashMapOf:([Lkotlin/Pair;)Ljava/util/HashMap;
+    //   MapsKt.linkedMapOf:([Lkotlin/Pair;)Ljava/util/LinkedHashMap;
+    // (later wins on key collision; LinkedHashMap preserves first-insertion key order). Both back onto
+    // bmc4j's bounded models — matching the mapOf/mutableMapOf factories. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> HashMap<K, V> hashMapOf(Pair<? extends K, ? extends V>[] pairs) {
+        HashMap<K, V> out = new HashMap<>();
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> LinkedHashMap<K, V> linkedMapOf(Pair<? extends K, ? extends V>[] pairs) {
+        LinkedHashMap<K, V> out = new LinkedHashMap<>();
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    // ---- putAll(map, pairs[]) / putAll(map, iterable<pair>) / putAll(map, sequence<pair>): MUTATE the
+    //   MapsKt.putAll:(Ljava/util/Map;[Lkotlin/Pair;)V
+    //   MapsKt.putAll:(Ljava/util/Map;Ljava/lang/Iterable;)V
+    //   MapsKt.putAll:(Ljava/util/Map;Lkotlin/sequences/Sequence;)V
+    // receiver in place, putting each pair (later wins on collision); returns void. The receiver is the
+    // CONCRETE bounded map model (put() devirtualizes); the sequence is drained via its concrete backing.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> void putAll(Map<? super K, ? super V> map, Pair<? extends K, ? extends V>[] pairs) {
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            map.put(p.getFirst(), p.getSecond());
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> void putAll(Map<? super K, ? super V> map,
+            java.lang.Iterable<? extends Pair<? extends K, ? extends V>> pairs) {
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = pairs.iterator(); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            map.put(p.getFirst(), p.getSecond());
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> void putAll(Map<? super K, ? super V> map,
+            Sequence<? extends Pair<? extends K, ? extends V>> pairs) {
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = seqIter(pairs); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            map.put(p.getFirst(), p.getSecond());
+        }
+    }
+
+    // ---- toMap(src, destination): build into the SUPPLIED destination map and RETURN it (the M-typed
+    //   MapsKt.toMap:(Ljava/lang/Iterable;Ljava/util/Map;)Ljava/util/Map;
+    //   MapsKt.toMap:([Lkotlin/Pair;Ljava/util/Map;)Ljava/util/Map;
+    //   MapsKt.toMap:(Ljava/util/Map;Ljava/util/Map;)Ljava/util/Map;
+    //   MapsKt.toMap:(Lkotlin/sequences/Sequence;)Ljava/util/Map;
+    //   MapsKt.toMap:(Lkotlin/sequences/Sequence;Ljava/util/Map;)Ljava/util/Map;
+    // destination overloads of the snapshot family above). Each puts the source entries/pairs into the
+    // destination (the CONCRETE bounded map) and returns it; the no-destination Sequence form allocates a
+    // fresh HashMap. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V, M extends Map<? super K, ? super V>> M toMap(
+            java.lang.Iterable<? extends Pair<? extends K, ? extends V>> pairs, M destination) {
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = pairs.iterator(); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            destination.put(p.getFirst(), p.getSecond());
+        }
+        return destination;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V, M extends Map<? super K, ? super V>> M toMap(
+            Pair<? extends K, ? extends V>[] pairs, M destination) {
+        for (Pair<? extends K, ? extends V> p : pairs) {
+            destination.put(p.getFirst(), p.getSecond());
+        }
+        return destination;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V, M extends Map<? super K, ? super V>> M toMap(
+            Map<? extends K, ? extends V> map, M destination) {
+        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+            destination.put(e.getKey(), e.getValue());
+        }
+        return destination;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toMap(Sequence<? extends Pair<? extends K, ? extends V>> pairs) {
+        HashMap<K, V> out = new HashMap<>();
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = seqIter(pairs); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V, M extends Map<? super K, ? super V>> M toMap(
+            Sequence<? extends Pair<? extends K, ? extends V>> pairs, M destination) {
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = seqIter(pairs); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            destination.put(p.getFirst(), p.getSecond());
+        }
+        return destination;
+    }
+
+    // ---- toSingletonMap(map): MapsKt.toSingletonMap:(Ljava/util/Map;)Ljava/util/Map; — an internal
+    // single-entry snapshot copy (the size==1 specialization toMap(Map) routes to). Observable here is a
+    // fresh map with the receiver's single entry; modeled as the same bounded-HashMap copy. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> toSingletonMap(Map<? extends K, ? extends V> map) {
+        return copyOf(map);
+    }
+
+    // ---- any(map) / none(map): MapsKt.any / none :(Ljava/util/Map;)Z — the no-predicate emptiness
+    //   MapsKt.any:(Ljava/util/Map;)Z
+    //   MapsKt.none:(Ljava/util/Map;)Z
+    // checks (any == !isEmpty, none == isEmpty). The lambda-taking siblings any{}/none{} are inline and
+    // stay loud walls below. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> boolean any(Map<? extends K, ? extends V> map) {
+        return !map.isEmpty();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> boolean none(Map<? extends K, ? extends V> map) {
+        return map.isEmpty();
+    }
+
+    // ---- asSequence(map): MapsKt.asSequence:(Ljava/util/Map;)Lkotlin/sequences/Sequence; — a Sequence
+    // over the map's entries, eagerly snapshotted into bmc4j's bounded ListSequence so downstream Sequence
+    // ops analyse over the bounded model (mirrors CollectionsKt.asSequence). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    @SuppressWarnings("unchecked")
+    public static <K, V> Sequence<Map.Entry<K, V>> asSequence(Map<? extends K, ? extends V> map) {
+        ArrayList<Map.Entry<K, V>> entries = new ArrayList<>();
+        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
+            entries.add((Map.Entry<K, V>) e);   // reuse the bounded map model's own entry objects
+        }
+        return new ListSequence<>(entries);
+    }
+
+    // ---- plus(map, sequence<pair>) / minus(map, sequence<key>): the Sequence-arg twins of the pair/
+    //   MapsKt.plus:(Ljava/util/Map;Lkotlin/sequences/Sequence;)Ljava/util/Map;
+    //   MapsKt.minus:(Ljava/util/Map;Lkotlin/sequences/Sequence;)Ljava/util/Map;
+    // map/iterable plus/minus above. A NEW map = receiver with the sequence's pairs put / keys removed;
+    // receiver untouched. The sequence is drained via its concrete backing (seqIter). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> plus(Map<? extends K, ? extends V> map,
+            Sequence<? extends Pair<? extends K, ? extends V>> pairs) {
+        HashMap<K, V> out = copyOf(map);
+        for (Iterator<? extends Pair<? extends K, ? extends V>> it = seqIter(pairs); it.hasNext(); ) {
+            Pair<? extends K, ? extends V> p = it.next();
+            out.put(p.getFirst(), p.getSecond());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <K, V> Map<K, V> minus(Map<? extends K, ? extends V> map, Sequence<? extends K> keys) {
+        HashMap<K, V> out = copyOf(map);
+        for (Iterator<? extends K> it = seqIter(keys); it.hasNext(); ) {
+            out.remove(it.next());
+        }
+        return out;
+    }
+
+    /**
+     * Drain a model {@link Sequence} via its concrete backing {@link ArrayList} snapshot's iterator
+     * rather than the virtual {@code Sequence.iterator()} — {@link ListSequence} is the sole {@code final}
+     * implementor, so the {@code checkcast} is sound and the concrete {@code ArrayList.iterator()}
+     * resolves where the interface dispatch on the {@code Sequence}-typed parameter is fragile. Mirrors
+     * {@code SequencesKt}'s {@code seqIter}/{@code backing} pattern.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Iterator<T> seqIter(Sequence<? extends T> source) {
+        CProver.assume(source instanceof ListSequence);
+        return (Iterator<T>) ((ListSequence<? extends T>) source).backingList().iterator();
+    }
+
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
 
     @BmcUnmodelable(reason = "comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only "
@@ -437,6 +646,55 @@ public final class MapsKt {
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void onEachIndexed(java.util.Map a0, kotlin.jvm.functions.Function2 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.onEachIndexed(java.util.Map,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
+    }
+
+    // --- structural walls (loud stubs; reaching one demotes to a member-named UNKNOWN) ----------------
+
+    @BmcUnmodelable(reason = "comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only "
+            + "(no comparator constructor; comparator() is null), so a custom-comparator sort cannot be "
+            + "modeled soundly; sibling of toSortedMap(Map,Comparator). Loud UNKNOWN under JBMC")
+    public static java.util.SortedMap sortedMapOf(java.util.Comparator a0, kotlin.Pair[] a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.sortedMapOf(java.util.Comparator,kotlin.Pair[]) — comparator-ordered TreeMap; bmc4j's TreeMap model is natural-ordering only");
+    }
+
+    @BmcUnmodelable(reason = "mapEntryOf / copy build a java.util.AbstractMap.SimpleEntry — bmc4j has no "
+            + "modeled standalone Map.Entry type (entries exist only inside the bounded map models), so the "
+            + "returned entry would route to an unmodeled JVM type; loud-if-reached")
+    public static java.util.Map.Entry mapEntryOf(java.lang.Object a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.mapEntryOf(java.lang.Object,java.lang.Object) — builds a standalone Map.Entry; bmc4j has no modeled standalone entry type");
+    }
+
+    @BmcUnmodelable(reason = "copy builds a standalone java.util.AbstractMap.SimpleEntry — bmc4j has no "
+            + "modeled standalone Map.Entry type; loud-if-reached")
+    public static java.util.Map.Entry copy(java.util.Map.Entry a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.copy(java.util.Map$Entry) — builds a standalone Map.Entry; bmc4j has no modeled standalone entry type");
+    }
+
+    @BmcUnmodelable(reason = "withDefault / withDefaultMutable wrap the map in a kotlin-stdlib MapWithDefault "
+            + "delegating wrapper whose default-on-miss behaviour is an internal stdlib type bmc4j does not "
+            + "model; the wrapper would route through stdlib internals JBMC stubs; loud-if-reached")
+    public static java.util.Map withDefault(java.util.Map a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.withDefault(java.util.Map,kotlin.jvm.functions.Function1) — MapWithDefault wrapper; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "withDefaultMutable wraps the map in a kotlin-stdlib MutableMapWithDefault "
+            + "delegating wrapper (internal stdlib type bmc4j does not model); loud-if-reached")
+    public static java.util.Map withDefaultMutable(java.util.Map a0, kotlin.jvm.functions.Function1 a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.withDefaultMutable(java.util.Map,kotlin.jvm.functions.Function1) — MutableMapWithDefault wrapper; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "getOrImplicitDefaultNullable is the internal accessor behind a MapWithDefault's "
+            + "default-on-miss lookup; it dispatches on the (unmodeled) MapWithDefault wrapper interface, so "
+            + "no sound bounded body exists; loud-if-reached")
+    public static java.lang.Object getOrImplicitDefaultNullable(java.util.Map a0, java.lang.Object a1) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.getOrImplicitDefaultNullable(java.util.Map,java.lang.Object) — internal MapWithDefault accessor; not modeled");
+    }
+
+    @BmcUnmodelable(reason = "internal kotlin-stdlib read-only-map size-optimizer (singleton/empty "
+            + "specialization) on the map-build path; not reachable from idiomatic user code and its real "
+            + "body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached")
+    public static java.util.Map optimizeReadOnlyMap(java.util.Map a0) {
+        throw fail("bmc4j: unmodelled member kotlin.collections.MapsKt.optimizeReadOnlyMap(java.util.Map) — internal kotlin-stdlib read-only-map size-optimizer");
     }
 
 }
