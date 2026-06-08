@@ -4,9 +4,11 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.Period
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
+import org.bmc4j.Verdict
 
 /**
  * Model proofs (axis 2): laws the bounded java.time models (epoch primitives, no zones/DST)
@@ -44,11 +46,18 @@ class TimeLaws {
         Bmc.check(Duration.ofSeconds(s).seconds == s)
     }
 
-    // NOTE: Duration.between(Instant, Instant) and LocalDate.isBefore(LocalDate) are validated by the
-    // differential TimeConformanceTest (vs the real JDK), not here: as @BmcProof laws they trip a JBMC
-    // "Dynamic cast check" precision artifact at the call site (the model bodies are trivially correct
-    // — end.toEpochMilli() - start.toEpochMilli(); this.epochDay < other.epochDay), so the differential
-    // axis is the sound check for those two methods.
+    // Duration.between(Instant, Instant) — now @BmcProof-able. Its real signature is
+    // between(Temporal, Temporal), so JDK-compiled proof bytecode checkcasts each Instant arg to
+    // Temporal; the Instant model now `implements Temporal` so that cast passes (previously it tripped
+    // "✗ Dynamic cast check" and refuted spuriously — a real, now-fixed unsoundness, NOT an inherent
+    // JBMC artifact). The Duration.between model mirrors the (Temporal, Temporal) descriptor and casts
+    // back to the Instant model.
+    @BmcProof
+    fun duration_between_is_end_minus_start() {
+        val a = Instant.ofEpochMilli(Bmc.anyLong(-1_000_000, 1_000_000))
+        val b = Instant.ofEpochMilli(Bmc.anyLong(-1_000_000, 1_000_000))
+        Bmc.check(Duration.between(a, b).toMillis() == b.toEpochMilli() - a.toEpochMilli())
+    }
 
     @BmcProof
     fun duration_plus_then_minus_round_trips() {
@@ -168,14 +177,20 @@ class TimeLaws {
     // NOTE: the LocalDate/LocalDateTime/LocalTime tail added in the time-tail pass — the calendar-field
     // accessors (getDayOfYear/lengthOfMonth/lengthOfYear/isLeapYear), ofYearDay, the with* field setters
     // (withYear/withMonth/withDayOf*/withHour/withMinute/withSecond/withNano), atTime/atDate/atStartOfDay,
-    // until(LocalDate), plusWeeks/minusWeeks, isEqual, and Period's withYears/withMonths/withDays/
+    // until(ChronoLocalDate), plusWeeks/minusWeeks, and Period's withYears/withMonths/withDays/
     // multipliedBy — are validated on the DIFFERENTIAL axis (TimeConformanceTest) only. They either
     // (a) decode the epoch-day to y/m/d (div/mod by the wide 146097/etc. constants — the constant-divisor
-    // SAT-pathology, same as LocalTime's nano-of-day getters), (b) route through java.lang.Math
+    // SAT-pathology, same as LocalTime's nano-of-day getters), or (b) route through java.lang.Math
     // *Exact/floor* intrinsics for loud overflow (unmodeled by JBMC — refutes spuriously, the Period
-    // NOTE family), or (c) touch a symbolic backing field whose ordering/equality trips the JBMC
-    // "Dynamic cast check" artifact (the LocalDate.isBefore precedent). The differential suite proves
-    // them bit-for-bit vs the real JDK across month-ends, leap days and negatives.
+    // NOTE family). The differential suite proves them bit-for-bit vs the real JDK across month-ends,
+    // leap days and negatives.
+    //
+    // The ordering methods (isBefore/isAfter/isEqual/compareTo on LocalDate/LocalDateTime/LocalTime and
+    // Duration.between) USED to be in this differential-only set because their interface-typed real
+    // signatures made the proof-site checkcast fail ("✗ Dynamic cast check"). That was a REAL, fixable
+    // unsoundness (the java.time models implemented no JDK interfaces): now that the models implement the
+    // relevant marker interfaces (Temporal/ChronoLocalDate/ChronoLocalDateTime) the casts pass and those
+    // methods are proven above. The constant-divisor / Math-intrinsic families remain differential-only.
 
     // --- LocalDate ---
 
@@ -183,6 +198,40 @@ class TimeLaws {
     fun localdate_epochday_round_trips() {
         val e = anyDay()
         Bmc.check(LocalDate.ofEpochDay(e).toEpochDay() == e)
+    }
+
+    // isBefore/isAfter/isEqual/compareTo — now @BmcProof-able. Their real signatures take
+    // ChronoLocalDate, so JDK-compiled proof bytecode checkcasts the LocalDate arg to ChronoLocalDate;
+    // the LocalDate model now `implements ChronoLocalDate` so that cast passes (previously it tripped
+    // "✗ Dynamic cast check" and refuted spuriously — the root-caused, now-fixed unsoundness, NOT an
+    // inherent JBMC artifact). The model mirrors the ChronoLocalDate-typed descriptor and casts back.
+    @BmcProof
+    fun localdate_isBefore_isAfter_isEqual_match_epochday_order() {
+        val a = LocalDate.ofEpochDay(anyDay())
+        val b = LocalDate.ofEpochDay(anyDay())
+        Bmc.check(a.isBefore(b) == (a.toEpochDay() < b.toEpochDay()))
+        Bmc.check(a.isAfter(b) == (a.toEpochDay() > b.toEpochDay()))
+        Bmc.check(a.isEqual(b) == (a.toEpochDay() == b.toEpochDay()))
+    }
+
+    @BmcProof
+    fun localdate_compareTo_matches_epochday_sign() {
+        val a = LocalDate.ofEpochDay(anyDay())
+        val b = LocalDate.ofEpochDay(anyDay())
+        val c = a.compareTo(b)
+        Bmc.check((c < 0) == (a.toEpochDay() < b.toEpochDay()))
+        Bmc.check((c == 0) == (a.toEpochDay() == b.toEpochDay()))
+        Bmc.check((c > 0) == (a.toEpochDay() > b.toEpochDay()))
+    }
+
+    // SOUNDNESS PROBE for the interface-cast fix: a WRONG comparison claim must still REFUTE now that
+    // the checkcast passes — proving the cast fix did NOT mask real failures (it buys instanceof only,
+    // never turns a wrong body green). isBefore is strict <, so claiming <= must be refuted by a == b.
+    @BmcProof(expect = Verdict.REFUTED)
+    fun localdate_isBefore_wrong_le_claim_refutes() {
+        val a = LocalDate.ofEpochDay(anyDay())
+        val b = LocalDate.ofEpochDay(anyDay())
+        Bmc.check(a.isBefore(b) == (a.toEpochDay() <= b.toEpochDay()))
     }
 
     @BmcProof
@@ -304,6 +353,43 @@ class TimeLaws {
         Bmc.check(r.hour == 8)
     }
 
+    // isBefore/isAfter/compareTo — now @BmcProof-able. Their real signatures take ChronoLocalDateTime<?>,
+    // so the LocalDateTime arg is checkcast to that interface; the model now `implements
+    // ChronoLocalDateTime<LocalDate>` so the cast passes (was a spurious "Dynamic cast check" refute).
+    // Same time-of-day on both sides, so ordering reduces to the day shift.
+    @BmcProof
+    fun localdatetime_isBefore_isAfter_match_day_order() {
+        val base = LocalDateTime.of(2020, 6, 15, 10, 30, 0)
+        val a = base.plusDays(anyDay())
+        val b = base.plusDays(anyDay())
+        Bmc.check(a.isBefore(b) == a.toLocalDate().isBefore(b.toLocalDate()))
+        Bmc.check(a.isAfter(b) == a.toLocalDate().isAfter(b.toLocalDate()))
+    }
+
+    @BmcProof
+    fun localdatetime_compareTo_sign_matches_day_order() {
+        val base = LocalDateTime.of(2020, 6, 15, 10, 30, 0)
+        val a = base.plusDays(anyDay())
+        val b = base.plusDays(anyDay())
+        val c = a.compareTo(b)
+        Bmc.check((c < 0) == a.toLocalDate().isBefore(b.toLocalDate()))
+        Bmc.check((c > 0) == a.toLocalDate().isAfter(b.toLocalDate()))
+    }
+
+    // --- LocalTime ordering: the model's isBefore/isAfter/compareTo take the CONCRETE LocalTime (the
+    // real signatures do too — LocalTime is not part of a Chrono interface), so there was never an
+    // interface checkcast to block them; they are @BmcProof-able directly off the nano-of-day backing.
+    @BmcProof
+    fun localtime_isBefore_isAfter_compareTo_match_nanoofday_order() {
+        val a = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_399_999_999_999L))
+        val b = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_399_999_999_999L))
+        Bmc.check(a.isBefore(b) == (a.toNanoOfDay() < b.toNanoOfDay()))
+        Bmc.check(a.isAfter(b) == (a.toNanoOfDay() > b.toNanoOfDay()))
+        val c = a.compareTo(b)
+        Bmc.check((c < 0) == (a.toNanoOfDay() < b.toNanoOfDay()))
+        Bmc.check((c == 0) == (a.toNanoOfDay() == b.toNanoOfDay()))
+    }
+
     // NOTE: Period.between(LocalDate, LocalDate) is validated by the differential TimeConformanceTest
     // (vs the real JDK), not here: its body uses Math.toIntExact for loud int overflow (unmodeled by
     // JBMC, so it refutes spuriously) — same family as the Math.addExact NOTE above. The differential
@@ -314,9 +400,9 @@ class TimeLaws {
     // (vs the real JDK), not here. As @BmcProof laws they refute spuriously: their bodies route through
     // java.lang.Math (floorDiv/floorMod for the sub-day carry; addExact/toIntExact for loud int
     // overflow), which is unmodeled, so JBMC can't reason about those intrinsics and reports a
-    // counterexample (e.g. n = 0) that the differential axis proves correct on a real JVM. Same family
-    // as the Duration.between/LocalDate.isBefore "Dynamic cast check" artifact above — the differential
-    // axis is the sound check for those methods.
+    // counterexample (e.g. n = 0) that the differential axis proves correct on a real JVM — the
+    // differential axis is the sound check for those Math-intrinsic methods. (This is the UNMODELED-
+    // INTRINSIC family, distinct from the now-fixed interface-cast family — see the isBefore proofs.)
 
     // --- Period ---
 

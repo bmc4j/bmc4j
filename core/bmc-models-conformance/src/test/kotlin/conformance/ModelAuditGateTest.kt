@@ -261,6 +261,13 @@ class ModelAuditGateTest : FunSpec({
             // a typo / JDK drift), and (2) its body must actually throw the recognized loud failure via
             // the BmcUnmodelledReached sentinel — no real logic may hide under a not-modeled annotation.
             for (m in node.methods) {
+                // Skip compiler-generated bridge/synthetic methods: a covariant-return override (e.g. a
+                // model's `with(TemporalField,long): ChronoLocalDate` narrowing Temporal's
+                // `: Temporal`) makes javac emit a bridge with the SAME name+params that javac may also
+                // copy the source annotations onto. The bridge just forwards to the real stub; it is
+                // never a hand-written stub body, so it must not be subjected to the loud-body check.
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0) continue
+                if ((m.access and org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0) continue
                 val kind = stubKind(m) ?: continue
                 val key = m.name + paramsDesc(m.desc)
                 if (!realMembers.containsKey(key)) {

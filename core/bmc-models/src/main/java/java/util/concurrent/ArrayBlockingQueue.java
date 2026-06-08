@@ -313,19 +313,16 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
-    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
     @BmcNotNeeded(reason = "timed offer — timeout is a scheduling concern; use offer()/put() assume-prune")
-    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.offer(java.lang.Object,long,java.util.concurrent.TimeUnit) — timed offer — timeout is a scheduling concern; use offer()/put() assume-prune");
     }
 
     @BmcNotNeeded(reason = "timed poll — timeout is a scheduling concern; use poll()/take() assume-prune")
-    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public E poll(long timeout, TimeUnit unit) throws InterruptedException {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.poll(long,java.util.concurrent.TimeUnit) — timed poll — timeout is a scheduling concern; use poll()/take() assume-prune");
     }

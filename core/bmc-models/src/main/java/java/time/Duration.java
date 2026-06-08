@@ -36,7 +36,6 @@ public final class Duration {
     }
 
     @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Duration.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
@@ -72,14 +71,23 @@ public final class Duration {
     }
 
     @BmcNotModelled(reason = "sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofNanos(long nanos) {
         throw fail("bmc4j: unmodelled member java.time.Duration.ofNanos(long) — sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing");
     }
 
+    /**
+     * Elapsed time between two temporals. The real signature is {@code between(Temporal, Temporal)}, so
+     * JDK-compiled proof bytecode {@code checkcast}s each Instant arg to {@code Temporal} and resolves
+     * THIS interface-typed overload — the model must mirror that exact descriptor or JBMC finds no body.
+     * The epoch-millis model only supports Instant endpoints; we cast back to the Instant model (now an
+     * {@code instanceof Temporal}) and subtract. A non-Instant Temporal is out of scope — declined LOUD.
+     */
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
-    public static Duration between(Instant start, Instant end) {
-        return new Duration(end.toEpochMilli() - start.toEpochMilli());
+    public static Duration between(java.time.temporal.Temporal start, java.time.temporal.Temporal end) {
+        if (!(start instanceof Instant) || !(end instanceof Instant)) {
+            throw fail("bmc4j: unmodelled member java.time.Duration.between(java.time.temporal.Temporal,java.time.temporal.Temporal) — only Instant endpoints are modeled on the epoch-millis backing");
+        }
+        return new Duration(((Instant) end).toEpochMilli() - ((Instant) start).toEpochMilli());
     }
 
     // --- conversions -------------------------------------------------------------------------------
