@@ -23,7 +23,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (sub/head/tail-map, descendingMap/descendingKeySet/navigableKeySet) are out of scope (tail; loud
  * under JBMC).
  */
-@BmcModelTail(reason = "NavigableMap/SortedMap range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet) and the comparator-taking constructor — range views over a bounded unordered store are out of scope; all loud under JBMC")
+@BmcModelTail(reason = "the NavigableMap/SortedMap LIVE range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC")
 public class TreeMap<K, V> extends HashMap<K, V> {
 
     public TreeMap() {
@@ -143,6 +143,21 @@ public class TreeMap<K, V> extends HashMap<K, V> {
     @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
     public Map.Entry<K, V> pollLastEntry() {
         return pollExtreme(false);
+    }
+
+    // --- SequencedMap positioning is unsupported on a sorted map ----------------------------------
+    // A TreeMap orders by key, so it cannot honor an explicit front/back position: the JDK throws
+    // UnsupportedOperationException. Modeled here so a proof over code that calls putFirst/putLast on a
+    // (sorted) TreeMap sees the real failure, not a silent pass.
+
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public V putFirst(K key, V value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.treemap)")
+    public V putLast(K key, V value) {
+        throw new UnsupportedOperationException();
     }
 
     /** Snapshot the {@code key}'s current mapping, or {@code null} when {@code key} is null. */

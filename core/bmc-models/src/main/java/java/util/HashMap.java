@@ -54,6 +54,61 @@ public class HashMap<K, V> implements Map<K, V> {
         return -1;
     }
 
+    // --- protected ordered-storage access (for the insertion-ordered SequencedMap subclass) --------
+    // The backing arrays preserve insertion order, so the LinkedHashMap model's SequencedMap surface
+    // (firstEntry/lastEntry/poll*/putFirst/putLast) is built over these. Indices unwind to the current
+    // size like every other array-backed lookup. Not part of the audited real-class surface.
+
+    /** The key stored at insertion index {@code i} (0-based, in insertion order). */
+    @SuppressWarnings("unchecked")
+    protected final K keyAt(int i) {
+        return (K) keys[i];
+    }
+
+    /** The value stored at insertion index {@code i}. */
+    @SuppressWarnings("unchecked")
+    protected final V valueAt(int i) {
+        return (V) vals[i];
+    }
+
+    /**
+     * Insert ({@code key}, {@code value}) at the FRONT (insertion index 0), shifting existing entries
+     * right; if {@code key} is already present, remove it first then reposition to the front (matching
+     * LinkedHashMap.putFirst). Returns the prior value for {@code key}, or null.
+     */
+    protected final V putAtFront(K key, V value) {
+        int existing = indexOfKey(key);
+        V old = existing < 0 ? null : valueAt(existing);
+        if (existing >= 0) {
+            for (int j = existing; j < size - 1; j++) {
+                keys[j] = keys[j + 1];
+                vals[j] = vals[j + 1];
+            }
+            size--;
+        }
+        for (int j = size; j > 0; j--) {
+            keys[j] = keys[j - 1];
+            vals[j] = vals[j - 1];
+        }
+        keys[0] = key;
+        vals[0] = value;
+        size++;
+        return old;
+    }
+
+    /**
+     * Insert ({@code key}, {@code value}) at the BACK; if {@code key} is already present, remove it
+     * first then append (matching LinkedHashMap.putLast — a present key moves to the end). Returns the
+     * prior value for {@code key}, or null.
+     */
+    protected final V putAtBack(K key, V value) {
+        V old = remove(key);
+        keys[size] = key;
+        vals[size] = value;
+        size++;
+        return old;
+    }
+
     @Override
     @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public int size() {

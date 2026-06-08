@@ -34,16 +34,23 @@ fun call(target: Any, method: String, argTypes: Array<Class<*>>, vararg args: An
  * {@code java.util.Set.size()}) makes {@code invoke} pass the access check on any concrete instance.
  */
 private fun publicMethod(cls: Class<*>, method: String, argTypes: Array<Class<*>>): java.lang.reflect.Method {
-    if (java.lang.reflect.Modifier.isPublic(cls.modifiers)) {
+    // A method whose declaring class lives in an EXPORTED public type is invokable. A class can be
+    // public yet sit in a non-exported module package (e.g. jdk.internal.util.NullableKeyValueHolder,
+    // returned by LinkedHashMap.firstEntry) — invoke then fails IllegalAccessException. So prefer a
+    // method resolved from a public, EXPORTED supertype/interface; only fall back to the class itself.
+    fun exported(c: Class<*>): Boolean =
+        java.lang.reflect.Modifier.isPublic(c.modifiers) && c.module.isExported(c.packageName)
+
+    if (exported(cls)) {
         runCatching { return cls.getMethod(method, *argTypes) }
     }
     var c: Class<*>? = cls
     while (c != null) {
         for (itf in c.interfaces) {
-            runCatching { return itf.getMethod(method, *argTypes) }
+            if (exported(itf)) runCatching { return itf.getMethod(method, *argTypes) }
         }
         val sup = c.superclass
-        if (sup != null && java.lang.reflect.Modifier.isPublic(sup.modifiers)) {
+        if (sup != null && exported(sup)) {
             runCatching { return sup.getMethod(method, *argTypes) }
         }
         c = sup

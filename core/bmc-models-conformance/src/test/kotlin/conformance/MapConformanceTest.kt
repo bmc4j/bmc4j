@@ -239,4 +239,130 @@ class MapConformanceTest : FunSpec({
         val model = runCatching { bmcref.java.util.HashMap<Any?, Any?>(-1) }
         model.exceptionOrNull()?.javaClass shouldBe real.exceptionOrNull()?.javaClass
     }
+
+    // --- LinkedHashMap SequencedMap surface (insertion-ordered ends + (re)positioning) -------------
+    // The model's backing arrays preserve insertion order, so firstEntry/lastEntry/poll*/putFirst/
+    // putLast must match the JDK LinkedHashMap exactly. Drive a put-sequence (with repeats so putFirst/
+    // putLast exercise the "present key is MOVED" case), then compare every end-op + the resulting
+    // ordered key list (sequencedKeySet) vs the JDK.
+    test("LinkedHashMap SequencedMap surface conforms (firstEntry/lastEntry/putFirst/putLast)") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..20)) { pairs ->
+            val r = java.util.LinkedHashMap<Any?, Any?>()
+            val m = bmcref.java.util.LinkedHashMap<Any?, Any?>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            assertSameEntry("firstEntry", call(r, "firstEntry", arrayOf()), call(m, "firstEntry", arrayOf()))
+            assertSameEntry("lastEntry", call(r, "lastEntry", arrayOf()), call(m, "lastEntry", arrayOf()))
+            // putFirst / putLast on a fresh and an existing key, then the ordered key list must match.
+            for ((op, k, v) in listOf(Triple("putFirst", 7, 70), Triple("putLast", -1, -10), Triple("putFirst", 0, 1))) {
+                call(r, op, arrayOf(OBJECT, OBJECT), k, v)
+                call(m, op, arrayOf(OBJECT, OBJECT), k, v)
+            }
+            // sequencedKeySet is the insertion-ordered key snapshot — compare element-by-element.
+            val rKeys = call(r, "sequencedKeySet", arrayOf()).getOrThrow() as java.util.Collection<*>
+            val mKeysC = call(m, "sequencedKeySet", arrayOf()).getOrThrow()!!
+            val mn = call(mKeysC, "size", arrayOf()).getOrThrow() as Int
+            val mIt = call(mKeysC, "iterator", arrayOf()).getOrThrow()!!
+            val mKeys = (0 until mn).map { call(mIt, "next", arrayOf()).getOrThrow() }
+            mKeys shouldBe rKeys.toList()
+
+            // sequencedValues is the insertion-ordered value snapshot — element-by-element.
+            val rVals = call(r, "sequencedValues", arrayOf()).getOrThrow() as java.util.Collection<*>
+            val mValsC = call(m, "sequencedValues", arrayOf()).getOrThrow()!!
+            val mvn = call(mValsC, "size", arrayOf()).getOrThrow() as Int
+            val mvIt = call(mValsC, "iterator", arrayOf()).getOrThrow()!!
+            val mVals = (0 until mvn).map { call(mvIt, "next", arrayOf()).getOrThrow() }
+            mVals shouldBe rVals.toList()
+
+            // sequencedEntrySet: same (key,value) pairs in insertion order. Entry types differ by the
+            // bmcref. relocation, so read key/value reflectively via getKey/getValue on both sides.
+            val rEntC = call(r, "sequencedEntrySet", arrayOf()).getOrThrow()!!
+            val ren = call(rEntC, "size", arrayOf()).getOrThrow() as Int
+            val reIt = call(rEntC, "iterator", arrayOf()).getOrThrow()!!
+            val rEntries = (0 until ren).map {
+                val e = call(reIt, "next", arrayOf()).getOrThrow()!!
+                call(e, "getKey", arrayOf()).getOrThrow() to call(e, "getValue", arrayOf()).getOrThrow()
+            }
+            val mEntC = call(m, "sequencedEntrySet", arrayOf()).getOrThrow()!!
+            val men = call(mEntC, "size", arrayOf()).getOrThrow() as Int
+            val meIt = call(mEntC, "iterator", arrayOf()).getOrThrow()!!
+            val mEntries = (0 until men).map {
+                val e = call(meIt, "next", arrayOf()).getOrThrow()!!
+                call(e, "getKey", arrayOf()).getOrThrow() to call(e, "getValue", arrayOf()).getOrThrow()
+            }
+            mEntries shouldBe rEntries
+        }
+    }
+
+    // pollFirstEntry/pollLastEntry on LinkedHashMap: read-and-remove the insertion-order ends. Drain
+    // both in lockstep alternating ends; after each step the polled entry + remaining size + per-key
+    // value must match the JDK.
+    test("LinkedHashMap pollFirstEntry/pollLastEntry conforms") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..15), Arb.list(Arb.boolean(), 0..20)) { pairs, polls ->
+            val r = java.util.LinkedHashMap<Any?, Any?>()
+            val m = bmcref.java.util.LinkedHashMap<Any?, Any?>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            for ((i, first) in polls.withIndex()) {
+                val op = if (first) "pollFirstEntry" else "pollLastEntry"
+                assertSameEntry("poll[$i]=$op", call(r, op, arrayOf()), call(m, op, arrayOf()))
+                assertEquivalent("poll[$i].size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+                for (k in -3..5) {
+                    assertEquivalent("poll[$i].get($k)", call(r, "get", arrayOf(OBJECT), k), call(m, "get", arrayOf(OBJECT), k))
+                }
+            }
+        }
+    }
+
+    // TreeMap is sorted, so it cannot honor an explicit front/back position: putFirst/putLast throw
+    // UnsupportedOperationException on both.
+    test("TreeMap putFirst/putLast throw UnsupportedOperationException like the JDK") {
+        val r = java.util.TreeMap<Any?, Any?>(); val m = bmcref.java.util.TreeMap<Any?, Any?>()
+        r.put(1, 10); m.put(1, 10)
+        assertSameException(runCatching { call(r, "putFirst", arrayOf(OBJECT, OBJECT), 0, 0).getOrThrow() },
+            runCatching { call(m, "putFirst", arrayOf(OBJECT, OBJECT), 0, 0).getOrThrow() })
+        assertSameException(runCatching { call(r, "putLast", arrayOf(OBJECT, OBJECT), 9, 9).getOrThrow() },
+            runCatching { call(m, "putLast", arrayOf(OBJECT, OBJECT), 9, 9).getOrThrow() })
+    }
+
+    // --- ConcurrentHashMap sequential bulk ops (parallelismThreshold irrelevant on one thread) ------
+    // forEach/forEachValue/search*/reduce*/reduceTo{Int,Long,Double} over identical maps must match the
+    // JDK CHM run with a threshold of Long.MAX_VALUE (forces the JDK itself to run sequentially), so the
+    // documented "one thread => sequential" equivalence is checked against the real sequential CHM.
+    test("ConcurrentHashMap sequential bulk ops conform (forEach/search/reduce)") {
+        val entry = Arb.bind(Arb.int(1..9), Arb.int(1..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..15)) { pairs ->
+            val r = java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            val m = bmcref.java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            val t = Long.MAX_VALUE  // sequential on the real CHM too
+            // Functional-interface params are NOT relocated (java.util.function.* is real on both sides).
+            val LONG = java.lang.Long.TYPE
+            // mappingCount + contains(value alias)
+            assertEquivalent("mappingCount", call(r, "mappingCount", arrayOf()), call(m, "mappingCount", arrayOf()))
+            for (v in 0..10) assertEquivalent("contains($v)", call(r, "contains", arrayOf(OBJECT), v), call(m, "contains", arrayOf(OBJECT), v))
+            // reduceValues: sum of values (commutative+associative -> order-independent), or null on empty.
+            val sumBiFn = java.util.function.BiFunction<Int, Int, Int> { a, b -> a + b }
+            assertEquivalent("reduceValues",
+                call(r, "reduceValues", arrayOf(LONG, java.util.function.BiFunction::class.java), t, sumBiFn),
+                call(m, "reduceValues", arrayOf(LONG, java.util.function.BiFunction::class.java), t, sumBiFn))
+            // reduceValuesToInt: accumulate from a basis.
+            val ident = java.util.function.ToIntFunction<Int> { it }
+            val plus = java.util.function.IntBinaryOperator { a, b -> a + b }
+            assertEquivalent("reduceValuesToInt",
+                call(r, "reduceValuesToInt", arrayOf(LONG, java.util.function.ToIntFunction::class.java, INT, java.util.function.IntBinaryOperator::class.java), t, ident, 100, plus),
+                call(m, "reduceValuesToInt", arrayOf(LONG, java.util.function.ToIntFunction::class.java, INT, java.util.function.IntBinaryOperator::class.java), t, ident, 100, plus))
+            // forEachValue: sum via a side-effecting consumer (compare the accumulated totals).
+            val rSum = intArrayOf(0); val mSum = intArrayOf(0)
+            call(r, "forEachValue", arrayOf(LONG, java.util.function.Consumer::class.java), t, java.util.function.Consumer<Int> { rSum[0] += it })
+            call(m, "forEachValue", arrayOf(LONG, java.util.function.Consumer::class.java), t, java.util.function.Consumer<Int> { mSum[0] += it })
+            mSum[0] shouldBe rSum[0]
+            // searchValues: ANY value > 5 maps to the same sentinel (1), so the result is order-
+            // independent (parallel CHM doesn't fix which match wins) — non-null iff some value > 5.
+            val gt5 = java.util.function.Function<Int, Int?> { if (it > 5) 1 else null }
+            assertEquivalent("searchValues",
+                call(r, "searchValues", arrayOf(LONG, java.util.function.Function::class.java), t, gt5),
+                call(m, "searchValues", arrayOf(LONG, java.util.function.Function::class.java), t, gt5))
+        }
+    }
 })
