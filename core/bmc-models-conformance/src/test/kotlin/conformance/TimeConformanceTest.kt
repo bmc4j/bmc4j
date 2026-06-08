@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.property.Arb
+import io.kotest.property.arbitrary.boolean
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.long
 import io.kotest.property.checkAll
@@ -597,6 +598,111 @@ class TimeConformanceTest : FunSpec({
             val model = runCatching { bmcref.java.time.Period.ofDays(big).multipliedBy(s) }
             assertSameException(real, model)
             real.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
+    // --- DayOfWeek (7-value enum) ---
+
+    val dowVal = Arb.int(-3..11)          // out of [1,7] to test of() exception parity
+    val rotate = Arb.long(-1000L..1000L)
+
+    test("DayOfWeek.of exception parity + getValue + plus/minus rotation conforms") {
+        checkAll(dowVal, rotate) { v, n ->
+            val real = runCatching { java.time.DayOfWeek.of(v) }
+            val model = runCatching { bmcref.java.time.DayOfWeek.of(v) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                val rd = real.getOrThrow(); val md = model.getOrThrow()
+                rd.value shouldBe md.getValue()
+                // plus/minus rotate modulo 7; compare the resulting 1-based value across negative + large n
+                rd.plus(n).value shouldBe md.plus(n).getValue()
+                rd.minus(n).value shouldBe md.minus(n).getValue()
+            }
+        }
+    }
+
+    // --- Month (12-value enum) ---
+
+    val monVal = Arb.int(-3..16)          // out of [1,12] to test of() exception parity
+    val leap = Arb.boolean()
+
+    test("Month.of exception parity + getValue + plus/minus + length/min/max + firstMonthOfQuarter conforms") {
+        checkAll(monVal, rotate, leap) { v, n, lp ->
+            val real = runCatching { java.time.Month.of(v) }
+            val model = runCatching { bmcref.java.time.Month.of(v) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                val rm = real.getOrThrow(); val mm = model.getOrThrow()
+                rm.value shouldBe mm.getValue()
+                rm.plus(n).value shouldBe mm.plus(n).getValue()
+                rm.minus(n).value shouldBe mm.minus(n).getValue()
+                rm.length(lp) shouldBe mm.length(lp)
+                rm.minLength() shouldBe mm.minLength()
+                rm.maxLength() shouldBe mm.maxLength()
+                rm.firstMonthOfQuarter().value shouldBe mm.firstMonthOfQuarter().getValue()
+            }
+        }
+    }
+
+    // --- IsoEra (BCE/CE enum) ---
+
+    val eraVal = Arb.int(-2..3)           // out of [0,1] to test of() exception parity
+
+    test("IsoEra.of exception parity + getValue conforms") {
+        checkAll(eraVal) { v ->
+            val real = runCatching { java.time.chrono.IsoEra.of(v) }
+            val model = runCatching { bmcref.java.time.chrono.IsoEra.of(v) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                real.getOrThrow().value shouldBe model.getOrThrow().getValue()
+            }
+        }
+    }
+
+    // --- ZoneOffset (total-seconds wrapper extending ZoneId) ---
+
+    // total-seconds spanning the ±18:00 valid band AND a margin past it (loud DateTimeException parity).
+    val offSec = Arb.int(-70_000..70_000)
+    val offHour = Arb.int(-20..20)        // out of [-18,18] to test ofHours exception parity
+    val offMin = Arb.int(-65..65)         // out of [-59,59] + sign-mismatch to test ofHoursMinutes parity
+
+    test("ZoneOffset.ofTotalSeconds exception parity + getTotalSeconds/getId/normalized + ordering conforms") {
+        checkAll(offSec, offSec) { a, b ->
+            val real = runCatching { java.time.ZoneOffset.ofTotalSeconds(a) }
+            val model = runCatching { bmcref.java.time.ZoneOffset.ofTotalSeconds(a) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                val ra = real.getOrThrow(); val ma = model.getOrThrow()
+                ra.totalSeconds shouldBe ma.getTotalSeconds()
+                ra.id shouldBe ma.getId()
+                // normalized() of an offset is itself
+                ra.normalized().let { it as java.time.ZoneOffset }.totalSeconds shouldBe
+                    (ma.normalized() as bmcref.java.time.ZoneOffset).getTotalSeconds()
+                // ordering + equality vs a second offset (both must be in-range to build)
+                val rb = runCatching { java.time.ZoneOffset.ofTotalSeconds(b) }
+                val mb = runCatching { bmcref.java.time.ZoneOffset.ofTotalSeconds(b) }
+                if (rb.isSuccess && mb.isSuccess) {
+                    Integer.signum(ra.compareTo(rb.getOrThrow())) shouldBe
+                        Integer.signum(ma.compareTo(mb.getOrThrow()))
+                    ra.equals(rb.getOrThrow()) shouldBe ma.equals(mb.getOrThrow())
+                    ra.hashCode() shouldBe ma.hashCode()
+                }
+            }
+        }
+    }
+
+    test("ZoneOffset.ofHours / ofHoursMinutes exception parity + value conforms") {
+        checkAll(offHour, offMin) { h, mi ->
+            assertEquivalent("ofHours.totalSeconds",
+                runCatching { java.time.ZoneOffset.ofHours(h).totalSeconds },
+                runCatching { bmcref.java.time.ZoneOffset.ofHours(h).getTotalSeconds() })
+            assertEquivalent("ofHoursMinutes.totalSeconds",
+                runCatching { java.time.ZoneOffset.ofHoursMinutes(h, mi).totalSeconds },
+                runCatching { bmcref.java.time.ZoneOffset.ofHoursMinutes(h, mi).getTotalSeconds() })
+            // getId text parity on the in-range hours-only offsets (covers Z / ±HH:MM)
+            if (h in -18..18) {
+                java.time.ZoneOffset.ofHours(h).id shouldBe bmcref.java.time.ZoneOffset.ofHours(h).getId()
+            }
         }
     }
 })

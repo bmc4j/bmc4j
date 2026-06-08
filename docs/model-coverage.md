@@ -290,6 +290,36 @@ Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
 </details>
 
 
+## `java.time.ZoneOffset`
+
+Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
+
+**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `getId()`, `getTotalSeconds()`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `adjustInto(Temporal)` | applying a ZoneOffset to a Temporal (adjustInto) is out of scope for the total-seconds offset model |
+| `from(TemporalAccessor)` | extracting a ZoneId from a TemporalAccessor is out of scope for the offset-only zone model |
+| `getAvailableZoneIds()` | the available-zone-ids set is region machinery — out of scope for the offset-only zone model |
+| `getDisplayName(TextStyle, Locale)` | localized zone display text is out of scope for the offset-only zone model |
+| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the total-seconds offset model |
+| `getRules()` | the fixed-offset ZoneRules object is DST-rule machinery out of scope for the total-seconds offset model |
+| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for the total-seconds offset model |
+| `of(String)` | named-region parsing is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
+| `of(String, Map)` | named-region parsing with aliases is out of scope for the offset-only zone model |
+| `ofOffset(String, ZoneOffset)` | the prefix+offset region factory is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
+| `systemDefault()` | the system default zone is non-deterministic external state — out of scope for the offset-only zone model |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): the TemporalAccessor/TemporalAdjuster query plumbing (get/getLong/isSupported/range/query/adjustInto), getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
+
+- `get(TemporalField)`
+- `ofHoursMinutesSeconds(int, int, int)`
+- `query(TemporalQuery)`
+- `range(TemporalField)`
+
+</details>
+
+
 ## `java.util.ArrayList`
 
 Real surface: 42 members — modeled 25, unmodelable 7, not-needed 0, tail 10.
