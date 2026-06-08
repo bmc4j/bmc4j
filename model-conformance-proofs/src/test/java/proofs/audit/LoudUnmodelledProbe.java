@@ -48,16 +48,18 @@ class LoudUnmodelledProbe {
     }
 
     /**
-     * {@code BigInteger.shiftLeft} is in the model's tail (bit-twiddling surface, out of scope for
-     * the long-backed bounded model): reaching it is UNKNOWN (a model gap), not a silent stub that
-     * would let an unconstrained result through, and not a refutation. (This probe previously used
-     * {@code gcd}, which has since been modeled.)
+     * {@code BigInteger.nextProbablePrime} is in the model's tail: probabilistic number theory is
+     * genuinely out of scope for a bounded BMC model, so reaching it is UNKNOWN (a model gap), not a
+     * silent stub that would let an unconstrained result through, and not a refutation. Deliberately a
+     * PERMANENTLY-unmodelable member: prior incarnations used {@code gcd} then {@code shiftLeft}, both
+     * since modeled out from under the probe — a probabilistic op won't be, so this stays stable across
+     * future bignum passes.
      */
     @BmcProof(expect = Verdict.UNKNOWN)
     void reaching_a_tailed_biginteger_member_is_undecided() {
         BigInteger x = BigInteger.valueOf(12);
-        BigInteger s = x.shiftLeft(2); // synthesized loud body -> sentinel -> UNKNOWN
-        Bmc.check(s.longValue() == 48); // never reached
+        BigInteger s = x.nextProbablePrime(); // synthesized loud body -> sentinel -> UNKNOWN
+        Bmc.check(s.longValue() == 13); // never reached
     }
 
     /**
