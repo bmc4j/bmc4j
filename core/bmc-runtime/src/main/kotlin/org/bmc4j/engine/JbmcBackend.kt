@@ -46,11 +46,19 @@ class JbmcBackend : VerificationBackend {
     override fun verify(request: BmcRequest): JbmcResult {
         val jbmcPath = resolveJbmc()
         val classpath = prepareClasspath(request, jbmcPath)
-        val result = Jbmc(jbmcPath).run(
-                request.entryClass, request.entryFunction, classpath,
-                request.unwind, request.unwindingAssertions,
-                request.maxStringLength, request.solver,
-                request.timeoutSeconds)
+        // Hold one JVM-wide jbmc permit for the lifetime of the engine process. This is the single
+        // chokepoint that bounds TOTAL concurrent jbmc processes to the configured parallelism, whether
+        // they come from independent @BmcProof methods (already concurrency-limited by the JUnit pool)
+        // or from one domainSplit proof fanning its N+1 derived runs across the same budget. Classpath
+        // preparation (the bytecode rewrites above) is CPU/heap-light relative to the engine and runs
+        // unpermitted so the gate covers exactly the heavy process, never the prep.
+        val result = JbmcConcurrency.withPermit {
+            Jbmc(jbmcPath).run(
+                    request.entryClass, request.entryFunction, classpath,
+                    request.unwind, request.unwindingAssertions,
+                    request.maxStringLength, request.solver,
+                    request.timeoutSeconds)
+        }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a
         // -Dbmc.jbmc engine empties the harvest silently, which would strip honesty footnotes and

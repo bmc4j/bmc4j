@@ -82,7 +82,15 @@ object DomainSplitBytecode {
      * `domainSplit`, or a split with no slices). Unchecked so it propagates out of the analysis path
      * and fails the proof LOUD — a malformed split must never silently run as an ordinary proof.
      */
-    class DomainSplitError(message: String) : RuntimeException(message)
+    class DomainSplitError(message: String) : RuntimeException(PROCESSING_TAG + message) {
+        companion object {
+            /** Stable leading tag on every DomainSplitError message so a malformed-split PROCESSING
+             *  error is recognisable across the test-worker -> Gradle boundary (the exception arrives as
+             *  a PlaceholderException, so the progress listener matches the message, not the type) and
+             *  reads as a processing error rather than a "REFUTED" verdict on the runner line. */
+            const val PROCESSING_TAG = "domainSplit processing error: "
+        }
+    }
 
     /**
      * Analyse the marker usage of [entryClass].[methodName] on [classpath]. Returns a [Plan]

@@ -62,6 +62,30 @@ class DomainSplitProofTests {
     }
 
     /**
+     * EXERCISES THE FAN-OUT: an 8-slice split (plus the cover) gives nine independent derived runs that
+     * the extension submits to the shared jbmc pool at once, bounded by {@code bmc { parallelism }} /
+     * {@code -PbmcParallelism}. Each slice pins {@code x} to one residue class mod 8; together they tile
+     * {@code [-1000, 1000]} (the cover is sound), and {@code clamp} stays in range in every slice, so the
+     * aggregate is a domain-scoped green. With more slices than the pool is wide they run in waves —
+     * never nine unbounded jbmc processes.
+     */
+    @BmcProof
+    void many_slices_fan_out_and_verify() {
+        int x = Bmc.anyInt();
+        Bmc.domainSplit(x >= -1000 && x <= 1000);
+        Bmc.slice(((x % 8) + 8) % 8 == 0);
+        Bmc.slice(((x % 8) + 8) % 8 == 1);
+        Bmc.slice(((x % 8) + 8) % 8 == 2);
+        Bmc.slice(((x % 8) + 8) % 8 == 3);
+        Bmc.slice(((x % 8) + 8) % 8 == 4);
+        Bmc.slice(((x % 8) + 8) % 8 == 5);
+        Bmc.slice(((x % 8) + 8) % 8 == 6);
+        Bmc.slice(((x % 8) + 8) % 8 == 7);
+        int r = Clamp.clamp(x, -5, 5);
+        Bmc.check(r >= -5 && r <= 5); // holds in every residue slice
+    }
+
+    /**
      * A REFUTED slice surfaces its counterexample (and cancels the remaining slices, early-exit). The
      * cover is sound (the three slices tile the domain), but {@code buggySign} mis-classifies
      * {@code x == 1}, which lives in the {@code x > 0} slice — so that slice REFUTES.
