@@ -6,54 +6,52 @@ Every public/protected member of each per-member-audited model's real JDK target
 
 ## `java.math.BigDecimal`
 
-Real surface: 60 members — modeled 40, unmodelable 1, not-needed 0, tail 19.
+Real surface: 60 members — modeled 44, unmodelable 16, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `byteValue()`, `byteValueExact()`, `compareTo(BigDecimal)`, `divide(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `divideAndRemainder(BigDecimal)`, `divideToIntegralValue(BigDecimal)`, `doubleValue()`, `floatValue()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigDecimal)`, `min(BigDecimal)`, `movePointLeft(int)`, `movePointRight(int)`, `multiply(BigDecimal)`, `negate()`, `pow(int)`, `precision()`, `remainder(BigDecimal)`, `scale()`, `scaleByPowerOfTen(int)`, `setScale(int)`, `setScale(int, RoundingMode)`, `shortValue()`, `shortValueExact()`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `toBigIntegerExact()`, `ulp()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `byteValue()`, `byteValueExact()`, `compareTo(BigDecimal)`, `divide(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int)`, `divide(BigDecimal, int, RoundingMode)`, `divide(BigDecimal, int, int)`, `divideAndRemainder(BigDecimal)`, `divideToIntegralValue(BigDecimal)`, `doubleValue()`, `floatValue()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigDecimal)`, `min(BigDecimal)`, `movePointLeft(int)`, `movePointRight(int)`, `multiply(BigDecimal)`, `negate()`, `plus()`, `pow(int)`, `precision()`, `remainder(BigDecimal)`, `scale()`, `scaleByPowerOfTen(int)`, `setScale(int)`, `setScale(int, RoundingMode)`, `setScale(int, int)`, `shortValue()`, `shortValueExact()`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `toBigIntegerExact()`, `ulp()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `abs(MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `add(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `divide(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `divideAndRemainder(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `divideToIntegralValue(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `multiply(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `negate(MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `plus(MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `pow(int, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `remainder(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `round(MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `sqrt(MathContext)` | irrational square root to a MathContext precision — not soundly representable in the bounded model |
+| `subtract(BigDecimal, MathContext)` | MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model |
+| `toEngineeringString()` | decimal string formatting (dtoa-class) — not soundly modelable in the bounded model |
+| `toPlainString()` | decimal string formatting (dtoa-class) — not soundly modelable in the bounded model |
 | `valueOf(double)` | double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round/plus with MathContext, sqrt(MathContext)), the deprecated int-rounding-mode overloads (divide(BigDecimal,int[,int]), setScale(int,int)), and toEngineeringString/toPlainString are out of scope for the bounded long-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the bounded long-backed model has no exotic remaining surface beyond the per-member-declared MathContext/formatting/double members; the tail catch-all is retained for JDK drift</summary>
 
-- `abs(MathContext)`
-- `add(BigDecimal, MathContext)`
-- `divide(BigDecimal, MathContext)`
-- `divide(BigDecimal, int)`
-- `divide(BigDecimal, int, int)`
-- `divideAndRemainder(BigDecimal, MathContext)`
-- `divideToIntegralValue(BigDecimal, MathContext)`
-- `multiply(BigDecimal, MathContext)`
-- `negate(MathContext)`
-- `plus()`
-- `plus(MathContext)`
-- `pow(int, MathContext)`
-- `remainder(BigDecimal, MathContext)`
-- `round(MathContext)`
-- `setScale(int, int)`
-- `sqrt(MathContext)`
-- `subtract(BigDecimal, MathContext)`
-- `toEngineeringString()`
-- `toPlainString()`
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `java.math.BigInteger`
 
-Real surface: 50 members — modeled 43, unmodelable 0, not-needed 0, tail 7.
+Real surface: 50 members — modeled 46, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `and(BigInteger)`, `andNot(BigInteger)`, `bitCount()`, `bitLength()`, `byteValue()`, `byteValueExact()`, `clearBit(int)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `divideAndRemainder(BigInteger)`, `doubleValue()`, `flipBit(int)`, `floatValue()`, `gcd(BigInteger)`, `getLowestSetBit()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `modPow(BigInteger, BigInteger)`, `multiply(BigInteger)`, `negate()`, `not()`, `or(BigInteger)`, `pow(int)`, `remainder(BigInteger)`, `setBit(int)`, `shiftLeft(int)`, `shiftRight(int)`, `shortValue()`, `shortValueExact()`, `signum()`, `sqrt()`, `sqrtAndRemainder()`, `subtract(BigInteger)`, `testBit(int)`, `valueOf(long)`, `xor(BigInteger)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `and(BigInteger)`, `andNot(BigInteger)`, `bitCount()`, `bitLength()`, `byteValue()`, `byteValueExact()`, `clearBit(int)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `divideAndRemainder(BigInteger)`, `doubleValue()`, `flipBit(int)`, `floatValue()`, `gcd(BigInteger)`, `getLowestSetBit()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `modInverse(BigInteger)`, `modPow(BigInteger, BigInteger)`, `multiply(BigInteger)`, `negate()`, `not()`, `or(BigInteger)`, `parallelMultiply(BigInteger)`, `pow(int)`, `remainder(BigInteger)`, `setBit(int)`, `shiftLeft(int)`, `shiftRight(int)`, `shortValue()`, `shortValueExact()`, `signum()`, `sqrt()`, `sqrtAndRemainder()`, `subtract(BigInteger)`, `testBit(int)`, `toByteArray()`, `valueOf(long)`, `xor(BigInteger)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): modInverse, the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `isProbablePrime(int)` | probabilistic primality (Miller-Rabin/Lucas) — genuine number-theoretic wall, no sound bounded model |
+| `nextProbablePrime()` | probabilistic primality search — genuine number-theoretic wall, no sound bounded model |
+| `probablePrime(int, Random)` | probabilistic prime generation over a Random source — genuine number-theoretic wall, no sound bounded model |
+| `toString(int)` | radix formatting (dtoa-class) — not soundly modelable in the bounded model |
 
-- `isProbablePrime(int)`
-- `modInverse(BigInteger)`
-- `nextProbablePrime()`
-- `parallelMultiply(BigInteger)`
-- `probablePrime(int, Random)`
-- `toByteArray()`
-- `toString(int)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime) and radix formatting (toString(int)) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 

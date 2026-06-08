@@ -294,6 +294,51 @@ class BigIntegerConformanceTest : FunSpec({
         }
     }
 
+    // modInverse: this^-1 mod m over a positive modulus. Value parity with the JDK when invertible, and
+    // exception parity (ArithmeticException) when not invertible or the modulus is non-positive.
+    test("modInverse conforms (value + exception parity)") {
+        val a = Arb.long(-10_000L..10_000L)
+        val m = Arb.long(-50L..5_000L)   // straddles the m<=0 boundary; includes non-invertible residues
+        checkAll(a, m) { x, mod ->
+            val rx = java.math.BigInteger.valueOf(x); val rm = java.math.BigInteger.valueOf(mod)
+            val mx = bmcref.java.math.BigInteger.valueOf(x); val mm = bmcref.java.math.BigInteger.valueOf(mod)
+            val real = runCatching { rx.modInverse(rm).toLong() }
+            val model = runCatching { mx.modInverse(mm).toLong() }
+            withClue("modInverse($x, $mod)  real=${real.exceptionOrNull()?.javaClass?.simpleName ?: real.getOrNull()}  model=${model.exceptionOrNull()?.javaClass?.simpleName ?: model.getOrNull()}") {
+                assertSameException(real, model)
+                if (real.isSuccess) model.getOrThrow() shouldBe real.getOrThrow()
+            }
+        }
+    }
+
+    // parallelMultiply: identical to multiply within the bound (loud past it). In-bound value parity.
+    test("parallelMultiply conforms (== multiply within the bound)") {
+        checkAll(v, v) { x, y ->
+            val rp = java.math.BigInteger.valueOf(x).parallelMultiply(java.math.BigInteger.valueOf(y)).toLong()
+            val mp = bmcref.java.math.BigInteger.valueOf(x).parallelMultiply(bmcref.java.math.BigInteger.valueOf(y)).toLong()
+            mp shouldBe rp
+            mp shouldBe bmcref.java.math.BigInteger.valueOf(x).multiply(bmcref.java.math.BigInteger.valueOf(y)).toLong()
+        }
+    }
+
+    // toByteArray: minimal two's-complement big-endian encoding — byte-for-byte parity with the JDK
+    // across positives, negatives, and zero (every long value encodes in <= 8 bytes).
+    test("toByteArray conforms (byte-for-byte, signed big-endian)") {
+        val band = Arb.long(-10_000_000L..10_000_000L)
+        checkAll(band) { x ->
+            val real = java.math.BigInteger.valueOf(x).toByteArray()
+            val model = bmcref.java.math.BigInteger.valueOf(x).toByteArray()
+            withClue("toByteArray($x)  real=${real.toList()}  model=${model.toList()}") {
+                model.toList() shouldBe real.toList()
+            }
+        }
+        // explicit edge values, incl. exact byte boundaries and zero.
+        for (x in listOf(0L, 1L, -1L, 127L, 128L, 255L, 256L, -128L, -129L, Long.MAX_VALUE, Long.MIN_VALUE)) {
+            bmcref.java.math.BigInteger.valueOf(x).toByteArray().toList() shouldBe
+                java.math.BigInteger.valueOf(x).toByteArray().toList()
+        }
+    }
+
     // OUT-OF-DOMAIN bound: a magnitude past the long range is one the arbitrary-precision JDK accepts,
     // but the long-backed model must FAIL LOUDLY (ArithmeticException via Math.*Exact), never wrap.
     test("BigInteger(String) past the long bound fails LOUDLY (bounded-model loud-failure)") {
