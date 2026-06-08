@@ -213,6 +213,14 @@ class ArraysUtilConformanceTest : FunSpec({
         }
     }
 
+    test("equals(short[], short[]) conforms") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5)) { xs, ys ->
+            val a = xs.map { it.toShort() }.toShortArray(); val b = ys.map { it.toShort() }.toShortArray()
+            staticCall(MODEL, "equals", arrayOf(SHORTARR, SHORTARR), a, b).getOrThrow() shouldBe
+                java.util.Arrays.equals(a, b)
+        }
+    }
+
     test("equals(Object[], Object[]) conforms") {
         checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5)) { xs, ys ->
             val a: Array<Any?> = xs.toTypedArray(); val b: Array<Any?> = ys.toTypedArray()
@@ -488,6 +496,259 @@ class ArraysUtilConformanceTest : FunSpec({
             val xz = xs.map { it % 2 == 0 }.toBooleanArray(); val yz = ys.map { it % 2 == 0 }.toBooleanArray()
             sgn(staticCall(MODEL, "compare", arrayOf(BOOLARR, BOOLARR), xz, yz).getOrThrow() as Int) shouldBe
                 sgn(java.util.Arrays.compare(xz, yz))
+        }
+    }
+
+    // --- range-bounded overloads ----------------------------------------------------------------
+
+    test("sort(int[]/long[]/byte[]/char[]/short[]/Object[], from, to) conform (incl. bad range)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7), Arb.int(-1..7), Arb.int(-1..7)) { xs, from, to ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            val rI = staticCall(REAL, "sort", arrayOf(INTARR, INT, INT), ar, from, to)
+            val mI = staticCall(MODEL, "sort", arrayOf(INTARR, INT, INT), am, from, to)
+            assertSameException(rI, mI)
+            if (rI.isSuccess) am.toList() shouldBe ar.toList()
+
+            val lr = xs.map { it.toLong() }.toLongArray(); val lm = lr.copyOf()
+            val rL = staticCall(REAL, "sort", arrayOf(LONGARR, INT, INT), lr, from, to)
+            staticCall(MODEL, "sort", arrayOf(LONGARR, INT, INT), lm, from, to)
+            if (rL.isSuccess) lm.toList() shouldBe lr.toList()
+
+            val br = xs.map { it.toByte() }.toByteArray(); val bm = br.copyOf()
+            val rB = staticCall(REAL, "sort", arrayOf(BYTEARR, INT, INT), br, from, to)
+            staticCall(MODEL, "sort", arrayOf(BYTEARR, INT, INT), bm, from, to)
+            if (rB.isSuccess) bm.toList() shouldBe br.toList()
+
+            val cr = xs.map { (it and 0x7f).toChar() }.toCharArray(); val cm = cr.copyOf()
+            val rC = staticCall(REAL, "sort", arrayOf(CHARARR, INT, INT), cr, from, to)
+            staticCall(MODEL, "sort", arrayOf(CHARARR, INT, INT), cm, from, to)
+            if (rC.isSuccess) cm.toList() shouldBe cr.toList()
+
+            val sr = xs.map { it.toShort() }.toShortArray(); val sm = sr.copyOf()
+            val rS = staticCall(REAL, "sort", arrayOf(SHORTARR, INT, INT), sr, from, to)
+            staticCall(MODEL, "sort", arrayOf(SHORTARR, INT, INT), sm, from, to)
+            if (rS.isSuccess) sm.toList() shouldBe sr.toList()
+
+            val or: Array<Any?> = xs.toTypedArray(); val om: Array<Any?> = xs.toTypedArray()
+            val rO = staticCall(REAL, "sort", arrayOf(OBJARR, INT, INT), or, from, to)
+            staticCall(MODEL, "sort", arrayOf(OBJARR, INT, INT), om, from, to)
+            if (rO.isSuccess) om.toList() shouldBe or.toList()
+        }
+    }
+
+    test("fill(int[], from, to, v) already covered; sort ranged keeps elements outside the range") {
+        checkAll(Arb.list(Arb.int(-50..50), 1..7), Arb.int(0..3)) { xs, from0 ->
+            val a = xs.toIntArray()
+            val from = minOf(from0, a.size)
+            val to = a.size
+            val ar = a.copyOf(); val am = a.copyOf()
+            java.util.Arrays.sort(ar, 0, from)
+            staticCall(MODEL, "sort", arrayOf(INTARR, INT, INT), am, 0, from).getOrThrow()
+            am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("binarySearch(int[]/long[]/byte[]/char[]/short[]/Object[], from, to, key) on sorted range conform") {
+        checkAll(Arb.list(Arb.int(-20..20), 0..7), Arb.int(-25..25)) { xs, key ->
+            val a = xs.toIntArray().also { it.sort() }
+            val to = a.size
+            val r = java.util.Arrays.binarySearch(a, 0, to, key)
+            val m = staticCall(MODEL, "binarySearch", arrayOf(INTARR, INT, INT, INT), a.copyOf(), 0, to, key)
+            m.getOrThrow() shouldBe r
+
+            val la = xs.map { it.toLong() }.toLongArray().also { it.sort() }
+            staticCall(MODEL, "binarySearch", arrayOf(LONGARR, INT, INT, Long::class.javaPrimitiveType!!), la.copyOf(), 0, la.size, key.toLong()).getOrThrow() shouldBe
+                java.util.Arrays.binarySearch(la, 0, la.size, key.toLong())
+
+            val ba = xs.map { it.toByte() }.toByteArray().also { it.sort() }
+            staticCall(MODEL, "binarySearch", arrayOf(BYTEARR, INT, INT, BYTE), ba.copyOf(), 0, ba.size, key.toByte()).getOrThrow() shouldBe
+                java.util.Arrays.binarySearch(ba, 0, ba.size, key.toByte())
+
+            val ca = xs.map { (it and 0xff).toChar() }.toCharArray().also { it.sort() }
+            staticCall(MODEL, "binarySearch", arrayOf(CHARARR, INT, INT, CHAR), ca.copyOf(), 0, ca.size, (key and 0xff).toChar()).getOrThrow() shouldBe
+                java.util.Arrays.binarySearch(ca, 0, ca.size, (key and 0xff).toChar())
+
+            val sa = xs.map { it.toShort() }.toShortArray().also { it.sort() }
+            staticCall(MODEL, "binarySearch", arrayOf(SHORTARR, INT, INT, SHORT), sa.copyOf(), 0, sa.size, key.toShort()).getOrThrow() shouldBe
+                java.util.Arrays.binarySearch(sa, 0, sa.size, key.toShort())
+
+            val oa: Array<Any?> = xs.sorted().toTypedArray()
+            staticCall(MODEL, "binarySearch", arrayOf(OBJARR, INT, INT, OBJECT), oa.copyOf(), 0, oa.size, key).getOrThrow() shouldBe
+                java.util.Arrays.binarySearch(oa, 0, oa.size, key)
+        }
+    }
+
+    test("binarySearch ranged bad-range throws like the JDK") {
+        checkAll(Arb.list(Arb.int(-20..20), 0..6), Arb.int(-1..7), Arb.int(-1..7), Arb.int(-25..25)) { xs, from, to, key ->
+            val a = xs.toIntArray().also { it.sort() }
+            val r = staticCall(REAL, "binarySearch", arrayOf(INTARR, INT, INT, INT), a.copyOf(), from, to, key)
+            val m = staticCall(MODEL, "binarySearch", arrayOf(INTARR, INT, INT, INT), a.copyOf(), from, to, key)
+            assertSameException(r, m)
+            if (r.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+        }
+    }
+
+    test("equals(X[], aFrom, aTo, X[], bFrom, bTo) conform (int/long/byte/char/short/boolean/Object, incl. bad range)") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5),
+                 Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5)) { xs, ys, af, at, bf, bt ->
+            val xi = xs.toIntArray(); val yi = ys.toIntArray()
+            val r = staticCall(REAL, "equals", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            val m = staticCall(MODEL, "equals", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            assertSameException(r, m)
+            if (r.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+
+            val xo: Array<Any?> = xs.toTypedArray(); val yo: Array<Any?> = ys.toTypedArray()
+            val rO = staticCall(REAL, "equals", arrayOf(OBJARR, INT, INT, OBJARR, INT, INT), xo, af, at, yo, bf, bt)
+            val mO = staticCall(MODEL, "equals", arrayOf(OBJARR, INT, INT, OBJARR, INT, INT), xo, af, at, yo, bf, bt)
+            assertSameException(rO, mO)
+            if (rO.isSuccess) mO.getOrThrow() shouldBe rO.getOrThrow()
+
+            val xb = xs.map { it.toByte() }.toByteArray(); val yb = ys.map { it.toByte() }.toByteArray()
+            val rB = staticCall(REAL, "equals", arrayOf(BYTEARR, INT, INT, BYTEARR, INT, INT), xb, af, at, yb, bf, bt)
+            val mB = staticCall(MODEL, "equals", arrayOf(BYTEARR, INT, INT, BYTEARR, INT, INT), xb, af, at, yb, bf, bt)
+            assertSameException(rB, mB)
+            if (rB.isSuccess) mB.getOrThrow() shouldBe rB.getOrThrow()
+        }
+    }
+
+    test("mismatch(X[], aFrom, aTo, X[], bFrom, bTo) conform (int/long/byte/short/boolean, incl. bad range)") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5),
+                 Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5)) { xs, ys, af, at, bf, bt ->
+            val xi = xs.toIntArray(); val yi = ys.toIntArray()
+            val r = staticCall(REAL, "mismatch", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            val m = staticCall(MODEL, "mismatch", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            assertSameException(r, m)
+            if (r.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+
+            val xl = xs.map { it.toLong() }.toLongArray(); val yl = ys.map { it.toLong() }.toLongArray()
+            val rL = staticCall(REAL, "mismatch", arrayOf(LONGARR, INT, INT, LONGARR, INT, INT), xl, af, at, yl, bf, bt)
+            val mL = staticCall(MODEL, "mismatch", arrayOf(LONGARR, INT, INT, LONGARR, INT, INT), xl, af, at, yl, bf, bt)
+            assertSameException(rL, mL)
+            if (rL.isSuccess) mL.getOrThrow() shouldBe rL.getOrThrow()
+
+            val xsh = xs.map { it.toShort() }.toShortArray(); val ysh = ys.map { it.toShort() }.toShortArray()
+            val rS = staticCall(REAL, "mismatch", arrayOf(SHORTARR, INT, INT, SHORTARR, INT, INT), xsh, af, at, ysh, bf, bt)
+            val mS = staticCall(MODEL, "mismatch", arrayOf(SHORTARR, INT, INT, SHORTARR, INT, INT), xsh, af, at, ysh, bf, bt)
+            assertSameException(rS, mS)
+            if (rS.isSuccess) mS.getOrThrow() shouldBe rS.getOrThrow()
+        }
+    }
+
+    test("compare(X[], aFrom, aTo, X[], bFrom, bTo) conform by sign (int/long/byte/char/short/boolean, incl. bad range)") {
+        checkAll(Arb.list(Arb.int(0..3), 0..5), Arb.list(Arb.int(0..3), 0..5),
+                 Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5), Arb.int(-1..5)) { xs, ys, af, at, bf, bt ->
+            fun sgn(x: Int) = x.compareTo(0)
+            val xi = xs.toIntArray(); val yi = ys.toIntArray()
+            val r = staticCall(REAL, "compare", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            val m = staticCall(MODEL, "compare", arrayOf(INTARR, INT, INT, INTARR, INT, INT), xi, af, at, yi, bf, bt)
+            assertSameException(r, m)
+            if (r.isSuccess) sgn(m.getOrThrow() as Int) shouldBe sgn(r.getOrThrow() as Int)
+
+            val xc = xs.map { it.toChar() }.toCharArray(); val yc = ys.map { it.toChar() }.toCharArray()
+            val rC = staticCall(REAL, "compare", arrayOf(CHARARR, INT, INT, CHARARR, INT, INT), xc, af, at, yc, bf, bt)
+            val mC = staticCall(MODEL, "compare", arrayOf(CHARARR, INT, INT, CHARARR, INT, INT), xc, af, at, yc, bf, bt)
+            assertSameException(rC, mC)
+            if (rC.isSuccess) sgn(mC.getOrThrow() as Int) shouldBe sgn(rC.getOrThrow() as Int)
+
+            val xz = xs.map { it % 2 == 0 }.toBooleanArray(); val yz = ys.map { it % 2 == 0 }.toBooleanArray()
+            val rZ = staticCall(REAL, "compare", arrayOf(BOOLARR, INT, INT, BOOLARR, INT, INT), xz, af, at, yz, bf, bt)
+            val mZ = staticCall(MODEL, "compare", arrayOf(BOOLARR, INT, INT, BOOLARR, INT, INT), xz, af, at, yz, bf, bt)
+            assertSameException(rZ, mZ)
+            if (rZ.isSuccess) sgn(mZ.getOrThrow() as Int) shouldBe sgn(rZ.getOrThrow() as Int)
+        }
+    }
+
+    // --- ranged stream --------------------------------------------------------------------------
+
+    test("stream(int[]/long[], from, to).sum() conforms (incl. bad range)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..6), Arb.int(-1..7), Arb.int(-1..7)) { xs, from, to ->
+            val a = xs.toIntArray()
+            val r = runCatching { java.util.Arrays.stream(a, from, to).sum() }
+            val ms = staticCall(MODEL, "stream", arrayOf(INTARR, INT, INT), a, from, to)
+            assertSameException(r, ms)
+            if (r.isSuccess) call(ms.getOrThrow()!!, "sum", arrayOf()).getOrThrow() shouldBe r.getOrThrow()
+
+            val la = xs.map { it.toLong() }.toLongArray()
+            val rL = runCatching { java.util.Arrays.stream(la, from, to).sum() }
+            val msL = staticCall(MODEL, "stream", arrayOf(LONGARR, INT, INT), la, from, to)
+            assertSameException(rL, msL)
+            if (rL.isSuccess) call(msL.getOrThrow()!!, "sum", arrayOf()).getOrThrow() shouldBe rL.getOrThrow()
+        }
+    }
+
+    // --- parallel-as-sequential -----------------------------------------------------------------
+
+    test("parallelSort(int[]/long[]/byte[]/short[]) == sort") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7)) { xs ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            java.util.Arrays.parallelSort(ar)
+            staticCall(MODEL, "parallelSort", arrayOf(INTARR), am).getOrThrow()
+            am.toList() shouldBe ar.toList()
+
+            val lr = xs.map { it.toLong() }.toLongArray(); val lm = lr.copyOf()
+            java.util.Arrays.parallelSort(lr)
+            staticCall(MODEL, "parallelSort", arrayOf(LONGARR), lm).getOrThrow()
+            lm.toList() shouldBe lr.toList()
+
+            val br = xs.map { it.toByte() }.toByteArray(); val bm = br.copyOf()
+            java.util.Arrays.parallelSort(br)
+            staticCall(MODEL, "parallelSort", arrayOf(BYTEARR), bm).getOrThrow()
+            bm.toList() shouldBe br.toList()
+
+            val sr = xs.map { it.toShort() }.toShortArray(); val sm = sr.copyOf()
+            java.util.Arrays.parallelSort(sr)
+            staticCall(MODEL, "parallelSort", arrayOf(SHORTARR), sm).getOrThrow()
+            sm.toList() shouldBe sr.toList()
+        }
+    }
+
+    test("parallelSort(int[], from, to) == sort ranged (incl. bad range)") {
+        checkAll(Arb.list(Arb.int(-50..50), 0..7), Arb.int(-1..7), Arb.int(-1..7)) { xs, from, to ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            val r = staticCall(REAL, "parallelSort", arrayOf(INTARR, INT, INT), ar, from, to)
+            val m = staticCall(MODEL, "parallelSort", arrayOf(INTARR, INT, INT), am, from, to)
+            assertSameException(r, m)
+            if (r.isSuccess) am.toList() shouldBe ar.toList()
+        }
+    }
+
+    test("parallelSetAll(int[]/long[]/Object[], gen) == setAll") {
+        checkAll(Arb.list(Arb.int(0..9), 0..6)) { xs ->
+            val ar = IntArray(xs.size); val am = IntArray(xs.size)
+            java.util.Arrays.parallelSetAll(ar, java.util.function.IntUnaryOperator { it * 3 })
+            staticCall(MODEL, "parallelSetAll", arrayOf(INTARR, java.util.function.IntUnaryOperator::class.java),
+                am, java.util.function.IntUnaryOperator { it * 3 }).getOrThrow()
+            am.toList() shouldBe ar.toList()
+
+            val lr = LongArray(xs.size); val lm = LongArray(xs.size)
+            java.util.Arrays.parallelSetAll(lr, java.util.function.IntToLongFunction { it.toLong() * 7 })
+            staticCall(MODEL, "parallelSetAll", arrayOf(LONGARR, java.util.function.IntToLongFunction::class.java),
+                lm, java.util.function.IntToLongFunction { it.toLong() * 7 }).getOrThrow()
+            lm.toList() shouldBe lr.toList()
+        }
+    }
+
+    test("parallelPrefix(int[]/long[], +) == inclusive scan (full + ranged)") {
+        checkAll(Arb.list(Arb.int(-20..20), 0..6), Arb.int(0..6), Arb.int(0..6)) { xs, from0, to0 ->
+            val ar = xs.toIntArray(); val am = xs.toIntArray()
+            java.util.Arrays.parallelPrefix(ar, java.util.function.IntBinaryOperator { x, y -> x + y })
+            staticCall(MODEL, "parallelPrefix", arrayOf(INTARR, java.util.function.IntBinaryOperator::class.java),
+                am, java.util.function.IntBinaryOperator { x, y -> x + y }).getOrThrow()
+            am.toList() shouldBe ar.toList()
+
+            // ranged: clamp from/to into a valid [from,to] window
+            val from = minOf(from0, xs.size); val to = maxOf(from, minOf(to0, xs.size))
+            val rr = xs.toIntArray(); val rm = xs.toIntArray()
+            java.util.Arrays.parallelPrefix(rr, from, to, java.util.function.IntBinaryOperator { x, y -> x + y })
+            staticCall(MODEL, "parallelPrefix", arrayOf(INTARR, INT, INT, java.util.function.IntBinaryOperator::class.java),
+                rm, from, to, java.util.function.IntBinaryOperator { x, y -> x + y }).getOrThrow()
+            rm.toList() shouldBe rr.toList()
+
+            val lr = xs.map { it.toLong() }.toLongArray(); val lm = lr.copyOf()
+            java.util.Arrays.parallelPrefix(lr, java.util.function.LongBinaryOperator { x, y -> x + y })
+            staticCall(MODEL, "parallelPrefix", arrayOf(LONGARR, java.util.function.LongBinaryOperator::class.java),
+                lm, java.util.function.LongBinaryOperator { x, y -> x + y }).getOrThrow()
+            lm.toList() shouldBe lr.toList()
         }
     }
 })

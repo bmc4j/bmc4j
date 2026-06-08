@@ -3,6 +3,9 @@ package java.util;
 import java.util.function.IntUnaryOperator;
 import java.util.function.IntToLongFunction;
 import java.util.function.IntFunction;
+import java.util.function.IntBinaryOperator;
+import java.util.function.LongBinaryOperator;
+import java.util.function.BinaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -17,18 +20,35 @@ import org.bmc4j.models.audit.BmcModelTail;
  * and {@code setAll}. Overloads are modeled for {@code int[]} / {@code long[]} / {@code Object[]} first,
  * with the mechanical per-primitive clones (byte/char/short/boolean, plus {@code float} for the
  * comparison-free copy/store ops copyOf/copyOfRange/fill) added where they're a straight copy of the
- * proven int/long body over the bounded array. The remaining formatting/parsing/parallel/spliterator/
- * deep/exotic surface — and the {@code float[]}/{@code double[]} equals/hashCode/sort/binarySearch
- * overloads, whose IEEE NaN/-0.0 total-order quirks are NOT the plain {@code ==}/{@code >} the integral
- * bodies use — stays in the {@code BmcModelTail}: each gets a build-synthesized loud body, so reaching
- * any of them fails NAMED AND LOUD under JBMC rather than silently havocking to a nondet result.
+ * proven int/long body over the bounded array.
+ *
+ * <p>The <b>range-bounded</b> overloads — the {@code (array, fromIndex, toIndex, ...)} variants of
+ * {@code fill}/{@code sort}/{@code binarySearch}, and the {@code (a, aFrom, aTo, b, bFrom, bTo)}
+ * variants of {@code equals}/{@code compare}/{@code mismatch} — are the same bodies bounded to the
+ * half-open {@code [from, to)} sub-region, with the JDK's exact range checks ({@link
+ * IllegalArgumentException} on {@code from > to}, {@link ArrayIndexOutOfBoundsException} on
+ * {@code from < 0} or {@code to > length}, each array checked independently and in JDK order).
+ *
+ * <p>The <b>parallel</b> overloads are modeled as their <b>sequential</b> equivalents — the same
+ * single-thread precedent the concurrency models (CompletableFuture / atomics) use: {@code
+ * parallelSort} = the insertion {@code sort}, {@code parallelSetAll} = {@code setAll}, and {@code
+ * parallelPrefix} = the obvious cumulative left fold ({@code a[i] = op(a[i-1], a[i])}). The JDK
+ * specifies these as observably equivalent to their sequential counterparts; running them on one
+ * thread under JBMC is sound because BMC has no notion of wall-clock parallelism to begin with.
+ *
+ * <p>The remaining formatting/parsing/spliterator/deep/exotic surface — and the {@code float[]}/
+ * {@code double[]} equals/hashCode/sort/binarySearch/compare/mismatch overloads, whose IEEE
+ * NaN/-0.0 total-order quirks are NOT the plain {@code ==}/{@code >} the integral bodies use, plus
+ * everything {@code double} per the no-double convention — stays in the {@code BmcModelTail}: each
+ * gets a build-synthesized loud body, so reaching any of them fails NAMED AND LOUD under JBMC rather
+ * than silently havocking to a nondet result.
  *
  * <p>Loops are bounded by the (concrete) array length, so JBMC unwinds them deterministically. The
  * {@code sort} models are plain insertion sort over the bound: quadratic but small for the array
  * sizes BMC proofs use. {@code binarySearch} models the JDK contract on an array the caller has
  * sorted (sorted-assume); on an unsorted array the result is unspecified exactly as in the JDK.
  */
-@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, parallelSort/parallelPrefix/parallelSetAll, spliterator, compareUnsigned, the range-bounded mismatch/compare/equals overloads, float/double overloads with NaN/-0.0 total-order quirks, Comparator-based sort/binarySearch, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC")
+@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, float/double overloads with NaN/-0.0 total-order quirks, all-double overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC")
 public class Arrays {
 
     private Arrays() {
@@ -531,6 +551,25 @@ public class Arrays {
         return true;
     }
 
+    @BmcModelConforms("differential: equals(short[], short[])")
+    public static boolean equals(short[] a, short[] a2) {
+        if (a == a2) {
+            return true;
+        }
+        if (a == null || a2 == null) {
+            return false;
+        }
+        if (a.length != a2.length) {
+            return false;
+        }
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] != a2[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // --- hashCode -------------------------------------------------------------------------------
     // JDK contract: 1 for null; otherwise the 31*result+element polynomial, with element hash 0 for
     // a null Object element.
@@ -707,6 +746,95 @@ public class Arrays {
         }
     }
 
+    // --- sort (range) — insertion sort bounded to [fromIndex, toIndex) --------------------------
+    // Same body as the full-array sorts, with the loop floor raised to fromIndex and the inner
+    // shift stopping at fromIndex. rangeCheck throws the JDK's exact exceptions on a bad range.
+
+    @BmcModelConforms("differential: sort(int[], int, int) (insertion sort over the range)")
+    public static void sort(int[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            int key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("differential: sort(long[], int, int) (insertion sort over the range)")
+    public static void sort(long[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            long key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("differential: sort(byte[], int, int) (insertion sort over the range)")
+    public static void sort(byte[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            byte key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("differential: sort(char[], int, int) (insertion sort over the range)")
+    public static void sort(char[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            char key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("differential: sort(short[], int, int) (insertion sort over the range)")
+    public static void sort(short[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            short key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
+    @BmcModelConforms("differential: sort(Object[], int, int) (insertion sort over the range, Comparable elements)")
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void sort(Object[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            Object key = a[i];
+            int j = i - 1;
+            while (j >= fromIndex && ((Comparable) a[j]).compareTo(key) > 0) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            a[j + 1] = key;
+        }
+    }
+
     // --- binarySearch (sorted-assume) -----------------------------------------------------------
     // Models the JDK contract on an already-sorted array: returns the index of the key if present,
     // else -(insertion point) - 1. On an unsorted array the result is unspecified, exactly as in
@@ -797,6 +925,127 @@ public class Arrays {
             if (midVal < key) {
                 low = mid + 1;
             } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    // --- binarySearch (range, sorted-assume) ----------------------------------------------------
+    // Same sorted-assume search bounded to [fromIndex, toIndex): low starts at fromIndex, high at
+    // toIndex-1, and an absent key returns -(insertion point)-1 with the insertion point in-range.
+    // rangeCheck throws the JDK's exact exceptions on a bad range.
+
+    @BmcModelConforms("differential: binarySearch(int[], int, int, int) (sorted-assume, ranged)")
+    public static int binarySearch(int[] a, int fromIndex, int toIndex, int key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int midVal = a[mid];
+            if (midVal < key) {
+                low = mid + 1;
+            } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("differential: binarySearch(long[], int, int, long) (sorted-assume, ranged)")
+    public static int binarySearch(long[] a, int fromIndex, int toIndex, long key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            long midVal = a[mid];
+            if (midVal < key) {
+                low = mid + 1;
+            } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("differential: binarySearch(byte[], int, int, byte) (sorted-assume, ranged)")
+    public static int binarySearch(byte[] a, int fromIndex, int toIndex, byte key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            byte midVal = a[mid];
+            if (midVal < key) {
+                low = mid + 1;
+            } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("differential: binarySearch(char[], int, int, char) (sorted-assume, ranged)")
+    public static int binarySearch(char[] a, int fromIndex, int toIndex, char key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            char midVal = a[mid];
+            if (midVal < key) {
+                low = mid + 1;
+            } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("differential: binarySearch(short[], int, int, short) (sorted-assume, ranged)")
+    public static int binarySearch(short[] a, int fromIndex, int toIndex, short key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            short midVal = a[mid];
+            if (midVal < key) {
+                low = mid + 1;
+            } else if (midVal > key) {
+                high = mid - 1;
+            } else {
+                return mid;
+            }
+        }
+        return -(low + 1);
+    }
+
+    @BmcModelConforms("differential: binarySearch(Object[], int, int, Object) (sorted-assume, ranged, Comparable elements)")
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static int binarySearch(Object[] a, int fromIndex, int toIndex, Object key) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        int low = fromIndex;
+        int high = toIndex - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            Comparable midVal = (Comparable) a[mid];
+            int cmp = midVal.compareTo(key);
+            if (cmp < 0) {
+                low = mid + 1;
+            } else if (cmp > 0) {
                 high = mid - 1;
             } else {
                 return mid;
@@ -969,6 +1218,337 @@ public class Arrays {
         return a.length - b.length;
     }
 
+    // --- equals (two ranges) --------------------------------------------------------------------
+    // JDK contract: compares a[aFrom, aTo) against b[bFrom, bTo). false if the ranges differ in
+    // length; otherwise true iff every paired element is equal. Each array's range is validated
+    // independently in JDK order (a first, then b): IllegalArgumentException on from>to, then
+    // ArrayIndexOutOfBoundsException on from<0 / to>length.
+
+    @BmcModelConforms("differential: equals(int[], int, int, int[], int, int)")
+    public static boolean equals(int[] a, int aFromIndex, int aToIndex, int[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(long[], int, int, long[], int, int)")
+    public static boolean equals(long[] a, int aFromIndex, int aToIndex, long[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(byte[], int, int, byte[], int, int)")
+    public static boolean equals(byte[] a, int aFromIndex, int aToIndex, byte[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(char[], int, int, char[], int, int)")
+    public static boolean equals(char[] a, int aFromIndex, int aToIndex, char[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(short[], int, int, short[], int, int)")
+    public static boolean equals(short[] a, int aFromIndex, int aToIndex, short[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(boolean[], int, int, boolean[], int, int)")
+    public static boolean equals(boolean[] a, int aFromIndex, int aToIndex, boolean[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @BmcModelConforms("differential: equals(Object[], int, int, Object[], int, int)")
+    public static boolean equals(Object[] a, int aFromIndex, int aToIndex, Object[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        if (aLen != bLen) {
+            return false;
+        }
+        for (int i = 0; i < aLen; i++) {
+            Object x = a[aFromIndex + i];
+            Object y = b[bFromIndex + i];
+            if (!(x == null ? y == null : x.equals(y))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // --- mismatch (two ranges) ------------------------------------------------------------------
+    // JDK contract: the relative index (from the range start) of the first differing element; if one
+    // range is a proper prefix of the other, the length of the shorter range; -1 if the ranges are
+    // equal. Each range is validated independently (a first, then b).
+
+    @BmcModelConforms("differential: mismatch(int[], int, int, int[], int, int)")
+    public static int mismatch(int[] a, int aFromIndex, int aToIndex, int[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("differential: mismatch(long[], int, int, long[], int, int)")
+    public static int mismatch(long[] a, int aFromIndex, int aToIndex, long[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("differential: mismatch(byte[], int, int, byte[], int, int)")
+    public static int mismatch(byte[] a, int aFromIndex, int aToIndex, byte[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("differential: mismatch(char[], int, int, char[], int, int)")
+    public static int mismatch(char[] a, int aFromIndex, int aToIndex, char[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("differential: mismatch(short[], int, int, short[], int, int)")
+    public static int mismatch(short[] a, int aFromIndex, int aToIndex, short[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    @BmcModelConforms("differential: mismatch(boolean[], int, int, boolean[], int, int)")
+    public static int mismatch(boolean[] a, int aFromIndex, int aToIndex, boolean[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            if (a[aFromIndex + i] != b[bFromIndex + i]) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
+    }
+
+    // --- compare (two ranges) -------------------------------------------------------------------
+    // JDK contract: 0 if the ranges are equal; the signed comparison of the first differing element
+    // (same total order as the full-array compare); if one range is a proper prefix of the other,
+    // aLen - bLen. Each range is validated independently (a first, then b).
+
+    @BmcModelConforms("differential: compare(int[], int, int, int[], int, int)")
+    public static int compare(int[] a, int aFromIndex, int aToIndex, int[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            int x = a[aFromIndex + i];
+            int y = b[bFromIndex + i];
+            if (x != y) {
+                return x < y ? -1 : 1;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    @BmcModelConforms("differential: compare(long[], int, int, long[], int, int)")
+    public static int compare(long[] a, int aFromIndex, int aToIndex, long[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            long x = a[aFromIndex + i];
+            long y = b[bFromIndex + i];
+            if (x != y) {
+                return x < y ? -1 : 1;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    @BmcModelConforms("differential: compare(byte[], int, int, byte[], int, int)")
+    public static int compare(byte[] a, int aFromIndex, int aToIndex, byte[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            byte x = a[aFromIndex + i];
+            byte y = b[bFromIndex + i];
+            if (x != y) {
+                return x < y ? -1 : 1;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    // char compares UNSIGNED (the plain char `<` already gives this — chars are unsigned).
+    @BmcModelConforms("differential: compare(char[], int, int, char[], int, int)")
+    public static int compare(char[] a, int aFromIndex, int aToIndex, char[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            char x = a[aFromIndex + i];
+            char y = b[bFromIndex + i];
+            if (x != y) {
+                return x < y ? -1 : 1;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    @BmcModelConforms("differential: compare(short[], int, int, short[], int, int)")
+    public static int compare(short[] a, int aFromIndex, int aToIndex, short[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            short x = a[aFromIndex + i];
+            short y = b[bFromIndex + i];
+            if (x != y) {
+                return x < y ? -1 : 1;
+            }
+        }
+        return aLen - bLen;
+    }
+
+    // boolean compares false < true (Boolean.compare).
+    @BmcModelConforms("differential: compare(boolean[], int, int, boolean[], int, int)")
+    public static int compare(boolean[] a, int aFromIndex, int aToIndex, boolean[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            boolean x = a[aFromIndex + i];
+            boolean y = b[bFromIndex + i];
+            if (x != y) {
+                return !x ? -1 : 1;  // false < true
+            }
+        }
+        return aLen - bLen;
+    }
+
     // --- stream ---------------------------------------------------------------------------------
 
     @BmcModelConforms("@BmcProof (proofs.arrays): stream(int[]) -> IntStream")
@@ -984,6 +1564,45 @@ public class Arrays {
     @BmcModelConforms("@BmcProof (proofs.arrays): stream(T[]) -> Stream")
     public static <T> Stream<T> stream(T[] array) {
         return Stream.of(array);
+    }
+
+    // --- stream (range) -------------------------------------------------------------------------
+    // Streams array[startInclusive, endExclusive). The JDK validates via Objects.checkFromToIndex,
+    // which throws ArrayIndexOutOfBoundsException (NOT IllegalArgumentException) on start>end as well
+    // as on start<0 / end>length. Implemented as the bounded copy fed to the full-array stream.
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): stream(int[], int, int) -> IntStream (ranged)")
+    public static IntStream stream(int[] array, int startInclusive, int endExclusive) {
+        streamRangeCheck(array.length, startInclusive, endExclusive);
+        int len = endExclusive - startInclusive;
+        int[] sub = new int[len];
+        for (int i = 0; i < len; i++) {
+            sub[i] = array[startInclusive + i];
+        }
+        return IntStream.of(sub);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): stream(long[], int, int) -> LongStream (ranged)")
+    public static LongStream stream(long[] array, int startInclusive, int endExclusive) {
+        streamRangeCheck(array.length, startInclusive, endExclusive);
+        int len = endExclusive - startInclusive;
+        long[] sub = new long[len];
+        for (int i = 0; i < len; i++) {
+            sub[i] = array[startInclusive + i];
+        }
+        return LongStream.of(sub);
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): stream(T[], int, int) -> Stream (ranged)")
+    public static <T> Stream<T> stream(T[] array, int startInclusive, int endExclusive) {
+        streamRangeCheck(array.length, startInclusive, endExclusive);
+        int len = endExclusive - startInclusive;
+        @SuppressWarnings("unchecked")
+        T[] sub = (T[]) new Object[len];
+        for (int i = 0; i < len; i++) {
+            sub[i] = array[startInclusive + i];
+        }
+        return Stream.of(sub);
     }
 
     // --- setAll ---------------------------------------------------------------------------------
@@ -1009,6 +1628,138 @@ public class Arrays {
         }
     }
 
+    // --- parallelSetAll (= setAll, sequential semantics) ----------------------------------------
+    // The JDK specifies parallelSetAll as observably identical to setAll (each element set to
+    // generator.apply(i), i independent). Modeled as the sequential setAll — BMC has no wall-clock
+    // parallelism, so running on one thread is sound (the CompletableFuture/atomics precedent).
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): parallelSetAll(int[], IntUnaryOperator) (= setAll)")
+    public static void parallelSetAll(int[] array, IntUnaryOperator generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsInt(i);
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): parallelSetAll(long[], IntToLongFunction) (= setAll)")
+    public static void parallelSetAll(long[] array, IntToLongFunction generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsLong(i);
+        }
+    }
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): parallelSetAll(Object[], IntFunction) (= setAll)")
+    public static <T> void parallelSetAll(T[] array, IntFunction<? extends T> generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.apply(i);
+        }
+    }
+
+    // --- parallelSort (= sort, sequential semantics) --------------------------------------------
+    // The JDK specifies parallelSort to leave the array in the same sorted order as sort; only the
+    // work distribution differs. Modeled as the sequential insertion sort (full-array and ranged),
+    // same single-thread-equivalence precedent as parallelSetAll above.
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): parallelSort(int[]) (= sort)")
+    public static void parallelSort(int[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("differential: parallelSort(long[]) (= sort)")
+    public static void parallelSort(long[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("differential: parallelSort(byte[]) (= sort)")
+    public static void parallelSort(byte[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("differential: parallelSort(char[]) (= sort)")
+    public static void parallelSort(char[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("differential: parallelSort(short[]) (= sort)")
+    public static void parallelSort(short[] a) {
+        sort(a);
+    }
+
+    @BmcModelConforms("differential: parallelSort(int[], int, int) (= sort, ranged)")
+    public static void parallelSort(int[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("differential: parallelSort(long[], int, int) (= sort, ranged)")
+    public static void parallelSort(long[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("differential: parallelSort(byte[], int, int) (= sort, ranged)")
+    public static void parallelSort(byte[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("differential: parallelSort(char[], int, int) (= sort, ranged)")
+    public static void parallelSort(char[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    @BmcModelConforms("differential: parallelSort(short[], int, int) (= sort, ranged)")
+    public static void parallelSort(short[] a, int fromIndex, int toIndex) {
+        sort(a, fromIndex, toIndex);
+    }
+
+    // --- parallelPrefix (cumulative fold, sequential semantics) ---------------------------------
+    // The JDK specifies a[i] = op(a[i-1], a[i]) accumulated left-to-right (an inclusive scan); the
+    // result is independent of how the work is split. Modeled as the obvious sequential scan, both
+    // full-array and ranged. A non-associative op gives an unspecified result in the JDK too, so a
+    // BMC proof should use an associative op (e.g. +).
+
+    @BmcModelConforms("@BmcProof (proofs.arrays): parallelPrefix(int[], IntBinaryOperator) (cumulative fold)")
+    public static void parallelPrefix(int[] array, IntBinaryOperator op) {
+        for (int i = 1; i < array.length; i++) {
+            array[i] = op.applyAsInt(array[i - 1], array[i]);
+        }
+    }
+
+    @BmcModelConforms("differential: parallelPrefix(long[], LongBinaryOperator) (cumulative fold)")
+    public static void parallelPrefix(long[] array, LongBinaryOperator op) {
+        for (int i = 1; i < array.length; i++) {
+            array[i] = op.applyAsLong(array[i - 1], array[i]);
+        }
+    }
+
+    @BmcModelConforms("differential: parallelPrefix(Object[], BinaryOperator) (cumulative fold)")
+    public static <T> void parallelPrefix(T[] array, BinaryOperator<T> op) {
+        for (int i = 1; i < array.length; i++) {
+            array[i] = op.apply(array[i - 1], array[i]);
+        }
+    }
+
+    @BmcModelConforms("differential: parallelPrefix(int[], int, int, IntBinaryOperator) (cumulative fold, ranged)")
+    public static void parallelPrefix(int[] array, int fromIndex, int toIndex, IntBinaryOperator op) {
+        rangeCheck(array.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            array[i] = op.applyAsInt(array[i - 1], array[i]);
+        }
+    }
+
+    @BmcModelConforms("differential: parallelPrefix(long[], int, int, LongBinaryOperator) (cumulative fold, ranged)")
+    public static void parallelPrefix(long[] array, int fromIndex, int toIndex, LongBinaryOperator op) {
+        rangeCheck(array.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            array[i] = op.applyAsLong(array[i - 1], array[i]);
+        }
+    }
+
+    @BmcModelConforms("differential: parallelPrefix(Object[], int, int, BinaryOperator) (cumulative fold, ranged)")
+    public static <T> void parallelPrefix(T[] array, int fromIndex, int toIndex, BinaryOperator<T> op) {
+        rangeCheck(array.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            array[i] = op.apply(array[i - 1], array[i]);
+        }
+    }
+
     // --- shared range check (mirrors java.util.Arrays.rangeCheck) --------------------------------
 
     private static void rangeCheck(int arrayLength, int fromIndex, int toIndex) {
@@ -1020,6 +1771,21 @@ public class Arrays {
         }
         if (toIndex > arrayLength) {
             throw new ArrayIndexOutOfBoundsException(toIndex);
+        }
+    }
+
+    // The ranged stream overloads validate via Objects.checkFromToIndex, which (unlike rangeCheck)
+    // throws ArrayIndexOutOfBoundsException — not IllegalArgumentException — when start > end.
+    private static void streamRangeCheck(int arrayLength, int startInclusive, int endExclusive) {
+        if (startInclusive > endExclusive) {
+            throw new ArrayIndexOutOfBoundsException(
+                "origin(" + startInclusive + ") > fence(" + endExclusive + ")");
+        }
+        if (startInclusive < 0) {
+            throw new ArrayIndexOutOfBoundsException(startInclusive);
+        }
+        if (endExclusive > arrayLength) {
+            throw new ArrayIndexOutOfBoundsException(endExclusive);
         }
     }
 }
