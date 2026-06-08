@@ -41,14 +41,66 @@ bmc {
     // Opt-in concurrency cap (-PbmcParallelism=N): string-heavy proofs can eat all machine
     // memory at the default per-core fan-out; cap the jbmc pool when running these locally.
     providers.gradleProperty("bmcParallelism").orNull?.let { parallelism.set(it.toInt()) }
-    // Deliberately out-of-scope packages: bmc4j models no java.sql / javax.swing surface, and the
-    // soundness probe (proofs.audit.OutOfScopePackageProbe) reaches a java.sql class to PIN that a
-    // declared-package reach still surfaces as a LOUD member-named out-of-scope (declared) UNKNOWN —
-    // never a silent nondet stub, never a false VERIFIED. Recursive glob: java.sql.* covers subpackages.
+    // Deliberately out-of-scope packages — the soundness-bounded areas bmc4j has decided NOT to model.
+    // This is the package-grain encoding of policy ALREADY documented in docs/coverage.md (the 🚫/❌
+    // rows), not new policy. Declaring them makes the package-grain completeness ratchet
+    // (proofs.audit.PackageCompletenessRatchetTest) and the per-proof out-of-scope demotion MEANINGFUL:
+    // every class the proof cone reaches must now be either MODELED or matched by one of these globs,
+    // else a reach surfaces as a LOUD, member-named out-of-scope (declared) UNKNOWN (never a silent
+    // nondet stub, never a false VERIFIED) — and the registry still WINS (a modeled class inside a
+    // declared package stays modeled; the waiver only ever consumes harvested stubs). Recursive glob.
+    //
+    // Lives PER-MODULE here, not as a plugin-baked portfolio default. A shared default is technically
+    // expressible as a `notModeledPackagesSpec.globs.convention(...)` in BmcPlugin, but it does NOT
+    // compose cleanly: Gradle's ListProperty.add() (what the `+"…"` DSL calls) DISCARDS a convention the
+    // moment a consumer declares its first own glob — so a real game that adds one package would
+    // silently LOSE every inherited JDK default. For a soundness tool that is an unacceptable footgun
+    // (a dropped default = a reach that should be loud-out-of-scope silently demoting wrong), so the
+    // plugin keeps seeding no notModeledPackages convention. This module owns bmc4j's completeness
+    // ratchet and is the authoritative "what our proof suite reaches" surface, so the list belongs here.
+    // (examples/integrations also has a bmc{} block but its proofs reach NONE of these packages and it
+    // is not a green gate — a waiver there would be inert, so it is intentionally not duplicated.)
     notModeledPackages {
-        +"java.sql.*"
-        +"javax.swing.*"
+        // GUI / desktop — external world, like the java.io/nio/net row below: no in-scope reason for a
+        // BMC proof to drive a UI toolkit, and no model exists.
+        +"javax.swing.*"           // GUI/desktop toolkit — external world (no model)
+        +"java.awt.*"              // GUI/desktop toolkit — external world (no model)
+        // IO / external world — coverage.md 🚫 "java.io / java.nio / java.net: external world
+        // (files/sockets) — outside what BMC can reason about". Scoped PRECISELY: java.nio.file.* (the
+        // filesystem subpackage) and java.net.* are waived; bare java.io.* is deliberately OMITTED
+        // because java.io.IOException and friends are reached incidentally across the runtime/JDK and a
+        // broad waiver there could mis-demote an incidental reach — the precise filesystem/socket
+        // subpackages carry the same external-world policy without that blast radius.
+        +"java.nio.file.*"         // coverage.md 🚫: java.nio filesystem — external world
+        +"java.net.*"             // coverage.md 🚫: java.net sockets — external world
+        // Persistence — JDBC/DataSource are external-world I/O (live DB connections), the same class of
+        // thing as the io/net row; no model exists.
+        +"java.sql.*"              // persistence: external DB connections (external-world I/O)
+        +"javax.sql.*"             // persistence: DataSource/rowset — external DB connections
+        // Regex engine — coverage.md 🚫 "java.util.regex Pattern/Matcher … regex engines are
+        // mature/well-proven and rarely the code under proof; faithful BMC modeling is large/low-value".
+        +"java.util.regex.*"       // coverage.md 🚫: Pattern/Matcher — deliberately not modeled
+        // Zones / text formatting & parsing — coverage.md ❌ "ZonedDateTime/formatters/zones: need the
+        // IANA tz DB / text parsing — out of scope for a bounded model". DELIBERATELY scoped to the
+        // .zone / .format subpackages and EXCLUDES java.time.chrono.* / java.time.temporal.*: the
+        // LocalDate/LocalDateTime/Period models IMPLEMENT those interfaces (ChronoLocalDate/…/Temporal)
+        // — the #150 interface-cast fix — so those interface types are load-bearing and must NOT be
+        // declared out of scope (registry-wins protects the concrete classes, but not the iface types).
+        +"java.time.zone.*"        // coverage.md ❌: zones need the IANA tz DB — out of scope
+        +"java.time.format.*"      // coverage.md ❌: formatters need text parsing — out of scope
     }
+    // DELIBERATELY NOT declared (waiving these would be wrong / unsound):
+    //  - java.time.chrono.* / java.time.temporal.* — the time models implement these interfaces (above).
+    //  - java.util.concurrent (wholesale) — it ALSO holds MODELED classes (Atomic*/CompletableFuture/
+    //    ConcurrentHashMap/CountDownLatch/Semaphore/blocking queues/executors; coverage.md ✅). Only the
+    //    Phaser/CyclicBarrier multi-party-barrier surface is 🚫, not the package. Registry-wins would
+    //    protect the modeled classes, but a package-wide j.u.c waiver is bad hygiene — leave j.u.c
+    //    partial so a reach into an unmodeled j.u.c member stays a loud per-member UNKNOWN.
+    //  - java.lang.reflect.* / java.lang.invoke.* — NO coverage.md "won't do" row, and the desugar layer
+    //    already handles indy soundly (lambda/indy bootstraps rewritten away; residual indy redirected to
+    //    org.bmc4j.analysis, not left as a java.lang.invoke reach). Declaring either would invent policy
+    //    the docs don't carry — and could shadow the reflection types the link-failure/stub detection
+    //    references. Left non-waived.
 }
 
 // Opt-in benchmarking escape hatch (no-op unless -PsatPath is passed): route the proofs at an
