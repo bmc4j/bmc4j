@@ -814,30 +814,22 @@ Real surface: 4 members — modeled 4, not-modeled 0, not-needed 0, tail 0.
 
 ## `java.util.concurrent.Executors`
 
-Real surface: 24 members — modeled 6, not-modeled 0, not-needed 0, tail 18.
+Real surface: 24 members — modeled 18, not-modeled 6, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `newCachedThreadPool()`, `newFixedThreadPool(int)`, `newSingleThreadExecutor()`, `newVirtualThreadPerTaskExecutor()`, `newWorkStealingPool()`, `newWorkStealingPool(int)`
+**Modeled** (`@BmcModelConforms`): `callable(Runnable)`, `callable(Runnable, Object)`, `newCachedThreadPool()`, `newCachedThreadPool(ThreadFactory)`, `newFixedThreadPool(int)`, `newFixedThreadPool(int, ThreadFactory)`, `newScheduledThreadPool(int)`, `newScheduledThreadPool(int, ThreadFactory)`, `newSingleThreadExecutor()`, `newSingleThreadExecutor(ThreadFactory)`, `newSingleThreadScheduledExecutor()`, `newSingleThreadScheduledExecutor(ThreadFactory)`, `newThreadPerTaskExecutor(ThreadFactory)`, `newVirtualThreadPerTaskExecutor()`, `newWorkStealingPool()`, `newWorkStealingPool(int)`, `unconfigurableExecutorService(ExecutorService)`, `unconfigurableScheduledExecutorService(ScheduledExecutorService)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): ThreadFactory overloads, scheduled pools (newScheduledThreadPool/newSingleThreadScheduledExecutor), callable/privileged factories, defaultThreadFactory/privilegedThreadFactory, unconfigurable wrappers, newThreadPerTaskExecutor — all route conceptually to the same immediate model but aren't separately modeled; loud under JBMC</summary>
+| Not modeled (cannot) | Reason |
+|---|---|
+| `callable(PrivilegedAction)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
+| `callable(PrivilegedExceptionAction)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
+| `defaultThreadFactory()` | manufactures real java.lang.Thread instances — thread creation has no sequential meaning (the immediate model never spawns a worker) |
+| `privilegedCallable(Callable)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
+| `privilegedCallableUsingCurrentClassLoader(Callable)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
+| `privilegedThreadFactory()` | manufactures real java.lang.Thread instances under a privileged context — thread creation has no sequential meaning |
 
-- `callable(PrivilegedAction)`
-- `callable(PrivilegedExceptionAction)`
-- `callable(Runnable)`
-- `callable(Runnable, Object)`
-- `defaultThreadFactory()`
-- `newCachedThreadPool(ThreadFactory)`
-- `newFixedThreadPool(int, ThreadFactory)`
-- `newScheduledThreadPool(int)`
-- `newScheduledThreadPool(int, ThreadFactory)`
-- `newSingleThreadExecutor(ThreadFactory)`
-- `newSingleThreadScheduledExecutor()`
-- `newSingleThreadScheduledExecutor(ThreadFactory)`
-- `newThreadPerTaskExecutor(ThreadFactory)`
-- `privilegedCallable(Callable)`
-- `privilegedCallableUsingCurrentClassLoader(Callable)`
-- `privilegedThreadFactory()`
-- `unconfigurableExecutorService(ExecutorService)`
-- `unconfigurableScheduledExecutorService(ScheduledExecutorService)`
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the Thread-manufacturing factories (defaultThreadFactory/privilegedThreadFactory) and the java.security privileged adapters (privilegedCallable*, callable(PrivilegedAction)/callable(PrivilegedExceptionAction)) only make sense with real threads / a security context — no sequential meaning; loud under JBMC</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
