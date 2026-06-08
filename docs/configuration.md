@@ -7,7 +7,6 @@ bmc {
     timeoutSeconds = 120              // default per-proof budget (default: 0 = no timeout)
     cache = true                      // skip re-verifying unchanged green proofs (default: true)
     // jbmcPath = "/opt/cbmc/bin/jbmc" // use a local binary instead of the bundled engine
-    // External SAT is NOT a bmc {} property — pass -Dbmc.externalSat=/path/to/cryptominisat (see Solver)
 
     // Nondet-stub detection (default: lenient — green + footnote)
     allowStubs = ["java.util.Formatter.*"] // acknowledge known-sound stubs build-wide (silences them)
@@ -38,16 +37,10 @@ custom build, or a binary placed on an air-gapped machine.
 
 ## Solver
 
-Proofs run on JBMC's built-in SAT solver (MiniSat). There is **no in-engine solver
-swap** — JBMC's SMT path is inert on this engine — so the one supported alternative is
-handing the bit-blasted CNF to an **external SAT solver binary** (e.g. CryptoMiniSat),
-which bypasses string refinement, so it's for **string-free** numeric/boolean proofs only.
-It's a **system property, not a `bmc {}` field**: pass
-`-Dbmc.externalSat=/path/to/cryptominisat` (the `model-conformance-proofs` module also
-exposes a `-PsatPath=…` Gradle hatch that forwards to it). Worth trying for heavy,
-multiplier/divider-bound, string-free numeric proofs; for
-everything else the bigger lever is shrinking the symbolic range (`anyInt(lo, hi)` over
-`anyInt()`), [splitting the domain](performance.md#4-domain-splitting--for-interval-bound-blow-ups-and-memory),
+Proofs run on JBMC's built-in SAT solver (MiniSat). There is **no consumer-facing solver
+swap** today — JBMC's SMT path is inert on this engine. When a proof's solve time blows up,
+the levers are shrinking the symbolic range (`anyInt(lo, hi)` over `anyInt()`),
+[splitting the domain](performance.md#4-domain-splitting--for-interval-bound-blow-ups-and-memory),
 or summarizing the heavy callee with a [contract](contracts.md). See
 [performance → the toolbox](performance.md#the-toolbox--which-lever-for-which-blow-up).
 

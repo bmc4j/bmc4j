@@ -37,7 +37,6 @@ long-string blow-up seen from the RAM side, and the toolbox has levers for that 
 | Throughput (many proofs) **and** peak memory | **parallelism** (capped) | `bmc { parallelism = N }` |
 | Whole-suite wall-clock | **sharding** | `-Dbmc.shard.count` / `-Dbmc.shard.index` per worker |
 | A wide symbolic **interval** (one slow proof) | **domain splitting** | `Bmc.domainSplit` / `Bmc.slice` |
-| A **multiplier / divider** circuit | **external SAT** | `-Dbmc.externalSat=<path>` |
 | **Recursion / unbounded depth** | **contracts** | `@Requires`/`@Ensures` |
 | (Always available) tighten symbolic inputs | **range reduction** | `anyInt(lo, hi)`, `anyAsciiString(n)` |
 
@@ -134,24 +133,7 @@ restored**, making the proof *strictly stronger* than the reduced one. The lever
 *interval size*, not operand bit-width (equal-width bands solve in the same time at any
 magnitude), so a plain contiguous sub-range split is the right shape.
 
-### 5. External SAT — *for multiplier / divider circuits*
-
-**What it does.** Routes the bit-blasted CNF to an external DIMACS solver (e.g.
-**CryptoMiniSat**) instead of jbmc's built-in MiniSAT 2.2.1. This is the *one* solver swap
-that works on jbmc: it **bypasses string refinement**, so it is for **string-free numeric /
-boolean proofs only** (jbmc's `--smt2`/`--z3` path is inert — it crashes converting Java string
-types to SMT2, so SMT solvers are not an option here).
-
-**Blow-up it addresses.** Bit-vector-heavy **multiplier / divider** circuits, where a modern
-CNF solver beats jbmc's built-in MiniSAT.
-
-**Turn it on.** `-Dbmc.externalSat=/path/to/cryptominisat` (a system property read by the
-engine). The `model-conformance-proofs` module wires a Gradle hatch for it:
-`-PsatPath=/path/to/cryptominisat`. (There is no `bmc { externalSat = … }` DSL property — the
-toggle is the system property.) Range reduction usually beats it, so reach for it on a
-genuinely divider-bound, string-free proof.
-
-### 6. Contracts — *for recursion / unbounded depth*
+### 5. Contracts — *for recursion / unbounded depth*
 
 **What it does.** `@Requires`/`@Ensures` method contracts (declared in your tests via
 `@BmcContractsFor`) make proofs **modular**: prove a method's postcondition *once*, then let
@@ -194,9 +176,6 @@ and a split is the upgrade when the wide range genuinely matters.
 The point of a toolbox is that you stack levers, because they hit *different* parts of the
 blow-up:
 
-- **Split × external SAT** — a domain split shrinks each slice's interval; external SAT then
-  solves each (string-free, multiplier-heavy) slice faster. The two attack different axes
-  (interval size vs. CNF-solver speed), so on the right proof they beat either alone.
 - **Sharding × caching** — sharding splits the suite across workers; the content-keyed cache
   makes the shards' results mergeable, so the union is sound and each shard starts warm.
 - **Parallelism × domainSplit** — the same concurrency budget bounds both normal proofs and a
@@ -222,8 +201,7 @@ memory, they don't conjure it.
 ## Rules of thumb
 
 - A proof that needs **> ~60s**: try range reduction first (or domainSplit to keep the wide
-  range), then a contract for a heavy callee, then external SAT if it's divider-bound and
-  string-free.
+  range), then a contract for a heavy callee.
 - Set a **`timeoutSeconds`** budget so a SAT-pathological proof fails as a named **UNKNOWN** in
   bounded time instead of hanging the build (CI runs `-Dbmc.timeoutSeconds=300`). UNKNOWN is the
   tool saying "tune this proof", never "your code is broken" — see
