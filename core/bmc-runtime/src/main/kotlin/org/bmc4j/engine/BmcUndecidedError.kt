@@ -20,7 +20,12 @@ open class BmcUndecidedError @JvmOverloads constructor(
          *  genuine undecided verdict (timeout / solver gave up). An infrastructure UNKNOWN does NOT
          *  satisfy `@BmcProof(expect = UNKNOWN)` — a broken engine must never masquerade as an
          *  undecidability demo. */
-        private val engineInfrastructure: Boolean = false) : BmcVerificationError(message) {
+        private val engineInfrastructure: Boolean = false,
+        /** The TYPED cause of this UNKNOWN (null only for legacy/unclassified framings). Surfaced in
+         *  the test-failure message and the proof-results comment so an undecided proof is
+         *  classifiable. Does NOT itself drive retry at this layer — the engine-level retry keys off
+         *  [JbmcResult.undecidedKind]; here the kind is telemetry/diagnosis. */
+        val kind: UnknownKind? = null) : BmcVerificationError(message) {
 
     fun isEngineInfrastructure(): Boolean = engineInfrastructure
 }

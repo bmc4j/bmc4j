@@ -18,4 +18,9 @@ package org.bmc4j.engine
  * catch/reporting that handles any bmc failure keeps working; the runner's type check is what makes
  * it un-swallowable.
  */
-class ContractPurityError(message: String) : BmcVerificationError(message)
+class ContractPurityError(message: String) : BmcVerificationError(message) {
+    /** The typed kind of this disqualification, for the proof-results comment / summary telemetry. It
+     *  is NOT a retryable UNKNOWN verdict — a purity rejection fails the build unconditionally — but it
+     *  is classified so a CI tally can fingerprint it like any other undecided outcome. */
+    val kind: UnknownKind get() = UnknownKind.PURITY_AUDIT
+}

@@ -422,7 +422,8 @@ internal class BmcProofExtensionTest {
                 org.bmc4j.engine.JbmcResult(true, listOf(), "{}")))
         assertEquals(org.bmc4j.Verdict.REFUTED, BmcProofExtension.actualVerdict(refutedResult()))
         assertEquals(org.bmc4j.Verdict.UNKNOWN, BmcProofExtension.actualVerdict(
-                org.bmc4j.engine.JbmcResult.unknown("timed out after 1s", "{}")))
+                org.bmc4j.engine.JbmcResult.unknown(
+                        org.bmc4j.engine.UnknownKind.SOLVER_GAVE_UP, "the solver returned undecided", "{}")))
         // Vacuity is carried as a flavour of REFUTED internally but is its own expectation.
         val vacuous = org.bmc4j.engine.JbmcResult(false, listOf(), "{}", true)
         assertEquals(org.bmc4j.Verdict.VACUOUS, BmcProofExtension.actualVerdict(vacuous))
@@ -503,7 +504,8 @@ internal class BmcProofExtensionTest {
         assertEquals(org.bmc4j.Verdict.TIMEOUT, BmcProofExtension.actualVerdict(
                 org.bmc4j.engine.JbmcResult.unknownTimeout("timed out after 1s", "{}")))
         assertEquals(org.bmc4j.Verdict.UNKNOWN, BmcProofExtension.actualVerdict(
-                org.bmc4j.engine.JbmcResult.unknown("engine exited 6", "{}")))
+                org.bmc4j.engine.JbmcResult.unknown(
+                        org.bmc4j.engine.UnknownKind.ENGINE_CRASH, "engine exited 6", "{}")))
     }
 
     @Test

@@ -23,7 +23,11 @@ object JbmcOutputParser {
         } catch (e: RuntimeException) {
             // Unparseable engine output: we can neither verify nor refute, so the verdict
             // is UNKNOWN (undecided), not a silent pass. Fails the test with the undecided framing.
-            return JbmcResult.unknown("JBMC produced output bmc4j could not parse", json)
+            // The raw output is in hand here, so fold a self-diagnosing tail into the reason:
+            // total length + an empty/truncated-JSON/garbage classification + a bounded tail, so the
+            // next occurrence classifies itself (pipe truncation vs engine stderr bleed vs OOM-kill
+            // mid-write) instead of reading only "could not parse".
+            return JbmcResult.unknownParse(parseFailureReason(json), json)
         }
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
@@ -96,7 +100,8 @@ object JbmcOutputParser {
                 return JbmcResult(false, violations, json)
             }
             if (unwindingFailures > 0) {
-                return JbmcResult.unknown(unwindingReason(unwindingFailures), json)
+                return JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION,
+                        unwindingReason(unwindingFailures), json)
             }
             if (markersFailed == 0) {
                 return JbmcResult(false, listOf(vacuityViolation()), json, true)
@@ -113,11 +118,53 @@ object JbmcOutputParser {
             return JbmcResult(false, violations, json)
         }
         if (unwindingFailures > 0) {
-            return JbmcResult.unknown(unwindingReason(unwindingFailures), json)
+            return JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION,
+                    unwindingReason(unwindingFailures), json)
         }
-        return JbmcResult.unknown(
+        // The engine produced output, but the injected reachability markers are absent, so no
+        // trustworthy verdict signal could be extracted (vacuity could not be checked). Deterministic,
+        // so not retryable — classified SOLVER_GAVE_UP (engine returned an undecidable result).
+        return JbmcResult.unknown(UnknownKind.SOLVER_GAVE_UP,
                 "reachability markers missing — vacuity could not be checked", json)
     }
+
+    /**
+     * Build the self-diagnosing reason for a PARSE_FAILURE: the engine exited with a verdict
+     * code but its `--json-ui` stdout didn't parse into the expected JSON array. The raw output is in
+     * hand, so we classify it (empty / truncated-JSON / non-JSON garbage), report its total length,
+     * and append a bounded tail (last [PARSE_TAIL_MAX] chars) — enough to tell pipe truncation from an
+     * engine stderr bleed from an OOM-kill mid-write on the next occurrence, without bloating the
+     * message with the whole output.
+     */
+    internal fun parseFailureReason(raw: String?): String = buildString {
+        append("JBMC produced output bmc4j could not parse")
+        val text = raw ?: ""
+        val len = text.length
+        val trimmed = text.trim()
+        val classification = when {
+            trimmed.isEmpty() -> "empty (no stdout captured — engine wrote nothing, or it was killed " +
+                    "before the first byte)"
+            (trimmed.startsWith("[") || trimmed.startsWith("{"))
+                    && !(trimmed.endsWith("]") || trimmed.endsWith("}")) ->
+                "truncated JSON (starts like the --json-ui array/object but is cut off — pipe " +
+                        "truncation or an OOM-kill mid-write)"
+            trimmed.startsWith("[") || trimmed.startsWith("{") ->
+                "malformed JSON (delimited like the --json-ui array/object but not well-formed — " +
+                        "likely interleaved engine stderr bleed)"
+            else -> "non-JSON garbage (does not begin like the --json-ui array/object — engine " +
+                    "stderr on stdout, or a wrapper banner)"
+        }
+        append("; classification: ").append(classification)
+        append("; total length: ").append(len).append(" chars")
+        if (len > 0) {
+            val tail = if (len > PARSE_TAIL_MAX) text.substring(len - PARSE_TAIL_MAX) else text
+            append("; last ").append(tail.length).append(" chars: ")
+                    .append(tail.replace('\n', ' ').replace('\r', ' ').trim())
+        }
+    }
+
+    /** Bytes of the raw output's tail folded into a PARSE_FAILURE reason (the self-diagnosis). */
+    private const val PARSE_TAIL_MAX = 500
 
     /**
      * True if a FAILURE property is an `--unwinding-assertions` firing rather than a user

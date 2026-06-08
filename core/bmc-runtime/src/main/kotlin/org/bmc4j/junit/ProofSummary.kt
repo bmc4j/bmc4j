@@ -1,6 +1,7 @@
 package org.bmc4j.junit
 
 import org.bmc4j.Verdict
+import org.bmc4j.engine.UnknownKind
 import java.io.File
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -33,10 +34,12 @@ import java.util.UUID
  * The schema (stable; the CI parser depends on these keys):
  * ```json
  * {"proof":"pkg.Cls.method","cls":"pkg.Cls","expected":"VERIFIED","verdict":"REFUTED",
- *  "cached":false,"ok":false,"ms":1234,"detail":"score = 100 (Foo.java:42)"}
+ *  "cached":false,"ok":false,"ms":1234,"detail":"score = 100 (Foo.java:42)","kind":"PARSE_FAILURE"}
  * ```
  * `cls` lets the aggregator count DISCOVERED proofs per class for the shard-union "expected" total
- * (so a lost shard is visible as a discovered-but-absent gap). `detail` is empty on a pass.
+ * (so a lost shard is visible as a discovered-but-absent gap). `detail` is empty on a pass. `kind` is
+ * the typed [UnknownKind] when the proof resolved/demoted to UNKNOWN (else absent), so the CI comment
+ * can classify undecided rows and tally the flake fingerprint across a suite run.
  */
 internal object ProofSummary {
 
@@ -63,8 +66,10 @@ internal object ProofSummary {
      * counterexample / undecided reason on a failure (empty/blank on a pass); it is collapsed to a
      * single line and truncated.
      */
+    @JvmOverloads
     fun record(proof: String, declaringClass: String, expected: Verdict, verdict: Verdict,
-               cached: Boolean, ok: Boolean, elapsedMs: Long, detail: String?) {
+               cached: Boolean, ok: Boolean, elapsedMs: Long, detail: String?,
+               kind: UnknownKind? = null) {
         if (!enabled) {
             return
         }
@@ -79,6 +84,10 @@ internal object ProofSummary {
             sb.append("\"ok\":").append(ok).append(',')
             sb.append("\"ms\":").append(if (elapsedMs < 0) 0 else elapsedMs).append(',')
             field(sb, "detail", clip(detail))
+            if (kind != null) {
+                sb.append(',')
+                field(sb, "kind", kind.name)
+            }
             sb.append("}\n")
             append(sb.toString())
         } catch (_: Throwable) {

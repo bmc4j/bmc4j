@@ -1,5 +1,6 @@
 package org.bmc4j.engine
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -91,6 +92,62 @@ internal class JbmcExecTimeoutTest {
         // Exit 0 but garbage on stdout (not the json-ui array): the parser yields UNKNOWN.
         val r = Jbmc.exec(buildPrintThenExitCommand("not-json-at-all", 0), "pkg.T.proof", 0)
         assertTrue(r.isUnknown, "unparseable stdout must map to UNKNOWN, got " + r.verdict)
+        assertEquals(UnknownKind.PARSE_FAILURE, r.undecidedKind, "unparseable -> PARSE_FAILURE")
+    }
+
+    // --- retryable-drives-retry (the generalized in-process retry) -------------------------------
+
+    @Test
+    fun a_retryable_PARSE_FAILURE_retries_once_then_stays_UNKNOWN_persisted() {
+        // Exit 0 with garbage on stdout = PARSE_FAILURE, which is RETRYABLE. The deterministic garbage
+        // reproduces on the retry, so exec runs the engine exactly twice and the result STAYS UNKNOWN
+        // (never masked to a pass), annotated as persisted across the retry.
+        val before = Jbmc.invocationCount()
+        val r = Jbmc.exec(buildPrintThenExitCommand("not-json-at-all", 0), "pkg.T.proof", 0)
+        assertEquals(2L, Jbmc.invocationCount() - before,
+                "a retryable UNKNOWN must re-run the engine exactly once (2 launches)")
+        assertTrue(r.isUnknown, "a recurring retryable kind STAYS UNKNOWN")
+        assertEquals(UnknownKind.PARSE_FAILURE, r.undecidedKind)
+        assertTrue(r.undecidedReason!!.contains("persisted across a retry"), r.undecidedReason)
+        assertFalse(r.isVerified, "soundness: a persisted retryable UNKNOWN is NEVER promoted to VERIFIED")
+    }
+
+    @Test
+    fun a_non_retryable_UNKNOWN_does_not_retry() {
+        // A run with no reachability markers parses fine but yields SOLVER_GAVE_UP (markers missing),
+        // which is NOT retryable: exec must NOT re-run it. One launch only.
+        val markerless = "[{\\\"result\\\":[{\\\"property\\\":\\\"pkg.T.p.a\\\",\\\"status\\\":\\\"SUCCESS\\\"}]}]"
+        val before = Jbmc.invocationCount()
+        val r = Jbmc.exec(buildPrintThenExitCommand(markerless, 0), "pkg.T.proof", 0)
+        assertTrue(r.isUnknown)
+        assertEquals(UnknownKind.SOLVER_GAVE_UP, r.undecidedKind, "markers missing -> SOLVER_GAVE_UP")
+        assertEquals(1L, Jbmc.invocationCount() - before,
+                "a non-retryable UNKNOWN must NOT retry (1 launch)")
+    }
+
+    @Test
+    fun a_retryable_UNKNOWN_that_recovers_a_real_verdict_keeps_the_better_outcome() {
+        // First launch exits 134 (ENGINE_CRASH, retryable); the retry — keyed on a marker file —
+        // exits 0 with a clean VERIFIED --json-ui array. exec must keep the RETRY's real verdict, not
+        // the crash. (Proof that "keep the better verdict" promotes a recovered pass.)
+        val state = File.createTempFile("bmc4j-retry-recover", ".marker")
+        assertTrue(state.delete(), "start without the marker")
+        state.deleteOnExit()
+        val path = state.absolutePath.replace("\\", "\\\\")
+        // A minimal --json-ui array with one reachable reachability marker -> VERIFIED.
+        val markerLine = BmcReachability.SENTINEL_LINE
+        val verifiedJson = ("[{\\\"result\\\":[{\\\"sourceLocation\\\":{\\\"line\\\":\\\"" + markerLine +
+                "\\\"},\\\"status\\\":\\\"FAILURE\\\"}]}]")
+        val before = Jbmc.invocationCount()
+        val r = Jbmc.exec(javaSource(
+                "public class S { public static void main(String[] a) throws Exception {" +
+                        " java.io.File f = new java.io.File(\"" + path + "\");" +
+                        " if (f.createNewFile()) { System.exit(134); }" +
+                        " System.out.println(\"" + verifiedJson + "\"); System.exit(0); } }", "S"),
+                "pkg.T.proof", 0)
+        assertEquals(2L, Jbmc.invocationCount() - before, "one crash + one retry = 2 launches")
+        assertFalse(r.isUnknown, "the retry recovered a real verdict: " + r.undecidedReason)
+        assertTrue(r.isVerified, "the recovered VERIFIED is kept over the crash")
     }
 
     companion object {

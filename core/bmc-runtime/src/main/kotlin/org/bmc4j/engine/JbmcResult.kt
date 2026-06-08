@@ -20,15 +20,41 @@ class JbmcResult private constructor(
          * vacuity message ([BmcReachability.VACUOUS_MESSAGE]).
          */
         val isVacuous: Boolean,
-        /** Short cause of an UNKNOWN result (null otherwise). */
+        /**
+         * Short, human-readable cause of an UNKNOWN result; null on a non-UNKNOWN verdict. Guaranteed
+         * NON-BLANK whenever [verdict] is UNKNOWN (asserted at construction): there is no bare,
+         * reasonless UNKNOWN — every undecided result is self-diagnosing.
+         */
         @get:JvmName("undecidedReason") val undecidedReason: String?,
-        /** True if this UNKNOWN was caused by the per-proof wall-clock budget expiring. */
-        val isTimeout: Boolean,
-        /** True if this UNKNOWN was caused by a non-verdict engine exit (crash/abort), not a timeout. */
-        val isEngineCrash: Boolean,
+        /**
+         * The TYPED cause of an UNKNOWN result; null on a non-UNKNOWN verdict. Guaranteed non-null
+         * whenever [verdict] is UNKNOWN (asserted at construction). Its [UnknownKind.retryable] flag
+         * drives [Jbmc.exec]'s bounded one-extra-run retry, and the kind classifies the UNKNOWN in the
+         * test-failure message and the proof-results comment.
+         */
+        @get:JvmName("undecidedKind") val undecidedKind: UnknownKind?,
         stubbedMethods: List<String>?,
         unmodelledMembers: List<String>?,
         linkFailureStubs: List<String>?) {
+
+    init {
+        if (verdict == Verdict.UNKNOWN) {
+            require(!undecidedReason.isNullOrBlank()) {
+                "an UNKNOWN result must carry a non-empty undecidedReason (no bare UNKNOWN)"
+            }
+            require(undecidedKind != null) {
+                "an UNKNOWN result must carry an UnknownKind (no kindless UNKNOWN)"
+            }
+        }
+    }
+
+    /** True if this UNKNOWN was caused by the per-proof wall-clock budget expiring. */
+    @get:JvmName("isTimeout")
+    val isTimeout: Boolean get() = undecidedKind == UnknownKind.TIMEOUT
+
+    /** True if this UNKNOWN was caused by a non-verdict engine exit (crash/abort), not a timeout. */
+    @get:JvmName("isEngineCrash")
+    val isEngineCrash: Boolean get() = undecidedKind == UnknownKind.ENGINE_CRASH
 
     enum class Verdict {
         VERIFIED,
@@ -83,7 +109,7 @@ class JbmcResult private constructor(
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, false, false, emptyList(), emptyList(), emptyList())
+            null, null, emptyList(), emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -102,8 +128,8 @@ class JbmcResult private constructor(
         if (stubs.isNullOrEmpty()) {
             return this
         }
-        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubs, unmodelledMembers, linkFailureStubs)
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubs, unmodelledMembers, linkFailureStubs)
     }
 
     /**
@@ -115,8 +141,8 @@ class JbmcResult private constructor(
         if (members.isNullOrEmpty()) {
             return this
         }
-        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubbedMethods, members, linkFailureStubs)
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, members, linkFailureStubs)
     }
 
     /**
@@ -129,46 +155,56 @@ class JbmcResult private constructor(
         if (members.isNullOrEmpty()) {
             return this
         }
-        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, isTimeout,
-                isEngineCrash, stubbedMethods, unmodelledMembers, members)
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, unmodelledMembers, members)
     }
 
     companion object {
 
         /**
-         * An UNKNOWN result: the run was undecided within budget — JBMC neither verified nor
-         * refuted the proof. [reason] is a short human-readable cause (e.g. `"engine exited 6"`,
-         * unparseable output) folded into the failure message; [violations] is empty
-         * (there is no counterexample) and [isVerified] is `false`. For a wall-clock
-         * expiry use [unknownTimeout] instead, so the structured fact survives — the
-         * expected-verdict assertion distinguishes TIMEOUT from other unknowns.
+         * An UNKNOWN result of the given typed [kind]: the run was undecided — JBMC neither verified
+         * nor refuted the proof. [reason] is a short, non-empty human-readable cause folded into the
+         * failure message; [violations] is empty (there is no counterexample) and [isVerified] is
+         * `false`. The [kind] makes the UNKNOWN classifiable and its [UnknownKind.retryable] flag
+         * drives [Jbmc.exec]'s bounded retry. A null/blank [reason] is rejected at construction —
+         * there is no bare UNKNOWN. Prefer [unknownTimeout] / [unknownEngineCrash] / [unknownParse]
+         * at their dedicated sites.
          */
         @JvmStatic
-        fun unknown(reason: String?, rawOutput: String?): JbmcResult =
-                JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, false,
+        fun unknown(kind: UnknownKind, reason: String?, rawOutput: String?): JbmcResult =
+                JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, kind,
                         emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the
-         * engine process tree was force-killed). Structurally flagged — not inferred from the reason
-         * string — so `@BmcProof(expect = TIMEOUT)` can assert this exact outcome.
+         * engine process tree was force-killed) — [UnknownKind.TIMEOUT], not retryable (the budget is
+         * the budget). The typed kind — not an inferred reason string — is what `@BmcProof(expect =
+         * TIMEOUT)` asserts.
          */
         @JvmStatic
         fun unknownTimeout(reason: String?, rawOutput: String?): JbmcResult =
-                JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, true, false,
-                        emptyList(), emptyList(), emptyList())
+                unknown(UnknownKind.TIMEOUT, reason, rawOutput)
 
         /**
          * An UNKNOWN result caused by the engine process exiting with a non-verdict code (it crashed,
          * aborted on an internal invariant, or was OOM-killed — anything but the verified/violation
-         * exits). Structurally flagged — not inferred from the reason string — so [Jbmc.exec] can
-         * retry a crash exactly once: a crash is not a verdict, and jbmc 6.9.0 has rare
-         * nondeterministic internal aborts.
+         * exits) — [UnknownKind.ENGINE_CRASH], which is RETRYABLE: a crash is not a verdict, and jbmc
+         * 6.9.0 has rare nondeterministic internal aborts, so [Jbmc.exec] re-runs it once.
          */
         @JvmStatic
         fun unknownEngineCrash(reason: String?, rawOutput: String?): JbmcResult =
-                JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, false, true,
-                        emptyList(), emptyList(), emptyList())
+                unknown(UnknownKind.ENGINE_CRASH, reason, rawOutput)
+
+        /**
+         * An UNKNOWN result caused by the engine exiting with a VERDICT code but emitting
+         * `--json-ui` stdout bmc4j could not parse into a verdict — [UnknownKind.PARSE_FAILURE],
+         * which is RETRYABLE (truncated/interleaved output is nondeterministic in practice). The
+         * [reason] should already carry the bounded raw-output tail + length + empty/truncated/garbage
+         * classification this kind exists to self-diagnose.
+         */
+        @JvmStatic
+        fun unknownParse(reason: String?, rawOutput: String?): JbmcResult =
+                unknown(UnknownKind.PARSE_FAILURE, reason, rawOutput)
     }
 
     /** A single refuted property, with enough detail to build a stack trace. */
