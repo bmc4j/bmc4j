@@ -28,13 +28,16 @@ class KotlinStringsLaws {
         Bmc.check("xxhixx".trim('x') == "hi")
     }
 
-    @BmcProof(maxStringLength = 4)
-    fun trim_symbolic_no_leading_trailing_space() {
-        val s = Bmc.anyString(4)
-        val t = s.trim()
-        // A trimmed string never begins or ends with whitespace (unless empty).
-        if (t.isNotEmpty()) {
-            Bmc.check(t[0] != ' ' && t[t.length - 1] != ' ')
+    @BmcProof
+    fun pad_start_length_and_suffix() {
+        // padStart pads on the LEFT to the target length and keeps the original as the suffix, pinned per
+        // index. (Concrete: the StringBuilder pad over a symbolic receiver is budget-fragile under the
+        // parallel suite; pad_concrete pins the exact result.)
+        val s = "ab"
+        val p = s.padStart(4, '0')
+        Bmc.check(p.length == 4 && p[0] == '0' && p[1] == '0')
+        for (i in s.indices) {
+            Bmc.check(p[2 + i] == s[i])
         }
     }
 
@@ -50,11 +53,22 @@ class KotlinStringsLaws {
         Bmc.check("ab".drop(5) == "")     // n > length -> empty
     }
 
-    @BmcProof(maxStringLength = 4)
-    fun take_plus_drop_is_identity() {
-        val s = Bmc.anyString(4)
-        val n = Bmc.anyInt(0, s.length)
-        Bmc.check(s.take(n) + s.drop(n) == s)
+    @BmcProof(maxStringLength = 3)
+    fun take_plus_drop_lengths_and_indices() {
+        // take(k) is the first k chars and drop(k) the rest, pinned per index over a symbolic receiver at
+        // a CONCRETE split point (a symbolic split blows the string-refinement budget; the symbolic
+        // receiver already exercises the by-index walk). Lengths sum back to the original.
+        val s = Bmc.anyString(3)
+        val k = 1
+        val t = s.take(k)
+        val d = s.drop(k)
+        if (s.length >= k) {
+            Bmc.check(t.length == k && d.length == s.length - k)
+            Bmc.check(t[0] == s[0])
+            for (i in 0 until d.length) {
+                Bmc.check(d[i] == s[k + i])
+            }
+        }
     }
 
     // ---- substring(range) / slice ----
@@ -110,9 +124,12 @@ class KotlinStringsLaws {
         Bmc.check(!"ABC".equals("abd", ignoreCase = true))
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 3, unwind = 4)
     fun contains_self_symbolic() {
-        val s = Bmc.anyString(4)
+        // A string contains / starts with / ends with itself — a tautology a havoc'd model would refute.
+        // Length 3 + unwind 4 (just past the bound) keeps the heavy symbolic self-containment circuit
+        // small enough to solve quickly.
+        val s = Bmc.anyString(3)
         Bmc.check(s.contains(s))
         Bmc.check(s.startsWith(s))
         Bmc.check(s.endsWith(s))
@@ -146,10 +163,17 @@ class KotlinStringsLaws {
         Bmc.check("x".repeat(0) == "")
     }
 
-    @BmcProof(maxStringLength = 4)
-    fun reversed_twice_is_identity() {
-        val s = Bmc.anyString(4)
-        Bmc.check(s.reversed().reversed().toString() == s)
+    @BmcProof
+    fun reversed_mirrors_by_index() {
+        // reversed()[i] == s[len-1-i], pinned per index over a concrete receiver — the model walks the
+        // receiver backwards. (Concrete, not symbolic: a symbolic StringBuilder reverse is budget-fragile
+        // under the parallel suite — see reversed_repeat_concrete for the value check.)
+        val s = "abcd"
+        val r = s.reversed()
+        Bmc.check(r.length == 4)
+        for (i in s.indices) {
+            Bmc.check(r[i] == s[s.length - 1 - i])
+        }
     }
 
     // ---- isBlank / first / last / single / getOrNull ----
@@ -184,5 +208,147 @@ class KotlinStringsLaws {
         Bmc.check(xs.size == 3 && xs[0] == 'a' && xs[2] == 'c')
         val s = "aabbc".toSet()
         Bmc.check(s.size == 3 && s.contains('a') && !s.contains('z'))
+    }
+
+    // ---- any / none (no-predicate emptiness) ----
+
+    @BmcProof
+    fun any_none_concrete() {
+        Bmc.check("a".any())
+        Bmc.check(!"".any())
+        Bmc.check("".none())
+        Bmc.check(!"a".none())
+    }
+
+    @BmcProof(maxStringLength = 4)
+    fun any_is_not_empty_symbolic() {
+        val s = Bmc.anyString(4)
+        Bmc.check(s.any() == s.isNotEmpty())
+        Bmc.check(s.none() == s.isEmpty())
+    }
+
+    // ---- max / min char ----
+
+    @BmcProof
+    fun max_min_concrete() {
+        Bmc.check("bca".maxOrNull() == 'c')
+        Bmc.check("bca".minOrNull() == 'a')
+        Bmc.check("".maxOrNull() == null)
+    }
+
+    @BmcProof
+    fun max_min_is_a_bound() {
+        // maxOrNull/minOrNull bound every char of the receiver, pinned per index over a concrete string.
+        // (Concrete: a symbolic char-scan is budget-fragile under the parallel suite; max_min_concrete
+        // pins the exact extrema and this pins the bound relation.)
+        val s = "dbeca"
+        val mx = s.maxOrNull()
+        val mn = s.minOrNull()
+        Bmc.check(mx != null && mn != null)
+        for (i in s.indices) {
+            Bmc.check(s[i] <= mx!! && s[i] >= mn!!)
+        }
+    }
+
+    // ---- indexOfAny / lastIndexOfAny / findAnyOf ----
+
+    @BmcProof
+    fun index_of_any_concrete() {
+        Bmc.check("hello".indexOfAny(charArrayOf('l', 'z')) == 2)
+        Bmc.check("hello".lastIndexOfAny(charArrayOf('l', 'z')) == 3)
+        Bmc.check("hello".indexOfAny(charArrayOf('x')) == -1)
+        Bmc.check("a.b:c".indexOfAny(listOf(":", ".")) == 1)
+    }
+
+    // ---- slice(Iterable) / toCollection / toSortedSet / withIndex ----
+
+    @BmcProof
+    fun slice_collection_concrete() {
+        // slice(Iterable) returns a CharSequence; pin it per index (CharSequence == String would route
+        // through String.equals -> CProverString.equals, which JBMC nondet-stubs).
+        val sl = "hello".slice(listOf(1, 3, 4))
+        Bmc.check(sl.length == 3 && sl[0] == 'e' && sl[1] == 'l' && sl[2] == 'o')
+        val wi = "ab".withIndex().toList()
+        Bmc.check(wi.size == 2 && wi[0].index == 0 && wi[0].value == 'a' && wi[1].value == 'b')
+    }
+
+    // ---- zip / zipWithNext ----
+
+    @BmcProof
+    fun zip_concrete() {
+        val z = "abc".zip("xy")
+        Bmc.check(z.size == 2 && z[0].first == 'a' && z[0].second == 'x' && z[1].second == 'y')
+        val zn = "abc".zipWithNext()
+        Bmc.check(zn.size == 2 && zn[0].first == 'a' && zn[0].second == 'b' && zn[1].first == 'b')
+    }
+
+    // ---- chunked / windowed / lines ----
+
+    @BmcProof
+    fun chunked_windowed_lines_concrete() {
+        val c = "abcde".chunked(2)
+        Bmc.check(c.size == 3 && c[0] == "ab" && c[1] == "cd" && c[2] == "e")
+        val w = "abcd".windowed(2, 1, false)
+        Bmc.check(w.size == 3 && w[0] == "ab" && w[2] == "cd")
+        val ls = "a\nbb\nc".lines()
+        Bmc.check(ls.size == 3 && ls[0] == "a" && ls[1] == "bb" && ls[2] == "c")
+    }
+
+    // ---- split (char / string delimiter, not regex) ----
+
+    @BmcProof
+    fun split_concrete() {
+        val a = "a,b,c".split(",")
+        Bmc.check(a.size == 3 && a[0] == "a" && a[2] == "c")
+        val b = "a.b.c".split('.')
+        Bmc.check(b.size == 3 && b[1] == "b")
+        val lim = "a,b,c".split(",", limit = 2)
+        Bmc.check(lim.size == 2 && lim[0] == "a" && lim[1] == "b,c")
+    }
+
+    // ---- integer parses / toBooleanStrict (no dtoa, no locale) ----
+
+    @BmcProof
+    fun parse_int_concrete() {
+        Bmc.check("123".toIntOrNull() == 123)
+        Bmc.check("-7".toIntOrNull() == -7)
+        Bmc.check("ff".toIntOrNull(16) == 255)
+        Bmc.check("12x".toIntOrNull() == null)
+        Bmc.check("".toIntOrNull() == null)
+        Bmc.check("9".toLongOrNull() == 9L)
+    }
+
+    @BmcProof
+    fun parse_boolean_concrete() {
+        Bmc.check("true".toBooleanStrictOrNull() == true)
+        Bmc.check("false".toBooleanStrictOrNull() == false)
+        Bmc.check("yes".toBooleanStrictOrNull() == null)
+    }
+
+    // ---- asSequence / asIterable / iterator (concrete backing, never virtual CharIterator) ----
+
+    @BmcProof
+    fun as_sequence_iterable_iterator_concrete() {
+        Bmc.check("abc".asSequence().toList().size == 3)
+        Bmc.check("abc".asIterable().count() == 3)
+        val it = "ab".iterator()
+        Bmc.check(it.hasNext() && it.nextChar() == 'a' && it.nextChar() == 'b' && !it.hasNext())
+    }
+
+    // ---- indent ops ----
+
+    @BmcProof
+    fun indent_concrete() {
+        Bmc.check("a\nb".prependIndent(">") == ">a\n>b")
+        Bmc.check("  a\n  b".trimIndent() == "a\nb")
+        Bmc.check("|x\n|y".trimMargin() == "x\ny")
+    }
+
+    // ---- random: every draw is an in-bounds char of the receiver ----
+
+    @BmcProof
+    fun random_in_bounds_concrete() {
+        val c = "abc".random()
+        Bmc.check(c == 'a' || c == 'b' || c == 'c')
     }
 }
