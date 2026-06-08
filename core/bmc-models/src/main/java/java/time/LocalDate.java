@@ -574,9 +574,9 @@ public final class LocalDate implements ChronoLocalDate {
      * value is range-checked LOUDLY first ({@link ChronoField#checkValidValue}); an unsupported field is
      * declined LOUD.
      */
-    @BmcModelConforms("differential (TimeConformanceTest)")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
-    public ChronoLocalDate with(TemporalField field, long newValue) {
+    public LocalDate with(TemporalField field, long newValue) {
         if (!(field instanceof ChronoField)) {
             throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalField,long) — only ChronoField is dispatched by this epoch-day model");
         }
@@ -606,9 +606,9 @@ public final class LocalDate implements ChronoLocalDate {
     }
 
     /** A copy with {@code amountToAdd} of {@code unit} added — dispatch on ChronoUnit to the typed adders. */
-    @BmcModelConforms("differential (TimeConformanceTest)")
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
-    public ChronoLocalDate plus(long amountToAdd, TemporalUnit unit) {
+    public LocalDate plus(long amountToAdd, TemporalUnit unit) {
         if (!(unit instanceof ChronoUnit)) {
             throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(long,java.time.temporal.TemporalUnit) — only ChronoUnit is dispatched by this epoch-day model");
         }
@@ -635,7 +635,7 @@ public final class LocalDate implements ChronoLocalDate {
     /** A copy with {@code amountToSubtract} of {@code unit} removed — negate and reuse {@link #plus}. */
     @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
-    public ChronoLocalDate minus(long amountToSubtract, TemporalUnit unit) {
+    public LocalDate minus(long amountToSubtract, TemporalUnit unit) {
         return amountToSubtract == Long.MIN_VALUE
             ? plus(Long.MAX_VALUE, unit).plus(1, unit)
             : plus(-amountToSubtract, unit);

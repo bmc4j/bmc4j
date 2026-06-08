@@ -117,13 +117,19 @@ public enum ChronoField implements TemporalField {
 
     // --- TemporalField plumbing: the JDK defines these purely by delegating to the temporal. ---------
 
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    // getFrom/isSupportedBy take the non-generic TemporalAccessor: the concrete temporal erases to the
+    // interface at the call site, so JBMC can't recover its dynamic type to back-dispatch getLong/
+    // isSupported — it inserts a dynamic-cast check that spuriously refutes on the @BmcProof axis (the
+    // interface-erased-ARGUMENT artifact). They are validated bit-for-bit on the differential axis
+    // instead. (Contrast ChronoUnit.addTo, whose <R extends Temporal> generic param keeps the concrete
+    // type, so addTo IS @BmcProof-clean.)
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupportedBy(TemporalAccessor temporal) {
         return temporal.isSupported(this);
     }
 
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getFrom(TemporalAccessor temporal) {
         return temporal.getLong(this);

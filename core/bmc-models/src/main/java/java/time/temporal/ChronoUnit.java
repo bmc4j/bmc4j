@@ -74,7 +74,12 @@ public enum ChronoUnit implements TemporalUnit {
         return (R) temporal.plus(amount, this);
     }
 
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    // between takes non-generic Temporal params: the concrete temporals erase to the interface at the
+    // call site, so JBMC can't recover their dynamic type to back-dispatch until — it inserts a dynamic-
+    // cast check that spuriously refutes on the @BmcProof axis (the interface-erased-ARGUMENT artifact).
+    // Validated on the differential axis. (Contrast addTo, whose <R extends Temporal> generic param keeps
+    // the concrete type, so addTo IS @BmcProof-clean above.)
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long between(Temporal temporal1Inclusive, Temporal temporal2Exclusive) {
         return temporal1Inclusive.until(temporal2Exclusive, this);
