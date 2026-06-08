@@ -677,6 +677,251 @@ public final class CollectionsKt {
         return count == 0 ? Double.NaN : sum / count;
     }
 
+    // ---- flatten(Iterable<Iterable>): CollectionsKt.flatten:(Ljava/lang/Iterable;)Ljava/util/List; —
+    // a NEW list concatenating every element of every inner iterable, in order. (Non-inline; real chain
+    // nondet-stubs internal builders.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> flatten(Iterable<? extends Iterable<? extends T>> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<? extends Iterable<? extends T>> outer = source.iterator(); outer.hasNext(); ) {
+            Iterable<? extends T> inner = outer.next();
+            for (Iterator<? extends T> it = inner.iterator(); it.hasNext(); ) {
+                out.add(it.next());
+            }
+        }
+        return out;
+    }
+
+    // ---- sortedDescending(Iterable): CollectionsKt.sortedDescending:(Ljava/lang/Iterable;)Ljava/util/List;
+    // — a NEW list sorted in DESCENDING natural order, source untouched. Implemented as an ascending
+    // insertion-sort followed by a reverse (stable enough for the bounded element domain). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> List<T> sortedDescending(Iterable<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        insertionSort(out, null);
+        // reverse in place to get descending
+        int i = 0;
+        int j = out.size() - 1;
+        while (i < j) {
+            T tmp = out.get(i);
+            out.set(i, out.get(j));
+            out.set(j, tmp);
+            i++;
+            j--;
+        }
+        return out;
+    }
+
+    // ---- sort(List) / sortDescending(List) / sortWith(List, Comparator): IN-PLACE mutators
+    //   CollectionsKt.sort:(Ljava/util/List;)V
+    //   CollectionsKt.sortDescending:(Ljava/util/List;)V
+    //   CollectionsKt.sortWith:(Ljava/util/List;Ljava/util/Comparator;)V
+    // sort the receiver in ascending natural / descending natural / Comparator order respectively,
+    // returning void (the receiver is mutated). (Non-inline; real chain routes Collections.sort which
+    // JBMC does not model over the bounded list.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> void sort(List<T> list) {
+        sortInPlace(toArrayList(list), list, null, false);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> void sortDescending(List<T> list) {
+        sortInPlace(toArrayList(list), list, null, true);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> void sortWith(List<T> list, Comparator<? super T> comparator) {
+        sortInPlace(toArrayList(list), list, comparator, false);
+    }
+
+    private static <T> ArrayList<T> toArrayList(List<T> list) {
+        ArrayList<T> a = new ArrayList<>();
+        for (int i = 0, n = list.size(); i < n; i++) {
+            a.add(list.get(i));
+        }
+        return a;
+    }
+
+    // sort `scratch` (a copy), then write it back into `target` (optionally reversed for descending),
+    // mutating the target in place to match the Kotlin in-place contract.
+    private static <T> void sortInPlace(ArrayList<T> scratch, List<T> target,
+            Comparator<? super T> cmp, boolean descending) {
+        insertionSort(scratch, cmp);
+        int n = scratch.size();
+        for (int i = 0; i < n; i++) {
+            T v = descending ? scratch.get(n - 1 - i) : scratch.get(i);
+            target.set(i, v);
+        }
+    }
+
+    // ---- asReversed(List) / asReversedMutable(List):
+    //   CollectionsKt.asReversed:(Ljava/util/List;)Ljava/util/List;
+    //   CollectionsKt.asReversedMutable:(Ljava/util/List;)Ljava/util/List;
+    // The stdlib returns a LIVE reversed VIEW (writes alias back to the source). bmc4j models the READ
+    // observable only: a reversed SNAPSHOT (a fresh bounded ArrayList in reverse order). The post-
+    // construction write-through aliasing of the live view is NOT modeled — bounded proofs read the
+    // reversed order (identical observable to the view as long as the source isn't mutated afterward),
+    // matching the established `reversed()` precedent. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> asReversed(List<? extends T> list) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = list.size() - 1; i >= 0; i--) {
+            out.add(list.get(i));
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> asReversedMutable(List<T> list) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = list.size() - 1; i >= 0; i--) {
+            out.add(list.get(i));
+        }
+        return out;
+    }
+
+    // ---- takeLast(List, int) / dropLast(List, int):
+    //   CollectionsKt.takeLast:(Ljava/util/List;I)Ljava/util/List;
+    //   CollectionsKt.dropLast:(Ljava/util/List;I)Ljava/util/List;
+    // Kotlin contract: a negative n throws IllegalArgumentException; takeLast(n) returns the LAST
+    // min(n, size) elements in order; dropLast(n) returns all but the last min(n, size). NEW lists,
+    // source untouched. (Non-inline; the lambda-taking takeLastWhile/dropLastWhile are inline and stay
+    // @BmcNotNeeded.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> takeLast(List<T> list, int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
+        }
+        int size = list.size();
+        ArrayList<T> out = new ArrayList<>();
+        if (n == 0) {
+            return out;
+        }
+        int from = n >= size ? 0 : size - n;
+        for (int i = from; i < size; i++) {
+            out.add(list.get(i));
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> dropLast(List<T> list, int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Requested element count " + n + " is less than zero.");
+        }
+        int size = list.size();
+        int keep = n >= size ? 0 : size - n;
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < keep; i++) {
+            out.add(list.get(i));
+        }
+        return out;
+    }
+
+    // ---- slice(List, IntRange) / slice(List, Iterable<Integer>):
+    //   CollectionsKt.slice:(Ljava/util/List;Lkotlin/ranges/IntRange;)Ljava/util/List;
+    //   CollectionsKt.slice:(Ljava/util/List;Ljava/lang/Iterable;)Ljava/util/List;
+    // Kotlin contract: a NEW list of the elements at the given indices. The IntRange overload returns the
+    // [first..last] inclusive slice (empty list for an empty range); the Iterable overload picks the
+    // listed indices in order. Out-of-range indices throw IndexOutOfBoundsException (via List.get).
+    // (Non-inline.) The IntRange receiver is real kotlin-stdlib (getFirst/getLast/isEmpty are field reads).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> slice(List<T> list, kotlin.ranges.IntRange indices) {
+        ArrayList<T> out = new ArrayList<>();
+        if (indices.isEmpty()) {
+            return out;
+        }
+        int from = indices.getFirst();
+        int to = indices.getLast();
+        for (int i = from; i <= to; i++) {
+            out.add(list.get(i));
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> slice(List<T> list, Iterable<Integer> indices) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<Integer> it = indices.iterator(); it.hasNext(); ) {
+            out.add(list.get(it.next()));
+        }
+        return out;
+    }
+
+    // ---- chunked(Iterable, int): CollectionsKt.chunked:(Ljava/lang/Iterable;I)Ljava/util/List; — a NEW
+    // list of sub-lists, each of `size` consecutive elements (the final chunk may be shorter). Kotlin
+    // requires size > 0 (else IllegalArgumentException). (Non-inline; the transform overload chunked(_,_,
+    // Function1) is inline and stays @BmcNotNeeded.) chunked is windowed(size, size, partialWindows=true).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<List<T>> chunked(Iterable<T> source, int size) {
+        if (size <= 0) {
+            throw new IllegalArgumentException("size " + size + " must be greater than zero.");
+        }
+        ArrayList<List<T>> out = new ArrayList<>();
+        ArrayList<T> current = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            current.add(it.next());
+            if (current.size() == size) {
+                out.add(current);
+                current = new ArrayList<>();
+            }
+        }
+        if (!current.isEmpty()) {
+            out.add(current);
+        }
+        return out;
+    }
+
+    // ---- windowed(Iterable, int, int, boolean): the full-arg overload
+    //   CollectionsKt.windowed:(Ljava/lang/Iterable;IIZ)Ljava/util/List;
+    // a NEW list of windows: sub-lists of length `size` starting at indices 0, step, 2*step, …; when
+    // partialWindows is false the trailing windows that would extend past the end are dropped, when true
+    // they are kept (shorter). Kotlin requires size > 0 AND step > 0 (else IllegalArgumentException).
+    // (Non-inline; the transform overload is inline @BmcNotNeeded.)
+    //
+    // NOTE: the common Kotlin call `xs.windowed(size)` (step/partialWindows defaulted) routes through the
+    // kotlinc-synthesized `windowed$default` bridge, which bmc4j does NOT model — JBMC nondet-stubs that
+    // bridge so such a call site is UNKNOWN regardless of this body. This models the EXPLICIT full-arg
+    // call `xs.windowed(size, step, partialWindows)`, which targets this method directly. The `$default`
+    // bridge stays loud in the tail.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<List<T>> windowed(Iterable<T> source, int size, int step, boolean partialWindows) {
+        if (size <= 0 || step <= 0) {
+            throw new IllegalArgumentException(
+                    "Both size " + size + " and step " + step + " must be greater than zero.");
+        }
+        // materialize the bounded source so we can index windows
+        ArrayList<T> all = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            all.add(it.next());
+        }
+        int n = all.size();
+        ArrayList<List<T>> out = new ArrayList<>();
+        for (int start = 0; start < n; start += step) {
+            int end = start + size; // exclusive
+            if (end > n) {
+                if (!partialWindows) {
+                    break;
+                }
+                end = n;
+            }
+            ArrayList<T> window = new ArrayList<>();
+            for (int i = start; i < end; i++) {
+                window.add(all.get(i));
+            }
+            out.add(window);
+        }
+        return out;
+    }
+
+    // NOTE: shuffled / shuffle stay in the @BmcModelTail residue — a Random draw is nondeterministic by
+    // nature, so there is no sound bounded model (matches the RangesKt.random precedent). toSortedSet /
+    // sortedSetOf are NOT modeled here either: they return a java.util.TreeSet, for which bmc4j has no
+    // bounded model (only TreeMap exists) — out of scope until a TreeSet model lands. Loud under JBMC.
+
     // NOTE: joinToString / joinTo are deliberately NOT modeled in this pass and stay in the
     // @BmcModelTail residue. They are doubly hostile to bounded proof: (1) STRING-HEAVY (the
     // StringBuilder/append reasoning is the JBMC string-blowup that OOM'd CI — see #124), and (2) the
