@@ -14,6 +14,8 @@ val COVERED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
+    "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",
     "java.util.concurrent.CompletableFuture", "java.util.concurrent.ConcurrentHashMap",
@@ -30,6 +32,8 @@ val COVERED: Set<String> = setOf(
     "kotlin.enums.EnumEntriesKt", "kotlin.enums.EnumEntries", "kotlin.enums.EnumEntriesList",
     // kotlin.time.Duration value-class model + its facade/unit enum (DurationLaws + differential).
     "kotlin.time.Duration", "kotlin.time.DurationKt", "kotlin.time.DurationUnit",
+    // kotlin.random.Random "prove for every outcome" model + its seeded-factory facade (RandomLaws).
+    "kotlin.random.Random", "kotlin.random.RandomKt",
     // kotlin.Result value-class model — non-inline ABI surface (ResultLaws model proofs).
     "kotlin.Result",
     // kotlin.jvm.internal.Intrinsics null-safety helpers (fundamentals-kotlin null-safety proofs).
@@ -131,6 +135,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",
     "java.util.concurrent.CompletableFuture", "java.util.concurrent.ConcurrentHashMap",
@@ -149,6 +154,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt",
     "kotlin.ranges.RangesKt", "kotlin.comparisons.ComparisonsKt",
     "kotlin.enums.EnumEntriesKt",
+    "kotlin.random.Random", "kotlin.random.RandomKt",
     "kotlin.time.Duration", "kotlin.time.DurationKt",
     // kotlin.Result value class — mangled -impl ABI; real target is kotlin-stdlib's kotlin.Result.
     "kotlin.Result",

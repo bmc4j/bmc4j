@@ -572,6 +572,47 @@ Real surface: 12 members — modeled 12, not-modeled 0, not-needed 0, tail 0.
 **Modeled** (`@BmcModelConforms`): `empty()`, `getAsLong()`, `ifPresent(LongConsumer)`, `ifPresentOrElse(LongConsumer, Runnable)`, `isEmpty()`, `isPresent()`, `of(long)`, `orElse(long)`, `orElseGet(LongSupplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
 
 
+## `java.util.Random`
+
+Real surface: 33 members — modeled 7, not-modeled 1, not-needed 0, tail 25.
+
+**Modeled** (`@BmcModelConforms`): `nextBoolean()`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
+
+| Not modeled (cannot) | Reason |
+|---|---|
+| `setSeed(long)` | re-seeding restores seeded determinism — same unsoundness as the seeded ctor; the LCG is out of scope |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): exotic java.util.Random / RandomGenerator remainder — the double-valued draws (nextDouble/nextFloat/nextGaussian/nextExponential, no-double policy), the ints()/longs()/doubles() nondet streams (unbounded element count), nextBytes, the from(RandomGenerator) adapter, and isDeprecated; loud (UNKNOWN) under JBMC if reached</summary>
+
+- `doubles()`
+- `doubles(double, double)`
+- `doubles(long)`
+- `doubles(long, double, double)`
+- `from(RandomGenerator)`
+- `ints()`
+- `ints(int, int)`
+- `ints(long)`
+- `ints(long, int, int)`
+- `isDeprecated()`
+- `longs()`
+- `longs(long)`
+- `longs(long, long)`
+- `longs(long, long, long)`
+- `next(int)`
+- `nextBytes(byte[])`
+- `nextDouble()`
+- `nextDouble(double)`
+- `nextDouble(double, double)`
+- `nextExponential()`
+- `nextFloat()`
+- `nextFloat(float)`
+- `nextFloat(float, float)`
+- `nextGaussian()`
+- `nextGaussian(double, double)`
+
+</details>
+
+
 ## `java.util.TreeMap`
 
 Real surface: 54 members — modeled 37, not-modeled 1, not-needed 6, tail 10.
@@ -1417,6 +1458,51 @@ Real surface: 40 members — modeled 16, not-modeled 0, not-needed 24, tail 0.
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
 
 _(none — the real surface is fully modeled/declared)_
+
+</details>
+
+
+## `kotlin.random.Random`
+
+Real surface: 15 members — modeled 8, not-modeled 1, not-needed 0, tail 6.
+
+**Modeled** (`@BmcModelConforms`): `nextBits(int)`, `nextBoolean()`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
+
+| Not modeled (cannot) | Reason |
+|---|---|
+| `nextDouble()` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic kotlin.random.Random remainder — the double-valued draws (nextDouble/nextDouble(bound)/nextDouble(from,until)/nextFloat, no-double policy) and the nextBytes(...) family (byte-array fill); loud (UNKNOWN) under JBMC if reached</summary>
+
+- `nextBytes(byte[])`
+- `nextBytes(byte[], int, int)`
+- `nextBytes(int)`
+- `nextDouble(double)`
+- `nextDouble(double, double)`
+- `nextFloat()`
+
+</details>
+
+
+## `kotlin.random.RandomKt`
+
+Real surface: 10 members — modeled 0, not-modeled 2, not-needed 0, tail 8.
+
+| Not modeled (cannot) | Reason |
+|---|---|
+| `Random(int)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
+| `Random(long)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): RandomKt remainder — the nextInt(Random,IntRange)/nextLong(Random,LongRange) range-extension draws (use Random.nextInt(from,until) directly) and the stdlib internals fastLog2/takeUpperBits/checkRangeBounds/boundsErrorMessage; loud (UNKNOWN) under JBMC if reached</summary>
+
+- `boundsErrorMessage(Object, Object)`
+- `checkRangeBounds(double, double)`
+- `checkRangeBounds(int, int)`
+- `checkRangeBounds(long, long)`
+- `fastLog2(int)`
+- `nextInt(Random, IntRange)`
+- `nextLong(Random, LongRange)`
+- `takeUpperBits(int, int)`
 
 </details>
 

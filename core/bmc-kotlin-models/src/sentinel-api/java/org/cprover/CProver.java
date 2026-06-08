@@ -21,4 +21,23 @@ public final class CProver {
     public static void assume(boolean assumption) {
         // No-op stub: never executed by the model jar (compile-only), JBMC supplies the real primitive.
     }
+
+    // Nondeterministic-value primitives — JBMC introduces a fresh symbolic value of the type at each
+    // call site (it explores every value at once). Used by the kotlin.random.Random bounded-draw model
+    // to model each draw as nondet-in-range. Compile-only stub bodies; JBMC supplies the real semantics.
+
+    /** A fresh symbolic {@code int}; mirrors the real signature. */
+    public static int nondetInt() {
+        return 0;
+    }
+
+    /** A fresh symbolic {@code long}; mirrors the real signature. */
+    public static long nondetLong() {
+        return 0L;
+    }
+
+    /** A fresh symbolic {@code boolean}; mirrors the real signature. */
+    public static boolean nondetBoolean() {
+        return false;
+    }
 }
