@@ -124,8 +124,9 @@ class ArraysUtilConformanceTest : FunSpec({
 
     // The IEEE-total-order "interesting" float/double values: the cases jbmc's native compare gets
     // wrong (NaN, -0.0, +0.0) plus the ordered extremes. The differential runs on a REAL JVM, so it is
-    // the definitive arbiter for the total order (Arrays float/double ops route through the modeled
-    // Float/Double.compare). A second NaN bit-pattern (raw 0x7fc00001) confirms both canonicalize equal.
+    // the definitive arbiter for the total order (Arrays float/double ops route through the
+    // org.bmc4j.models.audit.FpTotalOrder helper). A second NaN bit-pattern (raw 0x7fc00001) confirms
+    // both canonicalize equal.
     val FLOAT_VALUES: List<Float> = listOf(
         Float.NaN, java.lang.Float.intBitsToFloat(0x7fc00001), Float.NEGATIVE_INFINITY,
         -1.0f, -0.0f, 0.0f, 1.0f, Float.POSITIVE_INFINITY,
@@ -768,29 +769,28 @@ class ArraysUtilConformanceTest : FunSpec({
         }
     }
 
-    // --- float/double IEEE total order (Float/Double.compare + the Arrays float/double overloads) ----
+    // --- float/double IEEE total order (FpTotalOrder helper + the Arrays float/double overloads) ----
     // The 2026-06 FP probe established jbmc's native Float/Double.compare and floatToIntBits are unsound,
-    // so bmc4j MODELS the total order (bit-free). These differential tests are the definitive arbiter
-    // for the subtle edge cases (-0.0<+0.0, NaN largest, NaN==NaN-under-compare) — they run on a real
-    // JVM where the model's compare faces the real JDK's. Float/Double values include both NaN bit
-    // patterns, ±0.0, ±Inf, and finite extremes.
-    val FLOATM = bmcref.java.lang.Float::class.java
-    val DOUBLEM = bmcref.java.lang.Double::class.java
-
-    test("Float.compare conforms to the JDK total order (incl. -0/+0, NaN, ±Inf)") {
+    // so bmc4j models the total order (bit-free) in the org.bmc4j.models.audit.FpTotalOrder helper that
+    // java.util.Arrays calls — NOT as java.lang.Float/Double models (those classes are reached pervasively,
+    // so modeling them crashed jbmc's solver on unrelated proofs). These differential tests are the
+    // definitive arbiter for the subtle edge cases (-0.0<+0.0, NaN largest, NaN==NaN-under-compare) — they
+    // run on a real JVM where the helper's compare faces the real JDK Float/Double.compare. Float/Double
+    // values include both NaN bit patterns, ±0.0, ±Inf, and finite extremes.
+    test("FpTotalOrder.compare(float) conforms to the JDK Float.compare total order (incl. -0/+0, NaN, ±Inf)") {
         for (a in FLOAT_VALUES) for (b in FLOAT_VALUES) {
             val r = java.lang.Float.compare(a, b)
-            val m = staticCall(FLOATM, "compare", arrayOf(FLOAT, FLOAT), a, b).getOrThrow() as Int
+            val m = org.bmc4j.models.audit.FpTotalOrder.compare(a, b)
             // compare's exact ±1/0 (not just sign) is part of the JDK contract.
-            withClue("Float.compare($a, $b)") { m shouldBe r }
+            withClue("FpTotalOrder.compare($a, $b)") { m shouldBe r }
         }
     }
 
-    test("Double.compare conforms to the JDK total order (incl. -0/+0, NaN, ±Inf)") {
+    test("FpTotalOrder.compare(double) conforms to the JDK Double.compare total order (incl. -0/+0, NaN, ±Inf)") {
         for (a in DOUBLE_VALUES) for (b in DOUBLE_VALUES) {
             val r = java.lang.Double.compare(a, b)
-            val m = staticCall(DOUBLEM, "compare", arrayOf(DOUBLE, DOUBLE), a, b).getOrThrow() as Int
-            withClue("Double.compare($a, $b)") { m shouldBe r }
+            val m = org.bmc4j.models.audit.FpTotalOrder.compare(a, b)
+            withClue("FpTotalOrder.compare($a, $b)") { m shouldBe r }
         }
     }
 

@@ -7,11 +7,15 @@ import java.util.Arrays
 /**
  * Model proofs for the {@code float[]}/{@code double[]} {@link java.util.Arrays} overloads reclaimed
  * from the loud tail: {@code equals}/{@code sort}/{@code binarySearch}/{@code compare}/{@code mismatch}
- * (and ranged + parallelSort). These all route through the IEEE TOTAL ORDER (the {@link java.lang.Float}/
- * {@link java.lang.Double} {@code compare} models), so the high-value pins are the edge cases jbmc's
- * native {@code Float.compare} gets wrong: {@code -0.0 < +0.0}, NaN sorts last, NaN==NaN under
- * {@code equals}/{@code compare}. Arrays are kept tiny (length 2-3) so the insertion-sort unwind and
- * the symbolic FP stay tractable.
+ * (and ranged + parallelSort). These all route through the IEEE TOTAL ORDER supplied by the
+ * {@code org.bmc4j.models.audit.FpTotalOrder} helper (NOT a {@code java.lang.Float}/{@code Double}
+ * model — those are reached pervasively and crash jbmc's solver when modeled), so the high-value pins
+ * are the edge cases jbmc's native {@code Float.compare} gets wrong: {@code -0.0 < +0.0}, NaN sorts
+ * last, NaN==NaN under {@code equals}/{@code compare}. Arrays are kept tiny (length 2-3) so the
+ * insertion-sort unwind and the symbolic FP stay tractable. The finite-input sortedness checks use the
+ * sound primitive {@code <=} (not {@code Float.compareTo}, which is back to jbmc's unsound native
+ * compare now that Float/Double aren't modeled); the -0/+0 and NaN edge cases are pinned by the
+ * dedicated proofs below and by the differential {@code conformance.ArraysUtilConformanceTest}.
  */
 class FloatDoubleArraysLaws {
 
@@ -23,7 +27,7 @@ class FloatDoubleArraysLaws {
         val y = Bmc.anyFloat(-1.0e20f, 1.0e20f)
         val a = floatArrayOf(x, y)
         Arrays.sort(a)
-        Bmc.check(a[0].compareTo(a[1]) <= 0)
+        Bmc.check(a[0] <= a[1]) // finite inputs: primitive <= matches the total order (sound; avoids the unsound JDK Float.compareTo)
     }
 
     @BmcProof
@@ -51,7 +55,7 @@ class FloatDoubleArraysLaws {
         val y = Bmc.anyDouble(-1.0e20, 1.0e20)
         val a = doubleArrayOf(x, y)
         Arrays.sort(a)
-        Bmc.check(a[0].compareTo(a[1]) <= 0)
+        Bmc.check(a[0] <= a[1]) // finite inputs: primitive <= matches the total order (sound; avoids the unsound JDK Float.compareTo)
     }
 
     @BmcProof
@@ -129,7 +133,7 @@ class FloatDoubleArraysLaws {
         val a = floatArrayOf(p, x, y, q)
         Arrays.sort(a, 1, 3)
         Bmc.check(a[0] == p && a[3] == q)
-        Bmc.check(a[1].compareTo(a[2]) <= 0)
+        Bmc.check(a[1] <= a[2]) // finite inputs: primitive <= matches the total order (sound)
     }
 
     @BmcProof
@@ -147,6 +151,6 @@ class FloatDoubleArraysLaws {
         val y = Bmc.anyFloat(-1.0e20f, 1.0e20f)
         val a = floatArrayOf(x, y)
         Arrays.parallelSort(a)
-        Bmc.check(a[0].compareTo(a[1]) <= 0)
+        Bmc.check(a[0] <= a[1]) // finite inputs: primitive <= matches the total order (sound; avoids the unsound JDK Float.compareTo)
     }
 }

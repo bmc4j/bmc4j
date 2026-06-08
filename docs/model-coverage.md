@@ -4,84 +4,6 @@
 
 Every public/protected member of each per-member-audited model's real JDK target is accounted for below: **modeled** (sound under BMC), **not-modeled** (cannot be), **not-needed** (exotic), or in the **tail** (the exotic remainder, enumerated in full). Not-modeled/not-needed members carry a hand-written loud body (a real stub method whose decision and reason live next to the surface it waives); tail members get a build-synthesized loud body. Reaching ANY of them trips the BmcUnmodelledReached sentinel, so the verdict is an honest member-named **UNKNOWN** (a bmc4j model gap), never a false REFUTED and never a silent havoc — unless explicitly acknowledged via `acknowledgeUnmodelled`, which degrades it to a footnoted nondet stub.
 
-## `java.lang.Double`
-
-Real surface: 27 members — modeled 1, not-modeled 0, not-needed 0, tail 26.
-
-**Modeled** (`@BmcModelConforms`): `compare(double, double)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 26 members, all loud): Double exists only to supply a sound bit-free compare/compareTo total order; doubleToLongBits/longBitsToDouble are UNSOUND under jbmc (nondet stub) so they and the parse/format/box surface stay loud in the tail — reaching one is a member-named UNKNOWN, never a false green</summary>
-
-- `byteValue()`
-- `compareTo(Double)`
-- `describeConstable()`
-- `doubleToLongBits(double)`
-- `doubleToRawLongBits(double)`
-- `doubleValue()`
-- `floatValue()`
-- `hashCode(double)`
-- `intValue()`
-- `isFinite(double)`
-- `isInfinite()`
-- `isInfinite(double)`
-- `isNaN()`
-- `isNaN(double)`
-- `longBitsToDouble(long)`
-- `longValue()`
-- `max(double, double)`
-- `min(double, double)`
-- `parseDouble(String)`
-- `resolveConstantDesc(Lookup)`
-- `shortValue()`
-- `sum(double, double)`
-- `toHexString(double)`
-- `toString(double)`
-- `valueOf(String)`
-- `valueOf(double)`
-
-</details>
-
-
-## `java.lang.Float`
-
-Real surface: 29 members — modeled 1, not-modeled 0, not-needed 0, tail 28.
-
-**Modeled** (`@BmcModelConforms`): `compare(float, float)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 28 members, all loud): Float exists only to supply a sound bit-free compare/compareTo total order; floatToIntBits/intBitsToFloat are UNSOUND under jbmc (nondet stub) so they and the parse/format/box surface stay loud in the tail — reaching one is a member-named UNKNOWN, never a false green</summary>
-
-- `byteValue()`
-- `compareTo(Float)`
-- `describeConstable()`
-- `doubleValue()`
-- `float16ToFloat(short)`
-- `floatToFloat16(float)`
-- `floatToIntBits(float)`
-- `floatToRawIntBits(float)`
-- `floatValue()`
-- `hashCode(float)`
-- `intBitsToFloat(int)`
-- `intValue()`
-- `isFinite(float)`
-- `isInfinite()`
-- `isInfinite(float)`
-- `isNaN()`
-- `isNaN(float)`
-- `longValue()`
-- `max(float, float)`
-- `min(float, float)`
-- `parseFloat(String)`
-- `resolveConstantDesc(Lookup)`
-- `shortValue()`
-- `sum(float, float)`
-- `toHexString(float)`
-- `toString(float)`
-- `valueOf(String)`
-- `valueOf(float)`
-
-</details>
-
-
 ## `java.math.BigDecimal`
 
 Real surface: 60 members — modeled 40, not-modeled 1, not-needed 0, tail 19.
@@ -409,7 +331,7 @@ Real surface: 214 members — modeled 153, not-modeled 0, not-needed 0, tail 61.
 
 **Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(Object[], int, int, Object)`, `binarySearch(byte[], byte)`, `binarySearch(byte[], int, int, byte)`, `binarySearch(char[], char)`, `binarySearch(char[], int, int, char)`, `binarySearch(double[], double)`, `binarySearch(double[], int, int, double)`, `binarySearch(float[], float)`, `binarySearch(float[], int, int, float)`, `binarySearch(int[], int)`, `binarySearch(int[], int, int, int)`, `binarySearch(long[], int, int, long)`, `binarySearch(long[], long)`, `binarySearch(short[], int, int, short)`, `binarySearch(short[], short)`, `compare(boolean[], boolean[])`, `compare(boolean[], int, int, boolean[], int, int)`, `compare(byte[], byte[])`, `compare(byte[], int, int, byte[], int, int)`, `compare(char[], char[])`, `compare(char[], int, int, char[], int, int)`, `compare(double[], double[])`, `compare(double[], int, int, double[], int, int)`, `compare(float[], float[])`, `compare(float[], int, int, float[], int, int)`, `compare(int[], int, int, int[], int, int)`, `compare(int[], int[])`, `compare(long[], int, int, long[], int, int)`, `compare(long[], long[])`, `compare(short[], int, int, short[], int, int)`, `compare(short[], short[])`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(float[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `equals(Object[], Object[])`, `equals(Object[], int, int, Object[], int, int)`, `equals(boolean[], boolean[])`, `equals(boolean[], int, int, boolean[], int, int)`, `equals(byte[], byte[])`, `equals(byte[], int, int, byte[], int, int)`, `equals(char[], char[])`, `equals(char[], int, int, char[], int, int)`, `equals(double[], double[])`, `equals(double[], int, int, double[], int, int)`, `equals(float[], float[])`, `equals(float[], int, int, float[], int, int)`, `equals(int[], int, int, int[], int, int)`, `equals(int[], int[])`, `equals(long[], int, int, long[], int, int)`, `equals(long[], long[])`, `equals(short[], int, int, short[], int, int)`, `equals(short[], short[])`, `fill(Object[], Object)`, `fill(Object[], int, int, Object)`, `fill(boolean[], boolean)`, `fill(boolean[], int, int, boolean)`, `fill(byte[], byte)`, `fill(byte[], int, int, byte)`, `fill(char[], char)`, `fill(char[], int, int, char)`, `fill(float[], float)`, `fill(float[], int, int, float)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], int, int, long)`, `fill(long[], long)`, `fill(short[], int, int, short)`, `fill(short[], short)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `hashCode(short[])`, `mismatch(boolean[], boolean[])`, `mismatch(boolean[], int, int, boolean[], int, int)`, `mismatch(byte[], byte[])`, `mismatch(byte[], int, int, byte[], int, int)`, `mismatch(char[], char[])`, `mismatch(char[], int, int, char[], int, int)`, `mismatch(double[], double[])`, `mismatch(double[], int, int, double[], int, int)`, `mismatch(float[], float[])`, `mismatch(float[], int, int, float[], int, int)`, `mismatch(int[], int, int, int[], int, int)`, `mismatch(int[], int[])`, `mismatch(long[], int, int, long[], int, int)`, `mismatch(long[], long[])`, `mismatch(short[], int, int, short[], int, int)`, `mismatch(short[], short[])`, `parallelPrefix(Object[], BinaryOperator)`, `parallelPrefix(Object[], int, int, BinaryOperator)`, `parallelPrefix(int[], IntBinaryOperator)`, `parallelPrefix(int[], int, int, IntBinaryOperator)`, `parallelPrefix(long[], LongBinaryOperator)`, `parallelPrefix(long[], int, int, LongBinaryOperator)`, `parallelSetAll(Object[], IntFunction)`, `parallelSetAll(int[], IntUnaryOperator)`, `parallelSetAll(long[], IntToLongFunction)`, `parallelSort(byte[])`, `parallelSort(byte[], int, int)`, `parallelSort(char[])`, `parallelSort(char[], int, int)`, `parallelSort(double[])`, `parallelSort(double[], int, int)`, `parallelSort(float[])`, `parallelSort(float[], int, int)`, `parallelSort(int[])`, `parallelSort(int[], int, int)`, `parallelSort(long[])`, `parallelSort(long[], int, int)`, `parallelSort(short[])`, `parallelSort(short[], int, int)`, `setAll(Object[], IntFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(Object[], int, int)`, `sort(byte[])`, `sort(byte[], int, int)`, `sort(char[])`, `sort(char[], int, int)`, `sort(double[])`, `sort(double[], int, int)`, `sort(float[])`, `sort(float[], int, int)`, `sort(int[])`, `sort(int[], int, int)`, `sort(long[])`, `sort(long[], int, int)`, `sort(short[])`, `sort(short[], int, int)`, `stream(Object[])`, `stream(Object[], int, int)`, `stream(int[])`, `stream(int[], int, int)`, `stream(long[])`, `stream(long[], int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 61 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the Float/Double.compare IEEE total order</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 61 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper</summary>
 
 - `binarySearch(Object[], Object)`
 - `binarySearch(Object[], Object, Comparator)`
