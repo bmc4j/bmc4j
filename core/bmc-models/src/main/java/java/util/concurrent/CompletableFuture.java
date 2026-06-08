@@ -44,7 +44,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <b>tail</b> (loud under JBMC): a non-immediate executor's true concurrency is the concurrency wall a
  * sequential model cannot soundly model.
  */
-@BmcModelTail(reason = "every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither/thenAcceptBoth and their *Async twins), exceptionallyCompose*, timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC")
+@BmcModelTail(reason = "every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/exceptionallyComposeAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the *Async-with-Executor twins of the either/both combinators, real timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state) which need genuine happens-before, and stage/copy plumbing (failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC")
 public class CompletableFuture<T> implements CompletionStage<T> {
 
     private T value;
@@ -320,6 +320,125 @@ public class CompletableFuture<T> implements CompletionStage<T> {
     @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin (sequential model has no executor) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> whenCompleteAsync(BiConsumer<? super T, ? super Throwable> action) {
         return whenComplete(action);
+    }
+
+    // --- either/both combinators (sequential: both sources are ready) ------------------------------
+    // The JDK either-combinators complete when the FIRST source completes; in a sequential model both
+    // are already completed, so the deterministic sequential choice is THIS future's completion (the
+    // receiver), with the other's failure NOT consulted (it never "won the race"). The both-combinators
+    // need both completions: they short-circuit on either exceptional source (propagate the cause), then
+    // run on the two ready values — exactly the thenCombine pattern. Lambdas devirtualize through the
+    // model like the other combinators. The *Async no-arg twins reduce to their synchronous form (no
+    // executor in a sequential model). The explicit-Executor twins stay in the loud tail.
+
+    /** Either-combinator: applies {@code fn} to the receiver's ready value (the deterministic sequential winner). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest either/both combinators)")
+    public <U> CompletableFuture<U> applyToEither(CompletionStage<? extends T> other, Function<? super T, U> fn) {
+        if (ex != null) {
+            return failed(ex);
+        }
+        return completedFuture(fn.apply(value));
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public <U> CompletableFuture<U> applyToEitherAsync(CompletionStage<? extends T> other, Function<? super T, U> fn) {
+        return applyToEither(other, fn);
+    }
+
+    /** Either-combinator: consumes the receiver's ready value (the deterministic sequential winner). */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest either/both combinators)")
+    public CompletableFuture<Void> acceptEither(CompletionStage<? extends T> other, Consumer<? super T> action) {
+        if (ex != null) {
+            return failed(ex);
+        }
+        action.accept(value);
+        return completedFuture(null);
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<Void> acceptEitherAsync(CompletionStage<? extends T> other, Consumer<? super T> action) {
+        return acceptEither(other, action);
+    }
+
+    /** Either-combinator: runs {@code action} once the receiver (the deterministic sequential winner) is ready. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest either/both combinators)")
+    public CompletableFuture<Void> runAfterEither(CompletionStage<?> other, Runnable action) {
+        if (ex != null) {
+            return failed(ex);
+        }
+        action.run();
+        return completedFuture(null);
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<Void> runAfterEitherAsync(CompletionStage<?> other, Runnable action) {
+        return runAfterEither(other, action);
+    }
+
+    /** Both-combinator: consumes both ready values; short-circuits on either exceptional source. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest either/both combinators)")
+    public <U> CompletableFuture<Void> thenAcceptBoth(
+            CompletionStage<? extends U> other, BiConsumer<? super T, ? super U> action) {
+        if (ex != null) {
+            return failed(ex);
+        }
+        CompletableFuture<? extends U> o = other.toCompletableFuture();
+        if (o.ex != null) {
+            return failed(o.ex);
+        }
+        action.accept(value, o.value);
+        return completedFuture(null);
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public <U> CompletableFuture<Void> thenAcceptBothAsync(
+            CompletionStage<? extends U> other, BiConsumer<? super T, ? super U> action) {
+        return thenAcceptBoth(other, action);
+    }
+
+    /** Both-combinator: runs {@code action} once both are ready; short-circuits on either exceptional source. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest either/both combinators)")
+    public CompletableFuture<Void> runAfterBoth(CompletionStage<?> other, Runnable action) {
+        if (ex != null) {
+            return failed(ex);
+        }
+        CompletableFuture<?> o = other.toCompletableFuture();
+        if (o.ex != null) {
+            return failed(o.ex);
+        }
+        action.run();
+        return completedFuture(null);
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<Void> runAfterBothAsync(CompletionStage<?> other, Runnable action) {
+        return runAfterBoth(other, action);
+    }
+
+    /**
+     * Recovers an exceptional completion by flattening a stage-returning function (the future analogue
+     * of {@code thenCompose} on the failure path): if this future failed, returns the future {@code fn}
+     * produces from the raw cause; otherwise passes the value through unchanged. The JDK passes the RAW
+     * cause to {@code fn}, which this matches.
+     */
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (ConcurrencyConformanceTest exceptionallyCompose)")
+    public CompletableFuture<T> exceptionallyCompose(Function<Throwable, ? extends CompletionStage<T>> fn) {
+        if (ex != null) {
+            return (CompletableFuture<T>) fn.apply(ex).toCompletableFuture();
+        }
+        return completedFuture(value);
+    }
+
+    @BmcModelConforms("immediate executor: *Async reduces to its synchronous twin — differential (ConcurrencyConformanceTest)")
+    public CompletableFuture<T> exceptionallyComposeAsync(Function<Throwable, ? extends CompletionStage<T>> fn) {
+        return exceptionallyCompose(fn);
+    }
+
+    /** A completed stage carrying {@code value}, like {@code CompletableFuture.completedStage} — a ready stage. */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest): a ready stage is a completed future")
+    public static <U> CompletionStage<U> completedStage(U value) {
+        return completedFuture(value);
     }
 
     /** Returns the backing future ({@code this}) — a {@link CompletableFuture} already IS its own stage. */

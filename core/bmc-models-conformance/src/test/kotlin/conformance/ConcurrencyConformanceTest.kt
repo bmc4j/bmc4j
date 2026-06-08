@@ -537,6 +537,56 @@ class ConcurrencyConformanceTest : FunSpec({
             assertEquivalent("offer3(full)", call(r, "offer", arrayOf(OBJECT), 3), call(m, "offer", arrayOf(OBJECT), 3))
         }
 
+        // Timed offer/poll modeled as a finite TWO-OUTCOME state machine (BMC has no wall-clock, so the
+        // timeout duration is dropped): timed offer enqueues when there is room (true) and rejects when
+        // full (false); timed poll dequeues the head when non-empty and returns null when empty — exactly
+        // the non-blocking offer()/poll() outcomes the JDK timed forms also produce here (the timeout=0
+        // probe). TimeUnit IS relocated, so the real call takes the JDK enum and the model call takes the
+        // relocated enum constant (timedOp* picks the right argTypes per side).
+        test("$label timed offer/poll are the two-outcome state machine (timeout dropped)") {
+            // op kinds: 0=timedOffer(x), 1=timedPoll, 2=size
+            val op = Arb.choice(
+                Arb.int(0..9).map { 0 to it }, Arb.constant(1 to 0), Arb.constant(2 to 0),
+            )
+            checkAll(Arb.list(op, 0..30)) { ops ->
+                val r = makeReal(3)   // bounded so timed offer's "full -> false" outcome is exercised
+                val m = makeModel(3)
+                ops.forEachIndexed { i, (kind, x) ->
+                    when (kind) {
+                        0 -> assertEquivalent("op[$i]=timedOffer($x)",
+                            call(r, "offer", arrayOf(OBJECT, LONG, TIMEUNIT), x, 0L, REAL_MILLIS),
+                            call(m, "offer", arrayOf(OBJECT, LONG, MODEL_TIMEUNIT), x, 0L, MODEL_MILLIS))
+                        1 -> assertEquivalent("op[$i]=timedPoll",
+                            call(r, "poll", arrayOf(LONG, TIMEUNIT), 0L, REAL_MILLIS),
+                            call(m, "poll", arrayOf(LONG, MODEL_TIMEUNIT), 0L, MODEL_MILLIS))
+                        else -> assertEquivalent("op[$i]=size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+                    }
+                }
+                repeat(4) { assertEquivalent("drain", call(r, "poll", arrayOf()), call(m, "poll", arrayOf())) }
+            }
+        }
+
+        // Bounded drainTo(Collection, max): a fully-sequential transfer of at most `max` elements in FIFO
+        // order into a sink collection. Compare the returned count, the queue's residual FIFO, and the
+        // drained contents. drainTo(Collection) (drain-all) is exercised implicitly by the full drain.
+        test("$label drainTo(Collection, max) moves at most max in FIFO order") {
+            checkAll(Arb.list(Arb.int(0..9), 0..6), Arb.int(0..7)) { items, max ->
+                val r = makeReal(8); val m = makeModel(8)
+                for (x in items) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                val rSink = java.util.ArrayList<Any?>()
+                val mSink = bmcref.java.util.ArrayList<Any?>()
+                assertEquivalent("drainTo.count",
+                    call(r, "drainTo", arrayOf(java.util.Collection::class.java, INT), rSink, max),
+                    call(m, "drainTo", arrayOf(bmcref.java.util.Collection::class.java, INT), mSink, max))
+                // The sink got the same FIFO prefix.
+                val mn = call(mSink, "size", arrayOf()).getOrThrow() as Int
+                val mElems = (0 until mn).map { call(mSink, "get", arrayOf(INT), it).getOrThrow() }
+                mElems shouldBe rSink.toList()
+                // And the residual queue drains identically.
+                repeat(7) { assertEquivalent("residual", call(r, "poll", arrayOf()), call(m, "poll", arrayOf())) }
+            }
+        }
+
         // functional / bulk ops: removeIf/forEach (lambdas, FIFO), removeAll/retainAll (compact). Built
         // identically vs the JDK queue. addAll is exercised separately (capacity-sensitive) below.
         test("$label removeIf/forEach/removeAll/retainAll conform") {
@@ -740,7 +790,171 @@ class ConcurrencyConformanceTest : FunSpec({
             }
         }
     }
+
+    // --- ConcurrentHashMap legacy keys()/elements() Enumerations -----------------------------------
+    // The Hashtable-style enumerations walk a bounded snapshot of the keys/values. Iteration ORDER is
+    // not part of the CHM contract, so we compare the enumerated MULTISET (drained via hasMoreElements/
+    // nextElement) against the JDK's, plus the count. Driven on both the JDK CHM and the model.
+    test("ConcurrentHashMap keys()/elements() enumerate the same multiset as the JDK") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..20)) { pairs ->
+            val r = java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            val m = bmcref.java.util.concurrent.ConcurrentHashMap<Int, Int>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            fun drain(e: Any): List<Any?> {
+                val out = ArrayList<Any?>()
+                while (call(e, "hasMoreElements", arrayOf()).getOrThrow() as Boolean) {
+                    out.add(call(e, "nextElement", arrayOf()).getOrThrow())
+                }
+                return out
+            }
+            // keys()
+            val rKeys = drain(r.keys())
+            val mKeys = drain(call(m, "keys", arrayOf()).getOrThrow()!!)
+            mKeys.sortedBy { (it as Int) } shouldBe rKeys.sortedBy { (it as Int) }
+            // elements() (values)
+            val rVals = drain(r.elements())
+            val mVals = drain(call(m, "elements", arrayOf()).getOrThrow()!!)
+            mVals.sortedBy { (it as Int) } shouldBe rVals.sortedBy { (it as Int) }
+        }
+    }
+
+    // --- Semaphore extended surface (n-permit uninterruptible/timed, reducePermits) ----------------
+    // acquireUninterruptibly(n) is assume-prune (proof axis); here we exercise the SOUND non-blocking
+    // surface: tryAcquire(n, timeout, unit) (the timeout-dropped two-outcome probe) and reducePermits(n)
+    // (protected — drives the permit count down, may go negative like the JDK). Compared via subclasses
+    // that expose reducePermits publicly so the same op sequence runs on both.
+    test("Semaphore tryAcquire(n, timeout, unit) is the timed two-outcome probe") {
+        // op kinds: 0=tryAcquire(k, t), 1=release(k), 2=availablePermits. TimeUnit IS relocated, so the
+        // real and model calls take their respective enum types.
+        val op = Arb.choice(
+            Arb.int(0..4).map { 0 to it }, Arb.int(0..4).map { 1 to it }, Arb.constant(2 to 0),
+        )
+        checkAll(Arb.int(0..4), Arb.list(op, 0..20)) { init, ops ->
+            val r = java.util.concurrent.Semaphore(init)
+            val m = bmcref.java.util.concurrent.Semaphore(init)
+            ops.forEachIndexed { i, (kind, k) ->
+                when (kind) {
+                    0 -> assertEquivalent("op[$i]=tryAcquire($k,t)",
+                        call(r, "tryAcquire", arrayOf(INT, LONG, TIMEUNIT), k, 0L, REAL_MILLIS),
+                        call(m, "tryAcquire", arrayOf(INT, LONG, MODEL_TIMEUNIT), k, 0L, MODEL_MILLIS))
+                    1 -> assertEquivalent("op[$i]=release($k)", call(r, "release", arrayOf(INT), k), call(m, "release", arrayOf(INT), k))
+                    else -> assertEquivalent("op[$i]=availablePermits", call(r, "availablePermits", arrayOf()), call(m, "availablePermits", arrayOf()))
+                }
+            }
+            assertEquivalent("availablePermits", call(r, "availablePermits", arrayOf()), call(m, "availablePermits", arrayOf()))
+        }
+    }
+
+    test("Semaphore reducePermits(n) drives the count down (may go negative) like the JDK") {
+        checkAll(Arb.int(0..6), Arb.list(Arb.int(0..3), 0..6)) { init, reductions ->
+            val r = ReducibleReal(init)
+            val m = bmcref.java.util.concurrent.Semaphore(init)  // exercised via reflective protected call
+            for (k in reductions) {
+                r.reduce(k)
+                // reducePermits is protected on both; invoke via the declared method (publicMethod
+                // resolves the model's relocated type, which exposes it for reflection).
+                bmcref.java.util.concurrent.Semaphore::class.java
+                    .getDeclaredMethod("reducePermits", INT).also { it.isAccessible = true }.invoke(m, k)
+            }
+            (m.availablePermits()) shouldBe r.availablePermits()
+        }
+    }
+
+    // --- CompletableFuture either/both combinators + exceptionallyCompose (immediate semantics) ----
+    // Either-combinators complete on the receiver (deterministic sequential winner); both-combinators
+    // need both ready and short-circuit on either exceptional source; exceptionallyCompose flattens a
+    // recovery stage on the failure path. The real JDK CompletableFuture is the differential oracle.
+    test("CompletableFuture either/both combinators conform (sequential winner = receiver)") {
+        checkAll(Arb.int(0..9), Arb.int(0..9)) { a, b ->
+            val r = java.util.concurrent.CompletableFuture.completedFuture(a)
+            val rOther = java.util.concurrent.CompletableFuture.completedFuture(b)
+            val m = bmcref.java.util.concurrent.CompletableFuture.completedFuture(a)
+            val mOther = bmcref.java.util.concurrent.CompletableFuture.completedFuture(b)
+
+            // applyToEither: applies fn to the receiver's value.
+            val apply = java.util.function.Function<Int, Int> { it + 1 }
+            r.applyToEither(rOther, apply).join() shouldBe
+                modelJoin(call(m, "applyToEither", arrayOf(CS, FUNCTION), mOther, apply))
+
+            // acceptEither: side-effect on the receiver's value; result is null Void.
+            val accept = java.util.function.Consumer<Int> { }
+            r.acceptEither(rOther, accept).join() shouldBe
+                modelJoin(call(m, "acceptEither", arrayOf(CS, CONSUMER), mOther, accept))
+
+            // runAfterEither / runAfterBoth: run a Runnable; result is null Void.
+            val run = Runnable { }
+            r.runAfterEither(rOther, run).join() shouldBe
+                modelJoin(call(m, "runAfterEither", arrayOf(CS, RUNNABLE), mOther, run))
+            r.runAfterBoth(rOther, run).join() shouldBe
+                modelJoin(call(m, "runAfterBoth", arrayOf(CS, RUNNABLE), mOther, run))
+
+            // thenAcceptBoth: consume both values; result is null Void.
+            val both = java.util.function.BiConsumer<Int, Int> { _, _ -> }
+            r.thenAcceptBoth(rOther, both).join() shouldBe
+                modelJoin(call(m, "thenAcceptBoth", arrayOf(CS, BICONSUMER), mOther, both))
+        }
+    }
+
+    test("CompletableFuture exceptionallyCompose recovers on the failure path; passthrough on normal") {
+        // failure path: flatten a recovery future built from the cause.
+        val rf = java.util.concurrent.CompletableFuture<Int>().also { it.completeExceptionally(RuntimeException("x")) }
+        val mf = bmcref.java.util.concurrent.CompletableFuture<Int>()
+        call(mf, "completeExceptionally", arrayOf(THROWABLE), RuntimeException("x")).getOrThrow()
+        val rComposed = rf.exceptionallyCompose { java.util.concurrent.CompletableFuture.completedFuture(-1) }.join()
+        val mCompose = java.util.function.Function<Throwable, Any?> { bmcref.java.util.concurrent.CompletableFuture.completedFuture(-1) }
+        modelJoin(call(mf, "exceptionallyCompose", arrayOf(FUNCTION), mCompose)) shouldBe rComposed
+
+        // normal path: value passes through unchanged (fn not invoked).
+        val rOk = java.util.concurrent.CompletableFuture.completedFuture(7)
+        val mOk = bmcref.java.util.concurrent.CompletableFuture.completedFuture(7)
+        val rPass = rOk.exceptionallyCompose { java.util.concurrent.CompletableFuture.completedFuture(-1) }.join()
+        modelJoin(call(mOk, "exceptionallyCompose", arrayOf(FUNCTION), mCompose)) shouldBe rPass
+    }
+
+    // --- CopyOnWriteArrayList set-add + from-index search ------------------------------------------
+    // addIfAbsent appends only when not already present (by equals); addAllAbsent appends each new
+    // element (treating earlier additions as present), returning the count added; indexOf/lastIndexOf
+    // (fromIndex) search a window. Driven against a real COW list, comparing return values + the final
+    // contents in order.
+    test("CopyOnWriteArrayList addIfAbsent/addAllAbsent/indexOf(from)/lastIndexOf(from) conform") {
+        checkAll(Arb.list(Arb.int(0..4), 0..8)) { items ->
+            val r = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val m = bmcref.java.util.concurrent.CopyOnWriteArrayList<Int>()
+            for (x in items) {
+                (call(m, "addIfAbsent", arrayOf(OBJECT), x).getOrThrow() as Boolean) shouldBe r.addIfAbsent(x)
+            }
+            // addAllAbsent with a source that overlaps the current contents.
+            val rSrc = java.util.ArrayList<Any?>(listOf(0, 1, 2, 9))
+            val mSrc = bmcref.java.util.ArrayList<Any?>()
+            for (x in listOf(0, 1, 2, 9)) mSrc.add(x)
+            assertEquivalent("addAllAbsent",
+                call(r, "addAllAbsent", arrayOf(java.util.Collection::class.java), rSrc),
+                call(m, "addAllAbsent", arrayOf(bmcref.java.util.Collection::class.java), mSrc))
+            // from-index searches across the window.
+            for (target in 0..4) {
+                for (from in 0..r.size) {
+                    assertEquivalent("indexOf($target,$from)",
+                        runCatching { r.indexOf(target, from) },
+                        call(m, "indexOf", arrayOf(OBJECT, INT), target, from))
+                }
+                if (r.isNotEmpty()) {
+                    assertEquivalent("lastIndexOf($target,${r.size - 1})",
+                        runCatching { r.lastIndexOf(target, r.size - 1) },
+                        call(m, "lastIndexOf", arrayOf(OBJECT, INT), target, r.size - 1))
+                }
+            }
+            // final contents agree in order.
+            val mn = call(m, "size", arrayOf()).getOrThrow() as Int
+            (0 until mn).map { call(m, "get", arrayOf(INT), it).getOrThrow() } shouldBe r.toList()
+        }
+    }
 })
+
+/** A real Semaphore subclass exposing the protected reducePermits, for the differential reduce test. */
+private class ReducibleReal(permits: Int) : java.util.concurrent.Semaphore(permits) {
+    fun reduce(n: Int) = reducePermits(n)
+}
 
 private class SOp(val desc: String, val invoke: (Any) -> Result<Any?>) {
     fun on(t: Any) = invoke(t)
@@ -762,6 +976,13 @@ private val BICONSUMER: Class<*> = java.util.function.BiConsumer::class.java
 private val CONSUMER: Class<*> = java.util.function.Consumer::class.java
 private val RUNNABLE: Class<*> = java.lang.Runnable::class.java
 private val THROWABLE: Class<*> = java.lang.Throwable::class.java
+// TimeUnit IS relocated (bmcref.java.util.concurrent.TimeUnit): the model's timed-op overloads take the
+// relocated enum, the JDK's take the real one. The duration is dropped either way; we just need each
+// side's matching enum type + constant for the reflective lookup to resolve.
+private val TIMEUNIT: Class<*> = java.util.concurrent.TimeUnit::class.java
+private val MODEL_TIMEUNIT: Class<*> = bmcref.java.util.concurrent.TimeUnit::class.java
+private val REAL_MILLIS: Any = java.util.concurrent.TimeUnit.MILLISECONDS
+private val MODEL_MILLIS: Any = bmcref.java.util.concurrent.TimeUnit.MILLISECONDS
 
 // The relocated CompletableFuture type + its array (allOf/anyOf take a CompletableFuture[] vararg).
 private val CF: Class<*> = bmcref.java.util.concurrent.CompletableFuture::class.java

@@ -804,19 +804,16 @@ Real surface: 44 members — modeled 24, unmodelable 7, not-needed 0, tail 13.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
+Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
-| `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) and bounded drainTo(Collection,int) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
 
-- `drainTo(Collection, int)`
 - `parallelStream()`
 - `spliterator()`
 - `toArray()`
@@ -828,31 +825,24 @@ Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 29, unmodelable 0, not-needed 0, tail 50.
+Real surface: 79 members — modeled 42, unmodelable 0, not-needed 0, tail 37.
 
-**Modeled** (`@BmcModelConforms`): `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
+**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 50 members, all loud): every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the either/both combinators (applyToEither/acceptEither/runAfterBoth/runAfterEither/thenAcceptBoth and their *Async twins), exceptionallyCompose*, timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state), and stage/copy plumbing (minimalCompletionStage/completedStage/failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 37 members, all loud): every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/exceptionallyComposeAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the *Async-with-Executor twins of the either/both combinators, real timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state) which need genuine happens-before, and stage/copy plumbing (failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
 
-- `acceptEither(CompletionStage, Consumer)`
-- `acceptEitherAsync(CompletionStage, Consumer)`
 - `acceptEitherAsync(CompletionStage, Consumer, Executor)`
-- `applyToEither(CompletionStage, Function)`
-- `applyToEitherAsync(CompletionStage, Function)`
 - `applyToEitherAsync(CompletionStage, Function, Executor)`
 - `cancel(boolean)`
 - `completeAsync(Supplier)`
 - `completeAsync(Supplier, Executor)`
 - `completeOnTimeout(Object, long, TimeUnit)`
-- `completedStage(Object)`
 - `copy()`
 - `defaultExecutor()`
 - `delayedExecutor(long, TimeUnit)`
 - `delayedExecutor(long, TimeUnit, Executor)`
 - `exceptionNow()`
 - `exceptionallyAsync(Function, Executor)`
-- `exceptionallyCompose(Function)`
-- `exceptionallyComposeAsync(Function)`
 - `exceptionallyComposeAsync(Function, Executor)`
 - `failedFuture(Throwable)`
 - `failedStage(Throwable)`
@@ -866,18 +856,12 @@ Real surface: 79 members — modeled 29, unmodelable 0, not-needed 0, tail 50.
 - `obtrudeValue(Object)`
 - `orTimeout(long, TimeUnit)`
 - `resultNow()`
-- `runAfterBoth(CompletionStage, Runnable)`
-- `runAfterBothAsync(CompletionStage, Runnable)`
 - `runAfterBothAsync(CompletionStage, Runnable, Executor)`
-- `runAfterEither(CompletionStage, Runnable)`
-- `runAfterEitherAsync(CompletionStage, Runnable)`
 - `runAfterEitherAsync(CompletionStage, Runnable, Executor)`
 - `runAsync(Runnable, Executor)`
 - `state()`
 - `supplyAsync(Supplier, Executor)`
 - `thenAcceptAsync(Consumer, Executor)`
-- `thenAcceptBoth(CompletionStage, BiConsumer)`
-- `thenAcceptBothAsync(CompletionStage, BiConsumer)`
 - `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)`
 - `thenApplyAsync(Function, Executor)`
 - `thenCombineAsync(CompletionStage, BiFunction, Executor)`
@@ -890,9 +874,9 @@ Real surface: 79 members — modeled 29, unmodelable 0, not-needed 0, tail 50.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 56, unmodelable 4, not-needed 0, tail 2.
+Real surface: 62 members — modeled 58, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -901,19 +885,18 @@ Real surface: 62 members — modeled 56, unmodelable 4, not-needed 0, tail 2.
 | `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 | `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the Enumeration views (keys()/elements()) — iterator-exotic, out of scope for the bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC</summary>
 
-- `elements()`
-- `keys()`
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-Real surface: 43 members — modeled 25, unmodelable 7, not-needed 0, tail 11.
+Real surface: 43 members — modeled 29, unmodelable 7, not-needed 0, tail 7.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `set(int, Object)`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -925,12 +908,8 @@ Real surface: 43 members — modeled 25, unmodelable 7, not-needed 0, tail 11.
 | `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): copy-on-write/atomic extras (addIfAbsent/addAllAbsent/getArray/…), Deque surface, listIterator/subList/spliterator — out of scope for this sequential array-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): snapshot/array-view extras (getArray/clone/toArray(IntFunction)/parallelStream/spliterator), Deque surface, listIterator/subList — out of scope for this sequential array-backed model; all loud under JBMC</summary>
 
-- `addAllAbsent(Collection)`
-- `addIfAbsent(Object)`
-- `indexOf(Object, int)`
-- `lastIndexOf(Object, int)`
 - `listIterator()`
 - `listIterator(int)`
 - `parallelStream()`
@@ -973,19 +952,16 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
+Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `peek()`, `poll()`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `offer(Object, long, TimeUnit)` | timed offer — timeout is a scheduling concern; use offer()/put() assume-prune |
-| `poll(long, TimeUnit)` | timed poll — timeout is a scheduling concern; use poll()/take() assume-prune |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): array-snapshot/parallel-stream views, timed ops and bounded drainTo not inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
 
-- `drainTo(Collection, int)`
 - `parallelStream()`
 - `spliterator()`
 - `toArray()`
@@ -997,19 +973,16 @@ Real surface: 31 members — modeled 22, unmodelable 3, not-needed 0, tail 6.
 
 ## `java.util.concurrent.Semaphore`
 
-Real surface: 17 members — modeled 10, unmodelable 0, not-needed 0, tail 7.
+Real surface: 17 members — modeled 13, unmodelable 0, not-needed 0, tail 4.
 
-**Modeled** (`@BmcModelConforms`): `acquire()`, `acquire(int)`, `acquireUninterruptibly()`, `availablePermits()`, `drainPermits()`, `release()`, `release(int)`, `tryAcquire()`, `tryAcquire(int)`, `tryAcquire(long, TimeUnit)`
+**Modeled** (`@BmcModelConforms`): `acquire()`, `acquire(int)`, `acquireUninterruptibly()`, `acquireUninterruptibly(int)`, `availablePermits()`, `drainPermits()`, `reducePermits(int)`, `release()`, `release(int)`, `tryAcquire()`, `tryAcquire(int)`, `tryAcquire(int, long, TimeUnit)`, `tryAcquire(long, TimeUnit)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): timed/uninterruptible acquire variants (acquireUninterruptibly/tryAcquire(timeout)), fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) and reducePermits are scheduling/interleaving concerns a sequential model can't represent; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) are scheduling/interleaving concerns a sequential model can't represent — the concurrency wall; all loud under JBMC</summary>
 
-- `acquireUninterruptibly(int)`
 - `getQueueLength()`
 - `getQueuedThreads()`
 - `hasQueuedThreads()`
 - `isFair()`
-- `reducePermits(int)`
-- `tryAcquire(int, long, TimeUnit)`
 
 </details>
 

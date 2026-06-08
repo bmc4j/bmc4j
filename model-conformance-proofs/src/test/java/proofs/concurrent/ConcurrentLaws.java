@@ -318,6 +318,54 @@ class ConcurrentLaws {
         Bmc.check(g.isCompletedExceptionally()); // but the failure is NOT recovered
     }
 
+    /**
+     * The either-combinators complete on the deterministic sequential winner (the receiver): applyToEither
+     * applies fn to the receiver's value, and the runAfterEither/acceptEither variants run once it is ready.
+     */
+    @BmcProof
+    void completablefuture_either_combinators_use_receiver() {
+        int a = Bmc.anyInt(-50, 50);
+        int b = Bmc.anyInt(-50, 50);
+        CompletableFuture<Integer> fa = CompletableFuture.completedFuture(a);
+        CompletableFuture<Integer> fb = CompletableFuture.completedFuture(b);
+        Bmc.check(fa.applyToEither(fb, x -> x + 1).join() == a + 1);
+        AtomicInteger ran = new AtomicInteger(0);
+        fa.runAfterEither(fb, ran::incrementAndGet).join();
+        Bmc.check(ran.get() == 1);
+    }
+
+    /** The both-combinators consume both ready values and short-circuit on either exceptional source. */
+    @BmcProof
+    void completablefuture_both_combinators_merge_and_short_circuit() {
+        int a = Bmc.anyInt(-50, 50);
+        int b = Bmc.anyInt(-50, 50);
+        CompletableFuture<Integer> fa = CompletableFuture.completedFuture(a);
+        CompletableFuture<Integer> fb = CompletableFuture.completedFuture(b);
+        AtomicInteger sum = new AtomicInteger(0);
+        fa.thenAcceptBoth(fb, (x, y) -> sum.set(x + y)).join();
+        Bmc.check(sum.get() == a + b);
+
+        // a failed source short-circuits the both-combinator: the result is exceptional.
+        CompletableFuture<Integer> bad = new CompletableFuture<>();
+        bad.completeExceptionally(new RuntimeException());
+        Bmc.check(fa.runAfterBoth(bad, () -> { }).isCompletedExceptionally());
+    }
+
+    /** exceptionallyCompose flattens a recovery stage on the failure path; passthrough on a normal one. */
+    @BmcProof
+    void completablefuture_exceptionallyCompose_recovers() {
+        int fallback = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = new CompletableFuture<>();
+        f.completeExceptionally(new RuntimeException());
+        int r = f.exceptionallyCompose(cause -> CompletableFuture.completedFuture(fallback)).join();
+        Bmc.check(r == fallback);
+
+        int v = Bmc.anyInt(-100, 100);
+        int p = CompletableFuture.completedFuture(v)
+                .exceptionallyCompose(cause -> CompletableFuture.completedFuture(-1)).join();
+        Bmc.check(p == v);                                  // normal: value passes through
+    }
+
     /** allOf over all-normal futures completes normally; a single failure makes the result exceptional. */
     @BmcProof
     void completablefuture_allOf_propagates_a_failure() {
@@ -394,6 +442,24 @@ class ConcurrentLaws {
         Bmc.check(s.availablePermits() == 0);
     }
 
+    /** Timed n-permit tryAcquire is the two-outcome probe: take n if available, else false (timeout dropped). */
+    @BmcProof
+    void semaphore_timed_n_tryacquire_two_outcomes() throws Exception {
+        Semaphore s = new Semaphore(2);
+        Bmc.check(s.tryAcquire(2, 5, TimeUnit.SECONDS));    // available -> taken
+        Bmc.check(s.availablePermits() == 0);
+        Bmc.check(!s.tryAcquire(1, 5, TimeUnit.SECONDS));   // none left -> false (timeout dropped)
+    }
+
+    /** acquireUninterruptibly(n) is assume-prune: assume n permits, take them, leaving init - n. */
+    @BmcProof
+    void semaphore_acquire_uninterruptibly_n() {
+        int init = Bmc.anyInt(2, 6);
+        Semaphore s = new Semaphore(init);
+        s.acquireUninterruptibly(2);                        // assume >= 2 available, take 2
+        Bmc.check(s.availablePermits() == init - 2);
+    }
+
     /** Acquiring all initial permits leaves exactly zero. */
     @BmcProof
     void semaphore_acquire_all_leaves_zero() {
@@ -425,6 +491,35 @@ class ConcurrentLaws {
         Bmc.check(q.poll() == c);
         Bmc.check(q.poll() == null);
         Bmc.check(q.isEmpty());
+    }
+
+    /**
+     * Timed offer/poll are the finite two-outcome state machine: with the timeout dropped, timed offer
+     * enqueues when there is room and rejects when full; timed poll dequeues the head when non-empty and
+     * yields null when empty — observably the non-blocking offer()/poll() outcomes.
+     */
+    @BmcProof
+    void arrayqueue_timed_offer_poll_two_outcomes() throws Exception {
+        int a = Bmc.anyInt(0, 100);
+        ArrayBlockingQueue<Integer> q = new ArrayBlockingQueue<>(1);
+        Bmc.check(q.offer(a, 5, TimeUnit.SECONDS));        // room -> enqueued
+        Bmc.check(!q.offer(a, 5, TimeUnit.SECONDS));       // full -> rejected (timeout dropped)
+        Bmc.check(q.poll(5, TimeUnit.SECONDS) == a);       // non-empty -> head
+        Bmc.check(q.poll(5, TimeUnit.SECONDS) == null);    // empty -> null (timeout dropped)
+    }
+
+    /** drainTo(c, max) moves at most max elements in FIFO order, returning the count moved. */
+    @BmcProof
+    void arrayqueue_drainTo_bounded() {
+        ArrayBlockingQueue<Integer> q = new ArrayBlockingQueue<>(8);
+        q.offer(1);
+        q.offer(2);
+        q.offer(3);
+        java.util.ArrayList<Integer> sink = new java.util.ArrayList<>();
+        int moved = q.drainTo(sink, 2);
+        Bmc.check(moved == 2);
+        Bmc.check(sink.get(0) == 1 && sink.get(1) == 2);   // FIFO prefix
+        Bmc.check(q.size() == 1 && q.peek() == 3);          // residual remains
     }
 
     /** offer rejects past capacity and remainingCapacity tracks it. */

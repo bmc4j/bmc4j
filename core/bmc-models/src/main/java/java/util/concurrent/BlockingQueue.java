@@ -1,5 +1,6 @@
 package java.util.concurrent;
 
+import java.util.Collection;
 import java.util.Queue;
 
 /**
@@ -27,4 +28,22 @@ public interface BlockingQueue<E> extends Queue<E> {
 
     /** Spare capacity before {@code offer} would fail. */
     int remainingCapacity();
+
+    /**
+     * Timed offer — modeled as a finite two-outcome state machine (BMC has no wall-clock, so the
+     * timeout is dropped): room → enqueue and return true; full → return false. See the impl javadoc.
+     */
+    boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException;
+
+    /**
+     * Timed poll — modeled as a finite two-outcome state machine (BMC has no wall-clock, so the timeout
+     * is dropped): non-empty → dequeue the head; empty → return null. See the impl javadoc.
+     */
+    E poll(long timeout, TimeUnit unit) throws InterruptedException;
+
+    /** Drain all available elements into {@code c} (FIFO), returning the count moved. */
+    int drainTo(Collection<? super E> c);
+
+    /** Drain at most {@code maxElements} available elements into {@code c} (FIFO), returning the count moved. */
+    int drainTo(Collection<? super E> c, int maxElements);
 }

@@ -1,9 +1,11 @@
 package java.util.concurrent;
 
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -30,7 +32,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <p>Unlike HashMap, ConcurrentHashMap rejects null keys and values (NPE) — modeled here so a proof
  * over code that puts/looks up a null in a concurrent map sees the real failure, not a silent pass.
  */
-@BmcModelTail(reason = "the Enumeration views (keys()/elements()) — iterator-exotic, out of scope for the bounded model; all loud under JBMC")
+@BmcModelTail(reason = "exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC")
 public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
 
     public ConcurrentHashMap() {
@@ -184,6 +186,57 @@ public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
     @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.concurrenthashmap)")
     public long mappingCount() {
         return size();
+    }
+
+    /**
+     * Legacy Hashtable-style {@link Enumeration} over the keys, like {@code ConcurrentHashMap.keys()}.
+     * A bounded snapshot walked by index in insertion order — concrete backing, no interface dispatch
+     * (the same pattern as {@code Collections.enumeration}).
+     */
+    @BmcModelConforms("differential (MapConformanceTest keys()/elements() enumerations)")
+    public Enumeration<K> keys() {
+        Object[] snapshot = new Object[size()];
+        for (int i = 0; i < size(); i++) {
+            snapshot[i] = keyAt(i);
+        }
+        return new ArrayEnumeration<>(snapshot, size());
+    }
+
+    /** Legacy Hashtable-style {@link Enumeration} over the values, like {@code ConcurrentHashMap.elements()}. */
+    @BmcModelConforms("differential (MapConformanceTest keys()/elements() enumerations)")
+    public Enumeration<V> elements() {
+        Object[] snapshot = new Object[size()];
+        for (int i = 0; i < size(); i++) {
+            snapshot[i] = valueAt(i);
+        }
+        return new ArrayEnumeration<>(snapshot, size());
+    }
+
+    /** Concrete index-walked {@link Enumeration} over a snapshot array (no interface dispatch). */
+    private static final class ArrayEnumeration<T> implements Enumeration<T> {
+
+        private final Object[] elements;
+        private final int count;
+        private int cursor;
+
+        ArrayEnumeration(Object[] elements, int count) {
+            this.elements = elements;
+            this.count = count;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            return cursor < count;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public T nextElement() {
+            if (cursor >= count) {
+                throw new NoSuchElementException();
+            }
+            return (T) elements[cursor++];
+        }
     }
 
     /**
