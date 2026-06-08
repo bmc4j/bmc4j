@@ -155,6 +155,49 @@ public final class SequencesKt {
         return new ListSequence<>(out);
     }
 
+    // ---- takeWhile(predicate) / dropWhile(predicate): the Kotlin compiler emits
+    //   takeWhile(Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Lkotlin/sequences/Sequence;
+    //   dropWhile(Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Lkotlin/sequences/Sequence;
+    // These are NOT inline funs on Sequence (unlike their Iterable cousins on CollectionsKt) — they are
+    // real facade calls returning a lazy TakeWhileSequence/DropWhileSequence whose iterator is a small
+    // finite state machine over the source iterator's hasNext/next protocol: takeWhile yields the leading
+    // run for which the predicate holds and STOPS at the first failure (it does NOT resume); dropWhile
+    // skips that same leading run then yields everything after — INCLUDING later elements that fail the
+    // predicate. We replay that exact state machine eagerly over the concrete bounded backing (iterating
+    // by the seqIter/backing checkcast, never the kotlinc-version-fragile virtual Sequence.iterator()).
+    // The predicate is the desugared user lambda, genuinely applied.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> takeWhile(Sequence<T> source, Function1<? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T v = it.next();
+            if (!predicate.invoke(v)) {
+                break;
+            }
+            out.add(v);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> dropWhile(Sequence<T> source, Function1<? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        boolean dropping = true;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T v = it.next();
+            if (dropping && predicate.invoke(v)) {
+                // still in the leading run the predicate accepts — skip this element.
+                dropping = true;
+            } else {
+                // the run has ended (first rejection): keep this and every later element.
+                dropping = false;
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
     // ---- distinct(): the Kotlin compiler emits
     //   distinct(Lkotlin/sequences/Sequence;)Lkotlin/sequences/Sequence;
     // Kotlin's contract: distinct elements in first-occurrence order (dedup via equals). Eager over a

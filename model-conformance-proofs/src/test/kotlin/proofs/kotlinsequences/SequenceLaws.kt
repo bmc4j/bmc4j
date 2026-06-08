@@ -105,6 +105,51 @@ class SequenceLaws {
         Bmc.check(t.size == 1 && t[0] == a && d.size == 2 && d[0] == b && d[1] == c)
     }
 
+    // ---- takeWhile(p) / dropWhile(p) intermediate ops (SequencesKt facade models): the iterator-protocol
+    // finite state machine — takeWhile yields the leading run while p holds then STOPS; dropWhile skips that
+    // run then yields the rest INCLUDING later elements that fail p.
+
+    @BmcProof
+    fun takeWhile_keeps_leading_run() {
+        // 1,2 satisfy <3; 3 fails so it stops — the trailing 1 is NOT resumed.
+        val t = sequenceOf(1, 2, 3, 1).takeWhile { it < 3 }.toList()
+        Bmc.check(t.size == 2 && t[0] == 1 && t[1] == 2)
+    }
+
+    @BmcProof
+    fun dropWhile_skips_leading_run_then_keeps_rest() {
+        // drop the leading <3 run (1,2); keep 3 and the trailing 1 even though 1 < 3.
+        val d = sequenceOf(1, 2, 3, 1).dropWhile { it < 3 }.toList()
+        Bmc.check(d.size == 2 && d[0] == 3 && d[1] == 1)
+    }
+
+    /**
+     * Symbolic takeWhile/dropWhile partition law over SYMBOLIC inputs — this is the case the
+     * kotlin-version-fragile virtual Sequence.iterator() devirt broke (the #169 family false REFUTED):
+     * symbolic operands keep the interface dispatch live where concrete proofs would constant-fold it,
+     * so it pins the seqIter/backing checkcast on the takeWhile/dropWhile state machine. With a positive
+     * head and a non-positive middle, takeWhile{it>0} and dropWhile{it>0} partition the sequence exactly.
+     */
+    @BmcProof
+    fun symbolic_takeWhile_stops_at_first_failure() {
+        val a = Bmc.anyInt(1, 100)    // > 0  -> in the leading run
+        val b = Bmc.anyInt(-100, 0)   // <= 0 -> first failure, splits here
+        val c = Bmc.anyInt(-100, 100) // arbitrary tail element (may be > 0)
+        val t = sequenceOf(a, b, c).takeWhile { it > 0 }.toList()
+        // takeWhile yields the leading run {a} then stops at b — c is never resumed.
+        Bmc.check(t.size == 1 && t[0] == a)
+    }
+
+    @BmcProof
+    fun symbolic_dropWhile_keeps_rest_after_run() {
+        val a = Bmc.anyInt(1, 100)    // > 0  -> dropped (leading run)
+        val b = Bmc.anyInt(-100, 0)   // <= 0 -> first kept element
+        val c = Bmc.anyInt(-100, 100) // kept regardless of sign (run already ended)
+        val d = sequenceOf(a, b, c).dropWhile { it > 0 }.toList()
+        // dropWhile drops only the leading run {a} and keeps b, c (c kept even if > 0).
+        Bmc.check(d.size == 2 && d[0] == b && d[1] == c)
+    }
+
     // ---- distinct() intermediate op (SequencesKt.distinct facade model via bounded LinkedHashSet).
 
     @BmcProof
