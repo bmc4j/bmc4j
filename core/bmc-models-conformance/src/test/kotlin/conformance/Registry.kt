@@ -24,6 +24,7 @@ val COVERED: Set<String> = setOf(
     "java.util.concurrent.CountDownLatch", "java.util.concurrent.Semaphore",
     "java.util.concurrent.ArrayBlockingQueue", "java.util.concurrent.LinkedBlockingQueue",
     "java.util.concurrent.ImmediateExecutorService", "java.util.concurrent.Executors",
+    "java.util.concurrent.ImmediateScheduledExecutorService",
     // Model proofs (model-conformance-proofs) — Kotlin facades.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt", "kotlin.ranges.RangesKt",
@@ -77,7 +78,9 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.BlockingQueue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",
     "java.util.concurrent.Executor" to "interface — via ImmediateExecutorService",
     "java.util.concurrent.ExecutorService" to "interface — via ImmediateExecutorService",
+    "java.util.concurrent.ScheduledExecutorService" to "interface — via ImmediateScheduledExecutorService",
     "java.util.concurrent.Future" to "interface — via ImmediateExecutorService's completed future",
+    "java.util.concurrent.ScheduledFuture" to "interface — via ImmediateScheduledExecutorService's completed future",
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
     "java.util.stream.Collector" to "interface — via Collectors",

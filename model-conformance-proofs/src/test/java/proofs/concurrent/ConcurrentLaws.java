@@ -5,9 +5,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.bmc4j.Bmc;
@@ -452,6 +455,93 @@ class ConcurrentLaws {
         ExecutorService ex = Executors.newSingleThreadExecutor();
         Future<Integer> f = ex.submit(() -> { }, x);
         Bmc.check(f.get() == x);
+    }
+
+    /**
+     * The submitted task actually RUNS (its side effect is observed), not just that get() returns a
+     * value. Pins the synchronous-execute contract on the ThreadFactory pool overload too: the factory
+     * is never invoked, the task runs inline on submit. execute() is the bare Executor surface.
+     */
+    @BmcProof
+    void executor_execute_runs_task_synchronously() {
+        int x = Bmc.anyInt(-100, 100);
+        // A real ThreadFactory lambda: the immediate model never invokes it (no worker is spawned),
+        // so its body is dead at analysis time — it just exercises the ThreadFactory pool overload.
+        ExecutorService ex = Executors.newFixedThreadPool(4, r -> null);
+        AtomicInteger sink = new AtomicInteger(0);
+        ex.execute(() -> sink.set(x + 1));
+        Bmc.check(sink.get() == x + 1);          // ran inline, synchronously
+        ex.shutdown();
+        Bmc.check(ex.isShutdown());              // lifecycle state flips
+    }
+
+    /**
+     * invokeAll runs every submitted task synchronously and returns a completed Future per task, in
+     * order. Proves the collection-driving path through the interface-typed reference.
+     */
+    @BmcProof
+    void executor_invokeAll_runs_all_in_order() throws Exception {
+        int a = Bmc.anyInt(0, 100);
+        int b = Bmc.anyInt(0, 100);
+        ExecutorService ex = Executors.newCachedThreadPool();
+        java.util.List<Callable<Integer>> tasks = new java.util.ArrayList<>();
+        tasks.add(() -> a + 1);
+        tasks.add(() -> b + 2);
+        java.util.List<Future<Integer>> fs = ex.invokeAll(tasks);
+        Bmc.check(fs.get(0).get() == a + 1);
+        Bmc.check(fs.get(1).get() == b + 2);
+    }
+
+    // --- Immediate ScheduledExecutorService (sequential, delay ignored) ---------------------------
+    // A one-shot schedule runs its task synchronously at submit time; the delay/unit are ignored
+    // (timing is not modeled). The model class IMPLEMENTS ScheduledExecutorService (a JDK interface),
+    // so dispatching schedule/submit through the interface-typed reference devirtualizes — these
+    // proofs exercise exactly that interface-typed dispatch (the devirt-safe path).
+
+    /** schedule(Callable, delay) runs the callable synchronously; the future is done with its value. */
+    @BmcProof
+    void scheduled_schedule_callable_runs_synchronously() throws Exception {
+        int x = Bmc.anyInt(0, 1000);
+        ScheduledExecutorService ex = Executors.newScheduledThreadPool(2);
+        Future<Integer> f = ex.schedule((Callable<Integer>) () -> x * 2, 5, TimeUnit.SECONDS);
+        Bmc.check(f.isDone());
+        Bmc.check(f.get() == x * 2);             // delay ignored, value computed
+    }
+
+    /** schedule(Runnable, delay) runs the runnable synchronously (side effect observed). */
+    @BmcProof
+    void scheduled_schedule_runnable_runs_synchronously() {
+        int x = Bmc.anyInt(-100, 100);
+        ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
+        AtomicInteger sink = new AtomicInteger(0);
+        ex.schedule(() -> sink.set(x - 3), 100, TimeUnit.MILLISECONDS);
+        Bmc.check(sink.get() == x - 3);
+    }
+
+    /**
+     * A ScheduledExecutorService IS an ExecutorService: submit() through the inherited interface
+     * surface runs synchronously too (the impl extends the immediate executor model). Pins that the
+     * inherited submit path works through the ScheduledExecutorService-typed reference.
+     */
+    @BmcProof
+    void scheduled_inherits_synchronous_submit() throws Exception {
+        int x = Bmc.anyInt(0, 1000);
+        ScheduledExecutorService ex = Executors.newScheduledThreadPool(1);
+        Future<Integer> f = ex.submit((Callable<Integer>) () -> x + 9);
+        Bmc.check(f.get() == x + 9);
+    }
+
+    // --- Executors.callable adapter (pure same-thread logic) --------------------------------------
+
+    /** callable(Runnable, result) yields a Callable that runs the task and returns the supplied result. */
+    @BmcProof
+    void executors_callable_runs_runnable_and_returns_result() throws Exception {
+        int x = Bmc.anyInt(-100, 100);
+        AtomicInteger sink = new AtomicInteger(0);
+        Callable<Integer> c = Executors.callable(() -> sink.set(x + 5), x);
+        int r = c.call();                        // running the adapter runs the wrapped Runnable
+        Bmc.check(sink.get() == x + 5);          // side effect happened
+        Bmc.check(r == x);                       // and the supplied result is returned
     }
 
     // --- LOGIC THROUGH THE BLOCKING CONSTRUCTS ----------------------------------------------------
