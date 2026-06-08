@@ -176,10 +176,13 @@ class ArrayListLaws {
         val a = Bmc.anyInt()
         val b = Bmc.anyInt()
         l.add(a); l.add(b)
+        // b+1 must be genuinely absent from l={a,b}: b+1 != b always, but b+1 != a only if a != b+1
+        // (else other={a,b+1}={a,a} is fully contained and the law's own assertion is false).
+        Bmc.assume(a != b + 1)
         val sub = ArrayList<Int>()
         sub.add(a)
         val other = ArrayList<Int>()
-        other.add(a); other.add(b + 1)              // b+1 absent (b+1 != a and b+1 != b)
+        other.add(a); other.add(b + 1)              // b+1 now absent (b+1 != a and b+1 != b)
         Bmc.check(l.containsAll(sub) && !l.containsAll(other))
     }
 
