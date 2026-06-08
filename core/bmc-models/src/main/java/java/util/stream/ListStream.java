@@ -12,6 +12,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
@@ -217,6 +218,23 @@ public final class ListStream<T> implements Stream<T> {
 
     @Override
     @BmcModelConforms("@BmcProof (proofs.stream)")
+    public DoubleStream flatMapToDouble(Function<? super T, ? extends DoubleStream> mapper) {
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < data.size(); i++) {
+            DoubleStream inner = mapper.apply(data.get(i));
+            // Drain via the sole final implementor (invokevirtual on DoubleArrayStream), not the
+            // DoubleStream interface — the interface dispatch is the kotlinc-version-fragile
+            // devirtualization behind the #169 false-REFUTED family.
+            double[] arr = ((DoubleArrayStream) inner).toArray();
+            for (int j = 0; j < arr.length; j++) {
+                s.add(arr[j]);
+            }
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
     public boolean noneMatch(Predicate<? super T> predicate) {
         for (int i = 0; i < data.size(); i++) {
             if (predicate.test(data.get(i))) {
@@ -293,6 +311,16 @@ public final class ListStream<T> implements Stream<T> {
         LongArrayStream s = new LongArrayStream();
         for (int i = 0; i < data.size(); i++) {
             s.add(mapper.applyAsLong(data.get(i)));
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public DoubleStream mapToDouble(ToDoubleFunction<? super T> mapper) {
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < data.size(); i++) {
+            s.add(mapper.applyAsDouble(data.get(i)));
         }
         return s;
     }
@@ -713,6 +741,22 @@ public final class ListStream<T> implements Stream<T> {
         java.util.function.LongConsumer sink = new java.util.function.LongConsumer() {
             @Override
             public void accept(long v) {
+                s.add(v);
+            }
+        };
+        for (int i = 0; i < data.size(); i++) {
+            mapper.accept(data.get(i), sink);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public DoubleStream mapMultiToDouble(BiConsumer<? super T, ? super java.util.function.DoubleConsumer> mapper) {
+        DoubleArrayStream s = new DoubleArrayStream();
+        java.util.function.DoubleConsumer sink = new java.util.function.DoubleConsumer() {
+            @Override
+            public void accept(double v) {
                 s.add(v);
             }
         };

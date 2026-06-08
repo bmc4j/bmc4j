@@ -1,12 +1,15 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.IntSummaryStatistics;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntToDoubleFunction;
 import java.util.function.IntToLongFunction;
 import java.util.function.IntUnaryOperator;
 import java.util.function.ObjIntConsumer;
@@ -310,6 +313,52 @@ final class IntArrayStream implements IntStream {
             s.add(data[i]);
         }
         return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamDoubleBridgeLaws)")
+    public DoubleStream asDoubleStream() {
+        // int -> double widening is exact (every int fits in a double mantissa); sound under JBMC.
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamDoubleBridgeLaws)")
+    public DoubleStream mapToDouble(IntToDoubleFunction mapper) {
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(mapper.applyAsDouble(data[i]));
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamDoubleBridgeLaws)")
+    public OptionalDouble average() {
+        if (size == 0) {
+            return OptionalDouble.empty();
+        }
+        // Sum in a long (no int overflow), then ONE sound double division — matches the JDK, which
+        // averages via a double sum but is exact here for the small bounded element counts proofs use.
+        long t = 0;
+        for (int i = 0; i < size; i++) {
+            t += data[i];
+        }
+        return OptionalDouble.of((double) t / size);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamDoubleBridgeLaws)")
+    public IntSummaryStatistics summaryStatistics() {
+        IntSummaryStatistics stats = new IntSummaryStatistics();
+        for (int i = 0; i < size; i++) {
+            stats.accept(data[i]);
+        }
+        return stats;
     }
 
     @Override

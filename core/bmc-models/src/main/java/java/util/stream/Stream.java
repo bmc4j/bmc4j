@@ -11,12 +11,16 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 import java.util.function.UnaryOperator;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
+
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 /**
  * Minimal BMC model of {@link java.util.stream.Stream}, evaluated <em>eagerly</em> over a bounded
@@ -25,7 +29,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * ({@code map}/{@code filter}) call their functional-interface arguments, which bmc4j desugars from
  * lambdas — so {@code stream.filter(p).map(f).count()} analyses soundly.
  */
-@BmcModelTail(reason = "the remaining lazy Stream surface (the natural-order sorted() whose boxed Comparable dispatch is unsound under JBMC, the infinite iterate(seed,next)/generate, mapToDouble/flatMapToDouble/mapMultiToDouble, builder()/iterator()/spliterator(), and the lifecycle no-ops onClose/close/parallel/sequential/unordered/forEachOrdered's ordering nuance) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
+@BmcModelTail(reason = "the remaining lazy Stream surface (the infinite iterate(seed,next)/generate, builder()/iterator()/spliterator(), and the lifecycle no-ops onClose/close/isParallel/parallel/sequential/unordered) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl). The natural-order sorted() (no comparator) is a separate loud @BmcUnmodelable — its boxed Comparable dispatch is unsound under JBMC.")
 public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
@@ -64,11 +68,17 @@ public interface Stream<T> {
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     LongStream mapToLong(ToLongFunction<? super T> mapper);
 
+    @BmcModelConforms("@BmcProof (proofs.stream StreamDoubleBridgeLaws)")
+    DoubleStream mapToDouble(ToDoubleFunction<? super T> mapper);
+
     @BmcModelConforms("@BmcProof (proofs.stream StreamTailLaws)")
     IntStream flatMapToInt(Function<? super T, ? extends IntStream> mapper);
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamTailLaws)")
     LongStream flatMapToLong(Function<? super T, ? extends LongStream> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamDoubleBridgeLaws)")
+    DoubleStream flatMapToDouble(Function<? super T, ? extends DoubleStream> mapper);
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     long count();
@@ -132,6 +142,18 @@ public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
     LongStream mapMultiToLong(BiConsumer<? super T, ? super java.util.function.LongConsumer> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamDoubleBridgeLaws)")
+    DoubleStream mapMultiToDouble(BiConsumer<? super T, ? super java.util.function.DoubleConsumer> mapper);
+
+    // The NATURAL-ORDER sorted() (no comparator) routes through the elements' Comparable.compareTo via a
+    // boxed/dynamic dispatch JBMC cannot resolve soundly (the #169 devirt family for the unconstrained T),
+    // so it is a loud @BmcUnmodelable rather than a quiet fiction. The COMPARATOR sorted(Comparator) above
+    // IS modeled — the comparator is an explicit, desugared SAM the model can drive by index.
+    @BmcUnmodelable(reason = "Stream.sorted() (natural order) dispatches through the elements' Comparable.compareTo on the unconstrained T — a boxed/dynamic comparison JBMC cannot devirtualize soundly (#169 family); a fiction would diverge from the JDK ordering. Use sorted(Comparator), which IS modeled.")
+    default Stream<T> sorted() {
+        throw fail("bmc4j: unmodelled member java.util.stream.Stream.sorted() — natural-order Comparable.compareTo dispatch on the unconstrained element type is unsound under JBMC; use sorted(Comparator)");
+    }
 
     @SafeVarargs
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
