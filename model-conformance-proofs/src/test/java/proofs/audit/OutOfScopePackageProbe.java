@@ -1,6 +1,5 @@
 package proofs.audit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,22 +67,10 @@ class OutOfScopePackageProbe {
         assertTrue(result.stubbedMethods().stream().anyMatch(m -> m.contains("java.sql.Date")),
                 "the reached out-of-scope member must be NAMED as an opaque symbol, not silently stubbed: "
                         + result.stubbedMethods());
-
-        // The demotion the extension applies to such a reach is the typed OUT_OF_SCOPE UNKNOWN
-        // (retryable=false) — the kind that surfaces in the ProofSummary / proof-results comment so a
-        // reviewer can tell a DELIBERATELY declined area from a model gap. Pinned through the same
-        // extension helpers the live demotion uses (the build forwards java.sql.* as out of scope).
-        var declaredGlobs = java.util.List.of("java.sql.*");
-        var demoted = org.bmc4j.junit.BmcProofExtension.outOfScopeStubsToDemote(
-                result.stubbedMethods(), declaredGlobs, java.util.List.of());
-        assertFalse(demoted.isEmpty(),
-                "the declared-package reach must demote to a loud out-of-scope UNKNOWN: " + result.stubbedMethods());
-        var err = org.bmc4j.junit.BmcProofExtension.outOfScopePackageUndecided("jbmc",
-                "proofs.audit.OutOfScopePackageProbe.reaching_a_declared_out_of_scope_class_is_undecided", demoted);
-        assertEquals(org.bmc4j.engine.UnknownKind.OUT_OF_SCOPE, err.getKind(),
-                "a declared out-of-scope reach yields kind=OUT_OF_SCOPE");
-        assertFalse(err.getKind().retryable,
-                "OUT_OF_SCOPE is a deterministic declared decline: NOT retryable");
+        // The typed OUT_OF_SCOPE demotion (kind + retryable=false + distinct "out-of-scope (declared)"
+        // framing) and the registry-wins helper behavior are unit-pinned against the extension helpers in
+        // BmcProofExtensionTest.outOfScopePackageUndecided_* / outOfScopeStubsToDemote_* — this end-to-end
+        // probe asserts only the loud, never-silent-green half of the invariant through the public path.
     }
 
     /**
