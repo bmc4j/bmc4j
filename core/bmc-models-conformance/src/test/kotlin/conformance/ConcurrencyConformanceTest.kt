@@ -7,6 +7,7 @@ import io.kotest.property.arbitrary.bind
 import io.kotest.property.arbitrary.boolean
 import io.kotest.property.arbitrary.choice
 import io.kotest.property.arbitrary.constant
+import io.kotest.property.arbitrary.element
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.long
@@ -41,6 +42,20 @@ class ConcurrencyConformanceTest : FunSpec({
             Arb.constant(AOp("incrementAndGet", "incrementAndGet", arrayOf(), arrayOf())),
             Arb.constant(AOp("getAndIncrement", "getAndIncrement", arrayOf(), arrayOf())),
             Arb.constant(AOp("decrementAndGet", "decrementAndGet", arrayOf(), arrayOf())),
+            // VarHandle memory-ordering variants: must equal their plain/strong counterpart on one thread.
+            n.map { AOp("setPlain($it)", "setPlain", arrayOf(INT), arrayOf(it)) },
+            n.map { AOp("setRelease($it)", "setRelease", arrayOf(INT), arrayOf(it)) },
+            n.map { AOp("setOpaque($it)", "setOpaque", arrayOf(INT), arrayOf(it)) },
+            Arb.constant(AOp("getPlain", "getPlain", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getAcquire", "getAcquire", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getOpaque", "getOpaque", arrayOf(), arrayOf())),
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchange($e,$u)", "compareAndExchange", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchangeAcquire($e,$u)", "compareAndExchangeAcquire", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchangeRelease($e,$u)", "compareAndExchangeRelease", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCAS($e,$u)", "weakCompareAndSet", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASAcquire($e,$u)", "weakCompareAndSetAcquire", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASRelease($e,$u)", "weakCompareAndSetRelease", arrayOf(INT, INT), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASVolatile($e,$u)", "weakCompareAndSetVolatile", arrayOf(INT, INT), arrayOf(e, u)) },
         )
         checkAll(Arb.list(op, 0..30)) { ops ->
             val r = java.util.concurrent.atomic.AtomicInteger(0)
@@ -112,6 +127,21 @@ class ConcurrencyConformanceTest : FunSpec({
             n.map { AOp("addAndGet($it)", "addAndGet", arrayOf(LONG), arrayOf(it)) },
             Arb.constant(AOp("incrementAndGet", "incrementAndGet", arrayOf(), arrayOf())),
             Arb.constant(AOp("getAndDecrement", "getAndDecrement", arrayOf(), arrayOf())),
+            // VarHandle memory-ordering variants: must equal their plain/strong counterpart on one thread.
+            n.map { AOp("setPlain($it)", "setPlain", arrayOf(LONG), arrayOf(it)) },
+            n.map { AOp("setRelease($it)", "setRelease", arrayOf(LONG), arrayOf(it)) },
+            n.map { AOp("setOpaque($it)", "setOpaque", arrayOf(LONG), arrayOf(it)) },
+            Arb.constant(AOp("getPlain", "getPlain", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getAcquire", "getAcquire", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getOpaque", "getOpaque", arrayOf(), arrayOf())),
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchange($e,$u)", "compareAndExchange", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchangeAcquire($e,$u)", "compareAndExchangeAcquire", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("compareAndExchangeRelease($e,$u)", "compareAndExchangeRelease", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCAS($e,$u)", "weakCompareAndSet", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASPlain($e,$u)", "weakCompareAndSetPlain", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASAcquire($e,$u)", "weakCompareAndSetAcquire", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASRelease($e,$u)", "weakCompareAndSetRelease", arrayOf(LONG, LONG), arrayOf(e, u)) },
+            Arb.bind(n, n) { e, u -> AOp("weakCASVolatile($e,$u)", "weakCompareAndSetVolatile", arrayOf(LONG, LONG), arrayOf(e, u)) },
         )
         checkAll(Arb.list(op, 0..30)) { ops ->
             val r = java.util.concurrent.atomic.AtomicLong(0)
@@ -133,6 +163,33 @@ class ConcurrencyConformanceTest : FunSpec({
         }
     }
 
+    // The VarHandle memory-ordering variants must equal their plain/strong counterpart on one thread.
+    test("AtomicBoolean memory-ordering variants conform (sequential)") {
+        val b = Arb.boolean()
+        val op = Arb.choice(
+            b.map { AOp("setPlain($it)", "setPlain", arrayOf(BOOL), arrayOf(it)) },
+            b.map { AOp("setRelease($it)", "setRelease", arrayOf(BOOL), arrayOf(it)) },
+            b.map { AOp("setOpaque($it)", "setOpaque", arrayOf(BOOL), arrayOf(it)) },
+            Arb.constant(AOp("getPlain", "getPlain", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getAcquire", "getAcquire", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getOpaque", "getOpaque", arrayOf(), arrayOf())),
+            Arb.bind(b, b) { e, u -> AOp("cae($e,$u)", "compareAndExchange", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("caeAcq($e,$u)", "compareAndExchangeAcquire", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("caeRel($e,$u)", "compareAndExchangeRelease", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("weakCAS($e,$u)", "weakCompareAndSet", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("weakCASPlain($e,$u)", "weakCompareAndSetPlain", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("weakCASAcquire($e,$u)", "weakCompareAndSetAcquire", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("weakCASRelease($e,$u)", "weakCompareAndSetRelease", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+            Arb.bind(b, b) { e, u -> AOp("weakCASVolatile($e,$u)", "weakCompareAndSetVolatile", arrayOf(BOOL, BOOL), arrayOf(e, u)) },
+        )
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicBoolean(false)
+            val m = bmcref.java.util.concurrent.atomic.AtomicBoolean(false)
+            ops.forEachIndexed { i, o -> assertEquivalent("op[$i]=$o", o.on(r), o.on(m)) }
+            assertEquivalent("get", call(r, "get", arrayOf()), call(m, "get", arrayOf()))
+        }
+    }
+
     test("AtomicReference conforms on value ops (sequential)") {
         checkAll(Arb.list(Arb.int(0..5).orNull(0.2), 0..10)) { vals ->
             val r = java.util.concurrent.atomic.AtomicReference<Any?>()
@@ -140,6 +197,44 @@ class ConcurrencyConformanceTest : FunSpec({
             for (v in vals) {
                 assertEquivalent("getAndSet($v)", call(r, "getAndSet", arrayOf(OBJECT), v), call(m, "getAndSet", arrayOf(OBJECT), v))
             }
+            assertEquivalent("get", call(r, "get", arrayOf()), call(m, "get", arrayOf()))
+        }
+    }
+
+    // The VarHandle memory-ordering variants (+ getAndAccumulate) must equal their plain/strong
+    // counterpart on one thread. AtomicReference uses IDENTITY (==) for the expected value, so the CAS
+    // family draws from a fixed pool of token objects (so a witnessed value can == an expected one).
+    test("AtomicReference memory-ordering variants conform (sequential, identity CAS)") {
+        // A small fixed pool: distinct identities reused across set/expected so CAS hits both branches.
+        val pool: List<Any?> = listOf(null, Any(), Any(), Any())
+        val tok = Arb.element(pool)
+        val op = Arb.choice(
+            tok.map { AOp("set", "set", arrayOf(OBJECT), arrayOf(it)) },
+            tok.map { AOp("setPlain", "setPlain", arrayOf(OBJECT), arrayOf(it)) },
+            tok.map { AOp("setRelease", "setRelease", arrayOf(OBJECT), arrayOf(it)) },
+            tok.map { AOp("setOpaque", "setOpaque", arrayOf(OBJECT), arrayOf(it)) },
+            Arb.constant(AOp("getPlain", "getPlain", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getAcquire", "getAcquire", arrayOf(), arrayOf())),
+            Arb.constant(AOp("getOpaque", "getOpaque", arrayOf(), arrayOf())),
+            Arb.bind(tok, tok) { e, u -> AOp("cae", "compareAndExchange", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("caeAcq", "compareAndExchangeAcquire", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("caeRel", "compareAndExchangeRelease", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("wCAS", "weakCompareAndSet", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("wCASPlain", "weakCompareAndSetPlain", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("wCASAcq", "weakCompareAndSetAcquire", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("wCASRel", "weakCompareAndSetRelease", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+            Arb.bind(tok, tok) { e, u -> AOp("wCASVol", "weakCompareAndSetVolatile", arrayOf(OBJECT, OBJECT), arrayOf(e, u)) },
+        )
+        // Both atomics share the SAME initial identity + the SAME pool, so identity comparisons agree.
+        checkAll(Arb.list(op, 0..30)) { ops ->
+            val r = java.util.concurrent.atomic.AtomicReference<Any?>(pool[1])
+            val m = bmcref.java.util.concurrent.atomic.AtomicReference<Any?>(pool[1])
+            ops.forEachIndexed { i, o -> assertEquivalent("op[$i]=$o", o.on(r), o.on(m)) }
+            // getAndAccumulate with a real lambda picking the max identity-hash (deterministic, pure).
+            val acc = java.util.function.BinaryOperator<Any?> { a, b -> if (b == null) a else b }
+            assertEquivalent("getAndAccumulate",
+                call(r, "getAndAccumulate", arrayOf(OBJECT, refClass("java.util.function.BinaryOperator")), pool[2], acc),
+                call(m, "getAndAccumulate", arrayOf(OBJECT, refClass("java.util.function.BinaryOperator")), pool[2], acc))
             assertEquivalent("get", call(r, "get", arrayOf()), call(m, "get", arrayOf()))
         }
     }

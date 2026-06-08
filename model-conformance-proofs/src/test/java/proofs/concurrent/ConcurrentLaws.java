@@ -91,6 +91,72 @@ class ConcurrentLaws {
         Bmc.check(aa.accumulateAndGet(x, (c, arg) -> c + arg) == start + x);
     }
 
+    // --- Atomic VarHandle memory-ordering variants (sequential == plain/strong counterpart) -------
+    // On ONE thread there is no other thread to observe a relaxed ordering, so every fence variant is
+    // observably identical to its plain/strong counterpart. These laws pin that equivalence under JBMC.
+
+    /** compareAndExchange returns the WITNESSED value and stores newValue only on a match. */
+    @BmcProof
+    void atomicInteger_compareAndExchange_returns_witnessed() {
+        int start = Bmc.anyInt(-50, 50);
+        int expected = Bmc.anyInt(-50, 50);
+        int next = Bmc.anyInt(-50, 50);
+        AtomicInteger a = new AtomicInteger(start);
+        int witnessed = a.compareAndExchange(expected, next);
+        Bmc.check(witnessed == start);                       // always the prior value
+        Bmc.check(a.get() == (start == expected ? next : start)); // stored iff it matched
+    }
+
+    /** The acquire/release compareAndExchange variants are identical to the plain one on one thread. */
+    @BmcProof
+    void atomicInteger_compareAndExchange_variants_agree() {
+        int start = Bmc.anyInt(-50, 50);
+        int next = Bmc.anyInt(-50, 50);
+        // a matching exchange: both variants witness `start` and store `next`.
+        AtomicInteger acq = new AtomicInteger(start);
+        AtomicInteger rel = new AtomicInteger(start);
+        Bmc.check(acq.compareAndExchangeAcquire(start, next) == start && acq.get() == next);
+        Bmc.check(rel.compareAndExchangeRelease(start, next) == start && rel.get() == next);
+    }
+
+    /** Every weakCompareAndSet* variant never spuriously fails on one thread: it == compareAndSet. */
+    @BmcProof
+    void atomicInteger_weak_cas_never_spuriously_fails() {
+        int start = Bmc.anyInt(-50, 50);
+        int next = Bmc.anyInt(-50, 50);
+        // expected matches -> all variants succeed and store next (no spurious failure on one thread).
+        Bmc.check(new AtomicInteger(start).weakCompareAndSetPlain(start, next));
+        Bmc.check(new AtomicInteger(start).weakCompareAndSetAcquire(start, next));
+        Bmc.check(new AtomicInteger(start).weakCompareAndSetRelease(start, next));
+        AtomicInteger v = new AtomicInteger(start);
+        Bmc.check(v.weakCompareAndSetVolatile(start, next) && v.get() == next);
+    }
+
+    /** The fenced reads/writes are plain reads/writes on one thread. */
+    @BmcProof
+    void atomicInteger_fenced_accessors_are_plain() {
+        int x = Bmc.anyInt(-50, 50);
+        AtomicInteger a = new AtomicInteger();
+        a.setRelease(x);
+        Bmc.check(a.getAcquire() == x && a.getPlain() == x && a.getOpaque() == x && a.get() == x);
+        a.setOpaque(x + 1);
+        Bmc.check(a.get() == x + 1);
+    }
+
+    /** AtomicLong's memory-ordering variants collapse the same way. */
+    @BmcProof
+    void atomicLong_memory_ordering_variants_agree() {
+        long start = Bmc.anyLong(-50, 50);
+        long next = Bmc.anyLong(-50, 50);
+        AtomicLong a = new AtomicLong(start);
+        Bmc.check(a.compareAndExchange(start, next) == start && a.get() == next);
+        AtomicLong w = new AtomicLong(start);
+        Bmc.check(w.weakCompareAndSetVolatile(start, next) && w.get() == next);
+        AtomicLong f = new AtomicLong();
+        f.setRelease(next);
+        Bmc.check(f.getAcquire() == next && f.getPlain() == next);
+    }
+
     // --- CompletableFuture (sequential ready-value / ready-failure) -------------------------------
     // A future is "a value that is ready" or "a failure that is ready". These laws pin the trust-
     // critical sequential semantics: the right combinator runs on a normal completion, and on an
