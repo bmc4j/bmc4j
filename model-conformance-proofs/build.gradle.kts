@@ -88,8 +88,20 @@ bmc {
         // declared out of scope (registry-wins protects the concrete classes, but not the iface types).
         +"java.time.zone.*"        // coverage.md ❌: zones need the IANA tz DB — out of scope
         +"java.time.format.*"      // coverage.md ❌: formatters need text parsing — out of scope
+        // Kotlin stdlib external-world surface — the kotlin.* analogues of the java rows above. Most of
+        // kotlin-stdlib is inline (no JVM method) or thin facades over java.util/java.lang (modeled on
+        // the Java side), so only the genuinely-external packages need declaring; the modelable facades
+        // (kotlin.collections/sequences/ranges/comparisons + the math/text/random candidates) stay OFF.
+        +"kotlin.io.*"             // file/console IO — external world, like java.nio.file/java.net above
+        +"kotlin.reflect.*"        // reflection — runtime type introspection, not BMC-reasonable
+        +"kotlin.system.*"         // exitProcess / measureTime wall-clock — external/non-deterministic
     }
     // DELIBERATELY NOT declared (waiving these would be wrong / unsound):
+    //  - kotlin.random.* — NOT external/unmodelable: the bounded-draw surface (nextInt(bound)/nextBoolean/
+    //    range draws) is soundly modelable as nondet-in-range (the ideal "prove for every outcome" BMC
+    //    use); only seeded reproducibility resists modeling. A model candidate, not a waiver.
+    //  - kotlin.math.* (Math-like, modelable) and kotlin.text.* (routes through the modeled java.lang.String
+    //    surface) — both in-scope; leaving them non-waived keeps them as model candidates.
     //  - java.time.chrono.* / java.time.temporal.* — the time models implement these interfaces (above).
     //  - java.util.concurrent (wholesale) — it ALSO holds MODELED classes (Atomic*/CompletableFuture/
     //    ConcurrentHashMap/CountDownLatch/Semaphore/blocking queues/executors; coverage.md ✅). Only the
