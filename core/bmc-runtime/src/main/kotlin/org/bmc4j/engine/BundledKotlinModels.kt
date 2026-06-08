@@ -42,6 +42,13 @@ object BundledKotlinModels {
             "kotlin/time/Duration.class",
             "kotlin/time/DurationKt.class",
             "kotlin/time/DurationUnit.class",
+            // kotlin.random.Random bounded-draw model — the "prove for every random outcome" surface.
+            // A proof's Random.Default.nextInt(...) dispatches to the real Random$Default ->
+            // PlatformThreadLocalRandom, which JBMC stubs to UNCONSTRAINED nondet (spurious REFUTED);
+            // these model each draw as nondet-IN-RANGE, and make the seeded factory a loud UNKNOWN.
+            "kotlin/random/Random.class",
+            "kotlin/random/Random\$Default.class",
+            "kotlin/random/RandomKt.class",
             // Sequences (sequenceOf/asSequence + map/filter/toList/sumOfInt/count) — route through
             // the SequencesKt facade + stdlib internals JBMC stubs; modeled eager over a bounded
             // ListSequence.
