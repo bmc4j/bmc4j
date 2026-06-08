@@ -255,6 +255,20 @@ public class HashSet<E> implements Set<E> {
     /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
     @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean containsAll(Collection<?> c) {
+        // Read an ArrayList argument's backing BY INDEX rather than via the interface-typed
+        // c.iterator(): that virtual dispatch on the Collection parameter is devirtualization-fragile
+        // under JBMC (the iterator index can go nondet → a false counterexample, notably on the
+        // "element absent" case). A concrete-typed get(i) resolves soundly; other types fall back.
+        if (c instanceof ArrayList) {
+            ArrayList<?> a = (ArrayList<?>) c;
+            int n = a.size();
+            for (int i = 0; i < n; i++) {
+                if (!contains(a.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
         for (Object o : c) {
             if (!contains(o)) {
                 return false;

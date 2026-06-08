@@ -319,6 +319,21 @@ public class ArrayList<E> implements List<E> {
     /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
     @BmcModelConforms("differential (ArrayListConformanceTest) + @BmcProof (proofs.arraylist)")
     public boolean containsAll(Collection<?> c) {
+        // When the argument is itself an ArrayList model, read its backing BY INDEX rather than via the
+        // interface-typed c.iterator(): that virtual dispatch on the Collection parameter is
+        // devirtualization-fragile under JBMC — the iterator's index can go nondet, producing a false
+        // counterexample (notably on the negative "element absent" case). A concrete-typed get(i) is
+        // resolved soundly. Other Collection types fall back to the iterator.
+        if (c instanceof ArrayList) {
+            ArrayList<?> a = (ArrayList<?>) c;
+            int n = a.size();
+            for (int i = 0; i < n; i++) {
+                if (!contains(a.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
         for (Object o : c) {
             if (!contains(o)) {
                 return false;
