@@ -24,11 +24,11 @@ class Jbmc(private val executable: String) {
     @JvmOverloads
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-            solver: String?, timeoutSeconds: Int = 0): JbmcResult {
+            solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = ""): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, solver))
+                maxStringLength, solver, externalSatPath))
         return exec(command, entryFunction, timeoutSeconds)
     }
 
@@ -90,9 +90,10 @@ class Jbmc(private val executable: String) {
         }
 
         /** The JBMC argument list — everything after the executable. */
+        @JvmOverloads
         internal fun args(entryClass: String, entryFunction: String, classpath: String,
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-                          solver: String?): List<String> {
+                          solver: String?, externalSatPath: String = ""): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
@@ -108,7 +109,7 @@ class Jbmc(private val executable: String) {
                 cmd.add("--max-nondet-string-length")
                 cmd.add(maxStringLength.toString())
             }
-            addSolver(cmd, solver)
+            addSolver(cmd, solver, externalSatPath)
             cmd.add("--json-ui")
             cmd.add("--trace")
             // Bump verbosity so the engine emits its "opaque symbol" messages — the nondet-stub fact we
@@ -122,21 +123,28 @@ class Jbmc(private val executable: String) {
         }
 
         /**
-         * Select the SAT/SMT backend. A per-proof [override] (from `@BmcProof(solver=…)`)
-         * wins; otherwise `-Dbmc.solver` (default = JBMC's built-in MiniSat). SMT backends
-         * (z3/boolector/cvc4/cvc5) can be much faster on array/bitvector-heavy formulas; any other value
-         * is passed to `--sat-solver` (e.g. cadical, glucose). `-Dbmc.solverCmd` points at an
-         * external SMT2 solver binary (used with `--smt2`).
+         * Select the SAT/SMT backend. The RESOLVED external-SAT decision wins first: when
+         * [externalSatPath] is non-empty, [SolverPlan] has already decided this proof is safe to run on
+         * that fast DIMACS SAT solver (proven text-free, or the expert override) — wire it. Otherwise a
+         * per-proof [override] (from `@BmcProof(solver=…)`) wins; otherwise `-Dbmc.solver` (default =
+         * JBMC's built-in MiniSat). SMT backends (z3/boolector/cvc4/cvc5) can be much faster on
+         * array/bitvector-heavy formulas; any other value is passed to `--sat-solver` (e.g. cadical,
+         * glucose). `-Dbmc.solverCmd` points at an external SMT2 solver binary (used with `--smt2`).
+         *
+         * NOTE: this no longer reads `bmc.externalSat` directly — the global external-SAT property is
+         * resolved (with the text/String safety guard) in [SolverPlan] and arrives here as the
+         * already-vetted [externalSatPath]. A text-using proof never reaches this method with a non-empty
+         * path, so external SAT (String reasoning off) can never engage on a text proof here.
          */
-        private fun addSolver(cmd: MutableList<String>, override: String?) {
-            // External SAT solver (e.g. CryptoMiniSat) via DIMACS — the ONE solver swap that actually
-            // works on jbmc: it bit-blasts to CNF and hands it to a modern SAT solver, bypassing string
-            // refinement (so numeric/boolean proofs only). jbmc's --z3/--smt2 path can't be used (it
-            // crashes converting Java string types to SMT2). Configured globally via bmc.externalSat.
-            val externalSat = System.getProperty("bmc.externalSat")
-            if (!externalSat.isNullOrBlank()) {
+        private fun addSolver(cmd: MutableList<String>, override: String?, externalSatPath: String) {
+            // Resolved external SAT solver via DIMACS — the ONE solver swap that actually works on jbmc:
+            // it bit-blasts to CNF and hands it to a modern SAT solver, running with string refinement
+            // OFF (so numeric/boolean proofs only — the safety guard in SolverPlan guarantees this path
+            // is only ever populated for a text-free proof). jbmc's --z3/--smt2 path can't be used (it
+            // crashes converting Java string types to SMT2).
+            if (externalSatPath.isNotBlank()) {
                 cmd.add("--external-sat-solver")
-                cmd.add(externalSat.trim())
+                cmd.add(externalSatPath.trim())
                 return
             }
             val external = System.getProperty("bmc.solverCmd")
@@ -152,6 +160,12 @@ class Jbmc(private val executable: String) {
             }
             when (solver.trim().lowercase()) {
                 "minisat", "minisat2" -> return
+                // The fast-solver names are handled by SolverPlan (the bundled external SAT path) BEFORE
+                // this method, gated by the text-use guard. If we reach here with such a name and an
+                // EMPTY externalSatPath, SolverPlan deliberately DECLINED (a text proof falling back, or
+                // no bundled fast solver on this platform) — so use the engine default, never pass the
+                // name to --sat-solver (which would look for an unrelated 'kissat' binary on PATH).
+                "kissat", "fast" -> return
                 "z3" -> cmd.add("--z3")
                 "boolector" -> cmd.add("--boolector")
                 "cvc4" -> cmd.add("--cvc4")
@@ -312,7 +326,10 @@ class Jbmc(private val executable: String) {
                 return // built-in MiniSat
             }
             val name = solver.trim().lowercase()
-            if (name == "minisat" || name == "minisat2" || solverBinaryOnPath(name)) {
+            // The fast-solver names are resolved by SolverPlan to the bundled binary (or declined) BEFORE
+            // jbmc runs — they are never expected on PATH, so don't fail preflight on them.
+            if (name == "minisat" || name == "minisat2" || name == "kissat" || name == "fast"
+                    || solverBinaryOnPath(name)) {
                 return
             }
             val solverPath = System.getProperty("bmc.solverPath", "")

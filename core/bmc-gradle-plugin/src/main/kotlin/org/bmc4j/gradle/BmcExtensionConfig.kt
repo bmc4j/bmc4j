@@ -44,12 +44,39 @@ abstract class BmcExtensionConfig {
     abstract val parallelism: Property<Int>
 
     /**
-     * SAT/SMT backend for JBMC. Default is JBMC's built-in MiniSat. SMT solvers (`"z3"`,
-     * `"boolector"`, `"cvc4"`, `"cvc5"`) — which must be on `PATH` — can be
-     * much faster on array/bitvector-heavy proofs; any other value is passed to `--sat-solver`
-     * (e.g. `"cadical"`, `"glucose"`).
+     * SAT/SMT backend for proofs. Default is the engine's built-in MiniSat. Options:
+     *  - `"kissat"` — the **bundled fast SAT solver**, applied **only to numeric/boolean (text-free)
+     *    proofs**: it's typically several times faster on those, but it can't reason about text/String
+     *    operations soundly, so bmc4j runs it ONLY on a proof it proves text-free and uses the default
+     *    solver for the rest (see [externalSatStringFallback]). No install needed; it ships with the
+     *    engine (and falls back to the default solver on platforms without a bundled fast solver).
+     *  - `"z3"` / `"boolector"` / `"cvc4"` / `"cvc5"` — SMT solvers (must be on `PATH`); can be faster
+     *    on array/bitvector-heavy proofs.
+     *  - any other value is passed to the engine's `--sat-solver` (e.g. `"cadical"`, `"glucose"`).
+     *
+     * A proof can override this with `@BmcProof(solver = "kissat")`. Precedence: per-proof `@BmcProof`
+     * > this project default > [externalSat].
      */
     abstract val solver: Property<String>
+
+    /**
+     * Project-wide fast external SAT solver applied to **text-free proofs only** — the lowest-precedence
+     * way to turn on the fast path (per-proof `@BmcProof(solver)` and [solver] both win over it). Set it
+     * to `"kissat"` (the bundled fast solver) or to a DIMACS SAT solver binary path. Like [solver], a
+     * text/String-using proof is NEVER run on it (it would be unsound); those proofs use the default
+     * solver. Equivalent to the `-PsatPath` / `-Dbmc.externalSat` command-line property the benchmark uses.
+     */
+    abstract val externalSat: Property<String>
+
+    /**
+     * What to do when the fast solver is requested for a proof that DOES use text/String operations
+     * (which the fast solver can't verify soundly). Default `false`: such a proof **fails loud** with a
+     * plain-language message, so you notice and fix the configuration. Set `true` to instead **silently
+     * fall back to the default solver** for those proofs — a SOUND result with no speedup — while the
+     * text-free proofs still get the fast solver. There is no mode that runs the fast (text-reasoning-
+     * off) solver on a text proof and reports a pass. Overridable with `-Dbmc.externalSatStringFallback`.
+     */
+    abstract val externalSatStringFallback: Property<Boolean>
 
     /** Path/command for an external SMT2 solver binary (used with `--smt2`); overrides
      *  [solver]. Use when the solver isn't on `PATH`. */

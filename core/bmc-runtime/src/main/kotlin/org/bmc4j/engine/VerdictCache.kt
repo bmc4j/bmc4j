@@ -269,6 +269,14 @@ object VerdictCache {
         update(md, "unwind", request.unwind.toString())
         update(md, "ua", request.unwindingAssertions.toString())
         update(md, "solver", request.solver)
+        // The RESOLVED external-SAT solver identity AND the string-refinement mode (on/off). A verdict
+        // proven on the fast external SAT solver (text reasoning OFF) is NOT interchangeable with one
+        // proven on the default solver (text reasoning ON), so both must bust the cache: under-keying
+        // here would serve a text-reasoning-off verdict for a text-reasoning-on request (or vice versa),
+        // a soundness bug. The path (not just the requested name) is folded in, so swapping the bundled
+        // fast binary for a different external solver invalidates too. Over-keying is always sound.
+        update(md, "externalSat", request.externalSatPath)
+        update(md, "stringRefinementOff", request.stringRefinementOff.toString())
         update(md, "msl", request.maxStringLength.toString())
         update(md, "timeout", request.timeoutSeconds.toString())
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to

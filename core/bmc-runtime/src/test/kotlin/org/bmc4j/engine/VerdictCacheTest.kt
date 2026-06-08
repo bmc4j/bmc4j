@@ -97,6 +97,31 @@ internal class VerdictCacheTest {
     }
 
     @Test
+    fun resolvedExternalSatPath_perturbsKey() {
+        // The RESOLVED fast-solver binary identity (not just the requested name) must bust the cache:
+        // swapping the external SAT binary can change a verdict.
+        val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
+                16, true, 16, "", 0, externalSatPath = "/opt/kissat/bin/kissat", stringRefinementOff = true)
+        assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
+                VerdictCache.computeKey(other, ENGINE),
+                "the resolved external-SAT binary identity must be part of the cache key")
+    }
+
+    @Test
+    fun stringRefinementMode_perturbsKey() {
+        // A verdict proven with text/String reasoning OFF (external SAT) must NEVER be served for a
+        // text-reasoning-ON request, or vice versa — so the refinement mode is part of the key.
+        // Keep the external-sat path identical so ONLY the refinement flag differs.
+        val refinementOn = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
+                16, true, 16, "", 0, externalSatPath = "/opt/kissat/bin/kissat", stringRefinementOff = false)
+        val refinementOff = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
+                16, true, 16, "", 0, externalSatPath = "/opt/kissat/bin/kissat", stringRefinementOff = true)
+        assertNotEquals(VerdictCache.computeKey(refinementOn, ENGINE),
+                VerdictCache.computeKey(refinementOff, ENGINE),
+                "flipping the string-refinement mode must change the cache key (sound vs unsound run)")
+    }
+
+    @Test
     fun maxStringLength_perturbsKey() {
         val other = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
                 16, true, 4, "", 0)

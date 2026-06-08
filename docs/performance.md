@@ -211,3 +211,47 @@ memory, they don't conjure it.
   (`--unwinding-assertions` reports an insufficient bound rather than trusting it).
 - Symbolic-by-symbolic **multiply / divide / modulo** over wide values is the most common single
   culprit — check there first ([coverage](coverage.md) notes the known-expensive areas).
+
+## The fast solver (for numeric/boolean proofs)
+
+bmc4j ships a **bundled fast SAT solver** ("kissat") that is typically several times faster than the
+default on **numeric/boolean proofs that don't touch text**. You don't install anything — it comes
+with the engine.
+
+Turn it on for a single proof, or for the whole project:
+
+```kotlin
+// per proof — the few that are slow and text-free
+@BmcProof(solver = "kissat")
+void wide_division_is_in_range() { ... }
+```
+```kotlin
+// project default — every proof tries the fast solver where it's safe
+bmc { solver = "kissat" }
+```
+
+Resolution precedence: per-proof `@BmcProof(solver)` > project `bmc { solver }` > the global
+`bmc { externalSat = "kissat" }` / `-PsatPath` escape hatch (the benchmark uses the last one).
+
+**It applies to text-free proofs only — and bmc4j enforces that for you.** The fast solver works by
+turning off the engine's text/String reasoning, which is sound for numbers and booleans but *not* for a
+proof that reasons about strings. So bmc4j classifies each proof first and runs the fast solver **only**
+on proofs it can prove text-free; every other proof uses the default solver automatically. You never
+have to know which proofs are which.
+
+If you ask for the fast solver on a proof that *does* use text, the default is to **fail loud** with a
+plain-language message, so you notice and tune the right proofs. If you'd rather it just quietly use the
+default solver for those proofs (a sound result, no speedup) while the text-free proofs still get the
+fast solver, set:
+
+```kotlin
+bmc { solver = "kissat"; externalSatStringFallback = true }
+```
+
+There is **no** mode that runs the fast (text-reasoning-off) solver on a text proof and reports it
+verified — a pass you get is always sound. On a platform with no bundled fast solver (e.g. Windows),
+a request for it transparently falls back to the default solver.
+
+Note the SMT path (`solver = "z3"` etc.) is **inert on this engine** for most proofs — the fast SAT
+solver above is the lever that actually works. Range reduction still beats a solver swap when a proof is
+genuinely SAT-hard; reach for the fast solver when the formula is fine and you just want it faster.

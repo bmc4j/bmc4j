@@ -1,0 +1,61 @@
+name: external-sat-soundness
+
+# The fast external SAT solver runs the engine with text/String reasoning OFF, so it must never serve a
+# VERIFIED for a proof that actually depends on text. This job proves that end-to-end against REAL jbmc +
+# the bundled fast solver (Linux only — the fast solver ships for linux-x64), on the tiny dedicated
+# `external-sat-soundness-smoke` module (two proofs that genuinely need string reasoning). Four phases:
+#   0. cold, default solver        -> both proofs pass (honest baseline)
+#   1. GUARD (the regression test) -> fast solver requested on text proofs => FAIL LOUD, no false VERIFIED
+#   2. PROBE (Step 0)              -> expert unsafe override => record what jbmc does refinement-off
+#   3. OPT-OUT fallback            -> text proofs fall back to the SOUND default solver, GREEN
+# See external-sat-soundness-smoke/smoke.sh. Phase 1 is the proof that the string-refinement hole is closed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      jdk:
+        description: 'JDK / bytecode target for the smoke module (host JDK == toolchain == target)'
+        default: '21'
+  pull_request:
+    paths:
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/SolverPlan.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/StringUseClassifier.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/Jbmc.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/engine/BmcRequest.kt'
+      - 'core/bmc-runtime/src/main/kotlin/org/bmc4j/junit/BmcProofExtension.kt'
+      - 'core/bmc-gradle-plugin/src/main/kotlin/org/bmc4j/gradle/**'
+      - 'external-sat-soundness-smoke/**'
+      - '.github/workflows/external-sat-soundness.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-sat-soundness-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    name: external-sat soundness
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JDK: ${{ inputs.jdk || '21' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ env.JDK }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JDK }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: External-SAT soundness smoke (4 phases)
+        shell: bash
+        env:
+          BMC_FLAGS: -PbmcJvmTarget=${{ env.JDK }}
+        run: bash external-sat-soundness-smoke/smoke.sh
