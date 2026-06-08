@@ -85,4 +85,35 @@ class DomainSplitProofs {
         }
         Bmc.check(x == x)
     }
+
+    /**
+     * PASSES with COMPOUND `in`-range slice conditions: each slice is a `(a..b) || (c..d)` disjunction
+     * of ranges. `in`-range desugars to a short-circuiting compare chain, so the slice argument is built
+     * from internal branches — yet the cover folds it to a clean boolean before ORing, so the two
+     * disjunction slices cover `0..100` without a phantom gap.
+     */
+    @BmcProof
+    fun `compound in-range disjunction slices cover`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in 0..100) {
+            slice(x in 0..10 || x in 90..100) // the two ends
+            slice(x in 10..90)                // the middle
+        }
+        val r = if (x < 0) 0 else if (x > 100) 100 else x
+        Bmc.check(r in 0..100)
+    }
+
+    /**
+     * FAILS LOUD with COMPOUND `in`-range slices: the `||`-of-ranges slices leave a genuine GAP at
+     * `x == 50`, so the cover REFUTES — the compound-condition fold still detects a real gap.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    fun `compound in-range disjunction slices with a gap fail loud`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in 0..100) {
+            slice(x in 0..10 || x in 90..100)
+            slice(x in 10..49 || x in 51..89) // GAP: x == 50 is covered by no slice
+        }
+        Bmc.check(x == x)
+    }
 }

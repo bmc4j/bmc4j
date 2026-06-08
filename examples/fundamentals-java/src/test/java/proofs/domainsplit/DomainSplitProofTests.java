@@ -62,6 +62,37 @@ class DomainSplitProofTests {
     }
 
     /**
+     * PASSES with COMPOUND slice conditions: each slice is a {@code (a..b) || (c..d)} disjunction of
+     * ranges, and together the two slices cover the claimed domain. The cover obligation
+     * {@code overall => (s1 || s2)} folds each slice's disjunction to a clean boolean before ORing it
+     * into the union accumulator, so a {@code ||}-shaped condition can't fabricate a gap.
+     */
+    @BmcProof
+    void compound_disjunction_slices_cover_passes() {
+        int x = Bmc.anyInt();
+        Bmc.domainSplit(x >= 0 && x <= 100);
+        Bmc.slice((x >= 0 && x < 10) || (x >= 90 && x <= 100)); // the two ends
+        Bmc.slice(x >= 10 && x < 90);                           // the middle
+        int r = Clamp.clamp(x, 0, 100);
+        Bmc.check(r >= 0 && r <= 100);
+    }
+
+    /**
+     * FAILS LOUD via the COVER proof even though the slices are COMPOUND disjunctions: the two
+     * {@code ||}-shaped slices leave a genuine GAP at {@code x == 50}, so the cover REFUTES. Pins that
+     * the compound-condition fold still detects a real gap (no false green from the {@code ||} handling).
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    void compound_disjunction_slices_with_a_gap_refutes() {
+        int x = Bmc.anyInt();
+        Bmc.domainSplit(x >= 0 && x <= 100);
+        Bmc.slice((x >= 0 && x < 10) || (x >= 90 && x <= 100));
+        Bmc.slice((x >= 10 && x < 50) || (x > 50 && x < 90)); // GAP: x == 50 is covered by no slice
+        int r = Clamp.clamp(x, 0, 100);
+        Bmc.check(r >= 0 && r <= 100);
+    }
+
+    /**
      * EXERCISES THE FAN-OUT: an 8-slice split (plus the cover) gives nine independent derived runs that
      * the extension submits to the shared jbmc pool at once, bounded by {@code bmc { parallelism }} /
      * {@code -PbmcParallelism}. Each slice pins {@code x} to one residue class mod 8; together they tile
