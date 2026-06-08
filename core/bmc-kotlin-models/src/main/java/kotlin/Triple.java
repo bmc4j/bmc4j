@@ -1,13 +1,12 @@
 package kotlin;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
-/** Clean model of Kotlin's {@code Triple} — first/second/third and destructuring
- *  ({@code component1}/{@code component2}/{@code component3}). Mirrors {@link Pair}; built directly
- *  ({@code Triple(a, b, c)}), there is no infix factory like {@code to}. */
-@BmcModelTail(reason = "Triple data-class auto-generated surface (copy/toString) not exercised by the "
-        + "bounded proofs; loud under JBMC if reached")
+/** Clean model of Kotlin's {@code Triple} — first/second/third, destructuring
+ *  ({@code component1}/{@code component2}/{@code component3}) and the data-class {@code copy}. Mirrors
+ *  {@link Pair}; built directly ({@code Triple(a, b, c)}), there is no infix factory like {@code to}.
+ *  The only other auto-generated member is {@code toString} (an {@code Object} override — out of the
+ *  per-member audit surface), so the whole surface is accounted without a {@code @BmcModelTail}. */
 public final class Triple<A, B, C> {
 
     private final A first;
@@ -48,5 +47,11 @@ public final class Triple<A, B, C> {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public C component3() {
         return third;
+    }
+
+    /** Data-class {@code copy}: a new {@code Triple} with the given (defaulted to current) components. */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public Triple<A, B, C> copy(A first, B second, C third) {
+        return new Triple<>(first, second, third);
     }
 }

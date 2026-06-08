@@ -3,6 +3,7 @@ package proofs.kotlinranges
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
 import org.bmc4j.kotlin.checkThrows
+import kotlin.random.Random
 import kotlin.ranges.IntProgression
 import kotlin.ranges.LongProgression
 
@@ -82,7 +83,8 @@ class RangeLaws {
     // accessors directly. Binding the range to an IntProgression-typed val makes `.first()`/`.last()`
     // resolve to the RangesKt EXTENSION (not the IntRange.first property), exercising the model. We
     // build the progression from a plain range (NOT `step` — `step` is a deliberately-loud
-    // @BmcUnmodelable member that would trip the sentinel). random/randomOrNull stay tail (nondeterministic).
+    // @BmcUnmodelable member that would trip the sentinel). The Int/Long `range.random(rng)` draws are
+    // MODELED (sound nondet-in-range, see below); randomOrNull + the Char draw stay loud walls.
 
     @BmcProof
     fun progression_first_is_start() {
@@ -122,5 +124,38 @@ class RangeLaws {
         val b = Bmc.anyInt(1, 100)
         val p: IntProgression = a..b
         Bmc.check(p.first() == a && p.last() == b)
+    }
+
+    // ---- range.random(rng) (RangesKt.random(IntRange/LongRange, Random)): a SOUND nondet-in-range draw,
+    // proven to land inside the inclusive range for EVERY outcome, plus the empty-range throw.
+
+    /** `IntRange.random(rng)` lands in `[first, last]` for every outcome. */
+    @BmcProof
+    fun intRange_random_in_inclusive_range() {
+        val v = (10..20).random(Random)
+        Bmc.check(v in 10..20)
+    }
+
+    /** `LongRange.random(rng)` lands in `[first, last]` for every outcome. */
+    @BmcProof
+    fun longRange_random_in_inclusive_range() {
+        val v = (10L..20L).random(Random)
+        Bmc.check(v in 10L..20L)
+    }
+
+    /** Symbolic: `IntRange.random(rng)` over a symbolic non-empty range lands inside it. */
+    @BmcProof
+    fun symbolic_intRange_random_in_range() {
+        val lo = Bmc.anyInt(-100, 100)
+        val hi = Bmc.anyInt(-100, 100)
+        Bmc.assume(lo <= hi)
+        val v = (lo..hi).random(Random)
+        Bmc.check(v in lo..hi)
+    }
+
+    /** `IntRange.random(rng)` on an empty range throws `NoSuchElementException`, like the stdlib. */
+    @BmcProof
+    fun intRange_random_empty_throws() {
+        checkThrows<NoSuchElementException> { (5..3).random(Random) }
     }
 }

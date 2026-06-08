@@ -2,13 +2,15 @@ package kotlin.random;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcUnmodelable;
+
+import java.util.NoSuchElementException;
 
 /**
  * Clean model of the {@code kotlin.random.RandomKt} facade — home of the top-level {@code Random(seed)}
- * factories. This is the LOUD half of the seeded/unseeded separation described on
- * {@link kotlin.random.Random}.
+ * factories and the {@code IntRange.random}/{@code LongRange.random} extensions. This is the LOUD half of
+ * the seeded/unseeded separation described on {@link kotlin.random.Random}.
  *
  * <p>{@code Random(Int)} and {@code Random(Long)} construct a <em>seeded</em> {@code XorWowRandom} whose
  * sequence is reproducible — {@code Random(42).nextInt() == Random(42).nextInt()} is <em>true</em>. A
@@ -19,18 +21,86 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * can never arise — an <em>unseeded</em> {@code Random.Default} draws sound nondet (see
  * {@link kotlin.random.Random}).
  *
- * <p>The range-extension draws {@code nextInt(Random, IntRange)} / {@code nextLong(Random, LongRange)}
- * are absorbed by the {@link BmcModelTail} for now (they'd need {@code IntRange}/{@code LongRange}
- * field-accessor interop; a proof wanting a ranged draw uses the modeled {@code Random.nextInt(from,
- * until)} directly, which is sound nondet-in-range). The remaining {@code fastLog2}/{@code takeUpperBits}/
- * {@code checkRangeBounds}/{@code boundsErrorMessage} stdlib internals are tail too.
+ * <p>The range-extension draws {@code nextInt(Random, IntRange)} / {@code nextLong(Random, LongRange)} are
+ * MODELED by delegating to the modeled {@code Random.nextInt(from, until)} / {@code nextLong(from, until)}
+ * nondet-in-range draws (with the stdlib's exact {@code last == MAX_VALUE} overflow handling and the
+ * empty-range {@code NoSuchElementException}) — so a ranged draw is sound-for-every-outcome, never a
+ * silent stub. The {@code fastLog2}/{@code takeUpperBits}/{@code checkRangeBounds}/
+ * {@code boundsErrorMessage} stdlib internals stay loud {@link BmcUnmodelable} stubs (out of scope), so
+ * the whole facade surface is per-member accounted — no {@code @BmcModelTail} catch-all.
  */
-@BmcModelTail(reason = "RandomKt remainder — the nextInt(Random,IntRange)/nextLong(Random,LongRange) "
-        + "range-extension draws (use Random.nextInt(from,until) directly) and the stdlib internals "
-        + "fastLog2/takeUpperBits/checkRangeBounds/boundsErrorMessage; loud (UNKNOWN) under JBMC if reached")
 public final class RandomKt {
 
     private RandomKt() {
+    }
+
+    // --- range-extension draws: sound nondet-in-range via the modeled Random draws ---
+
+    /** {@code IntRange.random(random)} → a draw in {@code [first, last]}, throwing on an empty range. */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int nextInt(Random random, kotlin.ranges.IntRange range) {
+        if (range.isEmpty()) {
+            throw new NoSuchElementException("Cannot get random in empty range: " + range);
+        }
+        int first = range.getFirst();
+        int last = range.getLast();
+        if (last < Integer.MAX_VALUE) {
+            return random.nextInt(first, last + 1);
+        }
+        if (first > Integer.MIN_VALUE) {
+            return random.nextInt(first - 1, last) + 1;
+        }
+        return random.nextInt();
+    }
+
+    /** {@code LongRange.random(random)} → a draw in {@code [first, last]}, throwing on an empty range. */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long nextLong(Random random, kotlin.ranges.LongRange range) {
+        if (range.isEmpty()) {
+            throw new NoSuchElementException("Cannot get random in empty range: " + range);
+        }
+        long first = range.getFirst();
+        long last = range.getLast();
+        if (last < Long.MAX_VALUE) {
+            return random.nextLong(first, last + 1);
+        }
+        if (first > Long.MIN_VALUE) {
+            return random.nextLong(first - 1, last) + 1;
+        }
+        return random.nextLong();
+    }
+
+    // --- stdlib internals (loud stubs; a reach demotes to a member-named UNKNOWN) ---
+
+    @BmcUnmodelable(reason = "stdlib internal (error-message formatting) — out of scope; loud if reached")
+    public static String boundsErrorMessage(Object from, Object until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.boundsErrorMessage(java.lang.Object,"
+                + "java.lang.Object) — stdlib internal error-message formatting");
+    }
+
+    @BmcUnmodelable(reason = "stdlib internal range-bounds check — out of scope; loud if reached")
+    public static void checkRangeBounds(int from, int until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.checkRangeBounds(int,int) — stdlib internal");
+    }
+
+    @BmcUnmodelable(reason = "stdlib internal range-bounds check — out of scope; loud if reached")
+    public static void checkRangeBounds(long from, long until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.checkRangeBounds(long,long) — stdlib internal");
+    }
+
+    @BmcUnmodelable(reason = "stdlib internal range-bounds check over doubles (no-double policy) — loud if reached")
+    public static void checkRangeBounds(double from, double until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.checkRangeBounds(double,double) — stdlib internal");
+    }
+
+    @BmcUnmodelable(reason = "stdlib internal bit helper — out of scope; loud if reached")
+    public static int fastLog2(int value) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.fastLog2(int) — stdlib internal bit helper");
+    }
+
+    @BmcUnmodelable(reason = "stdlib internal bit helper — out of scope; loud if reached")
+    public static int takeUpperBits(int bits, int bitCount) {
+        throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.takeUpperBits(int,int) — stdlib internal bit helper");
     }
 
     /**
