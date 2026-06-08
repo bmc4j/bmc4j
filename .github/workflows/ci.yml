@@ -471,29 +471,38 @@ jobs:
           path: '**/build/bmc4j/verdict-cache'
           key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
 
-  # ── PR proof-results comment (pull_request only) ──────────────────────────────
+  # ── Proof-results report (PR comment on pull_request, job summary otherwise) ────
   #
   # After every proof leg finishes, union all shards' machine-readable per-proof summaries (the
   # -Dbmc.summaryDir JSONL each test JVM wrote, uploaded as proof-summary-* artifacts) into ONE
-  # results table and post it as a PR comment - proofs ran / expected / checked, cache hits vs live
-  # solves, and a per-failure row naming the proof + its truncated counterexample. A marker comment
-  # is UPDATED in place on subsequent pushes (never spammed).
+  # results table - proofs ran / expected / checked, cache hits vs live solves, and a per-failure row
+  # naming the proof + its kind + truncated counterexample, plus the flake-fingerprint tally.
+  #
+  # On a pull_request the table is posted as a PR comment (a marker comment UPDATED in place on
+  # subsequent pushes, never spammed). On any non-PR gated run (a main push, a workflow_dispatch, or
+  # the release workflow_call) there's no PR to comment on, so the SAME table is written to the
+  # workflow run's job-summary page (GITHUB_STEP_SUMMARY) instead - reusing the script's existing
+  # summary-page rendering (the no-PR-number branch), identical format.
   #
   # always(): a red proof leg still uploaded its passing proofs AND the failure's counterexample, so
-  # the comment must still post (the failure rows are the point). The data source is the structured
+  # the report must still produce (the failure rows are the point). The data source is the structured
   # summary, not log-scraping - robust by construction.
   #
-  # pull-requests: write is scoped to THIS job only (the rest of CI stays contents: read). Forked PRs
-  # get a read-only token: the script catches the 403 and degrades to the job-summary table instead
-  # of failing. The job itself never fails the run - it's reporting, not a gate.
+  # pull-requests: write is needed only by the PR-comment path; the non-PR paths write to the
+  # job-summary page (contents: read suffices) and never touch the comment API. The job itself
+  # never fails the run - it's reporting, not a gate.
   pr-proof-comment:
-    name: PR proof comment
+    name: Proof results report
     needs: [plan, proofs]
-    if: ${{ always() && github.event_name == 'pull_request' && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
+    # pull_request -> PR comment; push to main / dispatch / release call -> job-summary page.
+    # (PR runs from a push to a non-main branch still come through as pull_request, not push.)
+    if: ${{ always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
+      # Used only on the pull_request path (commenting on the PR). The main-push path writes the
+      # job-summary page and ignores this scope.
       pull-requests: write
     steps:
       - name: Checkout (for the aggregation script)
@@ -526,11 +535,12 @@ jobs:
               done
           echo "Unpacked $(find summaries -name '*.jsonl' | wc -l) summary file(s)."
 
-      - name: Post / update the proof-results comment
+      - name: Report the proof results (PR comment or job summary)
         uses: actions/github-script@v7
         env:
           SUMMARY_ROOT: summaries
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # PR head sha on a pull_request; the pushed commit on a main push.
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
