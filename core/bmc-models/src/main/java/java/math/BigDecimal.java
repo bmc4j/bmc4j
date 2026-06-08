@@ -37,7 +37,6 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     @BmcNotModelled(reason = "double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values")
-    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public static BigDecimal valueOf(double val) {
         throw fail("bmc4j: unmodelled member java.math.BigDecimal.valueOf(double) — double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values");
     }

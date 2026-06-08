@@ -122,7 +122,6 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
 
     @BmcNotNeeded(reason = "access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC")
-    @BmcModelConforms("loud stub")
     protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
         throw fail("bmc4j: unmodelled member java.util.LinkedHashMap.removeEldestEntry(java.util.Map$Entry) — access-order LRU eviction hook — the insertion-ordered array model has no eviction policy");
     }
