@@ -24,4 +24,12 @@ class BmcRequest @JvmOverloads constructor(
          * force-killed on expiry and the proof is reported [UNKNOWN][JbmcResult.Verdict.UNKNOWN].
          * `0` means no timeout (run to completion).
          */
-        @get:JvmName("timeoutSeconds") val timeoutSeconds: Int = 0)
+        @get:JvmName("timeoutSeconds") val timeoutSeconds: Int = 0,
+        /**
+         * When non-null, this request is ONE derived run of a `domainSplit` proof: the
+         * [DomainSplitBytecode] pass rewrites the entry method's markers for this run (a slice's
+         * `assume`, or the cover obligation) before analysis. Null for an ordinary, un-split proof.
+         * The orchestration (how N+1 runs are launched and their verdicts aggregated) lives in
+         * [org.bmc4j.junit.BmcProofExtension].
+         */
+        @get:JvmName("domainSplitRun") val domainSplitRun: DomainSplitBytecode.RunPlan? = null)

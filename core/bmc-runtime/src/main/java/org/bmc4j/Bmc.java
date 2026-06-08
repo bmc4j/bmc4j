@@ -403,4 +403,45 @@ public final class Bmc {
             throw new AssertionError(message);
         }
     }
+
+    // --- domain split (slow-proof partitioning) ------------------------------
+    // A proof that is too slow to discharge in one shot can be partitioned along the axis the user
+    // knows is causing the SAT blow-up (a wide symbolic operand, a string length). domainSplit(...)
+    // declares the claimed input domain (the "overall condition"); each slice(...) registers a
+    // sub-domain. bmc4j then expands the ONE proof into N+1 derived runs it fans across cores:
+    //   - N SLICE runs: the proof body re-verified under assume(slice_i) — "P holds over slice i".
+    //   - 1 COVER run: check(overall => (slice_1 || ... || slice_n)) — the soundness gate that
+    //     forbids GAPS (a point in the declared domain no slice covers). Overlap is allowed.
+    // The proof passes iff the cover VERIFIED and every slice VERIFIED; a refuting slice surfaces its
+    // counterexample (and cancels the rest, early-exit); an UNKNOWN slice => UNKNOWN.
+    //
+    // These are MARKERS, exactly like check/assume: the boolean argument is not evaluated at runtime —
+    // the engine analyses the bytecode that COMPUTES it (see DomainSplitBytecode). At most ONE
+    // domainSplit per proof; a slice with no preceding domainSplit, or a second domainSplit, is a
+    // processing-time error. The reported verdict carries the overall condition's source so a
+    // domain-scoped green is never mis-read as a full-domain proof.
+    //
+    //   int x = Bmc.anyInt();
+    //   Bmc.domainSplit(x >= -1_000_000 && x <= 1_000_000);   // the claimed domain
+    //   Bmc.slice(x < 0);
+    //   Bmc.slice(x == 0);
+    //   Bmc.slice(x > 0);
+    //   Bmc.check(property(x));                                // body runs once per slice
+
+    /**
+     * Declare the claimed input domain of a slow proof and open its domain split. Every
+     * {@link #slice(boolean)} call in the same method registers a sub-domain of this condition.
+     * A marker: the boolean is analysed as bytecode, never executed. At most one per proof.
+     */
+    public static void domainSplit(boolean __overallCondition) {
+        // No-op at runtime; the proof body is never executed. DomainSplitBytecode rewrites this call.
+    }
+
+    /**
+     * Register one sub-domain of the enclosing {@link #domainSplit(boolean)}. The proof body is
+     * re-verified once per slice under {@code assume(condition)}. A marker, like {@link #check}.
+     */
+    public static void slice(boolean __condition) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
 }

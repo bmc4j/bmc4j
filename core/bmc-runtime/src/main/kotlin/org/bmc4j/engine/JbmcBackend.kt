@@ -128,6 +128,17 @@ class JbmcBackend : VerificationBackend {
             // the Kotlin type system admits instead of spuriously refuting on p = null. Interior calls
             // keep throwing; -Dbmc.kotlinNullableParams=true restores the honest-JVM prologue.
             classpath = KotlinParamBytecode.rewrite(classpath)
+            // Domain split: when this request is ONE derived run of a domainSplit proof, rewrite the
+            // entry method's domainSplit/slice markers for that run — a slice's injected assume, or the
+            // cover obligation (overall => union of slices). Runs AFTER the desugar passes so a marker
+            // condition that uses strings/concat/lambdas is already sound, and BEFORE the reachability
+            // pass so the cover run's injected return gets a vacuity marker and the markers are gone
+            // before vacuity injection. A no-op for an ordinary proof (domainSplitRun == null).
+            val splitRun = request.domainSplitRun
+            if (splitRun != null) {
+                classpath = DomainSplitBytecode.rewrite(
+                        classpath, request.entryClass, entryMethodName(request.entryFunction), splitRun)
+            }
             // Vacuity guard: inject a reachability marker before every return of each
             // @BmcProof / enforce-proof. Runs LAST over the .class dirs so the marker lands in the final
             // proof bodies and no earlier desugar can strip it; the verdict logic flags a proof whose
