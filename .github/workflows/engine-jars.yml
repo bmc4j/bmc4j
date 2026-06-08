@@ -122,6 +122,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # Cache the EXTRACTED engine so prepareEngine no-ops on a hit and skips the
+      # release-CDN download (the transient-504 source). Each matrix platform caches
+      # its own arch/os-scoped engine dir. cbmc version + the engine build.gradle.kts
+      # hash invalidate on a bump or download-logic change (re-download SHA-256-verified).
+      - name: Cache engine (${{ matrix.platform }})
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-${{ matrix.platform }}/build/engine
+            core/bmc-engine-${{ matrix.platform }}/build/download
+          key: bmc-engine-${{ matrix.platform }}-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-${{ matrix.platform }}-cbmc6.9.0-
+
       - name: Build engine jar
         shell: bash
         run: ./gradlew -p core :bmc-engine-${{ matrix.platform }}:build --no-daemon
@@ -236,6 +250,20 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      # Cache the EXTRACTED musl engine so prepareEngine no-ops on a hit and skips the
+      # release-asset download (bmc4j/jbmc-musl-builds, same transient-504 CDN). Own
+      # musl-specific key; cbmc version + the engine build.gradle.kts hash invalidate
+      # on a bump or download-logic change (re-download stays SHA-256-verified).
+      - name: Cache engine (linux-x64-musl)
+        uses: actions/cache@v4
+        with:
+          path: |
+            core/bmc-engine-linux-x64-musl/build/engine
+            core/bmc-engine-linux-x64-musl/build/download
+          key: bmc-engine-linux-x64-musl-cbmc6.9.0-${{ hashFiles('core/bmc-engine-*/build.gradle.kts') }}
+          restore-keys: |
+            bmc-engine-linux-x64-musl-cbmc6.9.0-
 
       - name: Build musl engine jar
         shell: bash
