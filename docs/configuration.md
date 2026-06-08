@@ -37,12 +37,34 @@ custom build, or a binary placed on an air-gapped machine.
 
 ## Solver
 
-Proofs run on JBMC's built-in SAT solver (MiniSat). There is **no consumer-facing solver
-swap** today — JBMC's SMT path is inert on this engine. When a proof's solve time blows up,
-the levers are shrinking the symbolic range (`anyInt(lo, hi)` over `anyInt()`),
+Proofs run on the engine's built-in SAT solver (MiniSat) by default. For **numeric/boolean proofs
+that don't touch text**, a **bundled fast SAT solver** (`solver = "kissat"`) is typically several times
+faster — it ships with the engine, so there's nothing to install:
+
+```kotlin
+@BmcProof(solver = "kissat")          // per proof
+void wide_division_is_in_range() { ... }
+
+bmc { solver = "kissat" }             // project default
+```
+
+Precedence: per-proof `@BmcProof(solver)` > project `bmc { solver }` > the global
+`bmc { externalSat = "kissat" }` / `-PsatPath` escape hatch.
+
+The fast solver works by turning off the engine's text/String reasoning, so it is **only sound for
+text-free proofs**. bmc4j enforces this for you: it classifies each proof and runs the fast solver
+**only** on proofs it proves text-free, using the default solver for the rest automatically — no
+knowledge required. Asking for the fast solver on a proof that *does* use text **fails loud** by default
+(a plain-language message); set `bmc { externalSatStringFallback = true }` to instead silently fall back
+to the sound default solver for those proofs while text-free proofs still get the speedup. There is no
+mode that runs text-reasoning-off on a text proof and reports it verified — every pass is sound. On a
+platform with no bundled fast solver (e.g. Windows), the request transparently uses the default solver.
+
+The SMT path (`solver = "z3"` etc.) is **inert on this engine** for most proofs. When a proof's solve
+time blows up, the levers are shrinking the symbolic range (`anyInt(lo, hi)` over `anyInt()`),
 [splitting the domain](performance.md#4-domain-splitting--for-interval-bound-blow-ups-and-memory),
-or summarizing the heavy callee with a [contract](contracts.md). See
-[performance → the toolbox](performance.md#the-toolbox--which-lever-for-which-blow-up).
+or summarizing the heavy callee with a [contract](contracts.md) — those beat a solver swap when a proof
+is genuinely SAT-hard. See [performance → the fast solver](performance.md#the-fast-solver-for-numericboolean-proofs).
 
 ## Parallelism
 
@@ -63,7 +85,9 @@ a verification, and the demo's pass *is* the refutation. The cache key composes 
 that can change a verdict: the analysis-classpath **content** (every compiled class in the module plus
 the model jars — the `expect` attribute lives in the compiled test class, so changing it invalidates
 too), the effective request (`unwind`, `unwindingAssertions`, `maxStringLength`,
-`timeoutSeconds`, and the external-solver identity when set), the engine identity
+`timeoutSeconds`, and — when the fast solver is in play — the resolved fast-solver binary identity
+**and** whether the run used text/String reasoning, so a fast-solver verdict is never served for a
+default-solver request or vice versa), the engine identity
 (bundled engine version, or a content hash of an explicit `jbmcPath` binary), and the bmc4j
 runtime's analysis-semantics version (its bytecode-rewrite layer). Change any of them — edit a class, bump `unwind`, swap the engine — and the affected verdicts
 re-run. It is deliberately coarse and **biased toward over-invalidation**: a *stale pass is a soundness
