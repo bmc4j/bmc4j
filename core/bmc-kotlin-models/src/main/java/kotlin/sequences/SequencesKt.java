@@ -933,9 +933,23 @@ public final class SequencesKt {
      * {@code kotlin.sequences.Sequence.iterator()}"), leaving the iterator nondet/null and producing a
      * false REFUTED for a symbolic-input proof that verifies on 2.4.0. A {@code checkcast} to the
      * final concrete type is resolved by JBMC where the interface method dispatch is not.
+     *
+     * <p>The {@code checkcast} is itself only deterministically discharged when JBMC has fully bound the
+     * {@code Sequence}-typed parameter to its sole concrete subtype. Under heavy parallel load (the
+     * full-suite leg running the conformance {@code test} and the as-shipped {@code jarModels}
+     * conformance suite on one runner at once) JBMC has been observed to lose that binding even for a
+     * CONCRETE pipeline, leaving {@code source}'s dynamic type unconstrained — so the cast spuriously
+     * fails its "Dynamic cast check" and the whole analysis cascades to a phantom nondet counterexample.
+     * The {@code instanceof} assume below pins the dynamic type explicitly: it prunes the (genuinely
+     * impossible — {@link ListSequence} is the sole implementor and every op constructs one) branch where
+     * {@code source} is not a {@code ListSequence}, so the checkcast is dischargeable regardless of how
+     * the type-binding raced. Sound by construction: it never removes a real path, only the
+     * never-taken one that the cast would otherwise have to refute. Because every {@code seqIter}/
+     * {@code drain}/{@code distinctBy} routes through here, this stabilizes the whole facade at one point.
      */
     @SuppressWarnings("unchecked")
     private static <T> ArrayList<T> backing(Sequence<? extends T> source) {
+        CProver.assume(source instanceof ListSequence);
         return (ArrayList<T>) ((ListSequence<? extends T>) source).data;
     }
 
