@@ -15,13 +15,24 @@ import org.bmc4j.Shard
 class BigDecimalLaws {
 
     /**
-     * A symbolic BigDecimal with a fixed scale, unscaled value kept well inside the long bound.
-     * The bound also sets the bit-width JBMC must reason about: division-heavy proofs (setScale)
-     * narrow it so the rounding-divider circuit stays small — the round-trip law holds for any value,
-     * so a tighter range is just as strong a proof but far cheaper to discharge.
+     * A symbolic BigDecimal with a fixed scale, unscaled value kept inside an explicit bound.
+     * The bound also sets the bit-width JBMC must reason about. Two regimes (measured 2026-06, the
+     * bigdecimal-wide-reclaim experiment):
+     *  - **Divider-FREE laws (add/subtract/multiply-by-1/movePoint/scaleByPowerOfTen/pow0,1):** the
+     *    cost is width-INSENSITIVE — they discharge in <20s at [WIDE] (±1,000,000, 1000× the old ±1000)
+     *    and even over the full int domain. So they run WIDE: a strictly stronger proof for free.
+     *  - **Divider / full-width-multiplier laws (narrowing setScale, pow(2)=x*x):** the cost IS the
+     *    rounding-divider / multiplier CIRCUIT WIDTH, not the interval — sub-range AND magnitude splits
+     *    do NOT rescue them (the top ~20-bit magnitude slice times out at >300s even under external
+     *    CryptoMiniSat). These stay range-reduced; see the per-proof notes below.
      */
-    private fun anyBd(scale: Int, bound: Int = 1_000): BigDecimal =
+    private fun anyBd(scale: Int, bound: Int = WIDE): BigDecimal =
         BigDecimal.valueOf(Bmc.anyInt(-bound, bound).toLong(), scale)
+
+    private companion object {
+        /** Wide unscaled bound for divider-free laws — 1000× the old ±1000, still <20s to discharge. */
+        const val WIDE = 1_000_000
+    }
 
     @BmcProof
     fun add_is_commutative() {
@@ -48,7 +59,7 @@ class BigDecimalLaws {
         Bmc.check(a.subtract(a).signum() == 0)
     }
 
-    // ~57s — pinned to spread it away from the heavier setScale proof below.
+    // ~17s at WIDE (divider-free add+subtract) — pinned to spread it from the heavier setScale proof.
     @Shard(2)
     @BmcProof
     fun add_then_subtract_round_trips() {
@@ -57,12 +68,18 @@ class BigDecimalLaws {
         Bmc.check(a.add(b).subtract(b).compareTo(a) == 0)
     }
 
-    // ~88s, the module's slowest division-heavy proof — pinned to shard 1.
+    // ~88s, the module's slowest division-heavy proof — pinned to shard 1. STAYS RANGE-REDUCED.
     @Shard(1)
     @BmcProof
     fun setScale_widen_then_narrow_round_trips() {
-        // Division-heavy (narrowing setScale rounds via roundDiv). Tight range keeps the divider
-        // small; the widen-then-narrow identity is exact for every value, so this stays a real proof.
+        // Division-heavy (narrowing setScale rounds via roundDiv). The cost is the rounding-DIVIDER
+        // CIRCUIT WIDTH, not the interval size — confirmed by the wide-reclaim experiment (2026-06):
+        // at WIDE (±1,000,000) the monolithic proof TIMES OUT (>300s built-in MiniSAT); neither an
+        // 8-band sub-range split NOR a magnitude/bit-width split rescues it (the top ~20-bit magnitude
+        // slice alone times out at >300s, even under external CryptoMiniSat — CMS verifies it but at
+        // ~370s, far over CI's 180s budget). So the divider-width wall is real and split-immune here.
+        // The widen-then-narrow identity is exact for every value, so the reduced range is just as
+        // strong a proof — and the wide-range confidence lives on the differential (vs-JDK) axis.
         val a = anyBd(2, bound = 1_000)
         val widened = a.setScale(4, RoundingMode.HALF_UP)
         Bmc.check(widened.setScale(2, RoundingMode.HALF_UP).compareTo(a) == 0)
@@ -114,9 +131,12 @@ class BigDecimalLaws {
     // Symbolic widening is a rescale (multiply), cheap and a real law; the narrow-with-rounding path is
     // covered concretely + on the differential axis (the wide rounding-divider stays off this proof).
 
+    // Widening setScale(4) rescales by ×100 (a rescale-multiply, NOT the rounding divider), so it is
+    // mildly width-sensitive: WIDE (±1M) hovers at ~176s (right at the 180s budget), but ±100,000 — 100×
+    // the old ±1000 — discharges comfortably at ~59s. Reclaimed to ±100,000 (a strictly stronger proof).
     @BmcProof
     fun setScale_widen_is_value_preserving() {
-        val a = anyBd(2, bound = 1_000)
+        val a = anyBd(2, bound = 100_000)
         Bmc.check(a.setScale(4).compareTo(a) == 0)   // widen never rounds, value unchanged
     }
 
@@ -131,7 +151,7 @@ class BigDecimalLaws {
 
     @BmcProof
     fun movePoint_round_trips() {
-        val a = anyBd(2, bound = 1_000)
+        val a = anyBd(2)   // WIDE (divider-free: scale shift only) — ~5s
         Bmc.check(a.movePointRight(2).movePointLeft(2).compareTo(a) == 0)
         Bmc.check(a.movePointLeft(2).movePointRight(2).compareTo(a) == 0)
     }
@@ -175,13 +195,16 @@ class BigDecimalLaws {
 
     @BmcProof
     fun pow_zero_and_one() {
-        val a = anyBd(2, bound = 1_000)
+        val a = anyBd(2)   // WIDE (pow 0/1 fold away, no multiplier) — ~6s
         Bmc.check(a.pow(0).compareTo(BigDecimal.ONE) == 0)   // x^0 == 1
         Bmc.check(a.pow(1).compareTo(a) == 0)                // x^1 == x
     }
 
-    // pow(2) == x*x is a multiplier-equivalence law; full-width multiplier equivalence is SAT-heavy, so
-    // keep the range tight (the law holds for every value — a tight range is just as strong, far cheaper).
+    // pow(2) == x*x is a full-width MULTIPLIER-equivalence law — SAT-pathological (the multiplier
+    // CIRCUIT WIDTH is the cost, not the interval). STAYS RANGE-REDUCED: the wide-reclaim experiment
+    // (2026-06) confirmed even ±10,000 (~14-bit) TIMES OUT at >300s, so this keeps the tight ±100
+    // bound. The law holds for every value — the tight range is just as strong, and wide-value
+    // confidence lives on the differential (vs-JDK) axis.
     @BmcProof
     fun pow_two_is_self_times_self() {
         val a = anyBd(1, bound = 100)
@@ -190,7 +213,7 @@ class BigDecimalLaws {
 
     @BmcProof
     fun scaleByPowerOfTen_round_trips() {
-        val a = anyBd(2, bound = 1_000)
+        val a = anyBd(2)   // WIDE (scale shift only, divider-free) — ~10s
         Bmc.check(a.scaleByPowerOfTen(3).scaleByPowerOfTen(-3).compareTo(a) == 0)
     }
 
