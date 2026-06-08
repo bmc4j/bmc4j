@@ -1873,9 +1873,31 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 
 ## `kotlin.text.StringsKt`
 
-Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
+Real surface: 276 members — modeled 103, unmodelable 17, not-needed 0, tail 156.
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 276 members, all loud): exotic StringsKt facade remainder — the bulk of kotlin-stdlib's CharSequence/String extension functions (split/replace/trim/regex/case/parsing/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+**Modeled** (`@BmcModelConforms`): `commonPrefixWith(CharSequence, CharSequence, boolean)`, `commonSuffixWith(CharSequence, CharSequence, boolean)`, `compareTo(String, String, boolean)`, `concatToString(char[])`, `concatToString(char[], int, int)`, `contains(CharSequence, CharSequence, boolean)`, `contains(CharSequence, char, boolean)`, `contentEquals(CharSequence, CharSequence)`, `contentEquals(CharSequence, CharSequence, boolean)`, `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`, `contentEqualsImpl(CharSequence, CharSequence)`, `drop(CharSequence, int)`, `drop(String, int)`, `dropLast(CharSequence, int)`, `dropLast(String, int)`, `endsWith(CharSequence, CharSequence, boolean)`, `endsWith(CharSequence, char, boolean)`, `endsWith(String, String, boolean)`, `equals(String, String, boolean)`, `first(CharSequence)`, `firstOrNull(CharSequence)`, `getIndices(CharSequence)`, `getLastIndex(CharSequence)`, `getOrNull(CharSequence, int)`, `hasSurrogatePairAt(CharSequence, int)`, `indexOf(CharSequence, String, int, boolean)`, `indexOf(CharSequence, char, int, boolean)`, `isBlank(CharSequence)`, `last(CharSequence)`, `lastIndexOf(CharSequence, String, int, boolean)`, `lastIndexOf(CharSequence, char, int, boolean)`, `lastOrNull(CharSequence)`, `padEnd(CharSequence, int, char)`, `padEnd(String, int, char)`, `padStart(CharSequence, int, char)`, `padStart(String, int, char)`, `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`, `regionMatches(String, int, String, int, int, boolean)`, `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`, `removePrefix(CharSequence, CharSequence)`, `removePrefix(String, CharSequence)`, `removeRange(CharSequence, IntRange)`, `removeRange(CharSequence, int, int)`, `removeSuffix(CharSequence, CharSequence)`, `removeSuffix(String, CharSequence)`, `removeSurrounding(CharSequence, CharSequence)`, `removeSurrounding(CharSequence, CharSequence, CharSequence)`, `removeSurrounding(String, CharSequence)`, `removeSurrounding(String, CharSequence, CharSequence)`, `repeat(CharSequence, int)`, `replace(String, String, String, boolean)`, `replace(String, char, char, boolean)`, `replaceAfter(String, String, String, String)`, `replaceAfter(String, char, String, String)`, `replaceAfterLast(String, String, String, String)`, `replaceAfterLast(String, char, String, String)`, `replaceBefore(String, String, String, String)`, `replaceBefore(String, char, String, String)`, `replaceBeforeLast(String, String, String, String)`, `replaceBeforeLast(String, char, String, String)`, `replaceFirst(String, String, String, boolean)`, `replaceFirst(String, char, char, boolean)`, `replaceRange(CharSequence, IntRange, CharSequence)`, `replaceRange(CharSequence, int, int, CharSequence)`, `reversed(CharSequence)`, `single(CharSequence)`, `singleOrNull(CharSequence)`, `slice(CharSequence, IntRange)`, `slice(String, IntRange)`, `startsWith(CharSequence, CharSequence, boolean)`, `startsWith(CharSequence, CharSequence, int, boolean)`, `startsWith(CharSequence, char, boolean)`, `startsWith(String, String, boolean)`, `startsWith(String, String, int, boolean)`, `subSequence(CharSequence, IntRange)`, `substring(CharSequence, IntRange)`, `substring(String, IntRange)`, `substringAfter(String, String, String)`, `substringAfter(String, char, String)`, `substringAfterLast(String, String, String)`, `substringAfterLast(String, char, String)`, `substringBefore(String, String, String)`, `substringBefore(String, char, String)`, `substringBeforeLast(String, String, String)`, `substringBeforeLast(String, char, String)`, `take(CharSequence, int)`, `take(String, int)`, `takeLast(CharSequence, int)`, `takeLast(String, int)`, `toCharArray(String, int, int)`, `toHashSet(CharSequence)`, `toList(CharSequence)`, `toMutableList(CharSequence)`, `toSet(CharSequence)`, `trim(CharSequence)`, `trim(CharSequence, char[])`, `trim(String, char[])`, `trimEnd(CharSequence)`, `trimEnd(CharSequence, char[])`, `trimEnd(String, char[])`, `trimStart(CharSequence)`, `trimStart(CharSequence, char[])`, `trimStart(String, char[])`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `capitalize(String)` | full-Unicode title-case mapping of the first char — needs the Unicode case tables |
+| `capitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decapitalize(String)` | full-Unicode case mapping — needs the Unicode case tables |
+| `decapitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decodeToString(byte[])` | charset decode — UTF-8 byte decoding |
+| `decodeToString(byte[], int, int, boolean)` | charset decode — UTF-8 byte decoding |
+| `encodeToByteArray(String)` | charset encode — UTF-8 byte encoding |
+| `encodeToByteArray(String, int, int, boolean)` | charset encode — UTF-8 byte encoding |
+| `getCASE_INSENSITIVE_ORDER(StringCompanionObject)` | case-insensitive ordering comparator — full-Unicode/locale case fold over an open comparator |
+| `numberFormatError(String)` | number-format error helper — throws a NumberFormatException constructed from locale-formatted text |
+| `split(CharSequence, Pattern, int)` | regex engine — split over a java.util.regex.Pattern |
+| `toBigDecimalOrNull(String)` | BigDecimal parse — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigDecimalOrNull(String, MathContext)` | BigDecimal parse with MathContext — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigIntegerOrNull(String)` | BigInteger parse — arbitrary-precision radix parsing |
+| `toBigIntegerOrNull(String, int)` | BigInteger parse with radix — arbitrary-precision radix parsing |
+| `toDoubleOrNull(String)` | floating-point parse — needs dtoa |
+| `toFloatOrNull(String)` | floating-point parse — needs dtoa |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 156 members, all loud): exotic StringsKt facade remainder — kotlin-stdlib's higher-order / collection- and sequence-returning CharSequence extensions (map/filter/fold/reduce/associate/groupBy/windowed/chunked/zip/asSequence/iterator/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `all(CharSequence, Function1)`
 - `any(CharSequence)`
@@ -1897,43 +1919,16 @@ Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
 - `associateTo(CharSequence, Map, Function1)`
 - `associateWith(CharSequence, Function1)`
 - `associateWithTo(CharSequence, Map, Function1)`
-- `capitalize(String)`
-- `capitalize(String, Locale)`
 - `chunked(CharSequence, int)`
 - `chunked(CharSequence, int, Function1)`
 - `chunkedSequence(CharSequence, int)`
 - `chunkedSequence(CharSequence, int, Function1)`
 - `clear(StringBuilder)`
-- `commonPrefixWith(CharSequence, CharSequence, boolean)`
-- `commonSuffixWith(CharSequence, CharSequence, boolean)`
-- `compareTo(String, String, boolean)`
-- `concatToString(char[])`
-- `concatToString(char[], int, int)`
-- `contains(CharSequence, CharSequence, boolean)`
-- `contains(CharSequence, char, boolean)`
-- `contentEquals(CharSequence, CharSequence)`
-- `contentEquals(CharSequence, CharSequence, boolean)`
-- `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`
-- `contentEqualsImpl(CharSequence, CharSequence)`
 - `count(CharSequence, Function1)`
-- `decapitalize(String)`
-- `decapitalize(String, Locale)`
-- `decodeToString(byte[])`
-- `decodeToString(byte[], int, int, boolean)`
-- `drop(CharSequence, int)`
-- `drop(String, int)`
-- `dropLast(CharSequence, int)`
-- `dropLast(String, int)`
 - `dropLastWhile(CharSequence, Function1)`
 - `dropLastWhile(String, Function1)`
 - `dropWhile(CharSequence, Function1)`
 - `dropWhile(String, Function1)`
-- `encodeToByteArray(String)`
-- `encodeToByteArray(String, int, int, boolean)`
-- `endsWith(CharSequence, CharSequence, boolean)`
-- `endsWith(CharSequence, char, boolean)`
-- `endsWith(String, String, boolean)`
-- `equals(String, String, boolean)`
 - `filter(CharSequence, Function1)`
 - `filter(String, Function1)`
 - `filterIndexed(CharSequence, Function2)`
@@ -1945,9 +1940,7 @@ Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
 - `filterTo(CharSequence, Appendable, Function1)`
 - `findAnyOf(CharSequence, Collection, int, boolean)`
 - `findLastAnyOf(CharSequence, Collection, int, boolean)`
-- `first(CharSequence)`
 - `first(CharSequence, Function1)`
-- `firstOrNull(CharSequence)`
 - `firstOrNull(CharSequence, Function1)`
 - `flatMap(CharSequence, Function1)`
 - `flatMapTo(CharSequence, Collection, Function1)`
@@ -1957,31 +1950,19 @@ Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
 - `foldRightIndexed(CharSequence, Object, Function3)`
 - `forEach(CharSequence, Function1)`
 - `forEachIndexed(CharSequence, Function2)`
-- `getCASE_INSENSITIVE_ORDER(StringCompanionObject)`
-- `getIndices(CharSequence)`
-- `getLastIndex(CharSequence)`
-- `getOrNull(CharSequence, int)`
 - `groupBy(CharSequence, Function1)`
 - `groupBy(CharSequence, Function1, Function1)`
 - `groupByTo(CharSequence, Map, Function1)`
 - `groupByTo(CharSequence, Map, Function1, Function1)`
 - `groupingBy(CharSequence, Function1)`
-- `hasSurrogatePairAt(CharSequence, int)`
-- `indexOf(CharSequence, String, int, boolean)`
-- `indexOf(CharSequence, char, int, boolean)`
 - `indexOfAny(CharSequence, Collection, int, boolean)`
 - `indexOfAny(CharSequence, char[], int, boolean)`
 - `indexOfFirst(CharSequence, Function1)`
 - `indexOfLast(CharSequence, Function1)`
-- `isBlank(CharSequence)`
 - `iterator(CharSequence)`
-- `last(CharSequence)`
 - `last(CharSequence, Function1)`
-- `lastIndexOf(CharSequence, String, int, boolean)`
-- `lastIndexOf(CharSequence, char, int, boolean)`
 - `lastIndexOfAny(CharSequence, Collection, int, boolean)`
 - `lastIndexOfAny(CharSequence, char[], int, boolean)`
-- `lastOrNull(CharSequence)`
 - `lastOrNull(CharSequence, Function1)`
 - `lineSequence(CharSequence)`
 - `lines(CharSequence)`
@@ -2007,13 +1988,8 @@ Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
 - `minWithOrThrow(CharSequence, Comparator)`
 - `none(CharSequence)`
 - `none(CharSequence, Function1)`
-- `numberFormatError(String)`
 - `onEach(CharSequence, Function1)`
 - `onEachIndexed(CharSequence, Function2)`
-- `padEnd(CharSequence, int, char)`
-- `padEnd(String, int, char)`
-- `padStart(CharSequence, int, char)`
-- `padStart(String, int, char)`
 - `partition(CharSequence, Function1)`
 - `partition(String, Function1)`
 - `prependIndent(String, String)`
@@ -2027,123 +2003,49 @@ Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
 - `reduceRightIndexed(CharSequence, Function3)`
 - `reduceRightIndexedOrNull(CharSequence, Function3)`
 - `reduceRightOrNull(CharSequence, Function2)`
-- `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`
-- `regionMatches(String, int, String, int, int, boolean)`
-- `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`
-- `removePrefix(CharSequence, CharSequence)`
-- `removePrefix(String, CharSequence)`
-- `removeRange(CharSequence, IntRange)`
-- `removeRange(CharSequence, int, int)`
-- `removeSuffix(CharSequence, CharSequence)`
-- `removeSuffix(String, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence, CharSequence)`
-- `removeSurrounding(String, CharSequence)`
-- `removeSurrounding(String, CharSequence, CharSequence)`
-- `repeat(CharSequence, int)`
-- `replace(String, String, String, boolean)`
-- `replace(String, char, char, boolean)`
-- `replaceAfter(String, String, String, String)`
-- `replaceAfter(String, char, String, String)`
-- `replaceAfterLast(String, String, String, String)`
-- `replaceAfterLast(String, char, String, String)`
-- `replaceBefore(String, String, String, String)`
-- `replaceBefore(String, char, String, String)`
-- `replaceBeforeLast(String, String, String, String)`
-- `replaceBeforeLast(String, char, String, String)`
-- `replaceFirst(String, String, String, boolean)`
-- `replaceFirst(String, char, char, boolean)`
 - `replaceIndent(String, String)`
 - `replaceIndentByMargin(String, String, String)`
-- `replaceRange(CharSequence, IntRange, CharSequence)`
-- `replaceRange(CharSequence, int, int, CharSequence)`
 - `requireNonNegativeLimit(int)`
-- `reversed(CharSequence)`
 - `runningFold(CharSequence, Object, Function2)`
 - `runningFoldIndexed(CharSequence, Object, Function3)`
 - `runningReduce(CharSequence, Function2)`
 - `runningReduceIndexed(CharSequence, Function3)`
 - `scan(CharSequence, Object, Function2)`
 - `scanIndexed(CharSequence, Object, Function3)`
-- `single(CharSequence)`
 - `single(CharSequence, Function1)`
-- `singleOrNull(CharSequence)`
 - `singleOrNull(CharSequence, Function1)`
 - `skipWhile(String, int, Function1)`
-- `slice(CharSequence, IntRange)`
 - `slice(CharSequence, Iterable)`
-- `slice(String, IntRange)`
-- `split(CharSequence, Pattern, int)`
 - `split(CharSequence, String[], boolean, int)`
 - `split(CharSequence, char[], boolean, int)`
 - `splitToSequence(CharSequence, String[], boolean, int)`
 - `splitToSequence(CharSequence, char[], boolean, int)`
-- `startsWith(CharSequence, CharSequence, boolean)`
-- `startsWith(CharSequence, CharSequence, int, boolean)`
-- `startsWith(CharSequence, char, boolean)`
-- `startsWith(String, String, boolean)`
-- `startsWith(String, String, int, boolean)`
-- `subSequence(CharSequence, IntRange)`
-- `substring(CharSequence, IntRange)`
-- `substring(String, IntRange)`
-- `substringAfter(String, String, String)`
-- `substringAfter(String, char, String)`
-- `substringAfterLast(String, String, String)`
-- `substringAfterLast(String, char, String)`
-- `substringBefore(String, String, String)`
-- `substringBefore(String, char, String)`
-- `substringBeforeLast(String, String, String)`
-- `substringBeforeLast(String, char, String)`
 - `sumBy(CharSequence, Function1)`
 - `sumByDouble(CharSequence, Function1)`
-- `take(CharSequence, int)`
-- `take(String, int)`
-- `takeLast(CharSequence, int)`
-- `takeLast(String, int)`
 - `takeLastWhile(CharSequence, Function1)`
 - `takeLastWhile(String, Function1)`
 - `takeWhile(CharSequence, Function1)`
 - `takeWhile(String, Function1)`
-- `toBigDecimalOrNull(String)`
-- `toBigDecimalOrNull(String, MathContext)`
-- `toBigIntegerOrNull(String)`
-- `toBigIntegerOrNull(String, int)`
 - `toBooleanStrict(String)`
 - `toBooleanStrictOrNull(String)`
 - `toByteOrNull(String)`
 - `toByteOrNull(String, int)`
-- `toCharArray(String, int, int)`
 - `toCollection(CharSequence, Collection)`
-- `toDoubleOrNull(String)`
-- `toFloatOrNull(String)`
-- `toHashSet(CharSequence)`
 - `toIntOrNull(String)`
 - `toIntOrNull(String, int)`
-- `toList(CharSequence)`
 - `toLongOrNull(String)`
 - `toLongOrNull(String, int)`
-- `toMutableList(CharSequence)`
-- `toSet(CharSequence)`
 - `toShortOrNull(String)`
 - `toShortOrNull(String, int)`
 - `toSortedSet(CharSequence)`
-- `trim(CharSequence)`
 - `trim(CharSequence, Function1)`
-- `trim(CharSequence, char[])`
 - `trim(String, Function1)`
-- `trim(String, char[])`
-- `trimEnd(CharSequence)`
 - `trimEnd(CharSequence, Function1)`
-- `trimEnd(CharSequence, char[])`
 - `trimEnd(String, Function1)`
-- `trimEnd(String, char[])`
 - `trimIndent(String)`
 - `trimMargin(String, String)`
-- `trimStart(CharSequence)`
 - `trimStart(CharSequence, Function1)`
-- `trimStart(CharSequence, char[])`
 - `trimStart(String, Function1)`
-- `trimStart(String, char[])`
 - `windowed(CharSequence, int, int, boolean)`
 - `windowed(CharSequence, int, int, boolean, Function1)`
 - `windowedSequence(CharSequence, int, int, boolean)`
