@@ -9,12 +9,14 @@ import org.bmc4j.models.audit.BmcNotNeeded;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import kotlin.Pair;
+import kotlin.ranges.IntRange;
 import kotlin.sequences.ListSequence;
 import kotlin.sequences.Sequence;
 
@@ -913,6 +915,567 @@ public final class CollectionsKt {
                 window.add(all.get(i));
             }
             out.add(window);
+        }
+        return out;
+    }
+
+    // ===========================================================================================
+    // models/kotlin-collections-3 pass: the high-value NON-INLINE CollectionsKt residue over the
+    // bounded java.util backing. Inline-ness VERIFIED against kotlin-stdlib 2.4.0 @Metadata
+    // (Attributes.isInline == false for every member below; the lambda-taking siblings of the same
+    // name, e.g. count{}/any{}/firstOrNull{}/sumOf{}/partition{}, are inline and stay @BmcNotNeeded).
+    // Each is a non-inline facade JVM method whose real kotlin-stdlib chain routes through internal
+    // builders/iterators JBMC nondet-stubs; we build the bounded java.util collection model directly.
+    // ===========================================================================================
+
+    // ---- count / any / none (no-predicate forms): CollectionsKt.count:(Ljava/lang/Iterable;)I,
+    //   any:(Ljava/lang/Iterable;)Z, none:(Ljava/lang/Iterable;)Z. count = element count; any = "not
+    //   empty"; none = "empty". (Non-inline; the predicate overloads count{}/any{}/none{} are inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int count(Iterable<?> source) {
+        if (source instanceof Collection) {
+            return ((Collection<?>) source).size();
+        }
+        int n = 0;
+        for (Iterator<?> it = source.iterator(); it.hasNext(); ) {
+            it.next();
+            n++;
+        }
+        return n;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean any(Iterable<?> source) {
+        if (source instanceof Collection) {
+            return !((Collection<?>) source).isEmpty();
+        }
+        return source.iterator().hasNext();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean none(Iterable<?> source) {
+        if (source instanceof Collection) {
+            return ((Collection<?>) source).isEmpty();
+        }
+        return !source.iterator().hasNext();
+    }
+
+    // ---- firstOrNull / lastOrNull (no-predicate forms): the *OrNull contract returns null on empty
+    //   instead of throwing. Iterable + List overloads. (Non-inline; predicate overloads are inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T firstOrNull(Iterable<T> source) {
+        Iterator<T> it = source.iterator();
+        return it.hasNext() ? it.next() : null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T firstOrNull(List<T> list) {
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T lastOrNull(Iterable<T> source) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        T last = it.next();
+        while (it.hasNext()) {
+            last = it.next();
+        }
+        return last;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T lastOrNull(List<T> list) {
+        return list.isEmpty() ? null : list.get(list.size() - 1);
+    }
+
+    // ---- maxOrThrow / minOrThrow: the Comparable-fold extremum that THROWS on an empty source
+    //   (NoSuchElementException), Kotlin's `max()`/`min()` (JvmName maxOrThrow/minOrThrow). The *OrNull
+    //   siblings are already modeled (return null on empty). (Non-inline; the *By{}/*Of{} forms are inline.)
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Comparable maxOrThrow(Iterable source) {
+        Iterator it = source.iterator();
+        if (!it.hasNext()) {
+            throw new NoSuchElementException();
+        }
+        Comparable max = (Comparable) it.next();
+        while (it.hasNext()) {
+            Comparable e = (Comparable) it.next();
+            if (max.compareTo(e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Comparable minOrThrow(Iterable source) {
+        Iterator it = source.iterator();
+        if (!it.hasNext()) {
+            throw new NoSuchElementException();
+        }
+        Comparable min = (Comparable) it.next();
+        while (it.hasNext()) {
+            Comparable e = (Comparable) it.next();
+            if (min.compareTo(e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    // ---- maxWithOrNull / maxWithOrThrow / minWithOrNull / minWithOrThrow: Comparator-driven extremum.
+    //   *OrNull returns null on empty; *OrThrow throws NoSuchElementException. The Comparator is a real
+    //   first-class arg (Kotlin's maxWith/minWith take a Comparator, NOT a lambda) so this is non-inline.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T maxWithOrNull(Iterable<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(max, e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T maxWithOrThrow(Iterable<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            throw new NoSuchElementException();
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(max, e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T minWithOrNull(Iterable<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return null;
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(min, e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T minWithOrThrow(Iterable<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            throw new NoSuchElementException();
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(min, e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    // ---- sumOfByte / sumOfShort / sumOfFloat: the remaining typed sums (Int/Long/Double already
+    //   modeled). Byte/Short widen to an int accumulator (matching Kotlin); Float folds into a double-
+    //   sized... no — Kotlin's sumOfFloat folds into a FLOAT accumulator and returns float. (Non-inline;
+    //   sumOf{}/sumBy{}/sumByDouble{} are inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int sumOfByte(Iterable<Byte> source) {
+        int sum = 0;
+        for (Iterator<Byte> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int sumOfShort(Iterable<Short> source) {
+        int sum = 0;
+        for (Iterator<Short> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float sumOfFloat(Iterable<Float> source) {
+        float sum = 0.0f;
+        for (Iterator<Float> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    // ---- averageOfByte / averageOfShort / averageOfFloat / averageOfDouble: sum / count as a double;
+    //   NaN for an empty source (matching Kotlin's 0.0/0). Int/Long already modeled. Sum accumulates as
+    //   a double to mirror the stdlib; sound under the concrete-only double policy. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfByte(Iterable<Byte> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Byte> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfShort(Iterable<Short> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Short> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfFloat(Iterable<Float> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Float> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfDouble(Iterable<Double> source) {
+        double sum = 0.0;
+        int count = 0;
+        for (Iterator<Double> it = source.iterator(); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    // ---- filterNotNull / filterNotNullTo: a NEW list (or the supplied destination) of the non-null
+    //   elements in order. (Non-inline — filterNotNull has no lambda; the predicate filter{} is inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> filterNotNull(Iterable<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (e != null) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, C extends Collection<? super T>> C filterNotNullTo(Iterable<T> source, C destination) {
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            T e = it.next();
+            if (e != null) {
+                destination.add(e);
+            }
+        }
+        return destination;
+    }
+
+    // ---- listOfNotNull(element) / listOfNotNull(vararg): a NEW read-only list of the non-null
+    //   argument(s). The single-arg form yields an empty list when the arg is null. (Non-inline;
+    //   listOfNotNull() no-arg/empty is a different inline factory.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> listOfNotNull(T element) {
+        ArrayList<T> out = new ArrayList<>();
+        if (element != null) {
+            out.add(element);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> listOfNotNull(T[] elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (T e : elements) {
+            if (e != null) {
+                out.add(e);
+            }
+        }
+        return out;
+    }
+
+    // ---- arrayListOf(vararg): CollectionsKt.arrayListOf:([Ljava/lang/Object;)Ljava/util/ArrayList; — a
+    //   NEW (bounded) ArrayList of the arguments in order. (Non-inline; the no-arg arrayListOf() is inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> ArrayList<T> arrayListOf(T[] elements) {
+        ArrayList<T> out = new ArrayList<>();
+        for (T e : elements) {
+            out.add(e);
+        }
+        return out;
+    }
+
+    // ---- getIndices(Collection) / getLastIndex(List): the `indices`/`lastIndex` property getters.
+    //   indices = the IntRange 0..size-1 (empty range for an empty collection); lastIndex = size-1
+    //   (-1 for an empty list). The returned IntRange is REAL kotlin-stdlib (analyzable; the slice model
+    //   already drives it). (Non-inline property getters.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static IntRange getIndices(Collection<?> collection) {
+        return new IntRange(0, collection.size() - 1);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> int getLastIndex(List<? extends T> list) {
+        return list.size() - 1;
+    }
+
+    // ---- reverse(List): IN-PLACE reverse of the receiver (Kotlin's MutableList.reverse(), JVM-backed by
+    //   Collections.reverse). Returns void; the receiver is mutated. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> void reverse(List<T> list) {
+        int i = 0;
+        int j = list.size() - 1;
+        while (i < j) {
+            T tmp = list.get(i);
+            list.set(i, list.get(j));
+            list.set(j, tmp);
+            i++;
+            j--;
+        }
+    }
+
+    // ---- removeFirst / removeLast / removeFirstOrNull / removeLastOrNull (MutableList): remove and
+    //   return the first/last element. The *OrNull forms return null on empty; the bare forms throw
+    //   NoSuchElementException on empty. (Non-inline; these are Kotlin stdlib extensions, distinct from the
+    //   JDK-21 SequencedCollection methods.) Backed by the bounded list model's remove(int).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T removeFirst(List<T> list) {
+        if (list.isEmpty()) {
+            throw new NoSuchElementException("List is empty.");
+        }
+        return list.remove(0);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T removeFirstOrNull(List<T> list) {
+        return list.isEmpty() ? null : list.remove(0);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T removeLast(List<T> list) {
+        if (list.isEmpty()) {
+            throw new NoSuchElementException("List is empty.");
+        }
+        return list.remove(list.size() - 1);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T removeLastOrNull(List<T> list) {
+        return list.isEmpty() ? null : list.remove(list.size() - 1);
+    }
+
+    // ---- requireNoNulls(Iterable) / requireNoNulls(List): return the receiver unchanged if it contains
+    //   no nulls, else throw IllegalArgumentException naming the offending null. The stdlib returns a list
+    //   of the SAME (non-null-typed) elements; we return the receiver after validating (the bounded source
+    //   has no separate null-typed twin to copy into). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Iterable<T> requireNoNulls(Iterable<T> source) {
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            if (it.next() == null) {
+                throw new IllegalArgumentException("null element found in " + source + ".");
+            }
+        }
+        return source;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> requireNoNulls(List<T> list) {
+        for (int i = 0, n = list.size(); i < n; i++) {
+            if (list.get(i) == null) {
+                throw new IllegalArgumentException("null element found in " + list + ".");
+            }
+        }
+        return list;
+    }
+
+    // ---- unzip(Iterable<Pair>): CollectionsKt.unzip:(Ljava/lang/Iterable;)Lkotlin/Pair; — split a list
+    //   of Pairs into a Pair of two lists (firsts, seconds), in order. (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Pair<List<T>, List<R>> unzip(Iterable<? extends Pair<? extends T, ? extends R>> source) {
+        ArrayList<T> firsts = new ArrayList<>();
+        ArrayList<R> seconds = new ArrayList<>();
+        for (Iterator<? extends Pair<? extends T, ? extends R>> it = source.iterator(); it.hasNext(); ) {
+            Pair<? extends T, ? extends R> p = it.next();
+            firsts.add(p.getFirst());
+            seconds.add(p.getSecond());
+        }
+        return new Pair<>(firsts, seconds);
+    }
+
+    // ---- zip(Iterable, array): CollectionsKt.zip:(Ljava/lang/Iterable;[Ljava/lang/Object;)Ljava/util/List;
+    //   for `xs.zip(arr)` — a NEW list of Pairs, truncated to the shorter input. The Iterable+Iterable zip
+    //   is already modeled; this is the array-RHS twin. (Non-inline; the transform overload is inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> List<Pair<T, R>> zip(Iterable<T> source, R[] other) {
+        ArrayList<Pair<T, R>> result = new ArrayList<>();
+        Iterator<T> a = source.iterator();
+        int i = 0;
+        while (a.hasNext() && i < other.length) {
+            result.add(new Pair<>(a.next(), other[i]));
+            i++;
+        }
+        return result;
+    }
+
+    // ---- zipWithNext(Iterable): CollectionsKt.zipWithNext:(Ljava/lang/Iterable;)Ljava/util/List; — a NEW
+    //   list of consecutive Pairs [(e0,e1),(e1,e2),…]; empty when the source has fewer than 2 elements.
+    //   (Non-inline; the transform overload zipWithNext{} is inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<Pair<T, T>> zipWithNext(Iterable<T> source) {
+        ArrayList<Pair<T, T>> result = new ArrayList<>();
+        Iterator<T> it = source.iterator();
+        if (!it.hasNext()) {
+            return result;
+        }
+        T prev = it.next();
+        while (it.hasNext()) {
+            T cur = it.next();
+            result.add(new Pair<>(prev, cur));
+            prev = cur;
+        }
+        return result;
+    }
+
+    // ---- withIndex(Iterable): CollectionsKt.withIndex:(Ljava/lang/Iterable;)Ljava/lang/Iterable; — pairs
+    //   each element with its 0-based index as an IndexedValue. The stdlib returns a LAZY IndexingIterable
+    //   (its iterator is internal stdlib JBMC nondet-stubs); we materialize the bounded source EAGERLY into
+    //   a list of IndexedValue (identical read observable over the bounded model). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Iterable<IndexedValue<T>> withIndex(Iterable<T> source) {
+        ArrayList<IndexedValue<T>> out = new ArrayList<>();
+        int i = 0;
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(new IndexedValue<>(i, it.next()));
+            i++;
+        }
+        return out;
+    }
+
+    // ---- toHashSet(Iterable) / toCollection(Iterable, destination): bulk drains into a NEW HashSet (dedup
+    //   via equals/hashCode, unordered) / into the supplied destination (returned). (Non-inline.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> HashSet<T> toHashSet(Iterable<T> source) {
+        HashSet<T> out = new HashSet<>();
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, C extends Collection<? super T>> C toCollection(Iterable<T> source, C destination) {
+        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+            destination.add(it.next());
+        }
+        return destination;
+    }
+
+    // ---- toIntArray / toLongArray / toByteArray / toShortArray / toCharArray / toBooleanArray /
+    //   toDoubleArray / toFloatArray (Collection<boxed>): a NEW primitive array of the unboxed elements in
+    //   iteration order, sized to the collection. (Non-inline; over the bounded collection model.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int[] toIntArray(Collection<Integer> source) {
+        int[] out = new int[source.size()];
+        int i = 0;
+        for (Iterator<Integer> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long[] toLongArray(Collection<Long> source) {
+        long[] out = new long[source.size()];
+        int i = 0;
+        for (Iterator<Long> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte[] toByteArray(Collection<Byte> source) {
+        byte[] out = new byte[source.size()];
+        int i = 0;
+        for (Iterator<Byte> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short[] toShortArray(Collection<Short> source) {
+        short[] out = new short[source.size()];
+        int i = 0;
+        for (Iterator<Short> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char[] toCharArray(Collection<Character> source) {
+        char[] out = new char[source.size()];
+        int i = 0;
+        for (Iterator<Character> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean[] toBooleanArray(Collection<Boolean> source) {
+        boolean[] out = new boolean[source.size()];
+        int i = 0;
+        for (Iterator<Boolean> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double[] toDoubleArray(Collection<Double> source) {
+        double[] out = new double[source.size()];
+        int i = 0;
+        for (Iterator<Double> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float[] toFloatArray(Collection<Float> source) {
+        float[] out = new float[source.size()];
+        int i = 0;
+        for (Iterator<Float> it = source.iterator(); it.hasNext(); ) {
+            out[i++] = it.next();
         }
         return out;
     }

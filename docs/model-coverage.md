@@ -1175,9 +1175,9 @@ Real surface: 3 members — modeled 1, not-modeled 0, not-needed 0, tail 2.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 58, not-modeled 0, not-needed 99, tail 96.
+Real surface: 253 members — modeled 106, not-modeled 0, not-needed 99, tail 48.
 
-**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `first(Iterable)`, `first(List)`, `flatten(Iterable)`, `intersect(Iterable, Iterable)`, `last(List)`, `listOf(Object)`, `listOf(Object[])`, `maxOrNull(Iterable)`, `minOrNull(Iterable)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfDouble(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toList(Iterable)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `union(Iterable, Iterable)`, `windowed(Iterable, int, int, boolean)`, `zip(Iterable, Iterable)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
 
 | Not needed (exotic) | Reason |
 |---|---|
@@ -1281,17 +1281,11 @@ Real surface: 253 members — modeled 58, not-modeled 0, not-needed 99, tail 96.
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 96 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 48 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `addAll(Collection, Object[])`
 - `addAll(Collection, Sequence)`
-- `any(Iterable)`
-- `arrayListOf(Object[])`
 - `asCollection(Object[], boolean)`
-- `averageOfByte(Iterable)`
-- `averageOfDouble(Iterable)`
-- `averageOfFloat(Iterable)`
-- `averageOfShort(Iterable)`
 - `binarySearch(List, Comparable, int, int)`
 - `binarySearch(List, Object, Comparator, int, int)`
 - `binarySearch(List, int, int, Function1)`
@@ -1302,33 +1296,15 @@ Real surface: 253 members — modeled 58, not-modeled 0, not-needed 99, tail 96.
 - `collectionToArrayCommonImpl(Collection, Object[])`
 - `convertToListIfNotCollection(Iterable)`
 - `copyToArrayOfAny(Object[], boolean)`
-- `count(Iterable)`
 - `createListBuilder()`
 - `createListBuilder(int)`
 - `elementAtOrElse(Iterable, int, Function1)`
 - `filterIsInstance(Iterable, Class)`
 - `filterIsInstanceTo(Iterable, Collection, Class)`
-- `filterNotNull(Iterable)`
-- `filterNotNullTo(Iterable, Collection)`
-- `firstOrNull(Iterable)`
-- `firstOrNull(List)`
-- `getIndices(Collection)`
-- `getLastIndex(List)`
 - `iterator(Enumeration)`
 - `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
 - `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `lastOrNull(Iterable)`
-- `lastOrNull(List)`
-- `listOfNotNull(Object)`
-- `listOfNotNull(Object[])`
-- `maxOrThrow(Iterable)`
-- `maxWithOrNull(Iterable, Comparator)`
-- `maxWithOrThrow(Iterable, Comparator)`
-- `minOrThrow(Iterable)`
-- `minWithOrNull(Iterable, Comparator)`
-- `minWithOrThrow(Iterable, Comparator)`
 - `minus(Iterable, Sequence)`
-- `none(Iterable)`
 - `optimizeReadOnlyList(List)`
 - `plus(Collection, Sequence)`
 - `plus(Iterable, Sequence)`
@@ -1339,46 +1315,22 @@ Real surface: 253 members — modeled 58, not-modeled 0, not-needed 99, tail 96.
 - `removeAll(Collection, Sequence)`
 - `removeAll(Iterable, Function1)`
 - `removeAll(List, Function1)`
-- `removeFirst(List)`
-- `removeFirstOrNull(List)`
-- `removeLast(List)`
-- `removeLastOrNull(List)`
-- `requireNoNulls(Iterable)`
-- `requireNoNulls(List)`
 - `retainAll(Collection, Iterable)`
 - `retainAll(Collection, Object[])`
 - `retainAll(Collection, Sequence)`
 - `retainAll(Iterable, Function1)`
 - `retainAll(List, Function1)`
-- `reverse(List)`
 - `shuffle(List, Random)`
 - `shuffled(Iterable)`
 - `shuffled(Iterable, Random)`
 - `shuffled(Iterable, Random)`
-- `sumOfByte(Iterable)`
-- `sumOfFloat(Iterable)`
-- `sumOfShort(Iterable)`
 - `terminateCollectionToArray(int, Object[])`
 - `throwCountOverflow()`
 - `throwIndexOverflow()`
-- `toBooleanArray(Collection)`
-- `toByteArray(Collection)`
-- `toCharArray(Collection)`
-- `toCollection(Iterable, Collection)`
-- `toDoubleArray(Collection)`
-- `toFloatArray(Collection)`
-- `toHashSet(Iterable)`
-- `toIntArray(Collection)`
-- `toLongArray(Collection)`
-- `toShortArray(Collection)`
 - `toSortedSet(Iterable)`
 - `toSortedSet(Iterable, Comparator)`
-- `unzip(Iterable)`
 - `windowed(Iterable, int, int, boolean, Function1)`
-- `withIndex(Iterable)`
 - `withIndex(Iterator)`
-- `zip(Iterable, Object[])`
-- `zipWithNext(Iterable)`
 
 </details>
 
