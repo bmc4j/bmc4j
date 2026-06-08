@@ -1,18 +1,21 @@
 package java.util.stream;
 
 import java.util.OptionalLong;
+import java.util.function.BiConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
 import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
+import java.util.function.ObjLongConsumer;
+import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
 /** Minimal BMC model of {@link java.util.stream.LongStream}, eager over a bounded {@code long[]}. */
-@BmcModelTail(reason = "the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+@BmcModelTail(reason = "the remaining LongStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/LongSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti (nested LongMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
@@ -89,6 +92,15 @@ public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
     Stream<Long> boxed();
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTail2Laws)")
+    LongStream flatMap(LongFunction<? extends LongStream> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTail2Laws)")
+    void forEachOrdered(LongConsumer action);
+
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamTail2Laws)")
+    <R> R collect(Supplier<R> supplier, ObjLongConsumer<R> accumulator, BiConsumer<R, R> combiner);
 
     @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
     static LongStream empty() {

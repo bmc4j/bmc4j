@@ -4,10 +4,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
@@ -434,6 +438,171 @@ public final class ListStream<T> implements Stream<T> {
             Collector<Object, Object, R> down = (Collector<Object, Object, R>) collector.downstream;
             return new ListStream<>(mapped).collect(down);
         }
+        if (collector.kind == Collector.TO_MAP_MERGE || collector.kind == Collector.TO_CONCURRENT_MAP_MERGE) {
+            Function<? super T, ?> keyFn = (Function<? super T, ?>) collector.keyFn;
+            Function<? super T, ?> valFn = (Function<? super T, ?>) collector.valueFn;
+            java.util.function.BinaryOperator<Object> merge =
+                    (java.util.function.BinaryOperator<Object>) collector.mergeFn;
+            java.util.Map<Object, Object> m = collector.kind == Collector.TO_CONCURRENT_MAP_MERGE
+                    ? new java.util.concurrent.ConcurrentHashMap<>() : new java.util.HashMap<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                Object key = keyFn.apply(v);
+                Object val = valFn.apply(v);
+                if (m.containsKey(key)) {
+                    m.put(key, merge.apply(m.get(key), val));
+                } else {
+                    m.put(key, val);
+                }
+            }
+            return (R) m;
+        }
+        if (collector.kind == Collector.TO_CONCURRENT_MAP) {
+            Function<? super T, ?> keyFn = (Function<? super T, ?>) collector.keyFn;
+            Function<? super T, ?> valFn = (Function<? super T, ?>) collector.valueFn;
+            java.util.concurrent.ConcurrentHashMap<Object, Object> m = new java.util.concurrent.ConcurrentHashMap<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                Object key = keyFn.apply(v);
+                if (m.containsKey(key)) {
+                    throw new IllegalStateException("Duplicate key");
+                }
+                m.put(key, valFn.apply(v));
+            }
+            return (R) m;
+        }
+        if (collector.kind == Collector.GROUPING_BY_DOWNSTREAM) {
+            Function<? super T, ?> classifier = (Function<? super T, ?>) collector.keyFn;
+            Collector<Object, Object, Object> down = (Collector<Object, Object, Object>) collector.downstream;
+            // First bucket the elements in encounter order (keys discovered in order), then collect
+            // each bucket with the downstream over a fresh bounded sub-stream.
+            ArrayList<Object> keys = new ArrayList<>();
+            ArrayList<ArrayList<T>> buckets = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                Object key = classifier.apply(v);
+                int idx = keys.indexOf(key);
+                if (idx < 0) {
+                    keys.add(key);
+                    ArrayList<T> b = new ArrayList<>();
+                    b.add(v);
+                    buckets.add(b);
+                } else {
+                    buckets.get(idx).add(v);
+                }
+            }
+            java.util.HashMap<Object, Object> m = new java.util.HashMap<>();
+            for (int i = 0; i < keys.size(); i++) {
+                m.put(keys.get(i), new ListStream<>(buckets.get(i)).collect(down));
+            }
+            return (R) m;
+        }
+        if (collector.kind == Collector.PARTITIONING_BY_DOWNSTREAM) {
+            Predicate<? super T> predicate = (Predicate<? super T>) collector.predicate;
+            Collector<Object, Object, Object> down = (Collector<Object, Object, Object>) collector.downstream;
+            ArrayList<T> trues = new ArrayList<>();
+            ArrayList<T> falses = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                if (predicate.test(v)) {
+                    trues.add(v);
+                } else {
+                    falses.add(v);
+                }
+            }
+            java.util.HashMap<Object, Object> m = new java.util.HashMap<>();
+            m.put(Boolean.FALSE, new ListStream<>(falses).collect(down));
+            m.put(Boolean.TRUE, new ListStream<>(trues).collect(down));
+            return (R) m;
+        }
+        if (collector.kind == Collector.REDUCING) {
+            java.util.function.BinaryOperator<Object> op =
+                    (java.util.function.BinaryOperator<Object>) collector.mergeFn;
+            Function<? super T, ?> mapper = (Function<? super T, ?>) collector.keyFn;
+            if (collector.identityPresent) {
+                Object result = collector.identity;
+                for (int i = 0; i < data.size(); i++) {
+                    Object e = mapper == null ? data.get(i) : mapper.apply(data.get(i));
+                    result = op.apply(result, e);
+                }
+                return (R) result;
+            }
+            // No identity: Optional-returning.
+            if (data.size() == 0) {
+                return (R) Optional.empty();
+            }
+            Object result = data.get(0);
+            for (int i = 1; i < data.size(); i++) {
+                result = op.apply(result, data.get(i));
+            }
+            return (R) Optional.of(result);
+        }
+        if (collector.kind == Collector.COLLECTING_AND_THEN) {
+            Collector<? super T, Object, Object> down = (Collector<? super T, Object, Object>) collector.downstream;
+            Function<Object, Object> finisher = (Function<Object, Object>) collector.finisher;
+            Object collected = this.collect(down);
+            return (R) finisher.apply(collected);
+        }
+        if (collector.kind == Collector.FILTERING) {
+            Predicate<? super T> predicate = (Predicate<? super T>) collector.predicate;
+            Collector<Object, Object, R> down = (Collector<Object, Object, R>) collector.downstream;
+            ArrayList<Object> kept = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                T v = data.get(i);
+                if (predicate.test(v)) {
+                    kept.add(v);
+                }
+            }
+            return new ListStream<>(kept).collect(down);
+        }
+        if (collector.kind == Collector.FLAT_MAPPING) {
+            Function<? super T, ? extends Stream<?>> mapper =
+                    (Function<? super T, ? extends Stream<?>>) collector.keyFn;
+            Collector<Object, Object, R> down = (Collector<Object, Object, R>) collector.downstream;
+            ArrayList<Object> flat = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                Stream<?> inner = mapper.apply(data.get(i));
+                List<?> innerList = inner.toList();
+                for (int j = 0; j < innerList.size(); j++) {
+                    flat.add(innerList.get(j));
+                }
+            }
+            return new ListStream<>(flat).collect(down);
+        }
+        if (collector.kind == Collector.MIN_BY || collector.kind == Collector.MAX_BY) {
+            Comparator<? super T> comparator = (Comparator<? super T>) collector.comparator;
+            if (data.size() == 0) {
+                return (R) Optional.empty();
+            }
+            T best = data.get(0);
+            for (int i = 1; i < data.size(); i++) {
+                T v = data.get(i);
+                int c = comparator.compare(v, best);
+                if ((collector.kind == Collector.MIN_BY && c < 0)
+                        || (collector.kind == Collector.MAX_BY && c > 0)) {
+                    best = v;
+                }
+            }
+            return (R) Optional.of(best);
+        }
+        if (collector.kind == Collector.TEEING) {
+            Collector<? super T, Object, Object> d1 = (Collector<? super T, Object, Object>) collector.downstream;
+            Collector<? super T, Object, Object> d2 = (Collector<? super T, Object, Object>) collector.downstream2;
+            java.util.function.BiFunction<Object, Object, Object> merger =
+                    (java.util.function.BiFunction<Object, Object, Object>) collector.merger;
+            Object r1 = this.collect(d1);
+            Object r2 = this.collect(d2);
+            return (R) merger.apply(r1, r2);
+        }
+        if (collector.kind == Collector.TO_COLLECTION) {
+            java.util.function.Supplier<java.util.Collection<Object>> supplier =
+                    (java.util.function.Supplier<java.util.Collection<Object>>) collector.supplier;
+            java.util.Collection<Object> c = supplier.get();
+            for (int i = 0; i < data.size(); i++) {
+                c.add(data.get(i));
+            }
+            return (R) c;
+        }
         return (R) toList();
     }
 
@@ -445,5 +614,108 @@ public final class ListStream<T> implements Stream<T> {
             copy.add(data.get(i));
         }
         return copy;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public Object[] toArray() {
+        Object[] out = new Object[data.size()];
+        for (int i = 0; i < data.size(); i++) {
+            out[i] = data.get(i);
+        }
+        return out;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <A> A[] toArray(IntFunction<A[]> generator) {
+        A[] out = generator.apply(data.size());
+        for (int i = 0; i < data.size(); i++) {
+            @SuppressWarnings("unchecked")
+            A e = (A) data.get(i);
+            out[i] = e;
+        }
+        return out;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public void forEachOrdered(Consumer<? super T> action) {
+        // The eager model is already ordered; forEachOrdered == forEach over the encounter order.
+        for (int i = 0; i < data.size(); i++) {
+            action.accept(data.get(i));
+        }
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <R> R collect(Supplier<R> supplier, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner) {
+        // Sequential mutable reduction: one container, accumulate each element. The combiner is only
+        // exercised under parallel splitting (never here), exactly as the JDK leaves it for a
+        // sequential pipeline.
+        R container = supplier.get();
+        for (int i = 0; i < data.size(); i++) {
+            accumulator.accept(container, data.get(i));
+        }
+        return container;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <U> U reduce(U identity, BiFunction<U, ? super T, U> accumulator, BinaryOperator<U> combiner) {
+        // Sequential fold; the combiner is unused (only joins parallel partial results in the JDK).
+        U result = identity;
+        for (int i = 0; i < data.size(); i++) {
+            result = accumulator.apply(result, data.get(i));
+        }
+        return result;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public <R> Stream<R> mapMulti(BiConsumer<? super T, ? super Consumer<R>> mapper) {
+        ArrayList<R> out = new ArrayList<>();
+        Consumer<R> sink = new Consumer<R>() {
+            @Override
+            public void accept(R r) {
+                out.add(r);
+            }
+        };
+        for (int i = 0; i < data.size(); i++) {
+            mapper.accept(data.get(i), sink);
+        }
+        return new ListStream<>(out);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public IntStream mapMultiToInt(BiConsumer<? super T, ? super java.util.function.IntConsumer> mapper) {
+        IntArrayStream s = new IntArrayStream();
+        java.util.function.IntConsumer sink = new java.util.function.IntConsumer() {
+            @Override
+            public void accept(int v) {
+                s.add(v);
+            }
+        };
+        for (int i = 0; i < data.size(); i++) {
+            mapper.accept(data.get(i), sink);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream)")
+    public LongStream mapMultiToLong(BiConsumer<? super T, ? super java.util.function.LongConsumer> mapper) {
+        LongArrayStream s = new LongArrayStream();
+        java.util.function.LongConsumer sink = new java.util.function.LongConsumer() {
+            @Override
+            public void accept(long v) {
+                s.add(v);
+            }
+        };
+        for (int i = 0; i < data.size(); i++) {
+            mapper.accept(data.get(i), sink);
+        }
+        return s;
     }
 }

@@ -3,10 +3,14 @@ package java.util.stream;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 import java.util.function.UnaryOperator;
@@ -21,7 +25,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * ({@code map}/{@code filter}) call their functional-interface arguments, which bmc4j desugars from
  * lambdas — so {@code stream.filter(p).map(f).count()} analyses soundly.
  */
-@BmcModelTail(reason = "the remaining lazy Stream surface (unordered sorted(), the infinite iterate(seed,next)/generate, mapToDouble/flatMapToDouble, mapMulti*, toArray/reduce(identity,accumulator,combiner)/collect(supplier,accumulator,combiner), and the lifecycle no-ops onClose/close/parallel/sequential) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
+@BmcModelTail(reason = "the remaining lazy Stream surface (the natural-order sorted() whose boxed Comparable dispatch is unsound under JBMC, the infinite iterate(seed,next)/generate, mapToDouble/flatMapToDouble/mapMultiToDouble, builder()/iterator()/spliterator(), and the lifecycle no-ops onClose/close/parallel/sequential/unordered/forEachOrdered's ordering nuance) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl)")
 public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
@@ -104,6 +108,30 @@ public interface Stream<T> {
 
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")
     List<T> toList();
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    Object[] toArray();
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    <A> A[] toArray(IntFunction<A[]> generator);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    void forEachOrdered(Consumer<? super T> action);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    <R> R collect(Supplier<R> supplier, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    <U> U reduce(U identity, BiFunction<U, ? super T, U> accumulator, BinaryOperator<U> combiner);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    <R> Stream<R> mapMulti(BiConsumer<? super T, ? super Consumer<R>> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    IntStream mapMultiToInt(BiConsumer<? super T, ? super java.util.function.IntConsumer> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream StreamTail2Laws)")
+    LongStream mapMultiToLong(BiConsumer<? super T, ? super java.util.function.LongConsumer> mapper);
 
     @SafeVarargs
     @BmcModelConforms("@BmcProof (proofs.stream StreamLaws)")

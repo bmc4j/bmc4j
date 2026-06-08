@@ -1,18 +1,21 @@
 package java.util.stream;
 
 import java.util.OptionalInt;
+import java.util.function.BiConsumer;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import java.util.function.IntToLongFunction;
 import java.util.function.IntUnaryOperator;
+import java.util.function.ObjIntConsumer;
+import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
 /** Minimal BMC model of {@link java.util.stream.IntStream}, eager over a bounded {@code int[]}. */
-@BmcModelTail(reason = "the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti; collect; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+@BmcModelTail(reason = "the remaining IntStream surface (average/summaryStatistics — need the unmodeled OptionalDouble/IntSummaryStatistics + double; asDoubleStream/mapToDouble; the infinite iterate(seed,next)/generate; mapMulti (nested IntMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface IntStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
@@ -92,6 +95,15 @@ public interface IntStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")
     Stream<Integer> boxed();
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamTail2Laws)")
+    IntStream flatMap(IntFunction<? extends IntStream> mapper);
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamTail2Laws)")
+    void forEachOrdered(IntConsumer action);
+
+    @BmcModelConforms("@BmcProof (proofs.stream IntStreamTail2Laws)")
+    <R> R collect(Supplier<R> supplier, ObjIntConsumer<R> accumulator, BiConsumer<R, R> combiner);
 
     @BmcModelConforms("@BmcProof (proofs.stream IntStreamTailLaws)")
     static IntStream empty() {
