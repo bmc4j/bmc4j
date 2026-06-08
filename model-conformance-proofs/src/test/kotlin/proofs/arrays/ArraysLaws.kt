@@ -183,4 +183,90 @@ class ArraysLaws {
         Arrays.setAll(a) { i -> i * 2 }
         Bmc.check(a[0] == 0 && a[1] == 2 && a[2] == 4)
     }
+
+    // --- mechanical primitive clones (byte/short/float copy/store; integral sort/search) --------
+
+    @BmcProof
+    fun copyOf_byte_preserves_and_zero_pads() {
+        val a = byteArrayOf(Bmc.anyByte())
+        val c = Arrays.copyOf(a, 2)
+        Bmc.check(c.size == 2 && c[0] == a[0] && c[1].toInt() == 0)
+    }
+
+    @BmcProof
+    fun copyOfRange_short_interior_slice() {
+        val a = shortArrayOf(Bmc.anyShort(), Bmc.anyShort(), Bmc.anyShort())
+        val c = Arrays.copyOfRange(a, 1, 3)
+        Bmc.check(c.size == 2 && c[0] == a[1] && c[1] == a[2])
+    }
+
+    @BmcProof
+    fun fill_byte_sets_every_element() {
+        val a = byteArrayOf(0, 0, 0)
+        val v = Bmc.anyByte()
+        Arrays.fill(a, v)
+        Bmc.check(a[0] == v && a[1] == v && a[2] == v)
+    }
+
+    @BmcProof
+    fun sort_short_orders_two_elements() {
+        val x = Bmc.anyShort()
+        val y = Bmc.anyShort()
+        val a = shortArrayOf(x, y)
+        Arrays.sort(a)
+        Bmc.check(a[0] <= a[1])
+        Bmc.check(a[0] == minOf(x, y) && a[1] == maxOf(x, y))
+    }
+
+    @BmcProof
+    fun binarySearch_byte_finds_present_key() {
+        // a sorted, distinct 3-array of small bytes; search the middle element -> index 1.
+        val x = Bmc.anyByte()
+        Bmc.assume(x >= -10 && x <= 10)
+        val a = byteArrayOf((x - 1).toByte(), x, (x + 1).toByte())
+        Bmc.check(Arrays.binarySearch(a, x) == 1)
+    }
+
+    @BmcProof
+    fun mismatch_first_differing_index() {
+        val x = Bmc.anyInt()
+        val a = intArrayOf(x, x, x)
+        val b = intArrayOf(x, x + 1, x)   // differ at index 1
+        Bmc.check(Arrays.mismatch(a, b) == 1)
+    }
+
+    @BmcProof
+    fun mismatch_equal_arrays_is_minus_one() {
+        val x = Bmc.anyInt()
+        val y = Bmc.anyInt()
+        Bmc.check(Arrays.mismatch(intArrayOf(x, y), intArrayOf(x, y)) == -1)
+    }
+
+    @BmcProof
+    fun mismatch_prefix_returns_shorter_length() {
+        val x = Bmc.anyInt()
+        // [x] is a proper prefix of [x, x] -> mismatch at the shorter length, 1.
+        Bmc.check(Arrays.mismatch(intArrayOf(x), intArrayOf(x, x)) == 1)
+    }
+
+    @BmcProof
+    fun compare_equal_arrays_is_zero() {
+        val x = Bmc.anyInt()
+        val y = Bmc.anyInt()
+        Bmc.check(Arrays.compare(intArrayOf(x, y), intArrayOf(x, y)) == 0)
+    }
+
+    @BmcProof
+    fun compare_orders_by_first_difference() {
+        val x = Bmc.anyInt(-1000, 1000)
+        // [x, x] vs [x, x+1]: first difference at index 1, x < x+1 -> negative.
+        Bmc.check(Arrays.compare(intArrayOf(x, x), intArrayOf(x, x + 1)) < 0)
+    }
+
+    @BmcProof
+    fun compare_prefix_is_shorter_minus_longer() {
+        val x = Bmc.anyInt()
+        // [x] vs [x, x]: prefix -> a.length - b.length == 1 - 2 == -1.
+        Bmc.check(Arrays.compare(intArrayOf(x), intArrayOf(x, x)) == -1)
+    }
 }
