@@ -82,7 +82,7 @@ class RangeLaws {
     // accessors directly. Binding the range to an IntProgression-typed val makes `.first()`/`.last()`
     // resolve to the RangesKt EXTENSION (not the IntRange.first property), exercising the model. We
     // build the progression from a plain range (NOT `step` — `step` is a deliberately-loud
-    // @BmcNotNeeded member that would trip the sentinel). random/randomOrNull stay tail (nondeterministic).
+    // @BmcUnmodelable member that would trip the sentinel). random/randomOrNull stay tail (nondeterministic).
 
     @BmcProof
     fun progression_first_is_start() {

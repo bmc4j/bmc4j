@@ -4,8 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
-import org.bmc4j.models.audit.BmcNotNeeded;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean BMC model of {@link java.util.ArrayList}: a fixed-capacity backing array plus a size.
@@ -308,40 +307,40 @@ public class ArrayList<E> implements List<E> {
     // Real ArrayList members this bounded array-backed model deliberately does not implement. Each is
     // a declared stub with a LOUD body (routed through the BmcUnmodelledReached sentinel), so reaching
     // one is honestly UNKNOWN (a model gap) — never a silent nondet stub, never a false refutation.
-    // The decision (@BmcNotModelled = "can't"; @BmcNotNeeded = "not worth it") + reason live ON the
+    // The decision (@BmcUnmodelable = "can't"; @BmcUnmodelable = "not worth it") + reason live ON the
     // stub, next to the surface it waives.
 
-    @BmcNotModelled(reason = "functional-arg map — JBMC stubs the operator dispatch")
+    @BmcUnmodelable(reason = "functional-arg map — JBMC stubs the operator dispatch")
     public void replaceAll(java.util.function.UnaryOperator<E> operator) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.replaceAll(java.util.function.UnaryOperator) — functional-arg map — JBMC stubs the operator dispatch");
     }
 
-    @BmcNotModelled(reason = "comparator-driven sort over the bounded array — not modeled")
+    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array — not modeled")
     public void sort(Comparator<? super E> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array — not modeled");
     }
 
-    @BmcNotNeeded(reason = "positional bulk add — exotic; add elements explicitly")
+    @BmcUnmodelable(reason = "positional bulk add — exotic; add elements explicitly")
     public boolean addAll(int index, Collection<? extends E> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.addAll(int,java.util.Collection) — positional bulk add — exotic; add elements explicitly");
     }
 
-    @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
-    @BmcNotNeeded(reason = "positional insert — exotic; append + shift not modeled")
+    @BmcUnmodelable(reason = "positional insert — exotic; append + shift not modeled")
     public void add(int index, E element) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.add(int,java.lang.Object) — positional insert — exotic; append + shift not modeled");
     }
 
-    @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
     }
 
-    @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
+    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.clone() — shallow copy of a bounded model — construct a fresh list from the elements instead");
     }

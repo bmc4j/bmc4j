@@ -4,8 +4,8 @@ import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
 
 /**
- * Conformance pins for the Kotlin facade TAIL members classified `@BmcNotNeeded("real stdlib bytecode
- * analyzes soundly …")`. These members are NOT modeled by bmc4j; the claim is that the REAL kotlin-
+ * Conformance pins for the Kotlin facade TAIL members (`@BmcModelTail`) whose real stdlib bytecode
+ * analyzes soundly. These members are NOT modeled by bmc4j; the claim is that the REAL kotlin-
  * stdlib bytecode for them analyzes soundly under JBMC over the modeled surface (the bounded java.util
  * collection models + integer/Comparable arithmetic), so no facade model is needed. Each proof drives
  * one representative member per family through the real stdlib body with a concrete + symbolic check —

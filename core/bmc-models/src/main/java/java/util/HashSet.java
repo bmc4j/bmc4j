@@ -4,8 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
-import org.bmc4j.models.audit.BmcNotNeeded;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean BMC model of {@link java.util.HashSet}: a fixed-capacity array with dedup on {@code add}
@@ -253,22 +252,22 @@ public class HashSet<E> implements Set<E> {
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
-    @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
+    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
-    @BmcNotNeeded(reason = "array snapshot — iterate the model instead")
+    @BmcUnmodelable(reason = "array snapshot — iterate the model instead")
     public Object[] toArray() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
     }
 
-    @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
+    @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
     }
 
-    @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
+    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.clone() — shallow copy of a bounded model — construct a fresh set from the elements instead");
     }

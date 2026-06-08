@@ -3,7 +3,7 @@ package kotlin.random;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean model of the {@code kotlin.random.RandomKt} facade — home of the top-level {@code Random(seed)}
@@ -38,7 +38,7 @@ public final class RandomKt {
      * modeling it as nondet would falsely refute {@code Random(7).nextInt() == Random(7).nextInt()}.
      * Honest {@code UNKNOWN}.
      */
-    @BmcNotModelled(reason = "seeded XorWowRandom factory — reproducible sequence; nondet would falsely "
+    @BmcUnmodelable(reason = "seeded XorWowRandom factory — reproducible sequence; nondet would falsely "
             + "refute Random(seed) reproducibility, and the exact algorithm is out of scope")
     public static Random Random(int seed) {
         throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.Random(int) — seeded XorWowRandom "
@@ -49,7 +49,7 @@ public final class RandomKt {
     /**
      * LOUD: the seeded {@code Random(Long)} factory — same reasoning as {@link #Random(int)}.
      */
-    @BmcNotModelled(reason = "seeded XorWowRandom factory — reproducible sequence; nondet would falsely "
+    @BmcUnmodelable(reason = "seeded XorWowRandom factory — reproducible sequence; nondet would falsely "
             + "refute Random(seed) reproducibility, and the exact algorithm is out of scope")
     public static Random Random(long seed) {
         throw fail("bmc4j: unmodelled member kotlin.random.RandomKt.Random(long) — seeded XorWowRandom "

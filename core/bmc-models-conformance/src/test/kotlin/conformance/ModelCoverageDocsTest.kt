@@ -60,8 +60,9 @@ class ModelCoverageDocsTest : FunSpec({
 private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     val auditPkg = "org/bmc4j/models/audit/"
     val conformsDesc = "L${auditPkg}BmcModelConforms;"
-    val notModelledDesc = "L${auditPkg}BmcNotModelled;"  // method-level only (no class-level / list form)
-    val notNeededDesc = "L${auditPkg}BmcNotNeeded;"
+    val unmodelableDesc = "L${auditPkg}BmcUnmodelable;"          // loud-if-reached
+    val unmodelableListDesc = "L${auditPkg}BmcUnmodelableList;"
+    val notNeededDesc = "L${auditPkg}BmcNotNeeded;"              // green-if-reached
     val notNeededListDesc = "L${auditPkg}BmcNotNeededList;"
     val tailDesc = "L${auditPkg}BmcModelTail;"
 
@@ -77,21 +78,25 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         }
         return if (member != null && reason != null) Decl(member, reason, kind) else null
     }
-    // Class-level declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (no TYPE target).
+    // Class-level declarations: loud @BmcUnmodelable(member=) + green @BmcNotNeeded(member=), each
+    // repeatable via its *List container.
     fun declarations(n: ClassNode): List<Decl> {
         val out = mutableListOf<Decl>()
-        for (a in anns(n)) when (a.desc) {
-            notNeededDesc -> readDecl(a.values, "NotNeeded")?.let { out.add(it) }
-            notNeededListDesc -> {
-                val vals = a.values ?: continue; var j = 0
-                while (j + 1 < vals.size) {
-                    if (vals[j] == "value") {
-                        @Suppress("UNCHECKED_CAST")
-                        (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, "NotNeeded")?.let { out.add(it) } }
-                    }
-                    j += 2
+        fun readList(a: AnnotationNode, kind: String) {
+            val vals = a.values ?: return; var j = 0
+            while (j + 1 < vals.size) {
+                if (vals[j] == "value") {
+                    @Suppress("UNCHECKED_CAST")
+                    (vals[j + 1] as? List<AnnotationNode>)?.forEach { inner -> readDecl(inner.values, kind)?.let { out.add(it) } }
                 }
+                j += 2
             }
+        }
+        for (a in anns(n)) when (a.desc) {
+            unmodelableDesc -> readDecl(a.values, "Unmodelable")?.let { out.add(it) }
+            unmodelableListDesc -> readList(a, "Unmodelable")
+            notNeededDesc -> readDecl(a.values, "NotNeeded")?.let { out.add(it) }
+            notNeededListDesc -> readList(a, "NotNeeded")
         }
         return out
     }
@@ -128,9 +133,9 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     val synthesizedDesc = "L${auditPkg}BmcSynthesizedLoud;"
     fun methodAnns(m: org.objectweb.asm.tree.MethodNode) =
         (m.invisibleAnnotations ?: emptyList()) + (m.visibleAnnotations ?: emptyList())
-    // A method-level NotModelled/NotNeeded loud stub is NOT a genuine model implementation.
+    // A method-level Unmodelable (loud) / NotNeeded (green) stub is NOT a genuine model implementation.
     fun methodStubKind(m: org.objectweb.asm.tree.MethodNode): String? = when {
-        methodAnns(m).any { it.desc == notModelledDesc } -> "NotModelled"
+        methodAnns(m).any { it.desc == unmodelableDesc } -> "Unmodelable"
         methodAnns(m).any { it.desc == notNeededDesc } -> "NotNeeded"
         else -> null
     }
@@ -143,7 +148,7 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
                 if ((m.access and Opcodes.ACC_SYNTHETIC) != 0 || (m.access and Opcodes.ACC_BRIDGE) != 0) continue
                 val isSynth = methodAnns(m).any { it.desc == synthesizedDesc }
                 if (isSynth) continue // loud stub, not a genuine model implementation
-                if (methodStubKind(m) != null) continue // method-level NotModelled/NotNeeded stub: not modeled
+                if (methodStubKind(m) != null) continue // method-level Unmodelable/NotNeeded stub: not modeled
                 val mc = methodAnns(m).any { it.desc == conformsDesc }
                 if (mc) out.add(m.name + paramsDescDoc(m.desc))
             }
@@ -159,7 +164,7 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         while (cur != null) {
             for (m in cur.methods) {
                 val kind = methodStubKind(m) ?: continue
-                val reason = methodAnns(m).firstOrNull { it.desc == notModelledDesc || it.desc == notNeededDesc }
+                val reason = methodAnns(m).firstOrNull { it.desc == unmodelableDesc || it.desc == notNeededDesc }
                     ?.let { a -> val v = a.values ?: emptyList<Any?>(); var i = 0; var r: String? = null
                         while (i + 1 < v.size) { if (v[i] == "reason") r = v[i + 1] as? String; i += 2 }; r } ?: ""
                 out.putIfAbsent(m.name + paramsDescDoc(m.desc), kind to reason)
@@ -182,18 +187,20 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
     val sb = StringBuilder()
     sb.append("# Model coverage (generated)\n\n")
     sb.append("<!-- GENERATED by conformance.ModelCoverageDocsTest from the @BmcModelConforms / ")
-    sb.append("@BmcNotModelled / @BmcNotNeeded / @BmcModelTail audit annotations. Do NOT edit by hand: ")
+    sb.append("@BmcUnmodelable / @BmcNotNeeded / @BmcModelTail audit annotations. Do NOT edit by hand: ")
     sb.append("change the annotations on the models, then regenerate with ")
     sb.append("`gradlew -p core :bmc-models-conformance:test --tests conformance.ModelCoverageDocsTest -Dbmc.regenerateDocs=true`. -->\n\n")
     sb.append("Every public/protected member of each per-member-audited model's real JDK target is ")
-    sb.append("accounted for below: **modeled** (sound under BMC), **not-modeled** (cannot be), ")
-    sb.append("**not-needed** (exotic), or in the **tail** (the exotic remainder, enumerated in full). ")
-    sb.append("Not-modeled/not-needed members carry a hand-written loud body (a real stub method whose ")
-    sb.append("decision and reason live next to the surface it waives); tail members get a ")
-    sb.append("build-synthesized loud body. Reaching ANY of them trips the BmcUnmodelledReached ")
-    sb.append("sentinel, so the verdict is an honest member-named **UNKNOWN** (a bmc4j model gap), never ")
-    sb.append("a false REFUTED and never a silent havoc — unless explicitly acknowledged via ")
-    sb.append("`acknowledgeUnmodelled`, which degrades it to a footnoted nondet stub.\n")
+    sb.append("accounted for below by exactly one of four classifiers: **modeled** (`@BmcModelConforms` — ")
+    sb.append("sound under BMC), **unmodelable** (`@BmcUnmodelable` — **loud-if-reached**: genuinely ")
+    sb.append("cannot be modeled, a hand-written loud stub diverts the reach), **not-needed** ")
+    sb.append("(`@BmcNotNeeded` — **green-if-reached**: needs no model because the unmodeled real/inline ")
+    sb.append("path is sound under JBMC, so reaching it is fine), or in the **tail** (`@BmcModelTail` — ")
+    sb.append("the exotic remainder, enumerated in full, build-synthesized loud). Reaching an unmodelable ")
+    sb.append("or tail member trips the BmcUnmodelledReached sentinel, so the verdict is an honest ")
+    sb.append("member-named **UNKNOWN** (a bmc4j model gap), never a false REFUTED and never a silent ")
+    sb.append("havoc — unless explicitly acknowledged via `acknowledgeUnmodelled`, which degrades it to a ")
+    sb.append("footnoted nondet stub.\n")
 
     for (realFqn in PER_MEMBER_ENFORCED.sorted()) {
         val node = nodes[realFqn] ?: continue
@@ -202,12 +209,12 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
         val tail = tailReason(node)
         val covered = conformsKeys(realFqn)
         val declaredByKind = HashMap<String, Decl>()
-        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }   // class-level @BmcNotNeeded(member=) form
+        for (d in decls) declKey(d.member)?.let { declaredByKind[it] = d }   // class-level (member=) form
         val stubByKey = methodStubs(realFqn)                                 // method-level stub form
 
         val members = realAuditable(real)
         val modeled = ArrayList<String>()
-        val notModelled = ArrayList<Pair<String, String>>()
+        val unmodelable = ArrayList<Pair<String, String>>()
         val notNeeded = ArrayList<Pair<String, String>>()
         val tailed = ArrayList<String>()
         for (m in members) {
@@ -216,11 +223,11 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
                 key in covered -> modeled.add(render(m))
                 stubByKey.containsKey(key) -> {
                     val (kind, reason) = stubByKey[key]!!
-                    if (kind == "NotModelled") notModelled.add(render(m) to reason) else notNeeded.add(render(m) to reason)
+                    if (kind == "Unmodelable") unmodelable.add(render(m) to reason) else notNeeded.add(render(m) to reason)
                 }
                 declaredByKind.containsKey(key) -> {
                     val d = declaredByKind[key]!!
-                    if (d.kind == "NotModelled") notModelled.add(render(m) to d.reason) else notNeeded.add(render(m) to d.reason)
+                    if (d.kind == "Unmodelable") unmodelable.add(render(m) to d.reason) else notNeeded.add(render(m) to d.reason)
                 }
                 tail != null -> tailed.add(render(m))
             }
@@ -228,18 +235,18 @@ private fun renderModelCoverage(nodes: Map<String, ClassNode>): String {
 
         sb.append("\n## `").append(realFqn).append("`\n\n")
         sb.append("Real surface: ${members.size} members — ")
-        sb.append("modeled ${modeled.size}, not-modeled ${notModelled.size}, not-needed ${notNeeded.size}, tail ${tailed.size}.\n\n")
+        sb.append("modeled ${modeled.size}, unmodelable ${unmodelable.size}, not-needed ${notNeeded.size}, tail ${tailed.size}.\n\n")
         if (modeled.isNotEmpty()) {
             sb.append("**Modeled** (`@BmcModelConforms`): ")
             sb.append(modeled.sorted().joinToString(", ") { "`$it`" }).append("\n\n")
         }
-        if (notModelled.isNotEmpty()) {
-            sb.append("| Not modeled (cannot) | Reason |\n|---|---|\n")
-            notModelled.sortedBy { it.first }.forEach { sb.append("| `${it.first}` | ${it.second} |\n") }
+        if (unmodelable.isNotEmpty()) {
+            sb.append("| Unmodelable (loud-if-reached) | Reason |\n|---|---|\n")
+            unmodelable.sortedBy { it.first }.forEach { sb.append("| `${it.first}` | ${it.second} |\n") }
             sb.append("\n")
         }
         if (notNeeded.isNotEmpty()) {
-            sb.append("| Not needed (exotic) | Reason |\n|---|---|\n")
+            sb.append("| Not needed (green-if-reached) | Reason |\n|---|---|\n")
             notNeeded.sortedBy { it.first }.forEach { sb.append("| `${it.first}` | ${it.second} |\n") }
             sb.append("\n")
         }

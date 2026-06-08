@@ -43,14 +43,14 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 // Pull ONLY the audit annotation classes from bmc-models (not its java.* model classes), so these
-// kotlin.* / kotlinx.* models can carry the same @BmcModelConforms / @BmcNotModelled / @BmcNotNeeded
+// kotlin.* / kotlinx.* models can carry the same @BmcModelConforms / @BmcUnmodelable / @BmcNotNeeded
 // audit annotations. The annotations are CLASS-retention, so compileOnly is right.
 val auditAnnotations by configurations.creating {
     isCanBeResolved = true
     isCanBeConsumed = false
 }
 
-// The not-needed/not-modeled loud stubs (hand-written method-level @BmcNotNeeded) route their bodies
+// The unmodelable loud stubs (hand-written method-level @BmcUnmodelable) route their bodies
 // through org.bmc4j.analysis.BmcUnmodelledReached.fail(...) — exactly as the JDK models in bmc-models
 // do — so a reach demotes to a member-named UNKNOWN. SequencesKt.generateSequence likewise bounds its
 // eager unwind with org.cprover.CProver.assume. Both BmcUnmodelledReached and CProver live in
@@ -171,13 +171,13 @@ tasks.named("classes") { dependsOn(renameDurationAbi) }
 
 // ---------------------------------------------------------------------------------------------
 // Loud-body synthesis, mirroring bmc-models: synthesize a message-free sentinel-routing body for
-// every class-level @BmcNotNeeded(member=) member these models declare but do not implement, so a
+// every class-level @BmcUnmodelable(member=) member these models declare but do not implement, so a
 // proof reaching an unmodeled member demotes to a member-named UNKNOWN under JBMC instead of silently
-// havocking. (@BmcNotModelled is method-only — its waivers are hand-written stubs, not synthesized.
-// No kotlin model uses these annotations today, so this pass currently synthesizes nothing — it
-// exists so the shape is correct and cheap the moment one does.)
+// havocking. (@BmcNotNeeded is green/documentary — the unmodeled real/inline path is sound under JBMC,
+// so it is NEVER synthesized loud here. No kotlin model uses the class-level loud form today, so this
+// pass currently synthesizes nothing — it exists so the shape is correct and cheap the moment one does.)
 val synthesizeLoudBodies by tasks.registering {
-    description = "Synthesize loud-failing bodies for class-level @BmcNotNeeded(member=) members."
+    description = "Synthesize loud-failing bodies for class-level @BmcUnmodelable(member=) members."
     val classesDir = tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory }
     inputs.dir(classesDir)
     outputs.dir(classesDir)
@@ -189,11 +189,11 @@ val synthesizeLoudBodies by tasks.registering {
 tasks.named("classes") { dependsOn(synthesizeLoudBodies) }
 
 fun synthesizeLoudUnmodelledBodies(classesDir: File) {
-    // Class-level (member=) declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (no
-    // TYPE target), so its waivers are hand-written method-level stubs, never synthesized from a
-    // class-level declaration.
-    val notNeededDesc = "Lorg/bmc4j/models/audit/BmcNotNeeded;"
-    val notNeededListDesc = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
+    // Class-level (member=) LOUD declarations are @BmcUnmodelable. @BmcNotNeeded is green/documentary
+    // (the unmodeled real/inline path is sound under JBMC), so it is NOT synthesized loud here — it
+    // merely accounts for the member, leaving the real bytecode for JBMC.
+    val unmodelableDesc = "Lorg/bmc4j/models/audit/BmcUnmodelable;"
+    val unmodelableListDesc = "Lorg/bmc4j/models/audit/BmcUnmodelableList;"
 
     classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { classFile ->
         val node = ClassNode()
@@ -217,8 +217,8 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         }
         for (ann in (node.invisibleAnnotations ?: emptyList())) {
             when (ann.desc) {
-                notNeededDesc -> readDecl(ann.values)?.let { decls.add(it) }
-                notNeededListDesc -> {
+                unmodelableDesc -> readDecl(ann.values)?.let { decls.add(it) }
+                unmodelableListDesc -> {
                     val vals = ann.values ?: continue
                     var j = 0
                     while (j + 1 < vals.size) {

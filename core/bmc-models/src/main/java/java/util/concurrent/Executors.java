@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * BMC model of {@link java.util.concurrent.Executors} factories. Every pool factory returns the
@@ -152,32 +152,32 @@ public final class Executors {
         };
     }
 
-    @BmcNotModelled(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
+    @BmcUnmodelable(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
     public static Callable<Object> callable(java.security.PrivilegedAction<?> action) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.callable(java.security.PrivilegedAction) — java.security privileged execution context, no sequential semantics");
     }
 
-    @BmcNotModelled(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
+    @BmcUnmodelable(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
     public static Callable<Object> callable(java.security.PrivilegedExceptionAction<?> action) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.callable(java.security.PrivilegedExceptionAction) — java.security privileged execution context, no sequential semantics");
     }
 
-    @BmcNotModelled(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
+    @BmcUnmodelable(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
     public static <T> Callable<T> privilegedCallable(Callable<T> callable) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.privilegedCallable(java.util.concurrent.Callable) — java.security privileged execution context, no sequential semantics");
     }
 
-    @BmcNotModelled(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
+    @BmcUnmodelable(reason = "java.security privileged execution context — only meaningful under a security manager, no sequential semantics")
     public static <T> Callable<T> privilegedCallableUsingCurrentClassLoader(Callable<T> callable) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.privilegedCallableUsingCurrentClassLoader(java.util.concurrent.Callable) — java.security privileged execution context, no sequential semantics");
     }
 
-    @BmcNotModelled(reason = "manufactures real java.lang.Thread instances — thread creation has no sequential meaning (the immediate model never spawns a worker)")
+    @BmcUnmodelable(reason = "manufactures real java.lang.Thread instances — thread creation has no sequential meaning (the immediate model never spawns a worker)")
     public static ThreadFactory defaultThreadFactory() {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.defaultThreadFactory() — manufactures real java.lang.Thread instances, no sequential meaning");
     }
 
-    @BmcNotModelled(reason = "manufactures real java.lang.Thread instances under a privileged context — thread creation has no sequential meaning")
+    @BmcUnmodelable(reason = "manufactures real java.lang.Thread instances under a privileged context — thread creation has no sequential meaning")
     public static ThreadFactory privilegedThreadFactory() {
         throw fail("bmc4j: unmodelled member java.util.concurrent.Executors.privilegedThreadFactory() — manufactures real java.lang.Thread instances under a privileged context, no sequential meaning");
     }

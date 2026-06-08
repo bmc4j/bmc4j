@@ -96,8 +96,8 @@ abstract class BmcExtensionConfig {
     abstract val allowStubs: ListProperty<String>
 
     /**
-     * Build-wide acknowledged UNMODELLED members: real JDK members bmc4j deliberately does NOT model
-     * (a bundled model's `@BmcNotModelled` / `@BmcNotNeeded` / `@BmcModelTail`) that proofs may reach
+     * Build-wide acknowledged UNMODELLED members: real JDK members bmc4j cannot model
+     * (a bundled model's `@BmcUnmodelable` / `@BmcModelTail`) that proofs may reach
      * without failing. By DEFAULT, reaching such a member fails the proof as UNKNOWN (a model gap is
      * bmc4j's own limitation, not a counterexample in your code). Listing a member here OPTS OUT
      * suite-wide: it degrades to the classic nondet-stub behavior — treated as an unconstrained havoc,

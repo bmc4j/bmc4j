@@ -8,7 +8,7 @@ import org.bmc4j.BmcProof
  * models/kotlin-collections-3 pass over bmc4j's bounded java.util collection models. Each member's
  * inline-ness was VERIFIED against kotlin-stdlib 2.4.0 @Metadata (Attributes.isInline == false); the
  * lambda-taking siblings of the same name (count{}/any{}/firstOrNull{}/sumOf{}/partition{}/maxBy{}/…)
- * are inline and stay @BmcNotNeeded — they are NOT exercised here.
+ * are inline and stay @BmcUnmodelable (loud-if-reached) — they are NOT exercised here.
  *
  * Covered families: count/any/none (no-predicate), firstOrNull/lastOrNull (Iterable + List),
  * maxOrThrow/minOrThrow, maxWith/minWith OrNull/OrThrow (Comparator), the remaining typed

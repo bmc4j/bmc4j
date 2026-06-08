@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Live regression test (in the green suite) for the unmodelled-member VERDICT HONESTY rule: reaching
- * a real JDK member bmc4j deliberately does NOT implement — declared via {@code @BmcNotModelled} /
- * {@code @BmcNotNeeded} or absorbed by {@code @BmcModelTail} — is bmc4j's own MODELING GAP, not a
+ * a real JDK member bmc4j cannot model — declared via {@code @BmcUnmodelable} (loud-if-reached) or
+ * absorbed by {@code @BmcModelTail} — is bmc4j's own MODELING GAP, not a
  * counterexample in the user's code. The build-time loud-body synthesis routes every such member
  * through the {@code org.bmc4j.analysis.BmcUnmodelledReached} sentinel; the verdict interpreter
  * recognizes that and DEMOTES the would-be refutation to {@code UNKNOWN}, naming the member.
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 class LoudUnmodelledProbe {
 
     /**
-     * {@code ArrayList.sort(Comparator)} is a {@code @BmcNotModelled} member (comparator-driven sort
+     * {@code ArrayList.sort(Comparator)} is a {@code @BmcUnmodelable} member (comparator-driven sort
      * over the bounded array). Reaching it is honestly UNKNOWN — bmc4j can't model it — NOT a false
      * REFUTED that would claim the user's code has a counterexample.
      */

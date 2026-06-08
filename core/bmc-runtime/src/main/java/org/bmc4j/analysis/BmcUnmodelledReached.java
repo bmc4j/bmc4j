@@ -1,9 +1,9 @@
 package org.bmc4j.analysis;
 
 /**
- * The unmodelled-member trap. The bmc-models build's loud-body synthesis pass gives every real JDK
- * member a model deliberately does NOT implement — a per-member {@code @BmcNotModelled} /
- * {@code @BmcNotNeeded} stub, or any member absorbed by {@code @BmcModelTail} — a body that calls
+ * The unmodelled-member trap. A real JDK member a model deliberately cannot model — a per-member
+ * {@code @BmcUnmodelable} loud stub, or any member absorbed by {@code @BmcModelTail} (its loud body
+ * synthesized by the bmc-models build) — gets a body that calls
  * {@link #reached(String)} (then throws, so the method still type-checks for a non-void return).
  *
  * <p>{@link #reached(String)}'s body is an {@code assert false}, so a proof that REACHES an
@@ -47,15 +47,15 @@ public final class BmcUnmodelledReached {
      * giving a loud fallback if ever run on a real JVM. Use as:
      *
      * <pre>{@code
-     * @BmcNotModelled(reason = "...")
+     * @BmcUnmodelable(reason = "...")
      * public void sort(Comparator<? super E> c) {
      *     throw BmcUnmodelledReached.fail("java.util.ArrayList.sort(Comparator) — ...");
      * }
      * }</pre>
      *
      * The {@code member} string MUST start with {@code "bmc4j: unmodelled member "} — the gate checks
-     * every hand-written NotModelled/NotNeeded stub body for exactly this call so no real logic hides
-     * under a not-modeled annotation.
+     * every hand-written @BmcUnmodelable stub body for exactly this call so no real logic hides
+     * under an unmodelable (loud-if-reached) annotation.
      */
     public static AssertionError fail(String member) {
         reached(member);

@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 import org.cprover.CProver;
 
 /**
@@ -74,7 +74,7 @@ public class Random {
      * LOUD: re-seeding has the same seeded-determinism problem as the {@code Random(long)} constructor —
      * nondet would be unsound. Honest {@code UNKNOWN}.
      */
-    @BmcNotModelled(reason = "re-seeding restores seeded determinism — same unsoundness as the seeded ctor; "
+    @BmcUnmodelable(reason = "re-seeding restores seeded determinism — same unsoundness as the seeded ctor; "
             + "the LCG is out of scope")
     public void setSeed(long seed) {
         throw fail("bmc4j: unmodelled member java.util.Random.setSeed(long) — re-seeding restores seeded "

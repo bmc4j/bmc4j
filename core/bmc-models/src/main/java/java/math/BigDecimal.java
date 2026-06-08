@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Bounded BMC model of {@link java.math.BigDecimal}: an unscaled {@code long} value plus an
@@ -36,7 +36,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         this.scale = scale;
     }
 
-    @BmcNotModelled(reason = "double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values")
+    @BmcUnmodelable(reason = "double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values")
     public static BigDecimal valueOf(double val) {
         throw fail("bmc4j: unmodelled member java.math.BigDecimal.valueOf(double) — double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values");
     }
