@@ -32,6 +32,7 @@ val COVERED: Set<String> = setOf(
     "java.util.concurrent.ImmediateScheduledExecutorService",
     // Model proofs (model-conformance-proofs) — Kotlin facades.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
+    "kotlin.text.StringsKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt", "kotlin.ranges.RangesKt",
     "kotlin.comparisons.ComparisonsKt",
     // Enum.entries facade + bounded list wrapper (EnumEntriesLaws).
@@ -157,6 +158,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     // the same-named class on the kotlin-stdlib jar on this module's classpath; see the doc above for the
     // facade-dedup and mangled-ABI conventions.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
+    "kotlin.text.StringsKt",
     "kotlin.collections.IndexedValue",
     "kotlin.sequences.SequencesKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt",

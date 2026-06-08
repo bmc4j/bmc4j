@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.Set;
+import kotlin.jvm.functions.Function1;
 
 /**
  * Clean model of Kotlin's {@code SetsKt} facade for the set factories ({@code setOf}/{@code
@@ -58,6 +59,53 @@ public final class SetsKt {
             s.add(e);
         }
         return s;
+    }
+
+    // ---- buildSet { } : the read-only set builder.
+    //   SetsKt.buildSet:(Lkotlin/jvm/functions/Function1;)Ljava/util/Set;
+    //   SetsKt.buildSet:(ILkotlin/jvm/functions/Function1;)Ljava/util/Set;                (capacity hint)
+    // buildSet is INLINE, so a Kotlin call site inlines its body: createSetBuilder() (a fresh builder),
+    // the user builder action, then build(set) to seal it read-only — so the INLINE path actually reaches
+    // createSetBuilder/build (modeled below), not buildSet. This buildSet facade JVM method is the NON-
+    // inline / Java reach: allocate the bounded HashSet model, run the concrete (devirtualized) builder
+    // lambda on it, return it. Backs onto the bounded HashSet model — matching the established setOf/
+    // mutableSetOf factories (the real builder is insertion-ordered, but those factories already model as
+    // HashSet, so this stays consistent). Capacity hint ignored (fixed bounded backing).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> Set<E> buildSet(Function1<? super Set<E>, kotlin.Unit> builderAction) {
+        HashSet<E> builder = new HashSet<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> Set<E> buildSet(int capacity, Function1<? super Set<E>, kotlin.Unit> builderAction) {
+        HashSet<E> builder = new HashSet<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    // ---- createSetBuilder() / createSetBuilder(int) / build(Set): the INLINE buildSet { } body's
+    //   SetsKt.createSetBuilder:()Ljava/util/Set;
+    //   SetsKt.createSetBuilder:(I)Ljava/util/Set;
+    //   SetsKt.build:(Ljava/util/Set;)Ljava/util/Set;
+    // building blocks. createSetBuilder returns a bounded HashSet builder; build returns it unchanged (the
+    // real seal-to-read-only is the READ observable only — post-seal write rejection NOT modeled, matching
+    // the read-observable precedent). createSetBuilder is what the inlined `buildSet { … }` call site
+    // reaches; without it the path nondet-stubs (silently unsound). Capacity hint ignored.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> Set<E> createSetBuilder() {
+        return new HashSet<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> Set<E> createSetBuilder(int capacity) {
+        return new HashSet<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> Set<E> build(Set<E> builder) {
+        return builder;
     }
 
     // ---- plus(set, element) / plus(set, elements[]) / plus(set, iterable): a NEW set = receiver ∪

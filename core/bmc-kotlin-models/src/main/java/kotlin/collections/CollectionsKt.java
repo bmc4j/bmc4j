@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import kotlin.Pair;
+import kotlin.jvm.functions.Function1;
 import kotlin.ranges.IntRange;
 import kotlin.sequences.ListSequence;
 import kotlin.sequences.Sequence;
@@ -78,6 +79,56 @@ public final class CollectionsKt {
             l.add(e);
         }
         return l;
+    }
+
+    // ---- buildList { } : the read-only list builder.
+    //   CollectionsKt.buildList:(Lkotlin/jvm/functions/Function1;)Ljava/util/List;
+    //   CollectionsKt.buildList:(ILkotlin/jvm/functions/Function1;)Ljava/util/List;       (capacity hint)
+    // buildList is an INLINE stdlib function, so from a Kotlin call site its body lands in the caller:
+    // the inlined body calls createListBuilder() (a fresh ArrayList builder), invokes the user builder
+    // action on it, then build(list) to seal it read-only — so the methods the INLINE path actually
+    // reaches are createListBuilder/build (modeled below), not buildList. This buildList facade JVM
+    // method exists for the NON-inline / Java reach (and for completeness); it mirrors the inlined shape
+    // exactly: allocate the bounded ArrayList model, run the concrete (devirtualized) builder lambda on
+    // it, return it as the read-only list. The capacity hint is ignored (the bounded ArrayList backing is
+    // fixed-size) — sound, matching the mapCapacity precedent.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> List<E> buildList(Function1<? super List<E>, kotlin.Unit> builderAction) {
+        ArrayList<E> builder = new ArrayList<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> List<E> buildList(int capacity, Function1<? super List<E>, kotlin.Unit> builderAction) {
+        ArrayList<E> builder = new ArrayList<>();
+        builderAction.invoke(builder);
+        return build(builder);
+    }
+
+    // ---- createListBuilder() / createListBuilder(int) / build(List): the INLINE buildList { } body's
+    //   CollectionsKt.createListBuilder:()Ljava/util/List;
+    //   CollectionsKt.createListBuilder:(I)Ljava/util/List;
+    //   CollectionsKt.build:(Ljava/util/List;)Ljava/util/List;
+    // building blocks. The stdlib createListBuilder returns a SerializedCollection-backed mutable builder
+    // and build seals it into a truly read-only list; bmc4j models the READ observable only — a bounded
+    // ArrayList builder, and build returns it unchanged (the post-seal write-rejection of the real list is
+    // NOT modeled, matching the asReversed/reversed read-observable precedent). createListBuilder is what
+    // the inlined `buildList { … }` call site actually reaches; without these it nondet-stubs (silently
+    // unsound). The capacity hint is ignored (fixed-size bounded backing).
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> List<E> createListBuilder() {
+        return new ArrayList<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> List<E> createListBuilder(int capacity) {
+        return new ArrayList<>();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <E> List<E> build(List<E> builder) {
+        return builder;
     }
 
     // Helpers the inlined collection extensions (map/filter/fold/forEach/…) call, plus the
