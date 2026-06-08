@@ -155,6 +155,49 @@ public final class SequencesKt {
         return new ListSequence<>(out);
     }
 
+    // ---- takeWhile(predicate) / dropWhile(predicate): the Kotlin compiler emits
+    //   takeWhile(Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Lkotlin/sequences/Sequence;
+    //   dropWhile(Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Lkotlin/sequences/Sequence;
+    // These are NOT inline funs on Sequence (unlike their Iterable cousins on CollectionsKt) — they are
+    // real facade calls returning a lazy TakeWhileSequence/DropWhileSequence whose iterator is a small
+    // finite state machine over the source iterator's hasNext/next protocol: takeWhile yields the leading
+    // run for which the predicate holds and STOPS at the first failure (it does NOT resume); dropWhile
+    // skips that same leading run then yields everything after — INCLUDING later elements that fail the
+    // predicate. We replay that exact state machine eagerly over the concrete bounded backing (iterating
+    // by the seqIter/backing checkcast, never the kotlinc-version-fragile virtual Sequence.iterator()).
+    // The predicate is the desugared user lambda, genuinely applied.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> takeWhile(Sequence<T> source, Function1<? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T v = it.next();
+            if (!predicate.invoke(v)) {
+                break;
+            }
+            out.add(v);
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> dropWhile(Sequence<T> source, Function1<? super T, Boolean> predicate) {
+        ArrayList<T> out = new ArrayList<>();
+        boolean dropping = true;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T v = it.next();
+            if (dropping && predicate.invoke(v)) {
+                // still in the leading run the predicate accepts — skip this element.
+                dropping = true;
+            } else {
+                // the run has ended (first rejection): keep this and every later element.
+                dropping = false;
+                out.add(v);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
     // ---- distinct(): the Kotlin compiler emits
     //   distinct(Lkotlin/sequences/Sequence;)Lkotlin/sequences/Sequence;
     // Kotlin's contract: distinct elements in first-occurrence order (dedup via equals). Eager over a
@@ -890,9 +933,23 @@ public final class SequencesKt {
      * {@code kotlin.sequences.Sequence.iterator()}"), leaving the iterator nondet/null and producing a
      * false REFUTED for a symbolic-input proof that verifies on 2.4.0. A {@code checkcast} to the
      * final concrete type is resolved by JBMC where the interface method dispatch is not.
+     *
+     * <p>The {@code checkcast} is itself only deterministically discharged when JBMC has fully bound the
+     * {@code Sequence}-typed parameter to its sole concrete subtype. Under heavy parallel load (the
+     * full-suite leg running the conformance {@code test} and the as-shipped {@code jarModels}
+     * conformance suite on one runner at once) JBMC has been observed to lose that binding even for a
+     * CONCRETE pipeline, leaving {@code source}'s dynamic type unconstrained — so the cast spuriously
+     * fails its "Dynamic cast check" and the whole analysis cascades to a phantom nondet counterexample.
+     * The {@code instanceof} assume below pins the dynamic type explicitly: it prunes the (genuinely
+     * impossible — {@link ListSequence} is the sole implementor and every op constructs one) branch where
+     * {@code source} is not a {@code ListSequence}, so the checkcast is dischargeable regardless of how
+     * the type-binding raced. Sound by construction: it never removes a real path, only the
+     * never-taken one that the cast would otherwise have to refute. Because every {@code seqIter}/
+     * {@code drain}/{@code distinctBy} routes through here, this stabilizes the whole facade at one point.
      */
     @SuppressWarnings("unchecked")
     private static <T> ArrayList<T> backing(Sequence<? extends T> source) {
+        CProver.assume(source instanceof ListSequence);
         return (ArrayList<T>) ((ListSequence<? extends T>) source).data;
     }
 

@@ -1711,9 +1711,9 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 
 ## `kotlin.sequences.SequencesKt`
 
-Real surface: 164 members — modeled 54, unmodelable 51, not-needed 0, tail 59.
+Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 
-**Modeled** (`@BmcModelConforms`): `asIterable(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `elementAtOrNull(Sequence, int)`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object[])`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `toList(Sequence)`, `toSet(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
+**Modeled** (`@BmcModelConforms`): `asIterable(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `dropWhile(Sequence, Function1)`, `elementAtOrNull(Sequence, int)`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object[])`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `takeWhile(Sequence, Function1)`, `toList(Sequence)`, `toSet(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1769,7 +1769,7 @@ Real surface: 164 members — modeled 54, unmodelable 51, not-needed 0, tail 59.
 | `sumBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 59 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 57 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
 
 - `any(Sequence)`
 - `asSequence(Iterator)`
@@ -1781,7 +1781,6 @@ Real surface: 164 members — modeled 54, unmodelable 51, not-needed 0, tail 59.
 - `averageOfShort(Sequence)`
 - `constrainOnce(Sequence)`
 - `contains(Sequence, Object)`
-- `dropWhile(Sequence, Function1)`
 - `elementAt(Sequence, int)`
 - `elementAtOrElse(Sequence, int, Function1)`
 - `emptySequence()`
@@ -1822,7 +1821,6 @@ Real surface: 164 members — modeled 54, unmodelable 51, not-needed 0, tail 59.
 - `sumOfFloat(Sequence)`
 - `sumOfLong(Sequence)`
 - `sumOfShort(Sequence)`
-- `takeWhile(Sequence, Function1)`
 - `toCollection(Sequence, Collection)`
 - `toHashSet(Sequence)`
 - `toMutableList(Sequence)`
