@@ -36,7 +36,6 @@ public final class Duration {
     }
 
     @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Duration.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
@@ -72,7 +71,6 @@ public final class Duration {
     }
 
     @BmcNotModelled(reason = "sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Duration ofNanos(long nanos) {
         throw fail("bmc4j: unmodelled member java.time.Duration.ofNanos(long) — sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing");
     }

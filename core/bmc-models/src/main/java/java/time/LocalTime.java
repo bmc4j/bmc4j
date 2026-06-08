@@ -31,7 +31,6 @@ public final class LocalTime {
     }
 
     @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalTime.now() — wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters");
     }

@@ -49,7 +49,6 @@ public final class Instant implements Temporal {
     }
 
     @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Instant now() {
         throw fail("bmc4j: unmodelled member java.time.Instant.now() — wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters");
     }
@@ -59,25 +58,21 @@ public final class Instant implements Temporal {
     // soundly — declined LOUD rather than silently dropping precision.
 
     @BmcNotModelled(reason = "sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int getNano() {
         throw fail("bmc4j: unmodelled member java.time.Instant.getNano() — sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing");
     }
 
     @BmcNotModelled(reason = "sub-millisecond resolution — nanos can't be represented on the epoch-millis backing")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Instant plusNanos(long nanosToAdd) {
         throw fail("bmc4j: unmodelled member java.time.Instant.plusNanos(long) — sub-millisecond resolution — nanos can't be represented on the epoch-millis backing");
     }
 
     @BmcNotModelled(reason = "sub-millisecond resolution — nanos can't be represented on the epoch-millis backing")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public Instant minusNanos(long nanosToSubtract) {
         throw fail("bmc4j: unmodelled member java.time.Instant.minusNanos(long) — sub-millisecond resolution — nanos can't be represented on the epoch-millis backing");
     }
 
     @BmcNotModelled(reason = "the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Instant ofEpochSecond(long epochSecond, long nanoAdjustment) {
         throw fail("bmc4j: unmodelled member java.time.Instant.ofEpochSecond(long,long) — the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks");
     }
@@ -151,42 +146,36 @@ public final class Instant implements Temporal {
     //     instanceof Temporal (so the proof-site checkcast passes); each is LOUD, never modeled. ---
 
     @BmcNotModelled(reason = "the TemporalField query plumbing (which fields an Instant supports) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.Instant.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for the epoch-millis model");
     }
 
     @BmcNotModelled(reason = "the TemporalUnit query plumbing (which units an Instant supports) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.Instant.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for the epoch-millis model");
     }
 
     @BmcNotModelled(reason = "the TemporalField accessor (getLong) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long getLong(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.Instant.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for the epoch-millis model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalField setter (with) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Temporal with(TemporalField field, long newValue) {
         throw fail("bmc4j: unmodelled member java.time.Instant.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope for the epoch-millis model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit add (plus) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Temporal plus(long amountToAdd, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.Instant.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope for the epoch-millis model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit difference (until) is out of scope for the epoch-millis model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.Instant.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for the epoch-millis model");

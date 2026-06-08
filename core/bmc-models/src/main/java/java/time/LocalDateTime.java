@@ -42,7 +42,6 @@ public final class LocalDateTime implements ChronoLocalDateTime<LocalDate> {
     }
 
     @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static LocalDateTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.now() — wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters");
     }
@@ -455,49 +454,42 @@ public final class LocalDateTime implements ChronoLocalDateTime<LocalDate> {
     //     modeled. toLocalDate()/toLocalTime() above already satisfy the interface. ---
 
     @BmcNotModelled(reason = "the TemporalField query plumbing (isSupported) is out of scope for this date+time model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this date+time model");
     }
 
     @BmcNotModelled(reason = "the TemporalUnit query plumbing (isSupported) is out of scope for this date+time model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for this date+time model");
     }
 
     @BmcNotModelled(reason = "the TemporalField accessor (getLong) is out of scope for this date+time model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long getLong(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this date+time model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withHour/etc.")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoLocalDateTime<LocalDate> with(TemporalField field, long newValue) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope; use withYear/withMonth/withHour/etc.");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit add (plus) is out of scope; use plusDays/plusHours/plusMonths/etc.")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoLocalDateTime<LocalDate> plus(long amountToAdd, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope; use plusDays/plusHours/plusMonths/etc.");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit difference (until) is out of scope for this date+time model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for this date+time model");
     }
 
     @BmcNotModelled(reason = "time zones (atZone) are out of scope for this local date+time model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoZonedDateTime<LocalDate> atZone(ZoneId zone) {
         throw fail("bmc4j: unmodelled member java.time.LocalDateTime.atZone(java.time.ZoneId) — time zones are out of scope for this local date+time model");

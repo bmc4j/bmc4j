@@ -48,7 +48,6 @@ public final class Period implements ChronoPeriod {
     }
 
     @BmcNotModelled(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public static Period parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Period.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
     }
@@ -243,49 +242,42 @@ public final class Period implements ChronoPeriod {
     //     normalized() above already satisfy the interface (covariant Period return + auto bridge). ---
 
     @BmcNotModelled(reason = "the TemporalUnit accessor (get) is out of scope; this model exposes years/months/days, not the generic-unit view")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long get(TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.Period.get(java.time.temporal.TemporalUnit) — the TemporalUnit accessor is out of scope; this model exposes years/months/days, not the generic-unit view");
     }
 
     @BmcNotModelled(reason = "the supported-units list (getUnits) is out of scope for this years/months/days model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public List<TemporalUnit> getUnits() {
         throw fail("bmc4j: unmodelled member java.time.Period.getUnits() — the supported-units list is out of scope for this years/months/days model");
     }
 
     @BmcNotModelled(reason = "the Chronology accessor (getChronology) is out of scope for this bounded model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Chronology getChronology() {
         throw fail("bmc4j: unmodelled member java.time.Period.getChronology() — the Chronology accessor is out of scope for this bounded model");
     }
 
     @BmcNotModelled(reason = "the TemporalAmount-typed add (plus) is out of scope; use the typed plusYears/plusMonths/plusDays")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoPeriod plus(TemporalAmount amountToAdd) {
         throw fail("bmc4j: unmodelled member java.time.Period.plus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed add is out of scope; use the typed plusYears/plusMonths/plusDays");
     }
 
     @BmcNotModelled(reason = "the TemporalAmount-typed subtract (minus) is out of scope; use the typed minusYears/minusMonths/minusDays")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoPeriod minus(TemporalAmount amountToSubtract) {
         throw fail("bmc4j: unmodelled member java.time.Period.minus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed subtract is out of scope; use the typed minusYears/minusMonths/minusDays");
     }
 
     @BmcNotModelled(reason = "applying a Period to a Temporal (addTo) is out of scope for this bounded model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Temporal addTo(Temporal temporal) {
         throw fail("bmc4j: unmodelled member java.time.Period.addTo(java.time.temporal.Temporal) — applying a Period to a Temporal is out of scope for this bounded model");
     }
 
     @BmcNotModelled(reason = "subtracting a Period from a Temporal (subtractFrom) is out of scope for this bounded model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Temporal subtractFrom(Temporal temporal) {
         throw fail("bmc4j: unmodelled member java.time.Period.subtractFrom(java.time.temporal.Temporal) — subtracting a Period from a Temporal is out of scope for this bounded model");

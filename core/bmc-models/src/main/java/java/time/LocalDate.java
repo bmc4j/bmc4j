@@ -447,49 +447,42 @@ public final class LocalDate implements ChronoLocalDate {
     //     lengthOfMonth() and until(ChronoLocalDate) above already satisfy the interface. ---
 
     @BmcNotModelled(reason = "the Chronology accessor (getChronology) is out of scope for this epoch-day model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public Chronology getChronology() {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.getChronology() — the Chronology accessor is out of scope for this epoch-day model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit difference (until) is out of scope for this epoch-day model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for this epoch-day model");
     }
 
     @BmcNotModelled(reason = "the TemporalField query plumbing (isSupported) is out of scope for this epoch-day model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this epoch-day model");
     }
 
     @BmcNotModelled(reason = "the TemporalUnit query plumbing (isSupported) is out of scope for this epoch-day model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public boolean isSupported(TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for this epoch-day model");
     }
 
     @BmcNotModelled(reason = "the TemporalField accessor (getLong) is out of scope for this epoch-day model")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public long getLong(TemporalField field) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this epoch-day model");
     }
 
     @BmcNotModelled(reason = "the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withDayOf*")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoLocalDate with(TemporalField field, long newValue) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope; use withYear/withMonth/withDayOf*");
     }
 
     @BmcNotModelled(reason = "the generic TemporalUnit add (plus) is out of scope; use plusDays/plusWeeks/plusMonths/plusYears")
-    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     @Override
     public ChronoLocalDate plus(long amountToAdd, TemporalUnit unit) {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope; use plusDays/plusWeeks/plusMonths/plusYears");
