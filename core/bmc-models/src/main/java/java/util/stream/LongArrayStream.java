@@ -1,12 +1,15 @@
 package java.util.stream;
 
 import java.util.ArrayList;
+import java.util.LongSummaryStatistics;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.function.BiConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
+import java.util.function.LongToDoubleFunction;
 import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ObjLongConsumer;
@@ -300,6 +303,51 @@ final class LongArrayStream implements LongStream {
             s.add(mapper.applyAsInt(data[i]));
         }
         return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamDoubleBridgeLaws)")
+    public DoubleStream asDoubleStream() {
+        // long -> double widening (exact for the small bounded element values proofs use); sound +/÷.
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(data[i]);
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamDoubleBridgeLaws)")
+    public DoubleStream mapToDouble(LongToDoubleFunction mapper) {
+        DoubleArrayStream s = new DoubleArrayStream();
+        for (int i = 0; i < size; i++) {
+            s.add(mapper.applyAsDouble(data[i]));
+        }
+        return s;
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamDoubleBridgeLaws)")
+    public OptionalDouble average() {
+        if (size == 0) {
+            return OptionalDouble.empty();
+        }
+        // Sum in a long (no overflow for bounded inputs), then ONE sound double division.
+        long t = 0;
+        for (int i = 0; i < size; i++) {
+            t += data[i];
+        }
+        return OptionalDouble.of((double) t / size);
+    }
+
+    @Override
+    @BmcModelConforms("@BmcProof (proofs.stream LongStreamDoubleBridgeLaws)")
+    public LongSummaryStatistics summaryStatistics() {
+        LongSummaryStatistics stats = new LongSummaryStatistics();
+        for (int i = 0; i < size; i++) {
+            stats.accept(data[i]);
+        }
+        return stats;
     }
 
     @Override
