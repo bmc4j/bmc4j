@@ -14,6 +14,12 @@ val COVERED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // java.time small enums + the offset wrapper. The enums (DayOfWeek/Month/IsoEra) carry method-level
+    // @BmcModelConforms on their value/arithmetic surface but stay OUT of PER_MEMBER_ENFORCED (enums:
+    // values()/valueOf() + the open TemporalAccessor/Adjuster surface), so they're covered at class level
+    // here and audited (dangling-decl + loud-body) via the annotations they DO carry. ZoneOffset is a
+    // concrete value class → per-member-enforced below; its abstract ZoneId base is WAIVED.
+    "java.time.DayOfWeek", "java.time.Month", "java.time.chrono.IsoEra", "java.time.ZoneOffset",
     // NB the float/double IEEE total order is NOT a java.lang.Float/Double model — modeling those
     // pervasively-reached classes put a bounded FP model on every proof's classpath and crashed jbmc's
     // solver on unrelated proofs. It lives in the org.bmc4j.models.audit.FpTotalOrder helper that
@@ -88,6 +94,7 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.ScheduledFuture" to "interface — via ImmediateScheduledExecutorService's completed future",
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
+    "java.time.ZoneId" to "abstract base — exercised via the concrete ZoneOffset model (per-member-enforced)",
     "java.util.stream.Collector" to "interface — via Collectors",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
     "kotlin.coroutines.intrinsics.CoroutineSingletons" to "coroutine runtime model — coroutines example",
@@ -143,6 +150,9 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // ZoneOffset: a concrete total-seconds value class (its abstract ZoneId base is WAIVED, the enums are
+    // class-level COVERED only).
+    "java.time.ZoneOffset",
     "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",

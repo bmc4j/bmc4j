@@ -1,11 +1,15 @@
 package proofs.time
 
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.Month
 import java.time.Period
+import java.time.ZoneOffset
+import java.time.chrono.IsoEra
 import org.bmc4j.Bmc
 import org.bmc4j.BmcProof
 import org.bmc4j.Verdict
@@ -461,4 +465,84 @@ class TimeLaws {
     // period_plus_then_minus_days_round_trips and period_normalized_preserves_total_months: see the
     // NOTE above — differential-axis only (their bodies use Math.addExact/toIntExact, unmodeled).
 
+    // --- DayOfWeek / Month / IsoEra small enums ---
+    // The of(value)/getValue round-trip and the plus/minus rotation are pure modular int arithmetic over
+    // the ordinal (no Math.floorMod — an explicit non-negative remainder), so they are @BmcProof-clean.
+
+    @BmcProof
+    fun dayofweek_of_getValue_round_trips() {
+        val v = Bmc.anyInt(1, 7)
+        Bmc.check(DayOfWeek.of(v).value == v)
+    }
+
+    @BmcProof
+    fun dayofweek_plus_then_minus_round_trips() {
+        val d = DayOfWeek.of(Bmc.anyInt(1, 7))
+        val n = Bmc.anyInt(-100, 100).toLong()
+        Bmc.check(d.plus(n).minus(n) == d)
+    }
+
+    @BmcProof
+    fun dayofweek_plus7_is_identity() {
+        val d = DayOfWeek.of(Bmc.anyInt(1, 7))
+        Bmc.check(d.plus(7) == d)
+        Bmc.check(d.plus(0) == d)
+    }
+
+    @BmcProof
+    fun month_of_getValue_round_trips() {
+        val v = Bmc.anyInt(1, 12)
+        Bmc.check(Month.of(v).value == v)
+    }
+
+    @BmcProof
+    fun month_plus_then_minus_round_trips() {
+        val m = Month.of(Bmc.anyInt(1, 12))
+        val n = Bmc.anyInt(-100, 100).toLong()
+        Bmc.check(m.plus(n).minus(n) == m)
+    }
+
+    @BmcProof
+    fun month_plus12_is_identity_and_length_in_range() {
+        val m = Month.of(Bmc.anyInt(1, 12))
+        Bmc.check(m.plus(12) == m)
+        // length(leap) sits between minLength and maxLength inclusive
+        Bmc.check(m.length(true) <= m.maxLength())
+        Bmc.check(m.length(false) >= m.minLength())
+    }
+
+    @BmcProof
+    fun isoera_of_getValue_round_trips() {
+        val v = Bmc.anyInt(0, 1)
+        Bmc.check(IsoEra.of(v).value == v)
+    }
+
+    // --- ZoneOffset total-seconds wrapper ---
+    // ofTotalSeconds/getTotalSeconds is a pure field round-trip; normalized() of an offset is itself;
+    // compareTo orders by descending total-seconds. All pure int arithmetic → @BmcProof-clean.
+
+    @BmcProof
+    fun zoneoffset_ofTotalSeconds_round_trips() {
+        val s = Bmc.anyInt(-18 * 3600, 18 * 3600)
+        Bmc.check(ZoneOffset.ofTotalSeconds(s).totalSeconds == s)
+    }
+
+    @BmcProof
+    fun zoneoffset_normalized_is_self_and_ofHours_scales() {
+        val s = Bmc.anyInt(-18 * 3600, 18 * 3600)
+        val z = ZoneOffset.ofTotalSeconds(s)
+        Bmc.check(z.normalized() === z)
+        val h = Bmc.anyInt(-18, 18)
+        Bmc.check(ZoneOffset.ofHours(h).totalSeconds == h * 3600)
+    }
+
+    @BmcProof
+    fun zoneoffset_compareTo_is_descending_total_seconds() {
+        val a = ZoneOffset.ofTotalSeconds(Bmc.anyInt(-18 * 3600, 18 * 3600))
+        val b = ZoneOffset.ofTotalSeconds(Bmc.anyInt(-18 * 3600, 18 * 3600))
+        val c = a.compareTo(b)
+        // east-of-UTC (larger total-seconds) sorts FIRST → compareTo negative when a > b
+        Bmc.check((c < 0) == (a.totalSeconds > b.totalSeconds))
+        Bmc.check((c == 0) == (a.totalSeconds == b.totalSeconds))
+    }
 }
