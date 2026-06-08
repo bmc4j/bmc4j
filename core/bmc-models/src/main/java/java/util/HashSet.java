@@ -254,25 +254,21 @@ public class HashSet<E> implements Set<E> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotNeeded(reason = "bulk membership — compose contains() explicitly")
-    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean containsAll(Collection<?> c) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
     }
 
     @BmcNotNeeded(reason = "array snapshot — iterate the model instead")
-    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object[] toArray() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
     }
 
     @BmcNotNeeded(reason = "typed array snapshot — iterate the model instead")
-    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
     }
 
     @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
-    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.HashSet.clone() — shallow copy of a bounded model — construct a fresh set from the elements instead");
     }

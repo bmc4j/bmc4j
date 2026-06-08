@@ -342,25 +342,21 @@ public class HashMap<K, V> implements Map<K, V> {
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcNotModelled(reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.replaceAll(java.util.function.BiFunction) — functional-arg bulk replace — JBMC stubs the lambda dispatch");
     }
 
     @BmcNotNeeded(reason = "compare-and-remove — compose get()/remove() explicitly")
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean remove(Object key, Object value) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.remove(java.lang.Object,java.lang.Object) — compare-and-remove — compose get()/remove() explicitly");
     }
 
     @BmcNotNeeded(reason = "bulk put — put entries explicitly over the bounded model")
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void putAll(Map<? extends K, ? extends V> m) {
         throw fail("bmc4j: unmodelled member java.util.HashMap.putAll(java.util.Map) — bulk put — put entries explicitly over the bounded model");
     }
 
     @BmcNotNeeded(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead")
-    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public Object clone() {
         throw fail("bmc4j: unmodelled member java.util.HashMap.clone() — shallow copy of a bounded model — construct a fresh map from the entries instead");
     }
