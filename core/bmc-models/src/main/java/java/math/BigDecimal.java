@@ -21,7 +21,7 @@ import org.bmc4j.models.audit.BmcNotModelled;
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
-@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/scaleByPowerOfTen, the int/long/byte/short *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC")
+@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round/plus with MathContext, sqrt(MathContext)), the deprecated int-rounding-mode overloads (divide(BigDecimal,int[,int]), setScale(int,int)), and toEngineeringString/toPlainString are out of scope for the bounded long-backed model; all loud under JBMC")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     public static final BigDecimal ZERO = new BigDecimal(0L, 0);
@@ -197,6 +197,178 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return divide(divisor, scale, mode);
     }
 
+    /**
+     * Exact division {@code this / divisor}, like the JDK's no-rounding {@code divide(BigDecimal)}: the
+     * preferred scale is {@code this.scale - divisor.scale}, and the result extends the scale only as far
+     * as needed to represent the quotient exactly. A non-terminating decimal expansion (e.g. {@code 1/3})
+     * throws {@link ArithmeticException}, exactly the JDK contract; a zero divisor throws too. Loud,
+     * never silent at the bound: the scale-extension multiplies route through the checked {@link #mul}.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal divide(BigDecimal divisor) {
+        if (divisor.unscaled == 0L) {
+            throw new ArithmeticException("Division by zero");
+        }
+        int preferredScale = scale - divisor.scale;
+        // Work on the reduced fraction n/d (magnitudes; carry the sign separately).
+        boolean neg = (unscaled < 0) ^ (divisor.unscaled < 0);
+        long n = unscaled < 0 ? -unscaled : unscaled;
+        long d = divisor.unscaled < 0 ? -divisor.unscaled : divisor.unscaled;
+        long g = gcdLong(n, d);
+        n /= g;
+        d /= g;
+        // this/divisor has a finite decimal expansion iff the reduced denominator is 2^a·5^b. Strip the
+        // 2s and 5s; anything left means a non-terminating quotient (e.g. 1/3) — the JDK throws there.
+        long dd = d;
+        while (dd % 2L == 0L) {
+            dd /= 2L;
+        }
+        while (dd % 5L == 0L) {
+            dd /= 5L;
+        }
+        if (dd != 1L) {
+            throw new ArithmeticException(
+                "Non-terminating decimal expansion; no exact representable decimal result.");
+        }
+        // Bump the scale (multiply the numerator by 10 each step) until d divides it exactly; that is the
+        // minimal scale at which the quotient is exact. Pad up to the preferred scale if it's larger.
+        int newScale = preferredScale;
+        long acc = n;
+        while (acc % d != 0L) {
+            acc = mul(acc, 10L);
+            newScale++;
+        }
+        long q = acc / d;
+        if (newScale < preferredScale) {
+            q = rescale(q, newScale, preferredScale);
+            newScale = preferredScale;
+        }
+        return new BigDecimal(neg ? -q : q, newScale);
+    }
+
+    /**
+     * The integer part of {@code this / divisor} (truncated toward zero), like the JDK's
+     * {@code divideToIntegralValue}. The integer quotient is then expressed toward the preferred scale
+     * {@code this.scale - divisor.scale}: a POSITIVE preferred scale pads it with trailing zeros; a
+     * NEGATIVE preferred scale strips trailing tens (down to the preferred scale, but only while the
+     * quotient stays divisible by ten — e.g. {@code 5 / 0.1} is {@code 5E+1}, {@code 100 / 0.7} stays
+     * {@code 142}). A zero divisor throws {@link ArithmeticException}. Loud at the bound (the padding
+     * routes through the checked {@link #mul}).
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal divideToIntegralValue(BigDecimal divisor) {
+        long q = integralQuotient(divisor);   // integer quotient, conceptual scale 0
+        int preferredScale = scale - divisor.scale;
+        int s = 0;
+        if (preferredScale > 0) {
+            return new BigDecimal(mul(q, pow10(preferredScale)), preferredScale);
+        }
+        // preferredScale <= 0: drop trailing tens toward it, stopping when no longer exactly divisible.
+        while (s > preferredScale && q % 10L == 0L) {
+            q /= 10L;
+            s--;
+        }
+        return new BigDecimal(q, s);
+    }
+
+    /**
+     * The remainder {@code this - this.divideToIntegralValue(divisor) * divisor}, exactly as the JDK
+     * defines it (same sign as the dividend; the scale falls out of that subtraction). A zero divisor
+     * throws {@link ArithmeticException}.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal remainder(BigDecimal divisor) {
+        return subtract(divideToIntegralValue(divisor).multiply(divisor));
+    }
+
+    /**
+     * {@code {divideToIntegralValue(divisor), remainder(divisor)}} in one shot, like the JDK — the same
+     * integer quotient as {@link #divideToIntegralValue} and remainder as {@link #remainder}. A zero
+     * divisor throws {@link ArithmeticException}.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal[] divideAndRemainder(BigDecimal divisor) {
+        BigDecimal q = divideToIntegralValue(divisor);
+        return new BigDecimal[] {q, subtract(q.multiply(divisor))};
+    }
+
+    /** The truncated-toward-zero integer quotient of this/divisor (shared by divideToIntegralValue and
+     *  remainder); throws ArithmeticException on a zero divisor. */
+    private long integralQuotient(BigDecimal divisor) {
+        if (divisor.unscaled == 0L) {
+            throw new ArithmeticException("Division by zero");
+        }
+        int s = Math.max(scale, divisor.scale);
+        long n = rescale(unscaled, scale, s);
+        long d = rescale(divisor.unscaled, divisor.scale, s);
+        return n / d;   // long division truncates toward zero
+    }
+
+    private static long gcdLong(long a, long b) {
+        while (b != 0L) {
+            long t = a % b;
+            a = b;
+            b = t;
+        }
+        return a < 0 ? -a : a;
+    }
+
+    /**
+     * {@code this} raised to {@code n} (0 &lt;= n &lt;= 999999999), like the JDK's {@code pow(int)}:
+     * the result is exact with scale {@code this.scale * n}, and {@code pow(0)} is {@code ONE} (scale 0)
+     * for any value. An exponent outside {@code [0, 999999999]} throws {@link ArithmeticException}.
+     * Loud, never silent at the bound: the repeated multiply routes through the checked {@link #mul}.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal pow(int n) {
+        if (n < 0 || n > 999999999) {
+            throw new ArithmeticException("Invalid operation");
+        }
+        long u = 1L;
+        int s = 0;
+        for (int i = 0; i < n; i++) {
+            u = mul(u, unscaled);
+            s += scale;
+        }
+        return new BigDecimal(u, s);
+    }
+
+    /**
+     * Move the decimal point so the value is multiplied by {@code 10^n}, by SUBTRACTING {@code n} from
+     * the scale (the JDK's {@code scaleByPowerOfTen} — note the scale may go NEGATIVE, unlike
+     * {@link #movePointRight}, which clamps it to 0). The unscaled value is unchanged; only the scale
+     * shifts. Exact and cheap; no rounding.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal scaleByPowerOfTen(int n) {
+        return new BigDecimal(unscaled, scale - n);
+    }
+
+    /**
+     * The unit in the last place: {@code 1 × 10^-scale}, i.e. unscaled {@code 1} at this value's scale,
+     * exactly like the JDK ({@code ulp} depends only on the scale, not the value). Scale 2 → {@code 0.01},
+     * scale 0 → {@code 1}, a negative scale → a power of ten ≥ 10.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal ulp() {
+        return new BigDecimal(1L, scale);
+    }
+
+    /**
+     * The precision: the number of digits in the unscaled value, like the JDK ({@code ZERO} has
+     * precision 1). Counts the decimal digits of {@code |unscaled|}.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public int precision() {
+        long u = unscaled < 0 ? -unscaled : unscaled;
+        int p = 1;
+        while (u >= 10L) {
+            u /= 10L;
+            p++;
+        }
+        return p;
+    }
+
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal setScale(int newScale, RoundingMode mode) {
         if (newScale >= scale) {
@@ -355,6 +527,65 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public long longValue() {
         return truncatedToLong();
+    }
+
+    @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public byte byteValue() {
+        return (byte) truncatedToLong();
+    }
+
+    @Override
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public short shortValue() {
+        return (short) truncatedToLong();
+    }
+
+    /**
+     * The exact integer value as a {@code long}, throwing {@link ArithmeticException} ("Rounding
+     * necessary") when this has a nonzero fractional part — the JDK contract. (A magnitude past the
+     * {@code long} range, which the arbitrary-precision JDK would also reject, can't arise on the
+     * {@code long} backing.) Shared by the byte/short/int variants below.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public long longValueExact() {
+        if (scale > 0 && unscaled % pow10(scale) != 0L) {
+            throw new ArithmeticException("Rounding necessary");
+        }
+        return truncatedToLong();
+    }
+
+    /**
+     * The exact {@code int} value: exact integer (else "Rounding necessary") that fits an {@code int}
+     * (else "Overflow") — the JDK contract.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public int intValueExact() {
+        long v = longValueExact();
+        if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+            throw new ArithmeticException("Overflow");
+        }
+        return (int) v;
+    }
+
+    /** The exact {@code short} value: exact integer that fits a {@code short}, else loud per the JDK. */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public short shortValueExact() {
+        long v = longValueExact();
+        if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+            throw new ArithmeticException("Overflow");
+        }
+        return (short) v;
+    }
+
+    /** The exact {@code byte} value: exact integer that fits a {@code byte}, else loud per the JDK. */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public byte byteValueExact() {
+        long v = longValueExact();
+        if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+            throw new ArithmeticException("Overflow");
+        }
+        return (byte) v;
     }
 
     @Override

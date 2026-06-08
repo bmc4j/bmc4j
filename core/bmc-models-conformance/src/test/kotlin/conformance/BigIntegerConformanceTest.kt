@@ -88,6 +88,154 @@ class BigIntegerConformanceTest : FunSpec({
         }
     }
 
+    // bitwise ops: a long IS two's-complement, so the native operators agree with BigInteger's
+    // infinite-width two's-complement bitwise semantics bit-for-bit within the bound. Includes
+    // negatives (sign extension) so not/and/or/xor over mixed signs are exercised.
+    test("bitwise and/or/xor/not/andNot conform") {
+        checkAll(v, v) { x, y ->
+            val rx = java.math.BigInteger.valueOf(x); val ry = java.math.BigInteger.valueOf(y)
+            val mx = bmcref.java.math.BigInteger.valueOf(x); val my = bmcref.java.math.BigInteger.valueOf(y)
+            rx.and(ry).toLong() shouldBe mx.and(my).toLong()
+            rx.or(ry).toLong() shouldBe mx.or(my).toLong()
+            rx.xor(ry).toLong() shouldBe mx.xor(my).toLong()
+            rx.andNot(ry).toLong() shouldBe mx.andNot(my).toLong()
+            rx.not().toLong() shouldBe mx.not().toLong()
+        }
+    }
+
+    // single-bit queries/mutations: testBit/setBit/clearBit/flipBit. Bit index kept < 62 so the
+    // set/clear/flip results stay inside the long bound (a high bit on a small value is genuinely past
+    // the long range — the model loudly fails there, covered by the OUT-OF-DOMAIN test below); a
+    // negative index throws on both sides. testBit (read-only) is also exercised across the >= 64
+    // sign-extension region. getLowestSetBit/bitCount/bitLength too.
+    test("testBit/setBit/clearBit/flipBit/getLowestSetBit/bitCount/bitLength conform") {
+        val small = Arb.long(-1_000L..1_000L)
+        val idx = Arb.int(-2..61)
+        checkAll(small, idx) { x, n ->
+            val rx = java.math.BigInteger.valueOf(x)
+            val mx = bmcref.java.math.BigInteger.valueOf(x)
+            for (op in listOf("testBit", "setBit", "clearBit", "flipBit")) {
+                val real = call(rx, op, arrayOf(Int::class.javaPrimitiveType!!), n)
+                val model = call(mx, op, arrayOf(Int::class.javaPrimitiveType!!), n)
+                assertSameException(real, model)
+                if (real.isSuccess && model.isSuccess) {
+                    val rr = real.getOrNull(); val mm = model.getOrNull()
+                    if (rr is java.math.BigInteger) (mm as bmcref.java.math.BigInteger).toLong() shouldBe rr.toLong()
+                    else mm shouldBe rr   // testBit -> Boolean
+                }
+            }
+            rx.getLowestSetBit() shouldBe mx.getLowestSetBit()
+            rx.bitCount() shouldBe mx.bitCount()
+            rx.bitLength() shouldBe mx.bitLength()
+        }
+    }
+
+    // testBit over the high index region (>= 64) reads the sign bit on both sides — read-only, never
+    // out of bound, so full parity holds across the sign-extension region.
+    test("testBit conforms in the high (>= 64) sign-extension region") {
+        checkAll(Arb.long(-1_000L..1_000L), Arb.int(64..130)) { x, n ->
+            java.math.BigInteger.valueOf(x).testBit(n) shouldBe bmcref.java.math.BigInteger.valueOf(x).testBit(n)
+        }
+    }
+
+    // OUT-OF-DOMAIN bound: setBit at a high index on a non-negative value needs precision past the long
+    // range; the arbitrary-precision JDK succeeds, the model must FAIL LOUDLY rather than wrap.
+    test("setBit past the long bound fails LOUDLY (bounded-model loud-failure)") {
+        java.math.BigInteger.valueOf(1L).setBit(100)   // JDK succeeds
+        val model = runCatching { bmcref.java.math.BigInteger.valueOf(1L).setBit(100) }
+        withClue("model setBit(100) on 1 should overflow loudly") {
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
+    // shiftLeft/shiftRight across positive and negative counts (negative delegates to the opposite
+    // direction). Arithmetic (sign-extending) right shift; left shift kept small so it stays in-bound.
+    test("shiftLeft / shiftRight conform") {
+        val small = Arb.long(-1_000_000L..1_000_000L)
+        val n = Arb.int(-40..40)
+        checkAll(small, n) { x, k ->
+            val rx = java.math.BigInteger.valueOf(x)
+            val mx = bmcref.java.math.BigInteger.valueOf(x)
+            val rl = runCatching { rx.shiftLeft(k).toLong() }
+            val ml = runCatching { mx.shiftLeft(k).toLong() }
+            // shiftLeft can overflow the long bound (loud in the model, fine for the arbitrary-precision
+            // JDK); compare only when both succeed, else require the model failed loudly.
+            if (rl.isSuccess && ml.isSuccess) ml.getOrThrow() shouldBe rl.getOrThrow()
+            rx.shiftRight(k).toLong() shouldBe mx.shiftRight(k).toLong()
+        }
+    }
+
+    // modPow: bounded base/exponent/modulus, non-negative exponent. Non-positive modulus throws like the
+    // JDK; exponent 0 -> 1 mod m. (Negative exponent needs modInverse, the unmodeled tail — loud-only.)
+    test("modPow conforms for non-negative exponents and positive modulus") {
+        val base = Arb.long(-1_000L..1_000L)
+        val exp = Arb.long(0L..12L)
+        val mod = Arb.long(1L..10_000L)
+        checkAll(base, exp, mod) { b, e, m ->
+            val real = java.math.BigInteger.valueOf(b)
+                .modPow(java.math.BigInteger.valueOf(e), java.math.BigInteger.valueOf(m)).toLong()
+            val model = bmcref.java.math.BigInteger.valueOf(b)
+                .modPow(bmcref.java.math.BigInteger.valueOf(e), bmcref.java.math.BigInteger.valueOf(m)).toLong()
+            model shouldBe real
+        }
+    }
+
+    test("modPow with non-positive modulus throws like the JDK") {
+        val nonpos = Arb.long(-100L..0L)
+        checkAll(v, nonpos) { b, m ->
+            val real = call(java.math.BigInteger.valueOf(b), "modPow",
+                arrayOf(java.math.BigInteger::class.java, java.math.BigInteger::class.java),
+                java.math.BigInteger.valueOf(2L), java.math.BigInteger.valueOf(m))
+            val model = call(bmcref.java.math.BigInteger.valueOf(b), "modPow",
+                arrayOf(bmcref.java.math.BigInteger::class.java, bmcref.java.math.BigInteger::class.java),
+                bmcref.java.math.BigInteger.valueOf(2L), bmcref.java.math.BigInteger.valueOf(m))
+            assertSameException(real, model)
+            real.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
+    // sqrt / sqrtAndRemainder: floor square root; negative throws ArithmeticException like the JDK.
+    test("sqrt / sqrtAndRemainder conform (incl. negative -> throw)") {
+        val band = Arb.long(-100L..1_000_000L)
+        checkAll(band) { x ->
+            val rx = java.math.BigInteger.valueOf(x)
+            val mx = bmcref.java.math.BigInteger.valueOf(x)
+            val real = runCatching { rx.sqrt().toLong() }
+            val model = runCatching { mx.sqrt().toLong() }
+            assertSameException(real, model)
+            if (real.isSuccess) model.getOrThrow() shouldBe real.getOrThrow()
+            if (x >= 0) {
+                rx.sqrtAndRemainder()[0].toLong() shouldBe mx.sqrtAndRemainder()[0].toLong()
+                rx.sqrtAndRemainder()[1].toLong() shouldBe mx.sqrtAndRemainder()[1].toLong()
+            }
+        }
+    }
+
+    // byte/short narrowing + the *Exact variants (exact narrowing with JDK exception parity).
+    test("byteValue/shortValue + byteValueExact/shortValueExact conform") {
+        val band = Arb.long(-100_000L..100_000L)
+        checkAll(band) { x ->
+            val rx = java.math.BigInteger.valueOf(x)
+            val mx = bmcref.java.math.BigInteger.valueOf(x)
+            for (op in listOf("byteValue", "shortValue", "byteValueExact", "shortValueExact")) {
+                val r = call(rx, op, arrayOf()); val m = call(mx, op, arrayOf())
+                assertSameException(r, m)
+                if (r.isSuccess && m.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+            }
+        }
+    }
+
+    // OUT-OF-DOMAIN bound: shiftLeft past the long range fails LOUDLY (the JDK succeeds; the model must
+    // throw rather than drop high bits).
+    test("shiftLeft past the long bound fails LOUDLY (bounded-model loud-failure)") {
+        java.math.BigInteger.valueOf(1L).shiftLeft(100)   // JDK succeeds
+        val model = runCatching { bmcref.java.math.BigInteger.valueOf(1L).shiftLeft(100) }
+        withClue("model 1<<100 should overflow loudly") {
+            model.exceptionOrNull().shouldBeInstanceOf<ArithmeticException>()
+        }
+    }
+
     // pow: small non-negative exponents (exact in-bound); negative exponent throws like the JDK.
     test("pow conforms for small exponents and negative-exponent parity") {
         val base = Arb.long(-1_000L..1_000L)

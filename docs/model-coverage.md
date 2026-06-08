@@ -6,89 +6,54 @@ Every public/protected member of each per-member-audited model's real JDK target
 
 ## `java.math.BigDecimal`
 
-Real surface: 60 members — modeled 26, not-modeled 1, not-needed 0, tail 33.
+Real surface: 60 members — modeled 40, not-modeled 1, not-needed 0, tail 19.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `compareTo(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `doubleValue()`, `floatValue()`, `intValue()`, `longValue()`, `max(BigDecimal)`, `min(BigDecimal)`, `movePointLeft(int)`, `movePointRight(int)`, `multiply(BigDecimal)`, `negate()`, `scale()`, `setScale(int)`, `setScale(int, RoundingMode)`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `toBigIntegerExact()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigDecimal)`, `byteValue()`, `byteValueExact()`, `compareTo(BigDecimal)`, `divide(BigDecimal)`, `divide(BigDecimal, RoundingMode)`, `divide(BigDecimal, int, RoundingMode)`, `divideAndRemainder(BigDecimal)`, `divideToIntegralValue(BigDecimal)`, `doubleValue()`, `floatValue()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigDecimal)`, `min(BigDecimal)`, `movePointLeft(int)`, `movePointRight(int)`, `multiply(BigDecimal)`, `negate()`, `pow(int)`, `precision()`, `remainder(BigDecimal)`, `scale()`, `scaleByPowerOfTen(int)`, `setScale(int)`, `setScale(int, RoundingMode)`, `shortValue()`, `shortValueExact()`, `signum()`, `stripTrailingZeros()`, `subtract(BigDecimal)`, `toBigInteger()`, `toBigIntegerExact()`, `ulp()`, `unscaledValue()`, `valueOf(long)`, `valueOf(long, int)`
 
 | Not modeled (cannot) | Reason |
 |---|---|
 | `valueOf(double)` | double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 33 members, all loud): MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round with MathContext), precision/scaleByPowerOfTen, the int/long/byte/short *Exact narrowing, toEngineeringString/toPlainString, and the broad formatting/precision surface are out of scope for the bounded long-backed model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 19 members, all loud): MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round/plus with MathContext, sqrt(MathContext)), the deprecated int-rounding-mode overloads (divide(BigDecimal,int[,int]), setScale(int,int)), and toEngineeringString/toPlainString are out of scope for the bounded long-backed model; all loud under JBMC</summary>
 
 - `abs(MathContext)`
 - `add(BigDecimal, MathContext)`
-- `byteValue()`
-- `byteValueExact()`
-- `divide(BigDecimal)`
 - `divide(BigDecimal, MathContext)`
 - `divide(BigDecimal, int)`
 - `divide(BigDecimal, int, int)`
-- `divideAndRemainder(BigDecimal)`
 - `divideAndRemainder(BigDecimal, MathContext)`
-- `divideToIntegralValue(BigDecimal)`
 - `divideToIntegralValue(BigDecimal, MathContext)`
-- `intValueExact()`
-- `longValueExact()`
 - `multiply(BigDecimal, MathContext)`
 - `negate(MathContext)`
 - `plus()`
 - `plus(MathContext)`
-- `pow(int)`
 - `pow(int, MathContext)`
-- `precision()`
-- `remainder(BigDecimal)`
 - `remainder(BigDecimal, MathContext)`
 - `round(MathContext)`
-- `scaleByPowerOfTen(int)`
 - `setScale(int, int)`
-- `shortValue()`
-- `shortValueExact()`
 - `sqrt(MathContext)`
 - `subtract(BigDecimal, MathContext)`
 - `toEngineeringString()`
 - `toPlainString()`
-- `ulp()`
 
 </details>
 
 
 ## `java.math.BigInteger`
 
-Real surface: 50 members — modeled 22, not-modeled 0, not-needed 0, tail 28.
+Real surface: 50 members — modeled 43, not-modeled 0, not-needed 0, tail 7.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `divideAndRemainder(BigInteger)`, `doubleValue()`, `floatValue()`, `gcd(BigInteger)`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `multiply(BigInteger)`, `negate()`, `pow(int)`, `remainder(BigInteger)`, `signum()`, `subtract(BigInteger)`, `valueOf(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `add(BigInteger)`, `and(BigInteger)`, `andNot(BigInteger)`, `bitCount()`, `bitLength()`, `byteValue()`, `byteValueExact()`, `clearBit(int)`, `compareTo(BigInteger)`, `divide(BigInteger)`, `divideAndRemainder(BigInteger)`, `doubleValue()`, `flipBit(int)`, `floatValue()`, `gcd(BigInteger)`, `getLowestSetBit()`, `intValue()`, `intValueExact()`, `longValue()`, `longValueExact()`, `max(BigInteger)`, `min(BigInteger)`, `mod(BigInteger)`, `modPow(BigInteger, BigInteger)`, `multiply(BigInteger)`, `negate()`, `not()`, `or(BigInteger)`, `pow(int)`, `remainder(BigInteger)`, `setBit(int)`, `shiftLeft(int)`, `shiftRight(int)`, `shortValue()`, `shortValueExact()`, `signum()`, `sqrt()`, `sqrtAndRemainder()`, `subtract(BigInteger)`, `testBit(int)`, `valueOf(long)`, `xor(BigInteger)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 28 members, all loud): bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the byte/short *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): modInverse, the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
 
-- `and(BigInteger)`
-- `andNot(BigInteger)`
-- `bitCount()`
-- `bitLength()`
-- `byteValue()`
-- `byteValueExact()`
-- `clearBit(int)`
-- `flipBit(int)`
-- `getLowestSetBit()`
 - `isProbablePrime(int)`
 - `modInverse(BigInteger)`
-- `modPow(BigInteger, BigInteger)`
 - `nextProbablePrime()`
-- `not()`
-- `or(BigInteger)`
 - `parallelMultiply(BigInteger)`
 - `probablePrime(int, Random)`
-- `setBit(int)`
-- `shiftLeft(int)`
-- `shiftRight(int)`
-- `shortValue()`
-- `shortValueExact()`
-- `sqrt()`
-- `sqrtAndRemainder()`
-- `testBit(int)`
 - `toByteArray()`
 - `toString(int)`
-- `xor(BigInteger)`
 
 </details>
 
