@@ -22,6 +22,8 @@ internal class UnknownKindTest {
         // Not retryable: deterministic causes where a re-run pays the same cost for the same answer.
         assertFalse(UnknownKind.TIMEOUT.retryable, "TIMEOUT is not retryable")
         assertFalse(UnknownKind.UNMODELLED_MEMBER.retryable, "UNMODELLED_MEMBER is not retryable")
+        assertFalse(UnknownKind.OUT_OF_SCOPE.retryable,
+                "OUT_OF_SCOPE is not retryable (a declared decline is deterministic, not a flake)")
         assertFalse(UnknownKind.UNWINDING_ASSERTION.retryable, "UNWINDING_ASSERTION is not retryable")
         assertFalse(UnknownKind.SOLVER_GAVE_UP.retryable, "SOLVER_GAVE_UP is not retryable")
         assertFalse(UnknownKind.MIRROR_FAILURE.retryable, "MIRROR_FAILURE is not retryable")
@@ -29,8 +31,8 @@ internal class UnknownKindTest {
     }
 
     @Test
-    fun exactly_nine_kinds_three_retryable() {
-        assertEquals(9, UnknownKind.entries.size, "the design table has exactly nine kinds")
+    fun exactly_ten_kinds_three_retryable() {
+        assertEquals(10, UnknownKind.entries.size, "the design table has exactly ten kinds")
         assertEquals(3, UnknownKind.entries.count { it.retryable },
                 "exactly three kinds are retryable")
     }

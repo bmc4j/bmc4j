@@ -38,6 +38,20 @@ class BmcPluginTest {
     }
 
     @Test
+    fun notModeledPackages_dsl_collects_globs_in_declaration_order() {
+        val ext = applied().extensions.findByType(BmcExtensionConfig::class.java)!!
+        ext.notModeledPackages { spec ->
+            with(spec) {
+                +"javax.swing.*"
+                +"java.sql.*"
+                pkg("java.nio.file.*")
+            }
+        }
+        assertEquals(listOf("javax.swing.*", "java.sql.*", "java.nio.file.*"),
+                ext.notModeledPackagesSpec.globs.get())
+    }
+
+    @Test
     fun creates_the_bmcModel_source_set() {
         val sourceSets = applied().extensions.getByType(SourceSetContainer::class.java)
         assertNotNull(sourceSets.findByName("bmcModel"), "bmcModel source set")

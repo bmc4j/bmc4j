@@ -39,9 +39,20 @@ enum class UnknownKind(
      *  under the budget: a re-run pays the same wall-clock for the same expiry. */
     TIMEOUT(false),
 
-    /** The proof reached a member whose class is genuinely absent from the models — bmc4j
-     *  deliberately does not model it. Deterministic and actionable: model it. */
+    /** The proof reached a member whose class is genuinely absent from the models — a model GAP not
+     *  yet filled (no model body exists, and the area is NOT declared out of scope). Deterministic
+     *  and actionable: model it. Contrast [OUT_OF_SCOPE], which is a DELIBERATELY declared decline. */
     UNMODELLED_MEMBER(false),
+
+    /** The proof reached a class under a package the author DELIBERATELY DECLARED out of scope via
+     *  `bmc { notModeledPackages { … } }`. Like [UNMODELLED_MEMBER] there is no model body — but this
+     *  is an INTENTIONAL classification, not a gap waiting to be filled: bmc4j has been told it will
+     *  not model the area, so the reach is loudly surfaced as a declined UNKNOWN rather than silently
+     *  trusting the nondet stub. Deterministic and non-retryable: a declared decline gives the same
+     *  answer on every re-run (it is an intentional boundary, never a transient flake), so re-running
+     *  is wasted. Distinct from [UNMODELLED_MEMBER]: OUT_OF_SCOPE = deliberately declared via
+     *  notModeledPackages; UNMODELLED_MEMBER = a gap not yet filled. */
+    OUT_OF_SCOPE(false),
 
     /** An `--unwinding-assertions` firing: the loop/recursion bound is too small to cover the proof,
      *  so exploration was truncated. Deterministic — raise the bound. */
