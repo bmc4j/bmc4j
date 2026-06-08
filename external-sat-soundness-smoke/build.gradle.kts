@@ -22,3 +22,12 @@ bmc {
     // No solver default here: the workflow sets the solver per phase (guard vs probe) on the CLI so
     // the same proofs are exercised both ways without editing the build.
 }
+
+// The guard's plain-language "text/String" refusal is the test-failure exception message, which the
+// engine surfaces on the test WORKER's stdout/stderr. Gradle does NOT forward worker output to the
+// console unless this is set — and the Phase-1 soundness assertion in smoke.sh greps the console for
+// that "text/String" message to prove the guard (not some unrelated error) is what failed the build.
+// So this is load-bearing for the soundness smoke, not cosmetic: without it Phase 1 can't SEE the guard.
+tasks.withType<Test>().configureEach {
+    testLogging { showStandardStreams = true }
+}
