@@ -3,6 +3,8 @@ package conformance
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
+import io.kotest.property.arbitrary.double
+import io.kotest.property.arbitrary.filter
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.long
 import io.kotest.property.checkAll
@@ -128,6 +130,72 @@ class OptionalLongConformanceTest : FunSpec({
         checkAll(Arb.long(-1_000_000L..1_000_000L)) { v ->
             val r = java.util.OptionalLong.of(v)
             val m = bmcref.java.util.OptionalLong.of(v)
+            r.stream().count() shouldBe call(m.stream(), "count", arrayOf()).getOrThrow()
+            r.stream().sum() shouldBe call(m.stream(), "sum", arrayOf()).getOrThrow()
+        }
+    }
+})
+
+/** Differential conformance for the OptionalDouble model (a {@code double} + present flag). Mirrors
+ *  {@link OptionalIntConformanceTest} for the primitive {@code double}. Inputs are finite, non-NaN so
+ *  the {@code ==}-based assertions are well-defined; OptionalDouble itself contains no Double.compare /
+ *  total-order op (its values are stored and returned by primitive identity), so this is sound. */
+class OptionalDoubleConformanceTest : FunSpec({
+
+    // Finite, non-NaN values keep the value-equality assertions well-defined (NaN != NaN).
+    val finite = Arb.double(-1_000_000.0, 1_000_000.0).filter { it.isFinite() }
+
+    test("of(v): getAsDouble / isPresent / isEmpty / orElse / orElseGet conform") {
+        checkAll(finite, Arb.double(-9.0, 9.0).filter { it.isFinite() }) { v, d ->
+            val r = java.util.OptionalDouble.of(v)
+            val m = bmcref.java.util.OptionalDouble.of(v)
+            r.isPresent shouldBe m.isPresent
+            r.isEmpty shouldBe m.isEmpty
+            r.asDouble shouldBe m.asDouble
+            r.orElse(d) shouldBe m.orElse(d)
+            r.orElseGet { d } shouldBe m.orElseGet { d }
+            r.orElseThrow() shouldBe m.orElseThrow()
+        }
+    }
+
+    test("empty(): getAsDouble throws like the JDK; orElse/orElseGet fall back; stream is empty") {
+        val r = java.util.OptionalDouble.empty()
+        val m = bmcref.java.util.OptionalDouble.empty()
+        r.isPresent shouldBe m.isPresent
+        r.isEmpty shouldBe m.isEmpty
+        assertSameException(runCatching { r.asDouble }, runCatching { m.asDouble })
+        assertSameException(runCatching { r.orElseThrow() }, runCatching { m.orElseThrow() })
+        r.orElse(7.0) shouldBe m.orElse(7.0)
+        r.orElseGet { 7.0 } shouldBe m.orElseGet { 7.0 }
+        r.stream().count() shouldBe call(m.stream(), "count", arrayOf()).getOrThrow()
+    }
+
+    test("orElseThrow(Supplier): value when present, supplied exception when empty") {
+        checkAll(finite) { v ->
+            val rp = java.util.OptionalDouble.of(v)
+            val mp = bmcref.java.util.OptionalDouble.of(v)
+            rp.orElseThrow { IllegalStateException() } shouldBe mp.orElseThrow { IllegalStateException() }
+            val re = runCatching { java.util.OptionalDouble.empty().orElseThrow { IllegalStateException("x") } }
+            val me = runCatching { bmcref.java.util.OptionalDouble.empty().orElseThrow { IllegalStateException("x") } }
+            (re.exceptionOrNull()?.javaClass) shouldBe (me.exceptionOrNull()?.javaClass)
+        }
+    }
+
+    test("ifPresent / ifPresentOrElse run exactly the right branch") {
+        checkAll(finite) { v ->
+            val rHit = intArrayOf(0, 0); val mHit = intArrayOf(0, 0)
+            java.util.OptionalDouble.of(v).ifPresentOrElse({ rHit[0]++ }, { rHit[1]++ })
+            bmcref.java.util.OptionalDouble.of(v).ifPresentOrElse({ mHit[0]++ }, { mHit[1]++ })
+            java.util.OptionalDouble.empty().ifPresentOrElse({ rHit[0]++ }, { rHit[1]++ })
+            bmcref.java.util.OptionalDouble.empty().ifPresentOrElse({ mHit[0]++ }, { mHit[1]++ })
+            mHit.toList() shouldBe rHit.toList()
+        }
+    }
+
+    test("stream(): present -> count 1 and same single sum; empty -> count 0") {
+        checkAll(finite) { v ->
+            val r = java.util.OptionalDouble.of(v)
+            val m = bmcref.java.util.OptionalDouble.of(v)
             r.stream().count() shouldBe call(m.stream(), "count", arrayOf()).getOrThrow()
             r.stream().sum() shouldBe call(m.stream(), "sum", arrayOf()).getOrThrow()
         }

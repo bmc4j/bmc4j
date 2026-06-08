@@ -11,8 +11,12 @@ val COVERED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
     "java.util.Optional",
-    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.Arrays",
+    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
     "java.util.Collections",
+    // Summary-statistics accumulators (differential + DoubleStreamLaws). The int/long ones are fully
+    // sound (integer min/max, double-division average); DoubleSummaryStatistics walls getMin/getMax off
+    // (FP total order) but models accept/getCount/getSum/getAverage.
+    "java.util.IntSummaryStatistics", "java.util.LongSummaryStatistics", "java.util.DoubleSummaryStatistics",
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
@@ -61,6 +65,7 @@ val COVERED: Set<String> = setOf(
     "java.util.stream.Stream", "java.util.stream.IntStream", "java.util.stream.ListStream",
     "java.util.stream.IntArrayStream", "java.util.stream.Collectors",
     "java.util.stream.LongStream", "java.util.stream.LongArrayStream",
+    "java.util.stream.DoubleStream", "java.util.stream.DoubleArrayStream",
 )
 
 /**
@@ -152,8 +157,9 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
     "java.util.Optional",
-    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.Arrays",
+    "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
     "java.util.Collections",
+    "java.util.IntSummaryStatistics", "java.util.LongSummaryStatistics", "java.util.DoubleSummaryStatistics",
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
@@ -169,7 +175,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.concurrent.ArrayBlockingQueue", "java.util.concurrent.LinkedBlockingQueue",
     "java.util.concurrent.Executors",
     "java.util.stream.Stream", "java.util.stream.IntStream", "java.util.stream.Collectors",
-    "java.util.stream.LongStream",
+    "java.util.stream.LongStream", "java.util.stream.DoubleStream",
     // Kotlin models — facades, value classes, and the Intrinsics null-safety helper. The real target is
     // the same-named class on the kotlin-stdlib jar on this module's classpath; see the doc above for the
     // facade-dedup and mangled-ABI conventions.

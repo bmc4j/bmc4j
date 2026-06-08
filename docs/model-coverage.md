@@ -507,6 +507,22 @@ Real surface: 71 members — modeled 1, unmodelable 0, not-needed 0, tail 70.
 </details>
 
 
+## `java.util.DoubleSummaryStatistics`
+
+Real surface: 8 members — modeled 5, unmodelable 2, not-needed 1, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `accept(double)`, `combine(DoubleSummaryStatistics)`, `getAverage()`, `getCount()`, `getSum()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `getMax()` | DoubleSummaryStatistics.getMax exposes the running max under Double.compare TOTAL order (NaN, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-> model would diverge from the JDK on NaN/signed zero |
+| `getMin()` | DoubleSummaryStatistics.getMin exposes the running min under Double.compare TOTAL order (NaN, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-< model would diverge from the JDK on NaN/signed zero |
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `andThen(DoubleConsumer)` | DoubleConsumer.andThen default — composes this accept with a second consumer; sound inline bytecode under JBMC (two accept calls), no model needed |
+
+
 ## `java.util.HashMap`
 
 Real surface: 25 members — modeled 20, unmodelable 4, not-needed 0, tail 1.
@@ -547,6 +563,17 @@ Real surface: 21 members — modeled 14, unmodelable 4, not-needed 0, tail 3.
 - `toArray(IntFunction)`
 
 </details>
+
+
+## `java.util.IntSummaryStatistics`
+
+Real surface: 8 members — modeled 7, unmodelable 0, not-needed 1, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `accept(int)`, `combine(IntSummaryStatistics)`, `getAverage()`, `getCount()`, `getMax()`, `getMin()`, `getSum()`
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `andThen(IntConsumer)` | IntConsumer.andThen default — composes this accept with a second consumer; sound inline bytecode under JBMC (two accept calls), no model needed |
 
 
 ## `java.util.LinkedHashMap`
@@ -627,11 +654,30 @@ Real surface: 56 members — modeled 40, unmodelable 7, not-needed 0, tail 9.
 </details>
 
 
+## `java.util.LongSummaryStatistics`
+
+Real surface: 10 members — modeled 8, unmodelable 0, not-needed 2, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `accept(int)`, `accept(long)`, `combine(LongSummaryStatistics)`, `getAverage()`, `getCount()`, `getMax()`, `getMin()`, `getSum()`
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `andThen(IntConsumer)` | IntConsumer.andThen default (inherited as a LongSummaryStatistics also implements IntConsumer) — composes this accept with a second consumer; sound inline bytecode under JBMC, no model needed |
+| `andThen(LongConsumer)` | LongConsumer.andThen default — composes this accept with a second consumer; sound inline bytecode under JBMC (two accept calls), no model needed |
+
+
 ## `java.util.Optional`
 
 Real surface: 17 members — modeled 17, unmodelable 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `empty()`, `filter(Predicate)`, `flatMap(Function)`, `get()`, `ifPresent(Consumer)`, `ifPresentOrElse(Consumer, Runnable)`, `isEmpty()`, `isPresent()`, `map(Function)`, `of(Object)`, `ofNullable(Object)`, `or(Supplier)`, `orElse(Object)`, `orElseGet(Supplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
+
+
+## `java.util.OptionalDouble`
+
+Real surface: 12 members — modeled 12, unmodelable 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `empty()`, `getAsDouble()`, `ifPresent(DoubleConsumer)`, `ifPresentOrElse(DoubleConsumer, Runnable)`, `isEmpty()`, `isPresent()`, `of(double)`, `orElse(double)`, `orElseGet(DoubleSupplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
 
 
 ## `java.util.OptionalInt`
@@ -1034,6 +1080,36 @@ Real surface: 44 members — modeled 28, unmodelable 0, not-needed 0, tail 16.
 - `summingLong(ToLongFunction)`
 - `toConcurrentMap(Function, Function, BinaryOperator, Supplier)`
 - `toMap(Function, Function, BinaryOperator, Supplier)`
+
+</details>
+
+
+## `java.util.stream.DoubleStream`
+
+Real surface: 48 members — modeled 33, unmodelable 3, not-needed 0, tail 12.
+
+**Modeled** (`@BmcModelConforms`): `allMatch(DoublePredicate)`, `anyMatch(DoublePredicate)`, `average()`, `boxed()`, `collect(Supplier, ObjDoubleConsumer, BiConsumer)`, `concat(DoubleStream, DoubleStream)`, `count()`, `distinct()`, `dropWhile(DoublePredicate)`, `empty()`, `filter(DoublePredicate)`, `findAny()`, `findFirst()`, `flatMap(DoubleFunction)`, `forEach(DoubleConsumer)`, `forEachOrdered(DoubleConsumer)`, `iterate(double, DoublePredicate, DoubleUnaryOperator)`, `limit(long)`, `map(DoubleUnaryOperator)`, `mapToInt(DoubleToIntFunction)`, `mapToLong(DoubleToLongFunction)`, `mapToObj(DoubleFunction)`, `noneMatch(DoublePredicate)`, `of(double)`, `of(double[])`, `peek(DoubleConsumer)`, `reduce(DoubleBinaryOperator)`, `reduce(double, DoubleBinaryOperator)`, `skip(long)`, `sum()`, `summaryStatistics()`, `takeWhile(DoublePredicate)`, `toArray()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `max()` | DoubleStream.max is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive > model would diverge from the JDK on NaN/signed zero |
+| `min()` | DoubleStream.min is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive < model would diverge from the JDK on NaN/signed zero |
+| `sorted()` | DoubleStream.sorted is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-< sort would diverge from the JDK on NaN/signed zero |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining DoubleStream surface (the infinite generate(supplier)/iterate(seed,next); mapMulti (nested DoubleMapMultiConsumer SAM); builder/iterator/spliterator; sequential/parallel lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
+
+- `builder()`
+- `close()`
+- `generate(DoubleSupplier)`
+- `isParallel()`
+- `iterate(double, DoubleUnaryOperator)`
+- `iterator()`
+- `mapMulti(DoubleMapMultiConsumer)`
+- `onClose(Runnable)`
+- `parallel()`
+- `sequential()`
+- `spliterator()`
+- `unordered()`
 
 </details>
 
