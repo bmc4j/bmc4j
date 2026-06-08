@@ -1,7 +1,10 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcNotNeeded;
 
 /**
  * BMC model of {@link java.util.TreeMap} over the inherited array-backed {@link HashMap} storage,
@@ -23,8 +26,8 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (sub/head/tail-map, descendingMap/descendingKeySet/navigableKeySet) are out of scope (tail; loud
  * under JBMC).
  */
-@BmcModelTail(reason = "the NavigableMap/SortedMap LIVE range-view and bulk-navigation surface (headMap/tailMap/subMap/descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC")
-public class TreeMap<K, V> extends HashMap<K, V> {
+@BmcModelTail(reason = "the NavigableMap bulk-navigation surface beyond the explicitly-stubbed SortedMap range views (descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC")
+public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
 
     public TreeMap() {
         super();
@@ -225,6 +228,28 @@ public class TreeMap<K, V> extends HashMap<K, V> {
     @SuppressWarnings("unchecked")
     private int cmp(K a, K b) {
         return ((Comparable<? super K>) a).compareTo(b);
+    }
+
+    // --- SortedMap range views (out of scope): loud stubs ------------------------------------------
+    // The model implements java.util.SortedMap so a `SortedMap`-typed result (e.g. the value of Kotlin's
+    // `MapsKt.toSortedMap(map)`, or `(SortedMap) treeMap`) downcasts cleanly under JBMC instead of
+    // havoc'ing to an under-constrained object. The single-key navigation surface (firstKey/lastKey/
+    // ceiling/floor/… above) is fully modeled; only the multi-key RANGE views remain out of scope —
+    // a range view over a bounded unordered store is not modeled. Reaching one is a loud UNKNOWN.
+
+    @BmcNotNeeded(reason = "SortedMap range view over a bounded unordered store — out of scope; loud under JBMC")
+    public SortedMap<K, V> subMap(K fromKey, K toKey) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.subMap(java.lang.Object,java.lang.Object) — SortedMap range view over a bounded unordered store; out of scope");
+    }
+
+    @BmcNotNeeded(reason = "SortedMap range view over a bounded unordered store — out of scope; loud under JBMC")
+    public SortedMap<K, V> headMap(K toKey) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.headMap(java.lang.Object) — SortedMap range view over a bounded unordered store; out of scope");
+    }
+
+    @BmcNotNeeded(reason = "SortedMap range view over a bounded unordered store — out of scope; loud under JBMC")
+    public SortedMap<K, V> tailMap(K fromKey) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.tailMap(java.lang.Object) — SortedMap range view over a bounded unordered store; out of scope");
     }
 
     /** Immutable key/value pair returned by {@link #firstEntry()} / {@link #lastEntry()}. */
