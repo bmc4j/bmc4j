@@ -80,6 +80,17 @@ class TimeConformanceTest : FunSpec({
             ra.dividedBy(rbNz) shouldBe ma.dividedBy(mbNz)
             ra.negated().toMillis() shouldBe ma.negated().toMillis()
             ra.abs().toMillis() shouldBe ma.abs().toMillis()
+            // *Part accessors: milli-of-second is [0,999] (floored remainder, non-negative even for
+            // negatives); seconds/minutes/hours parts truncate the FLOORED total seconds toward zero
+            // (so they can be negative); toDaysPart == toDays.
+            ra.toMillisPart() shouldBe ma.toMillisPart()
+            ra.toSecondsPart() shouldBe ma.toSecondsPart()
+            ra.toMinutesPart() shouldBe ma.toMinutesPart()
+            ra.toHoursPart() shouldBe ma.toHoursPart()
+            ra.toDaysPart() shouldBe ma.toDaysPart()
+            // withSeconds: replace the seconds field, keep the sub-second (milli) part; seconds small
+            // enough that *1000 stays in range (the loud-overflow path is a separate bounded-model concern).
+            ra.withSeconds(b / 1000).toMillis() shouldBe ma.withSeconds(b / 1000).toMillis()
             Integer.signum(ra.compareTo(rb)) shouldBe Integer.signum(ma.compareTo(mb))   // contract is sign
             ra.equals(rb) shouldBe ma.equals(mb)
             // factories that scale a unit count into millis
@@ -207,6 +218,19 @@ class TimeConformanceTest : FunSpec({
         checkAll(yearAny, doyLike) { y, doy ->
             val real = runCatching { java.time.LocalDate.ofYearDay(y, doy) }
             val model = runCatching { bmcref.java.time.LocalDate.ofYearDay(y, doy) }
+            assertSameException(real, model)
+            if (real.isSuccess && model.isSuccess) {
+                real.getOrThrow().toEpochDay() shouldBe (model.getOrThrow() as bmcref.java.time.LocalDate).toEpochDay()
+            }
+        }
+    }
+
+    test("LocalDate.of(y,m,d) strict validation parity + value") {
+        // STRICT: of() rejects an out-of-range field or a day past the month length (incl. Feb 29 leap
+        // rule) loudly, it does not clamp. Drive symbolic years (leap cycles) + out-of-range month/day.
+        checkAll(yearAny, monthSet, domSet) { y, mo, dom ->
+            val real = runCatching { java.time.LocalDate.of(y, mo, dom) }
+            val model = runCatching { bmcref.java.time.LocalDate.of(y, mo, dom) }
             assertSameException(real, model)
             if (real.isSuccess && model.isSuccess) {
                 real.getOrThrow().toEpochDay() shouldBe (model.getOrThrow() as bmcref.java.time.LocalDate).toEpochDay()
@@ -455,6 +479,16 @@ class TimeConformanceTest : FunSpec({
             r.plusMinutes(sh).toLocalDate().toEpochDay() shouldBe m.plusMinutes(sh).toLocalDate().toEpochDay()
             r.plusSeconds(sh).toLocalTime().toNanoOfDay() shouldBe m.plusSeconds(sh).toLocalTime().toNanoOfDay()
             r.plusSeconds(sh).toLocalDate().toEpochDay() shouldBe m.plusSeconds(sh).toLocalDate().toEpochDay()
+            // plusNanos/minusNanos: scale the shift into nanos so the symbolic count spans many whole-day
+            // wraps (carrying into the date), plus the raw shift for sub-second nanos. Both date AND time
+            // parts must match (the whole-day carry lands on the date).
+            val nanoShift = sh * 1_000_000_000L
+            r.plusNanos(nanoShift).toLocalTime().toNanoOfDay() shouldBe m.plusNanos(nanoShift).toLocalTime().toNanoOfDay()
+            r.plusNanos(nanoShift).toLocalDate().toEpochDay() shouldBe m.plusNanos(nanoShift).toLocalDate().toEpochDay()
+            r.minusNanos(nanoShift).toLocalTime().toNanoOfDay() shouldBe m.minusNanos(nanoShift).toLocalTime().toNanoOfDay()
+            r.minusNanos(nanoShift).toLocalDate().toEpochDay() shouldBe m.minusNanos(nanoShift).toLocalDate().toEpochDay()
+            r.plusNanos(sh).toLocalTime().toNanoOfDay() shouldBe m.plusNanos(sh).toLocalTime().toNanoOfDay()   // sub-second
+            r.minusNanos(sh).toLocalTime().toNanoOfDay() shouldBe m.minusNanos(sh).toLocalTime().toNanoOfDay()
             // ordering against a shifted instance
             val r2 = r.plusMinutes(sh); val m2 = m.plusMinutes(sh)
             r.isBefore(r2) shouldBe m.isBefore(m2)
