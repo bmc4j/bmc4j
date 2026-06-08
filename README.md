@@ -253,7 +253,7 @@ off: hard proofs are tractable because bmc4j gives you a **toolbox** for them �
 parallelism, sharding, domain splitting, external SAT, and contracts, each aimed at a
 different blow-up and **composable**. [docs/performance.md](docs/performance.md) is the
 decision tree — which shape explodes, which lever fixes it, and how to stack them (a
-domain split reclaimed a slow pricing proof's full range at ~4.3× the per-slice solve).
+domain split can reclaim a slow proof's full range by solving each slice independently).
 
 ## Documentation
 

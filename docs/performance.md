@@ -127,13 +127,12 @@ domainSplit(x in 0..100_000) {               // Kotlin sugar — lowers to the s
 }
 ```
 
-**Measured (#175, this machine).** `PricingProofTests.eur_within_rate_cap` multiplies two
-symbolic ints (amount × rate) over the full $0..$1000 range. Monolithic: **40.1s** — it had
-been *range-reduced* to $0..$100 just to clear CI's budget. Split into 8 contiguous cent-bands:
-**max-slice ~9.4s** (~4.3× the per-slice solve), end-to-end fan-out **22–26s** — and the wide
-$0..$1000 range was **restored**, making the proof *strictly stronger* than the reduced one.
-The lever here is per-slice *interval size*, not operand bit-width (equal-width bands solve in
-the same time at any magnitude), so a plain contiguous sub-range split is the right shape.
+**In practice.** A proof that multiplies two symbolic ints over a wide range may have to be
+*range-reduced* just to clear the budget. Splitting it into contiguous sub-range bands lets
+each slice solve a narrow interval independently — fast enough that the **wide range can be
+restored**, making the proof *strictly stronger* than the reduced one. The lever is per-slice
+*interval size*, not operand bit-width (equal-width bands solve in the same time at any
+magnitude), so a plain contiguous sub-range split is the right shape.
 
 > domainSplit is new and validated on interval-bound proofs. It does **not** shrink a
 > *divider-width* blow-up (a `BigDecimal.setScale` style divide isn't an interval problem) —
@@ -149,7 +148,7 @@ boolean proofs only** (jbmc's `--smt2`/`--z3` path is inert — it crashes conve
 types to SMT2, so SMT solvers are not an option here).
 
 **Blow-up it addresses.** Bit-vector-heavy **multiplier / divider** circuits, where a modern
-CNF solver beats MiniSAT — ~25% faster on the pricing multiplier in our measurements.
+CNF solver beats jbmc's built-in MiniSAT.
 
 **Turn it on.** `-Dbmc.externalSat=/path/to/cryptominisat` (a system property read by the
 engine). The `model-conformance-proofs` module wires a Gradle hatch for it:
@@ -189,11 +188,11 @@ String id  = Bmc.anyAsciiString(8);     // not anyString(8) over all of UTF-16
 ```
 
 Identity / round-trip / cap laws hold at *any* range, so a tight range is **just as strong a
-proof** — and wide-range confidence already rides the differential (vs-JDK) axis. A proof over
-`[0, 10_000]` that solves in 2s beats an all-of-int proof that needs an hour and still covers
-every value you'll ever see. The one thing that's changed: **domainSplit now lets you reclaim
-the wide range** where you previously had to reduce it (see #175 above) — so range reduction is
-the cheap default, and a split is the upgrade when the wide range genuinely matters.
+proof** — and wide-range confidence already rides the differential (vs-JDK) axis. A tight
+range that solves quickly beats an all-of-int proof that needs an hour and still covers every
+value you'll ever see. The one thing that's changed: **domainSplit now lets you reclaim the
+wide range** where you previously had to reduce it — so range reduction is the cheap default,
+and a split is the upgrade when the wide range genuinely matters.
 
 ## The levers compose
 
