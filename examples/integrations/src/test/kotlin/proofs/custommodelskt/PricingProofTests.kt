@@ -12,11 +12,12 @@ import org.bmc4j.BmcProof
  */
 class PricingProofTests {
 
-    // Range note (same as the Java twin in proofs.custommodels): the cap proof multiplies
-    // TWO symbolic ints (amount x rate) - a nonlinear circuit that hovered right at CI's
-    // 180s budget at 100_000 cents. $0..$100 covers every bit pattern the arithmetic cares
-    // about while solving in seconds; the RATE range stays full, which is the point of the
-    // symbolic model. See docs/performance.md (range reduction).
+    // Range note (same as the Java twin in proofs.custommodels): the cap proof multiplies TWO
+    // symbolic ints (amount x rate). eur_is_never_negative stays bounded to $0..$100 (range
+    // reduction, see docs/performance.md). eur_within_rate_cap runs at the FULL $0..$1000 range
+    // via a domainSplit instead: the [0, 100_000] domain is partitioned into 8 cent-bands, each
+    // ~1/8th the SAT search and fanned across cores, so the wide range stays affordable. The lever
+    // is per-slice INTERVAL size, not bit-width, so a plain sub-range split is the right tool.
 
     @BmcProof
     fun eur_is_never_negative() {
@@ -27,7 +28,16 @@ class PricingProofTests {
 
     @BmcProof
     fun eur_within_rate_cap() {
-        val usdCents = Bmc.anyInt(0, 10_000)
+        val usdCents = Bmc.anyInt(0, 100_000)
+        Bmc.domainSplit(usdCents in 0..100_000)
+        Bmc.slice(usdCents in 0..12_499)
+        Bmc.slice(usdCents in 12_500..24_999)
+        Bmc.slice(usdCents in 25_000..37_499)
+        Bmc.slice(usdCents in 37_500..49_999)
+        Bmc.slice(usdCents in 50_000..62_499)
+        Bmc.slice(usdCents in 62_500..74_999)
+        Bmc.slice(usdCents in 75_000..87_499)
+        Bmc.slice(usdCents in 87_500..100_000)
         val eur = Pricer(ExchangeRates()).eurCents(usdCents)
         Bmc.check(eur <= usdCents * 2)
     }
