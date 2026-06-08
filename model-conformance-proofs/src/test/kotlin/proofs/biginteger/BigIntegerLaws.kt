@@ -218,7 +218,7 @@ class BigIntegerLaws {
     // already on the differential axis (BigIntegerConformanceTest), so this stays a real proof of the
     // delegation. kissat is markedly faster than the built-in MiniSat on multiplier CNF (falls back to
     // the default solver if the bundled binary isn't present, which the tight range still discharges).
-    @BmcProof(solver = "kissat")
+    @BmcProof
     fun parallelMultiply_equals_multiply() {
         val a = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
         val b = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())

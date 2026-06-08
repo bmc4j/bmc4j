@@ -8,7 +8,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Bounded BMC model of {@link java.math.BigDecimal}: an unscaled {@code long} value plus an
- * {@code int} scale (value = unscaled × 10⁻ˢᶜᵃˡᵉ). All arithmetic is exact integer arithmetic on the
+ * {@code int} scale (value = unscaled × 10). All arithmetic is exact integer arithmetic on the
  * unscaled values with scale alignment — so it captures the *decimal* exactness that is the whole
  * point of BigDecimal (e.g. {@code 0.10 + 0.20} compares equal to {@code 0.30}), unlike a
  * double-backed model. Sound while the unscaled value and intermediate rescalings stay within the
@@ -446,7 +446,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     /**
-     * Move the decimal point right by {@code n} (multiply by 10ⁿ), like the JDK: the scale drops by
+     * Move the decimal point right by {@code n} (multiply by 10^n), like the JDK: the scale drops by
      * {@code n}, and once it would go negative the unscaled value absorbs the surplus power of ten
      * (the result then has scale 0). Exact integer arithmetic; loud past the {@code long} bound.
      */
@@ -460,7 +460,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     /**
-     * Move the decimal point left by {@code n} (divide by 10ⁿ), like the JDK: the scale rises by
+     * Move the decimal point left by {@code n} (divide by 10^n), like the JDK: the scale rises by
      * {@code n}; if {@code n} is negative far enough to drive the scale below zero, the unscaled value
      * absorbs the surplus power of ten (the result then has scale 0). Exact; loud past the bound.
      */
