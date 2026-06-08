@@ -497,7 +497,8 @@ internal class VerdictCacheTest {
     fun unknownResult_isNeverCached(@TempDir dir: Path) {
         runIn(dir) {
             val r = req(dir.resolve("classes").toString())
-            VerdictCache.storeIfVerified(r, ENGINE, JbmcResult.unknown("timed out", "raw"))
+            VerdictCache.storeIfVerified(r, ENGINE,
+                    JbmcResult.unknown(UnknownKind.TIMEOUT, "timed out", "raw"))
             assertFalse(VerdictCache.isVerified(r, ENGINE), "UNKNOWN must never be cached")
         }
     }
@@ -581,7 +582,8 @@ internal class VerdictCacheTest {
         runIn(dir) {
             val r = req(dir.resolve("classes").toString())
             VerdictCache.storeIfExpectedMatch(r, ENGINE,
-                    JbmcResult.unknown("solver fell over", "raw"), org.bmc4j.Verdict.UNKNOWN)
+                    JbmcResult.unknown(UnknownKind.SOLVER_GAVE_UP, "solver fell over", "raw"),
+                    org.bmc4j.Verdict.UNKNOWN)
             assertTrue(VerdictCache.lookup(r, ENGINE) == null,
                     "UNKNOWN is undecided, not a deterministic fact — never cached, even expected")
         }

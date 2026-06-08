@@ -30,12 +30,12 @@ internal class JbmcResultTest {
     fun unknown_result_is_undecided_not_verified_and_carries_reason_no_violations() {
         // UNKNOWN is a distinct verdict (undecided within budget) — not verified, not a
         // refutation (no counterexample), but still a failure to the caller.
-        val r = JbmcResult.unknown("timed out after 1s", "raw")
+        val r = JbmcResult.unknown(UnknownKind.SOLVER_GAVE_UP, "the solver returned undecided", "raw")
         assertFalse(r.isVerified)
         assertTrue(r.isUnknown)
         assertFalse(r.isVacuous)
         assertTrue(r.violations.isEmpty(), "UNKNOWN has no counterexample")
-        assertEquals("timed out after 1s", r.undecidedReason)
+        assertEquals("the solver returned undecided", r.undecidedReason)
         assertEquals(JbmcResult.Verdict.UNKNOWN, r.verdict)
         assertEquals("raw", r.rawOutput)
     }

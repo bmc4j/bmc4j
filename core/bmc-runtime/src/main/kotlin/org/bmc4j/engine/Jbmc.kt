@@ -170,26 +170,36 @@ class Jbmc(private val executable: String) {
          * doesn't finish in time, its whole tree is force-killed (the solver is a child of jbmc) and the
          * result is UNKNOWN with a timeout reason.
          *
-         * **Crash-class exits are retried ONCE.** An engine-error exit (anything other than the two
-         * verdict exits) is a process that fell over, not a verdict — and jbmc 6.9.0 has rare
-         * NONDETERMINISTIC internal aborts (observed in CI: an `Invariant check failed` in
-         * `create_parameter_names` during mid-symex lazy conversion, exit 134, on a proof that
-         * passes identically before and after). Re-running a crashed process is sound: a deterministic
-         * crash just fails twice into the same UNKNOWN, a nondeterministic one recovers a real verdict
-         * instead of failing the gate. The retry is LOUD (printed), never silent; timeouts are NOT
-         * retried (the budget is the budget), and each attempt counts as a real engine launch.
+         * **A RETRYABLE UNKNOWN is re-run ONCE.** The retry is driven by the result's
+         * [UnknownKind.retryable] flag, generalizing the old crash-only retry: a non-verdict engine
+         * exit (ENGINE_CRASH), unparseable `--json-ui` output (PARSE_FAILURE), and any future retryable
+         * kind all self-heal here. jbmc 6.9.0 has rare NONDETERMINISTIC internal aborts (observed in
+         * CI: an `Invariant check failed` in `create_parameter_names`, exit 134, on a proof that passes
+         * identically before and after), and truncated/interleaved output is likewise transient.
+         *
+         * **Soundness.** Bounded to EXACTLY one extra run — never a loop. We keep the BETTER outcome:
+         * a clean verdict from the retry wins; if the retry is undecided too we keep the retry's
+         * result, annotating it "(persisted across a retry)" when it recurs as the SAME retryable kind.
+         * Crucially a recurring retryable kind STAYS UNKNOWN — the retry can never turn an UNKNOWN into
+         * a VERIFIED, so it never masks a real model hole. A non-retryable kind (TIMEOUT, unwinding,
+         * solver-gave-up) fails straight through with no wasted re-solve. The retry is LOUD (printed),
+         * never silent, and each attempt counts as a real engine launch.
          */
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0): JbmcResult {
             val first = execOnce(command, entryFunction, timeoutSeconds)
-            if (!first.isEngineCrash) {
-                return first
+            val kind = first.undecidedKind
+            if (kind == null || !kind.retryable) {
+                return first // a real verdict, or a deterministic (non-retryable) UNKNOWN
             }
-            println("  bmc4j: engine crashed on $entryFunction" +
-                    " - retrying once (a crash is not a verdict)")
+            println("  bmc4j: $entryFunction came back UNKNOWN[$kind] (retryable)" +
+                    " - re-running the engine once")
             val second = execOnce(command, entryFunction, timeoutSeconds)
-            if (second.isEngineCrash) {
-                return JbmcResult.unknownEngineCrash(
-                        second.undecidedReason + "\n    (the crash persisted across a retry)",
+            // Keep the better outcome. The retry recovering a real verdict (VERIFIED/REFUTED) wins; a
+            // still-undecided retry stays UNKNOWN (never promoted to a pass), annotated when the SAME
+            // retryable kind recurred so a persisted flake is named as such.
+            if (second.undecidedKind == kind) {
+                return JbmcResult.unknown(kind,
+                        second.undecidedReason + "\n    (the $kind persisted across a retry)",
                         second.rawOutput)
             }
             return second
