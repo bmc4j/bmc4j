@@ -69,7 +69,10 @@ public final class ListStream<T> implements Stream<T> {
         ArrayList<R> out = new ArrayList<>();
         for (int i = 0; i < data.size(); i++) {
             Stream<? extends R> inner = mapper.apply(data.get(i));
-            List<? extends R> innerList = inner.toList();
+            // Drain via the sole final implementor (invokevirtual on ListStream), not via the
+            // Stream interface — the interface dispatch is the kotlinc-version-fragile
+            // devirtualization behind the #169 false-REFUTED family.
+            List<? extends R> innerList = ((ListStream<? extends R>) inner).toList();
             for (int j = 0; j < innerList.size(); j++) {
                 out.add(innerList.get(j));
             }
@@ -190,7 +193,7 @@ public final class ListStream<T> implements Stream<T> {
         IntArrayStream s = new IntArrayStream();
         for (int i = 0; i < data.size(); i++) {
             IntStream inner = mapper.apply(data.get(i));
-            int[] arr = inner.toArray();
+            int[] arr = ((IntArrayStream) inner).toArray();
             for (int j = 0; j < arr.length; j++) {
                 s.add(arr[j]);
             }
@@ -204,7 +207,7 @@ public final class ListStream<T> implements Stream<T> {
         LongArrayStream s = new LongArrayStream();
         for (int i = 0; i < data.size(); i++) {
             LongStream inner = mapper.apply(data.get(i));
-            long[] arr = inner.toArray();
+            long[] arr = ((LongArrayStream) inner).toArray();
             for (int j = 0; j < arr.length; j++) {
                 s.add(arr[j]);
             }
@@ -562,7 +565,7 @@ public final class ListStream<T> implements Stream<T> {
             ArrayList<Object> flat = new ArrayList<>();
             for (int i = 0; i < data.size(); i++) {
                 Stream<?> inner = mapper.apply(data.get(i));
-                List<?> innerList = inner.toList();
+                List<?> innerList = ((ListStream<?>) inner).toList();
                 for (int j = 0; j < innerList.size(); j++) {
                     flat.add(innerList.get(j));
                 }

@@ -57,7 +57,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> map(Sequence<T> source, Function1<? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             out.add((R) transform.invoke(it.next()));
         }
@@ -67,7 +67,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> filter(Sequence<T> source, Function1<? super T, Boolean> predicate) {
         ArrayList<T> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T v = it.next();
             if (predicate.invoke(v)) {
@@ -80,7 +80,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> List<T> toList(Sequence<T> source) {
         ArrayList<T> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             out.add(it.next());
         }
@@ -90,7 +90,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static int sumOfInt(Sequence<Integer> source) {
         int sum = 0;
-        Iterator<Integer> it = source.iterator();
+        Iterator<Integer> it = seqIter(source);
         while (it.hasNext()) {
             sum += it.next();
         }
@@ -100,7 +100,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> int count(Sequence<T> source) {
         int n = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             it.next();
             n++;
@@ -124,7 +124,7 @@ public final class SequencesKt {
         ArrayList<T> out = new ArrayList<>();
         if (n > 0) {
             int taken = 0;
-            Iterator<T> it = source.iterator();
+            Iterator<T> it = seqIter(source);
             while (it.hasNext()) {
                 out.add(it.next());
                 taken++;
@@ -143,7 +143,7 @@ public final class SequencesKt {
         }
         ArrayList<T> out = new ArrayList<>();
         int dropped = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T v = it.next();
             if (dropped < n) {
@@ -162,7 +162,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> distinct(Sequence<T> source) {
         LinkedHashSet<T> seen = new LinkedHashSet<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             seen.add(it.next());
         }
         ArrayList<T> out = new ArrayList<>();
@@ -181,10 +181,10 @@ public final class SequencesKt {
     public static <T, R> Sequence<R> flatMap(
             Sequence<T> source, Function1<? super T, ? extends Sequence<? extends R>> transform) {
         ArrayList<R> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             Sequence<? extends R> inner = transform.invoke(it.next());
-            Iterator<? extends R> in = inner.iterator();
+            Iterator<? extends R> in = seqIter(inner);
             while (in.hasNext()) {
                 out.add(in.next());
             }
@@ -198,7 +198,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Set<T> toSet(Sequence<T> source) {
         LinkedHashSet<T> out = new LinkedHashSet<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
         return out;
@@ -470,7 +470,7 @@ public final class SequencesKt {
     public static <T, R> Sequence<R> mapIndexed(Sequence<T> source, Function2<? super Integer, ? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
         int index = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             out.add((R) transform.invoke(index, it.next()));
             index++;
@@ -482,7 +482,7 @@ public final class SequencesKt {
     public static <T> Sequence<T> filterIndexed(Sequence<T> source, Function2<? super Integer, ? super T, Boolean> predicate) {
         ArrayList<T> out = new ArrayList<>();
         int index = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T v = it.next();
             if (predicate.invoke(index, v)) {
@@ -498,7 +498,7 @@ public final class SequencesKt {
     public static <T> Sequence<IndexedValue<T>> withIndex(Sequence<T> source) {
         ArrayList<IndexedValue<T>> out = new ArrayList<>();
         int index = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             out.add(new IndexedValue<>(index, it.next()));
             index++;
@@ -513,7 +513,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> onEach(Sequence<T> source, Function1<? super T, ? extends Object> action) {
         ArrayList<T> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T v = it.next();
             action.invoke(v);
@@ -526,7 +526,7 @@ public final class SequencesKt {
     public static <T> Sequence<T> onEachIndexed(Sequence<T> source, Function2<? super Integer, ? super T, ? extends Object> action) {
         ArrayList<T> out = new ArrayList<>();
         int index = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T v = it.next();
             action.invoke(index, v);
@@ -542,7 +542,7 @@ public final class SequencesKt {
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> T firstOrNull(Sequence<T> source) {
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         if (!it.hasNext()) {
             return null;
         }
@@ -551,7 +551,7 @@ public final class SequencesKt {
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> T lastOrNull(Sequence<T> source) {
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         if (!it.hasNext()) {
             return null;
         }
@@ -568,7 +568,7 @@ public final class SequencesKt {
             return null;
         }
         int count = 0;
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             T element = it.next();
             if (index == count) {
@@ -605,7 +605,7 @@ public final class SequencesKt {
                     "Both size " + size + " and step " + step + " must be greater than zero.");
         }
         ArrayList<T> all = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         while (it.hasNext()) {
             all.add(it.next());
         }
@@ -635,7 +635,7 @@ public final class SequencesKt {
             Function1<? super List<T>, ? extends R> transform) {
         Sequence<List<T>> windows = windowed(source, size, step, partialWindows);
         ArrayList<R> out = new ArrayList<>();
-        Iterator<List<T>> it = windows.iterator();
+        Iterator<List<T>> it = seqIter(windows);
         while (it.hasNext()) {
             out.add((R) transform.invoke(it.next()));
         }
@@ -648,7 +648,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<Pair<T, T>> zipWithNext(Sequence<T> source) {
         ArrayList<Pair<T, T>> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         if (it.hasNext()) {
             T current = it.next();
             while (it.hasNext()) {
@@ -664,7 +664,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> zipWithNext(Sequence<T> source, Function2<? super T, ? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         if (it.hasNext()) {
             T current = it.next();
             while (it.hasNext()) {
@@ -682,8 +682,8 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<Pair<T, R>> zip(Sequence<T> source, Sequence<R> other) {
         ArrayList<Pair<T, R>> out = new ArrayList<>();
-        Iterator<T> a = source.iterator();
-        Iterator<R> b = other.iterator();
+        Iterator<T> a = seqIter(source);
+        Iterator<R> b = seqIter(other);
         while (a.hasNext() && b.hasNext()) {
             out.add(new Pair<>(a.next(), b.next()));
         }
@@ -694,8 +694,8 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R, V> Sequence<V> zip(Sequence<T> source, Sequence<R> other, Function2<? super T, ? super R, ? extends V> transform) {
         ArrayList<V> out = new ArrayList<>();
-        Iterator<T> a = source.iterator();
-        Iterator<R> b = other.iterator();
+        Iterator<T> a = seqIter(source);
+        Iterator<R> b = seqIter(other);
         while (a.hasNext() && b.hasNext()) {
             out.add((V) transform.invoke(a.next(), b.next()));
         }
@@ -709,7 +709,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> plus(Sequence<T> source, T element) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
         out.add(element);
@@ -719,7 +719,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> plus(Sequence<T> source, T[] elements) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
         for (T e : elements) {
@@ -731,7 +731,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> plus(Sequence<T> source, Iterable<T> elements) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
         for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
@@ -743,10 +743,10 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> plus(Sequence<T> source, Sequence<T> elements) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
-        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(elements); it.hasNext(); ) {
             out.add(it.next());
         }
         return new ListSequence<>(out);
@@ -756,7 +756,7 @@ public final class SequencesKt {
     public static <T> Sequence<T> minus(Sequence<T> source, T element) {
         ArrayList<T> out = new ArrayList<>();
         boolean removed = false;
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             T v = it.next();
             if (!removed && objEquals(v, element)) {
                 removed = true;
@@ -788,7 +788,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> minus(Sequence<T> source, Sequence<T> elements) {
         ArrayList<T> removeFrom = new ArrayList<>();
-        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(elements); it.hasNext(); ) {
             removeFrom.add(it.next());
         }
         return minusAll(source, removeFrom);
@@ -796,7 +796,7 @@ public final class SequencesKt {
 
     private static <T> Sequence<T> minusAll(Sequence<T> source, ArrayList<T> removeFrom) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             T v = it.next();
             if (!contains(removeFrom, v)) {
                 out.add(v);
@@ -857,9 +857,10 @@ public final class SequencesKt {
     }
 
     private static <T> ArrayList<T> drain(Sequence<T> source) {
+        ArrayList<T> in = backing(source);
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
-            out.add(it.next());
+        for (int i = 0; i < in.size(); i++) {
+            out.add(in.get(i));
         }
         return out;
     }
@@ -893,6 +894,20 @@ public final class SequencesKt {
     @SuppressWarnings("unchecked")
     private static <T> ArrayList<T> backing(Sequence<? extends T> source) {
         return (ArrayList<T>) ((ListSequence<? extends T>) source).data;
+    }
+
+    /**
+     * Iterate a model {@link Sequence} via its concrete backing {@link ArrayList}'s iterator rather
+     * than the virtual {@code Sequence.iterator()}. Same robustness rationale as {@link #backing}:
+     * {@code ListSequence} is the sole {@code final} implementor, so the {@code checkcast} is sound,
+     * and {@code ArrayList.iterator()} is a concrete-typed call JBMC resolves where the interface
+     * dispatch on the {@code Sequence}-typed parameter is kotlinc-version-fragile (the #169 false
+     * REFUTED: "no body for callee kotlin.sequences.Sequence.iterator()" on the kotlin-2.0.21 leg).
+     * Every {@code SequencesKt} op that previously called {@code <seq>.iterator()} routes through here
+     * so the whole facade — not just {@code distinctBy} — is devirtualization-robust.
+     */
+    private static <T> Iterator<T> seqIter(Sequence<? extends T> source) {
+        return SequencesKt.<T>backing(source).iterator();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -960,7 +975,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> filterNot(Sequence<T> source, Function1<? super T, Boolean> predicate) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             T v = it.next();
             if (!predicate.invoke(v)) {
                 out.add(v);
@@ -974,7 +989,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> filterNotNull(Sequence<T> source) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             T v = it.next();
             if (v != null) {
                 out.add(v);
@@ -990,7 +1005,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> mapNotNull(Sequence<T> source, Function1<? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             R r = (R) transform.invoke(it.next());
             if (r != null) {
                 out.add(r);
@@ -1008,7 +1023,7 @@ public final class SequencesKt {
             Sequence<T> source, Function2<? super Integer, ? super T, ? extends R> transform) {
         ArrayList<R> out = new ArrayList<>();
         int index = 0;
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             R r = (R) transform.invoke(index, it.next());
             if (r != null) {
                 out.add(r);
@@ -1031,7 +1046,7 @@ public final class SequencesKt {
             Sequence<T> source, Function2<? super Integer, ? super T, ? extends Iterable<? extends R>> transform) {
         ArrayList<R> out = new ArrayList<>();
         int index = 0;
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             Iterable<? extends R> inner = transform.invoke(index, it.next());
             for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
                 out.add(in.next());
@@ -1047,9 +1062,9 @@ public final class SequencesKt {
             Sequence<T> source, Function2<? super Integer, ? super T, ? extends Sequence<? extends R>> transform) {
         ArrayList<R> out = new ArrayList<>();
         int index = 0;
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             Sequence<? extends R> inner = transform.invoke(index, it.next());
-            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
+            for (Iterator<? extends R> in = seqIter(inner); in.hasNext(); ) {
                 out.add(in.next());
             }
             index++;
@@ -1070,7 +1085,7 @@ public final class SequencesKt {
         ArrayList<R> out = new ArrayList<>();
         R acc = initial;
         out.add(acc);
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             acc = (R) operation.invoke(acc, it.next());
             out.add(acc);
         }
@@ -1085,7 +1100,7 @@ public final class SequencesKt {
         R acc = initial;
         out.add(acc);
         int index = 0;
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             acc = (R) operation.invoke(index, acc, it.next());
             out.add(acc);
             index++;
@@ -1111,7 +1126,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> requireNoNulls(Sequence<T> source) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             T v = it.next();
             if (v == null) {
                 throw new IllegalArgumentException("null element found in " + source + ".");
@@ -1128,7 +1143,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Iterable<T> asIterable(Sequence<T> source) {
         ArrayList<T> out = new ArrayList<>();
-        for (Iterator<T> it = source.iterator(); it.hasNext(); ) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
         return out;
@@ -1142,13 +1157,13 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> ifEmpty(Sequence<T> source, Function0<? extends Sequence<? extends T>> defaultValue) {
         ArrayList<T> out = new ArrayList<>();
-        Iterator<T> it = source.iterator();
+        Iterator<T> it = seqIter(source);
         if (it.hasNext()) {
             while (it.hasNext()) {
                 out.add(it.next());
             }
         } else {
-            for (Iterator<? extends T> d = defaultValue.invoke().iterator(); d.hasNext(); ) {
+            for (Iterator<? extends T> d = seqIter(defaultValue.invoke()); d.hasNext(); ) {
                 out.add(d.next());
             }
         }

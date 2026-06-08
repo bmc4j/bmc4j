@@ -96,4 +96,25 @@ class LongStreamTailLaws {
     void iterate_finite_terminates() {
         Bmc.check(LongStream.iterate(1, x -> x <= 4, x -> x * 2).sum() == 7L); // [1,2,4]
     }
+
+    // ---- Devirtualization-robustness regression (interface-dispatch unsoundness family, #169).
+    // LongStream.concat / LongStream.flatMap drain their LongStream-typed arg/inner via the sole final
+    // implementor (LongArrayStream), NOT the LongStream interface. SYMBOLIC operands keep the dispatch
+    // live (the concrete concat_appends proof constant-folds it away), so these would false-REFUTE on
+    // the old-kotlin/symbolic leg if the drain reverted to the interface call.
+
+    @BmcProof
+    void symbolic_concat_appends() {
+        long a = Bmc.anyLong(0L, 1000L);
+        long b = Bmc.anyLong(0L, 1000L);
+        long c = Bmc.anyLong(0L, 1000L);
+        Bmc.check(LongStream.concat(LongStream.of(a, b), LongStream.of(c)).sum() == a + b + c);
+    }
+
+    @BmcProof
+    void symbolic_flatMap_doubles() {
+        long a = Bmc.anyLong(0L, 1000L);
+        long b = Bmc.anyLong(0L, 1000L);
+        Bmc.check(LongStream.of(a, b).flatMap(x -> LongStream.of(x, x)).sum() == 2L * (a + b));
+    }
 }

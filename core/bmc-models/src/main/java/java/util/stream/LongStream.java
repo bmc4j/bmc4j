@@ -117,11 +117,14 @@ public interface LongStream {
     @BmcModelConforms("@BmcProof (proofs.stream LongStreamTailLaws)")
     static LongStream concat(LongStream a, LongStream b) {
         LongArrayStream s = new LongArrayStream();
-        long[] aa = a.toArray();
+        // Cast to the sole final implementor before draining: an invokevirtual on the concrete
+        // LongArrayStream, not an invokeinterface on LongStream. The interface dispatch is the
+        // kotlinc-version-fragile devirtualization behind the #169 false-REFUTED family.
+        long[] aa = ((LongArrayStream) a).toArray();
         for (int i = 0; i < aa.length; i++) {
             s.add(aa[i]);
         }
-        long[] bb = b.toArray();
+        long[] bb = ((LongArrayStream) b).toArray();
         for (int i = 0; i < bb.length; i++) {
             s.add(bb[i]);
         }

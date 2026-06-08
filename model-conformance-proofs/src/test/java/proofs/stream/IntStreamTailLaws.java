@@ -122,4 +122,26 @@ class IntStreamTailLaws {
         int c = Bmc.anyInt(0, 1000);
         Bmc.check(IntStream.of(a, b, c).skip(1).sum() == b + c);
     }
+
+    // ---- Devirtualization-robustness regression (interface-dispatch unsoundness family, #169).
+    // IntStream.concat / IntStream.flatMap drain their IntStream-typed arg/inner via the sole final
+    // implementor (IntArrayStream), NOT the IntStream interface. SYMBOLIC operands keep the dispatch
+    // live (the concrete concat_appends proof constant-folds it away), so these would false-REFUTE on
+    // the old-kotlin/symbolic leg if the drain reverted to the interface call.
+
+    @BmcProof
+    void symbolic_concat_appends() {
+        int a = Bmc.anyInt(0, 1000);
+        int b = Bmc.anyInt(0, 1000);
+        int c = Bmc.anyInt(0, 1000);
+        Bmc.check(IntStream.concat(IntStream.of(a, b), IntStream.of(c)).sum() == a + b + c);
+    }
+
+    @BmcProof
+    void symbolic_flatMap_doubles() {
+        int a = Bmc.anyInt(0, 1000);
+        int b = Bmc.anyInt(0, 1000);
+        // each element expands to (x, x) -> sum doubles, only if the inner stream is really drained
+        Bmc.check(IntStream.of(a, b).flatMap(x -> IntStream.of(x, x)).sum() == 2 * (a + b));
+    }
 }

@@ -328,7 +328,10 @@ final class LongArrayStream implements LongStream {
         LongArrayStream s = new LongArrayStream();
         for (int i = 0; i < size; i++) {
             LongStream inner = mapper.apply(data[i]);
-            long[] arr = inner.toArray();
+            // Drain via the sole final implementor (invokevirtual), not the LongStream interface —
+            // the interface dispatch is the kotlinc-version-fragile devirtualization behind the #169
+            // false-REFUTED family.
+            long[] arr = ((LongArrayStream) inner).toArray();
             for (int j = 0; j < arr.length; j++) {
                 s.add(arr[j]);
             }

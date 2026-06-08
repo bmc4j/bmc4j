@@ -120,11 +120,14 @@ public interface IntStream {
     @BmcModelConforms("@BmcProof (proofs.stream IntStreamTailLaws)")
     static IntStream concat(IntStream a, IntStream b) {
         IntArrayStream s = new IntArrayStream();
-        int[] aa = a.toArray();
+        // Cast to the sole final implementor before draining: an invokevirtual on the concrete
+        // IntArrayStream, not an invokeinterface on IntStream. The interface dispatch is the
+        // kotlinc-version-fragile devirtualization behind the #169 false-REFUTED family.
+        int[] aa = ((IntArrayStream) a).toArray();
         for (int i = 0; i < aa.length; i++) {
             s.add(aa[i]);
         }
-        int[] bb = b.toArray();
+        int[] bb = ((IntArrayStream) b).toArray();
         for (int i = 0; i < bb.length; i++) {
             s.add(bb[i]);
         }

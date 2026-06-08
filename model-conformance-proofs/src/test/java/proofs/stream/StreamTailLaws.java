@@ -168,4 +168,30 @@ class StreamTailLaws {
         List<Integer> out = Stream.iterate(1, x -> x <= 4, x -> x * 2).toList();
         Bmc.check(out.size() == 3 && out.get(0) == 1 && out.get(1) == 2 && out.get(2) == 4);
     }
+
+    // ---- Devirtualization-robustness regression (interface-dispatch unsoundness family, #150/#157/
+    // #164/#169). Stream.concat / Stream.flatMap read their Stream-typed arg/inner via the sole final
+    // implementor (ListStream), NOT the Stream interface, so JBMC does not have to devirtualize an
+    // invokeinterface that the kotlin-2.0.21 leg fails to bind ("no body for callee"). SYMBOLIC inputs
+    // are essential: the pre-fix concrete concat_appends proof constant-folds the chain so the
+    // interface dispatch resolves anyway — only symbolic operands keep the dispatch live and would
+    // false-REFUTE on the old-kotlin/symbolic leg if concat reverted to the interface call.
+
+    @BmcProof
+    void symbolic_concat_appends() {
+        int a = Bmc.anyInt(-100, 100);
+        int b = Bmc.anyInt(-100, 100);
+        int c = Bmc.anyInt(-100, 100);
+        List<Integer> out = Stream.concat(Stream.of(a, b), Stream.of(c)).toList();
+        Bmc.check(out.size() == 3 && out.get(0) == a && out.get(1) == b && out.get(2) == c);
+    }
+
+    @BmcProof
+    void symbolic_flatMap_expands() {
+        int a = Bmc.anyInt(-100, 100);
+        int b = Bmc.anyInt(-100, 100);
+        List<Integer> out = Stream.of(a, b).flatMap(x -> Stream.of(x, x + 1)).toList();
+        Bmc.check(out.size() == 4 && out.get(0) == a && out.get(1) == a + 1
+                && out.get(2) == b && out.get(3) == b + 1);
+    }
 }
