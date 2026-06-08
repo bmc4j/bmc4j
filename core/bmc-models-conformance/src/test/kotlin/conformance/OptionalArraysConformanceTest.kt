@@ -1,6 +1,7 @@
 package conformance
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.int
@@ -118,6 +119,22 @@ class ArraysUtilConformanceTest : FunSpec({
     val SHORT: Class<*> = Short::class.javaPrimitiveType!!
     val BOOL: Class<*> = Boolean::class.javaPrimitiveType!!
     val FLOAT: Class<*> = Float::class.javaPrimitiveType!!
+    val DOUBLEARR: Class<*> = DoubleArray::class.java
+    val DOUBLE: Class<*> = Double::class.javaPrimitiveType!!
+
+    // The IEEE-total-order "interesting" float/double values: the cases jbmc's native compare gets
+    // wrong (NaN, -0.0, +0.0) plus the ordered extremes. The differential runs on a REAL JVM, so it is
+    // the definitive arbiter for the total order (Arrays float/double ops route through the
+    // org.bmc4j.models.audit.FpTotalOrder helper). A second NaN bit-pattern (raw 0x7fc00001) confirms
+    // both canonicalize equal.
+    val FLOAT_VALUES: List<Float> = listOf(
+        Float.NaN, java.lang.Float.intBitsToFloat(0x7fc00001), Float.NEGATIVE_INFINITY,
+        -1.0f, -0.0f, 0.0f, 1.0f, Float.POSITIVE_INFINITY,
+    )
+    val DOUBLE_VALUES: List<Double> = listOf(
+        Double.NaN, java.lang.Double.longBitsToDouble(0x7ff8000000000001L), Double.NEGATIVE_INFINITY,
+        -1.0, -0.0, 0.0, 1.0, Double.POSITIVE_INFINITY,
+    )
 
     // --- copyOf ---------------------------------------------------------------------------------
     test("copyOf(int[], int) conforms (truncate / zero-pad / negative)") {
@@ -749,6 +766,102 @@ class ArraysUtilConformanceTest : FunSpec({
             staticCall(MODEL, "parallelPrefix", arrayOf(LONGARR, java.util.function.LongBinaryOperator::class.java),
                 lm, java.util.function.LongBinaryOperator { x, y -> x + y }).getOrThrow()
             lm.toList() shouldBe lr.toList()
+        }
+    }
+
+    // --- float/double IEEE total order (FpTotalOrder helper + the Arrays float/double overloads) ----
+    // The 2026-06 FP probe established jbmc's native Float/Double.compare and floatToIntBits are unsound,
+    // so bmc4j models the total order (bit-free) in the org.bmc4j.models.audit.FpTotalOrder helper that
+    // java.util.Arrays calls — NOT as java.lang.Float/Double models (those classes are reached pervasively,
+    // so modeling them crashed jbmc's solver on unrelated proofs). These differential tests are the
+    // definitive arbiter for the subtle edge cases (-0.0<+0.0, NaN largest, NaN==NaN-under-compare) — they
+    // run on a real JVM where the helper's compare faces the real JDK Float/Double.compare. Float/Double
+    // values include both NaN bit patterns, ±0.0, ±Inf, and finite extremes.
+    test("FpTotalOrder.compare(float) conforms to the JDK Float.compare total order (incl. -0/+0, NaN, ±Inf)") {
+        for (a in FLOAT_VALUES) for (b in FLOAT_VALUES) {
+            val r = java.lang.Float.compare(a, b)
+            val m = org.bmc4j.models.audit.FpTotalOrder.compare(a, b)
+            // compare's exact ±1/0 (not just sign) is part of the JDK contract.
+            withClue("FpTotalOrder.compare($a, $b)") { m shouldBe r }
+        }
+    }
+
+    test("FpTotalOrder.compare(double) conforms to the JDK Double.compare total order (incl. -0/+0, NaN, ±Inf)") {
+        for (a in DOUBLE_VALUES) for (b in DOUBLE_VALUES) {
+            val r = java.lang.Double.compare(a, b)
+            val m = org.bmc4j.models.audit.FpTotalOrder.compare(a, b)
+            withClue("FpTotalOrder.compare($a, $b)") { m shouldBe r }
+        }
+    }
+
+    test("sort(float[])/sort(double[]) conform to the total order (NaN last, -0 before +0)") {
+        checkAll(Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..6)) { idx ->
+            val f = idx.map { FLOAT_VALUES[it] }.toFloatArray(); val fm = f.copyOf()
+            java.util.Arrays.sort(f)
+            staticCall(MODEL, "sort", arrayOf(FLOATARR), fm).getOrThrow()
+            // raw int bits compared so -0.0 vs +0.0 and the two NaN patterns are distinguished exactly.
+            fm.map { java.lang.Float.floatToIntBits(it) } shouldBe f.map { java.lang.Float.floatToIntBits(it) }
+
+            val d = idx.map { DOUBLE_VALUES[it] }.toDoubleArray(); val dm = d.copyOf()
+            java.util.Arrays.sort(d)
+            staticCall(MODEL, "sort", arrayOf(DOUBLEARR), dm).getOrThrow()
+            dm.map { java.lang.Double.doubleToLongBits(it) } shouldBe d.map { java.lang.Double.doubleToLongBits(it) }
+        }
+    }
+
+    test("equals(float[])/equals(double[]) conform (-0!=+0, NaN==NaN per the JDK spec)") {
+        checkAll(Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5), Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5)) { xi, yi ->
+            val fa = xi.map { FLOAT_VALUES[it] }.toFloatArray(); val fb = yi.map { FLOAT_VALUES[it] }.toFloatArray()
+            val rf = java.util.Arrays.equals(fa, fb)
+            val mf = staticCall(MODEL, "equals", arrayOf(FLOATARR, FLOATARR), fa, fb).getOrThrow() as Boolean
+            mf shouldBe rf
+
+            val da = xi.map { DOUBLE_VALUES[it] }.toDoubleArray(); val db = yi.map { DOUBLE_VALUES[it] }.toDoubleArray()
+            val rd = java.util.Arrays.equals(da, db)
+            val md = staticCall(MODEL, "equals", arrayOf(DOUBLEARR, DOUBLEARR), da, db).getOrThrow() as Boolean
+            md shouldBe rd
+        }
+    }
+
+    test("compare(float[])/compare(double[]) conform (lexicographic over the total order)") {
+        checkAll(Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5), Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5)) { xi, yi ->
+            val fa = xi.map { FLOAT_VALUES[it] }.toFloatArray(); val fb = yi.map { FLOAT_VALUES[it] }.toFloatArray()
+            val rf = Integer.signum(java.util.Arrays.compare(fa, fb))
+            val mf = Integer.signum(staticCall(MODEL, "compare", arrayOf(FLOATARR, FLOATARR), fa, fb).getOrThrow() as Int)
+            withClue("compare(${fa.toList()}, ${fb.toList()})") { mf shouldBe rf }
+
+            val da = xi.map { DOUBLE_VALUES[it] }.toDoubleArray(); val db = yi.map { DOUBLE_VALUES[it] }.toDoubleArray()
+            val rd = Integer.signum(java.util.Arrays.compare(da, db))
+            val md = Integer.signum(staticCall(MODEL, "compare", arrayOf(DOUBLEARR, DOUBLEARR), da, db).getOrThrow() as Int)
+            md shouldBe rd
+        }
+    }
+
+    test("mismatch(float[])/mismatch(double[]) conform (first total-order difference)") {
+        checkAll(Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5), Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..5)) { xi, yi ->
+            val fa = xi.map { FLOAT_VALUES[it] }.toFloatArray(); val fb = yi.map { FLOAT_VALUES[it] }.toFloatArray()
+            val rf = java.util.Arrays.mismatch(fa, fb)
+            val mf = staticCall(MODEL, "mismatch", arrayOf(FLOATARR, FLOATARR), fa, fb).getOrThrow() as Int
+            mf shouldBe rf
+
+            val da = xi.map { DOUBLE_VALUES[it] }.toDoubleArray(); val db = yi.map { DOUBLE_VALUES[it] }.toDoubleArray()
+            val rd = java.util.Arrays.mismatch(da, db)
+            val md = staticCall(MODEL, "mismatch", arrayOf(DOUBLEARR, DOUBLEARR), da, db).getOrThrow() as Int
+            md shouldBe rd
+        }
+    }
+
+    test("binarySearch(float[])/binarySearch(double[]) on a total-order-sorted array conform") {
+        checkAll(Arb.list(Arb.int(0..FLOAT_VALUES.size - 1), 0..6), Arb.int(0..FLOAT_VALUES.size - 1)) { idx, ki ->
+            val f = idx.map { FLOAT_VALUES[it] }.toFloatArray().also { java.util.Arrays.sort(it) }
+            val fkey = FLOAT_VALUES[ki]
+            staticCall(MODEL, "binarySearch", arrayOf(FLOATARR, FLOAT), f.copyOf(), fkey).getOrThrow() as Int shouldBe
+                java.util.Arrays.binarySearch(f, fkey)
+
+            val d = idx.map { DOUBLE_VALUES[it] }.toDoubleArray().also { java.util.Arrays.sort(it) }
+            val dkey = DOUBLE_VALUES[ki]
+            staticCall(MODEL, "binarySearch", arrayOf(DOUBLEARR, DOUBLE), d.copyOf(), dkey).getOrThrow() as Int shouldBe
+                java.util.Arrays.binarySearch(d, dkey)
         }
     }
 })

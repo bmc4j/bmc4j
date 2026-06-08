@@ -36,12 +36,22 @@ val modelsToRelocate by configurations.creating {
     isCanBeConsumed = false
 }
 
+// Pull ONLY the audit source-set classes from bmc-models (the org.bmc4j.models.audit.* annotations
+// AND the FpTotalOrder helper), NOT its java.* model classes — those are relocation-input only. The
+// differential float/double total-order test compares FpTotalOrder.compare against the real JDK.
+val auditClasses by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
     modelsToRelocate(project(":bmc-models"))
     // Kotlin models are also relocated — not for differential loading (their facades just delegate to
     // the java models, validated separately by model-conformance-proofs), but so the coverage gate
     // can enumerate every model class from one place and fail the build if a new one lacks a suite.
     modelsToRelocate(project(":bmc-kotlin-models"))
+    auditClasses(project(path = ":bmc-models", configuration = "auditAnnotations"))
+    testImplementation(files(auditClasses))
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
     testImplementation("io.kotest:kotest-property:5.9.1")
     // The model auditing gate reads audit annotations + method tables off the relocated model bytecode.

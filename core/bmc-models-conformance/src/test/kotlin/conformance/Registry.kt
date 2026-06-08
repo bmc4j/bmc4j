@@ -14,6 +14,11 @@ val COVERED: Set<String> = setOf(
     "java.math.BigInteger", "java.math.BigDecimal",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
+    // NB the float/double IEEE total order is NOT a java.lang.Float/Double model — modeling those
+    // pervasively-reached classes put a bounded FP model on every proof's classpath and crashed jbmc's
+    // solver on unrelated proofs. It lives in the org.bmc4j.models.audit.FpTotalOrder helper that
+    // java.util.Arrays calls; the reclaimed Arrays float/double surface is covered under java.util.Arrays
+    // (model proofs proofs.primitives.FloatDoubleArraysLaws + differential conformance.OptionalArraysConformanceTest).
     // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
     "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
@@ -24,6 +29,7 @@ val COVERED: Set<String> = setOf(
     "java.util.concurrent.CountDownLatch", "java.util.concurrent.Semaphore",
     "java.util.concurrent.ArrayBlockingQueue", "java.util.concurrent.LinkedBlockingQueue",
     "java.util.concurrent.ImmediateExecutorService", "java.util.concurrent.Executors",
+    "java.util.concurrent.ImmediateScheduledExecutorService",
     // Model proofs (model-conformance-proofs) — Kotlin facades.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt", "kotlin.ranges.RangesKt",
@@ -77,7 +83,9 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.BlockingQueue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",
     "java.util.concurrent.Executor" to "interface — via ImmediateExecutorService",
     "java.util.concurrent.ExecutorService" to "interface — via ImmediateExecutorService",
+    "java.util.concurrent.ScheduledExecutorService" to "interface — via ImmediateScheduledExecutorService",
     "java.util.concurrent.Future" to "interface — via ImmediateExecutorService's completed future",
+    "java.util.concurrent.ScheduledFuture" to "interface — via ImmediateScheduledExecutorService's completed future",
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
     "java.util.stream.Collector" to "interface — via Collectors",
