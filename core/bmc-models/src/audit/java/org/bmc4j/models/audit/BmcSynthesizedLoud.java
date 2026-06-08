@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * Build-internal marker stamped on a method whose body was SYNTHESIZED by the loud-body pass (a
- * {@code @BmcNotModelled} / {@code @BmcNotNeeded} / {@code @BmcModelTail} member the model does not
+ * class-level {@code @BmcUnmodelable(member=)} / {@code @BmcModelTail} member the model does not
  * really implement, given an {@code AssertionError}-throwing body so reaching it fails loudly under
  * JBMC). It is NOT a genuine model implementation: the auditing gate and the docs generator exclude
  * marked methods from the "modeled / conforming" surface so a tailed/declared member is reported as

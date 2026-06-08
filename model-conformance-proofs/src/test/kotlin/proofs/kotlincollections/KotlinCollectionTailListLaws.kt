@@ -12,7 +12,7 @@ import org.bmc4j.BmcProof
  * Each pins the observable with a concrete + (where the symbolic circuit stays in budget) a symbolic
  * check, so a wrong or nondet-stubbed facade is caught. These are all non-inline facade JVM methods
  * verified against the kotlin-stdlib 2.4 bytecode signatures; the inline lambda-taking siblings
- * (distinctBy/takeLastWhile/sortedBy/…) stay @BmcNotNeeded and are not exercised here.
+ * (distinctBy/takeLastWhile/sortedBy/…) stay @BmcUnmodelable (loud-if-reached) and are not exercised here.
  *
  * `windowed` is called with the EXPLICIT full-arg overload windowed(size, step, partialWindows): the
  * defaulted call windowed(size) routes through the unmodeled `windowed$default` bridge (JBMC nondet-

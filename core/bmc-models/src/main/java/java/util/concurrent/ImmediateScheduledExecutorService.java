@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Sequential BMC model of a {@link ScheduledExecutorService}: an immediate / same-thread scheduled
@@ -44,12 +44,12 @@ public class ImmediateScheduledExecutorService extends ImmediateExecutorService
         }
     }
 
-    @BmcNotModelled(reason = "fixed-rate periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning")
+    @BmcUnmodelable(reason = "fixed-rate periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning")
     public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ScheduledExecutorService.scheduleAtFixedRate(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit) — fixed-rate periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning");
     }
 
-    @BmcNotModelled(reason = "fixed-delay periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning")
+    @BmcUnmodelable(reason = "fixed-delay periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning")
     public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.ScheduledExecutorService.scheduleWithFixedDelay(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit) — fixed-delay periodic scheduling is an unbounded clock-driven repetition with no terminating sequential meaning");
     }

@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * JBMC model of {@link java.time.LocalTime} backed by a nano-of-day {@code long} in
@@ -39,7 +39,7 @@ public final class LocalTime {
         this.nanoOfDay = nanoOfDay;
     }
 
-    @BmcNotModelled(reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
+    @BmcUnmodelable(reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
     public static LocalTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalTime.now() — wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters");
     }

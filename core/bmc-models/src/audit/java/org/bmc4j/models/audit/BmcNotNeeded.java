@@ -7,19 +7,26 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares that a member of the real target class is deliberately <em>not</em> modeled because
- * it is <em>not worth it</em> — an exotic / rarely-reached surface whose absence is acceptable, not a
- * hard modeling impossibility. This is the "we could but it earns nothing" waiver, distinct from
- * {@link BmcNotModelled} ("it can't be modeled").
+ * Declares that a member of the real target class needs <em>no</em> model: the real/inline bytecode the
+ * member runs is <b>sound under JBMC</b>, so leaving it unmodeled is fine and reaching it is harmless.
+ * This is the <b>green-if-reached</b> waiver — a documentary account, NOT a loud stub.
  *
- * <p>Like {@link BmcNotModelled}, prefer the <b>method-level stub</b> form (annotate a real stub
- * method whose body throws the recognized loud failure via {@code BmcUnmodelledReached.fail(...)}) —
- * see {@link BmcNotModelled} for the example and the rules. It is <b>also class-level and
- * repeatable</b> with an explicit {@link #member()} string for the rare case a stub declaration is
- * impossible. The auditing gate accounts for each declared member, fails on a dangling declaration
- * (named member absent from the real class), and verifies every method-level stub body actually
- * throws the recognized message. Reaching any such member fails loudly under JBMC (demoted to UNKNOWN
- * — a model gap, not a counterexample).
+ * <p>It is the OPPOSITE of {@link BmcUnmodelable} (loud-if-reached): {@code @BmcUnmodelable} marks a
+ * member with no sound path, whose reach must FAIL LOUDLY; {@code @BmcNotNeeded} marks a member we
+ * verified JBMC analyzes correctly without a model, whose reach is safe to let through.
+ *
+ * <h2>No loud stub required</h2>
+ * Unlike {@link BmcUnmodelable}, a method-level {@code @BmcNotNeeded} stub's body is <b>not</b> required
+ * to throw the recognized loud failure — it documents "reaching the real/inline path is sound" rather
+ * than diverting to the sentinel. The auditing gate still accounts for each declared/annotated member
+ * (so the class's surface stays complete) and verifies that class-level {@link #member()} declarations
+ * name a real member (no dangling declaration), but it demands no loud body. A {@code @BmcNotNeeded}
+ * member is NOT counted as conforming/modeled and still participates in classification mutual
+ * exclusivity (it is exactly one of the four classifications).
+ *
+ * <h2>Forms</h2>
+ * Method-level (annotate a real stub method) or class-level + {@link Repeatable @Repeatable} (via
+ * {@link BmcNotNeededList}) with an explicit {@link #member()} string.
  *
  * <p>Retention is {@link RetentionPolicy#CLASS}; never needed at runtime.
  */
@@ -29,11 +36,11 @@ import java.lang.annotation.Target;
 public @interface BmcNotNeeded {
 
     /**
-     * Erased member signature {@code name(paramType,...)} — see {@link BmcNotModelled} for the format.
-     * REQUIRED for the class-level form; OMIT it on a method-level stub.
+     * Erased member signature {@code name(paramType,...)} — see {@link BmcUnmodelable} for the format.
+     * REQUIRED for the class-level form; OMIT it on a method-level annotation.
      */
     String member() default "";
 
-    /** Why this member is not worth modeling. Surfaces in the loud-failure body. */
+    /** Why this member needs no model (the unmodeled real/inline path is sound under JBMC). */
     String reason();
 }

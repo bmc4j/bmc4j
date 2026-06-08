@@ -74,8 +74,8 @@ public @interface BmcProof {
     String[] allowStubs() default {};
 
     /**
-     * Acknowledge real JDK members this proof knowingly reaches that bmc4j does NOT model — members
-     * a bundled model marks {@code @BmcNotModelled} / {@code @BmcNotNeeded}, or absorbs into its
+     * Acknowledge real JDK members this proof knowingly reaches that bmc4j cannot model — members
+     * a bundled model marks {@code @BmcUnmodelable} (loud-if-reached), or absorbs into its
      * {@code @BmcModelTail}. By DEFAULT, reaching such a member fails the proof as {@code UNKNOWN}
      * (verdict honesty: a model gap is bmc4j's own limitation, not a counterexample in your code — the
      * synthesized loud body trips and the verdict interpreter demotes the would-be refutation, naming

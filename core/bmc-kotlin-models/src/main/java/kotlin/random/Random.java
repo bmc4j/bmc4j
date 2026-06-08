@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotModelled;
+import org.bmc4j.models.audit.BmcUnmodelable;
 import org.cprover.CProver;
 
 /**
@@ -125,7 +125,7 @@ public class Random {
     }
 
     /** LOUD: {@code double} draws are out of scope (no-double policy) and need the real bit math. */
-    @BmcNotModelled(reason = "double draw — no-double policy; the IEEE-754 mapping needs the real bit math")
+    @BmcUnmodelable(reason = "double draw — no-double policy; the IEEE-754 mapping needs the real bit math")
     public double nextDouble() {
         throw fail("bmc4j: unmodelled member kotlin.random.Random.nextDouble() — no-double policy");
     }

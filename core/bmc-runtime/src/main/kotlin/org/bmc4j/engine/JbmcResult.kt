@@ -74,9 +74,8 @@ class JbmcResult private constructor(
     val stubbedMethods: List<String> = stubbedMethods?.toList() ?: emptyList()
 
     /**
-     * The unmodelled members this run REACHED: real JDK members the model deliberately does not
-     * implement (a per-member `@BmcNotModelled` / `@BmcNotNeeded` stub, or a `@BmcModelTail` member),
-     * given a build-synthesized loud body that routes through the
+     * The unmodelled members this run REACHED: real JDK members the model cannot model (a per-member
+     * `@BmcUnmodelable` loud stub, or a `@BmcModelTail` member), given a loud body that routes through the
      * [org.bmc4j.analysis.BmcUnmodelledReached] sentinel. JBMC reports reaching one as an assertion
      * failure (a would-be REFUTED), but a model gap is bmc4j's own limitation, NOT a counterexample in
      * the user's code — so the verdict interpreter DEMOTES such a refutation to UNKNOWN, naming the

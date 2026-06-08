@@ -90,10 +90,12 @@ tasks.withType<Javadoc>().configureEach {
 // ---------------------------------------------------------------------------------------------
 // Loud-body synthesis: give a LOUD-failing body to every member of the @BmcModelTail exotic
 // remainder — the real members the model neither implements nor declares with a method-level stub.
-// (Per-member @BmcNotModelled / @BmcNotNeeded waivers are HAND-WRITTEN stub methods in the model
-// source, so the gate can verify their bodies; @BmcNotModelled is method-only (no class-level form),
-// and the rare class-level @BmcNotNeeded(member=) escape hatch is still read here too, but in practice
-// none survive — synthesis is effectively TAIL-ONLY.) The synthesized
+// (Per-member @BmcUnmodelable / @BmcNotNeeded waivers are HAND-WRITTEN stub methods in the model
+// source. @BmcUnmodelable is loud-if-reached (its method-level stubs throw the recognized failure; the
+// gate verifies their bodies), and the rare class-level @BmcUnmodelable(member=) escape hatch is read
+// here too so it gets a loud synthesized body. @BmcNotNeeded is GREEN/documentary (the unmodeled
+// real/inline path is sound under JBMC) and is therefore NEVER synthesized loud here. In practice no
+// class-level Unmodelable declarations survive — synthesis is effectively TAIL-ONLY.) The synthesized
 // body routes through the BmcUnmodelledReached sentinel and throws
 //   AssertionError("bmc4j: unmodelled member <Class.member> — <reason>")
 // so reaching an unmodeled member trips the sentinel — the verdict interpreter then demotes the
@@ -122,11 +124,12 @@ publishing {
 }
 
 fun synthesizeLoudUnmodelledBodies(classesDir: File) {
-    // Class-level (member=) declarations are @BmcNotNeeded only — @BmcNotModelled is method-only (its
-    // TYPE target was removed), so its waivers are HAND-WRITTEN method-level stubs already in the
-    // source and are never synthesized here. Class-level synthesis covers @BmcNotNeeded + the tail.
-    val notNeeded = "Lorg/bmc4j/models/audit/BmcNotNeeded;"
-    val notNeededList = "Lorg/bmc4j/models/audit/BmcNotNeededList;"
+    // Class-level (member=) LOUD declarations are @BmcUnmodelable. @BmcNotNeeded is green/documentary
+    // (the unmodeled real/inline path is sound under JBMC), so it is NOT synthesized loud here — it
+    // merely accounts for the member, leaving the real bytecode for JBMC. Class-level loud synthesis
+    // covers @BmcUnmodelable(member=) + the tail.
+    val unmodelable = "Lorg/bmc4j/models/audit/BmcUnmodelable;"
+    val unmodelableList = "Lorg/bmc4j/models/audit/BmcUnmodelableList;"
     val tail = "Lorg/bmc4j/models/audit/BmcModelTail;"
 
     // Pre-index every model class by internal name so we can resolve the model inheritance chain: a
@@ -176,8 +179,8 @@ fun synthesizeLoudUnmodelledBodies(classesDir: File) {
         }
         for (ann in (node.invisibleAnnotations ?: emptyList())) {
             when (ann.desc) {
-                notNeeded -> readDecl(ann.values)?.let { named.add(it) }
-                notNeededList -> {
+                unmodelable -> readDecl(ann.values)?.let { named.add(it) }
+                unmodelableList -> {
                     val vals = ann.values ?: continue
                     var j = 0
                     while (j + 1 < vals.size) {

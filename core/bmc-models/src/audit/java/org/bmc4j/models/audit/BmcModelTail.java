@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * Class-level catch-all for the <em>exotic tail</em> of a real target class's surface: every public /
  * protected member of the real class that this model neither implements (with
- * {@link BmcModelConforms}) nor names in a per-member {@link BmcNotModelled} / {@link BmcNotNeeded}
+ * {@link BmcModelConforms}) nor names in a per-member {@link BmcUnmodelable} / {@link BmcNotNeeded}
  * is, by this annotation, deliberately unmodeled for the stated reason.
  *
  * <p>Why this exists: some JDK targets expose hundreds of members ({@code Arrays} ~214,
@@ -22,12 +22,12 @@ import java.lang.annotation.Target;
  * nondet stub. It is strictly the safer of "silent stub" vs "loud body for the whole tail".
  *
  * <p>The auditing gate still enforces the meaningful parts around the tail: every <em>implemented</em>
- * model method must carry {@link BmcModelConforms}; per-member {@link BmcNotModelled}/{@link
+ * model method must carry {@link BmcModelConforms}; per-member {@link BmcUnmodelable}/{@link
  * BmcNotNeeded} that name a member the real class lacks still fail (dangling-declaration check); and a
  * registered model class with zero audit annotations still fails. The tail only absorbs the
  * <em>undeclared real members</em> that would otherwise fail the per-member enumeration.
  *
- * <p>Prefer an explicit per-member {@link BmcNotModelled}/{@link BmcNotNeeded} for any member a real
+ * <p>Prefer an explicit per-member {@link BmcUnmodelable}/{@link BmcNotNeeded} for any member a real
  * proof is plausibly going to call (so the decision is visible and documented); reserve the tail for
  * the genuinely-exotic remainder.
  *

@@ -4,7 +4,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
-import org.bmc4j.models.audit.BmcNotNeeded;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * BMC model of {@link java.util.LinkedHashMap} — same array-backed behaviour as {@link HashMap}
@@ -121,7 +121,7 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
 
-    @BmcNotNeeded(reason = "access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC")
+    @BmcUnmodelable(reason = "access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC")
     protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
         throw fail("bmc4j: unmodelled member java.util.LinkedHashMap.removeEldestEntry(java.util.Map$Entry) — access-order LRU eviction hook — the insertion-ordered array model has no eviction policy");
     }
