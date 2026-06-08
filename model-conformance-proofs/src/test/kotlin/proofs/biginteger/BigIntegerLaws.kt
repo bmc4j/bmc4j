@@ -110,6 +110,82 @@ class BigIntegerLaws {
         Bmc.check(a.intValueExact().toLong() == a.longValueExact())   // in-range values agree
     }
 
+    // --- bitwise laws (symbolic; native long two's-complement ops are SAT-light, no divider) --------
+
+    @BmcProof
+    fun and_or_absorption() {
+        val a = any()
+        val b = any()
+        Bmc.check(a.and(b).or(a) == a)   // a & b | a == a
+        Bmc.check(a.or(b).and(a) == a)   // (a | b) & a == a
+    }
+
+    @BmcProof
+    fun xor_self_is_zero_and_not_involutes() {
+        val a = any()
+        Bmc.check(a.xor(a).signum() == 0)        // a ^ a == 0
+        Bmc.check(a.not().not() == a)            // ~~a == a
+        Bmc.check(a.andNot(BigInteger.ZERO) == a) // a & ~0 == a
+    }
+
+    @BmcProof
+    fun de_morgan() {
+        val a = any()
+        val b = any()
+        Bmc.check(a.and(b).not() == a.not().or(b.not()))   // ~(a & b) == ~a | ~b
+    }
+
+    // setBit/clearBit/testBit pins (concrete bit indices keep the shift symbolic-count off the proof).
+    @BmcProof
+    fun bit_set_clear_test_pins() {
+        val a = BigInteger.valueOf(0b1010L)
+        Bmc.check(a.testBit(1))                      // bit 1 set
+        Bmc.check(!a.testBit(0))                     // bit 0 clear
+        Bmc.check(a.setBit(0) == BigInteger.valueOf(0b1011L))
+        Bmc.check(a.clearBit(1) == BigInteger.valueOf(0b1000L))
+        Bmc.check(a.flipBit(2) == BigInteger.valueOf(0b1110L))
+        Bmc.check(BigInteger.valueOf(12L).getLowestSetBit() == 2)
+        Bmc.check(BigInteger.ZERO.getLowestSetBit() == -1)
+        Bmc.check(BigInteger.valueOf(7L).bitCount() == 3)
+        Bmc.check(BigInteger.valueOf(255L).bitLength() == 8)
+    }
+
+    // shift round-trip: (a << k) >> k == a for a small fixed shift that stays in-bound (concrete count
+    // keeps the shift loop unwound cheaply; the wide axis is differential).
+    @BmcProof
+    fun shift_left_then_right_round_trips() {
+        val a = BigInteger.valueOf(Bmc.anyInt(-100_000, 100_000).toLong())
+        Bmc.check(a.shiftLeft(3).shiftRight(3) == a)
+    }
+
+    // modPow / sqrt: concrete pins (the square-and-multiply loop + Newton iteration are over a symbolic
+    // count → SAT-pathological if symbolic; the wide axis is differential). Pin the algebra here.
+    @BmcProof
+    fun modPow_pins() {
+        Bmc.check(BigInteger.valueOf(2L).modPow(BigInteger.valueOf(10L), BigInteger.valueOf(1000L))
+            == BigInteger.valueOf(24L))                                  // 1024 mod 1000
+        Bmc.check(BigInteger.valueOf(3L).modPow(BigInteger.ZERO, BigInteger.valueOf(7L))
+            == BigInteger.ONE)                                           // x^0 mod m == 1
+        Bmc.check(BigInteger.valueOf(5L).modPow(BigInteger.valueOf(3L), BigInteger.ONE).signum() == 0) // mod 1 == 0
+    }
+
+    @BmcProof
+    fun sqrt_pins() {
+        Bmc.check(BigInteger.valueOf(16L).sqrt() == BigInteger.valueOf(4L))
+        Bmc.check(BigInteger.valueOf(17L).sqrt() == BigInteger.valueOf(4L))   // floor
+        Bmc.check(BigInteger.valueOf(99L).sqrt() == BigInteger.valueOf(9L))
+        Bmc.check(BigInteger.ZERO.sqrt().signum() == 0)
+        val sr = BigInteger.valueOf(17L).sqrtAndRemainder()
+        Bmc.check(sr[0] == BigInteger.valueOf(4L) && sr[1] == BigInteger.ONE)   // 17 = 4*4 + 1
+    }
+
+    @BmcProof
+    fun byteShortValueExact_round_trips() {
+        val a = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())   // fits byte and short
+        Bmc.check(BigInteger.valueOf(a.byteValueExact().toLong()) == a)
+        Bmc.check(BigInteger.valueOf(a.shortValueExact().toLong()) == a)
+    }
+
     // ~80s, the module's heaviest BigInteger division proof — pinned to shard 3 (setScale → 1,
     // add_then_subtract → 2 in BigDecimalLaws), so the three slow model-conformance proofs spread out.
     @Shard(3)

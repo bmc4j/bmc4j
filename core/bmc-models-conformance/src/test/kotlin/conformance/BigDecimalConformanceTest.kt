@@ -120,6 +120,106 @@ class BigDecimalConformanceTest : FunSpec({
         }
     }
 
+    // divide(BigDecimal) exact: preferred scale this.scale - divisor.scale, extended until exact; a
+    // non-terminating expansion (e.g. 1/3) throws ArithmeticException, a zero divisor throws too.
+    test("divide(BigDecimal) (exact) conforms incl. non-terminating + zero-divisor throws") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val divU = Arb.long(-1000L..1000L)   // includes 0
+        checkAll(u, s, divU, s) { uA, sA, uB, sB ->
+            val rA = RealBD.valueOf(uA, sA); val rB = RealBD.valueOf(uB, sB)
+            val mA = ModelBD.valueOf(uA, sA); val mB = ModelBD.valueOf(uB, sB)
+            val r = runCatching { rA.divide(rB) }
+            val m = runCatching { mA.divide(mB) }
+            withClue("$uA@$sA / $uB@$sB exact  real=${r.exceptionOrNull()?.javaClass?.simpleName ?: r.getOrNull()?.let { obs(it) }}  model=${m.exceptionOrNull()?.javaClass?.simpleName ?: m.getOrNull()?.let { obs(it) }}") {
+                m.exceptionOrNull()?.javaClass shouldBe r.exceptionOrNull()?.javaClass
+                if (r.isSuccess && m.isSuccess) obs(m.getOrThrow()) shouldBe obs(r.getOrThrow())
+            }
+        }
+    }
+
+    // divideToIntegralValue / remainder: integer quotient (truncated) + the remainder it leaves; zero
+    // divisor throws. Scales follow the JDK (preferred scale this.scale - divisor.scale, clamped at 0
+    // for divideToIntegralValue; max(this.scale, divisor.scale) for remainder).
+    test("divideToIntegralValue / remainder conform") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val divU = Arb.long(-1000L..1000L)   // includes 0
+        checkAll(u, s, divU, s) { uA, sA, uB, sB ->
+            val rA = RealBD.valueOf(uA, sA); val rB = RealBD.valueOf(uB, sB)
+            val mA = ModelBD.valueOf(uA, sA); val mB = ModelBD.valueOf(uB, sB)
+            val rd = runCatching { rA.divideToIntegralValue(rB) }
+            val md = runCatching { mA.divideToIntegralValue(mB) }
+            withClue("$uA@$sA divToInt $uB@$sB  real=${rd.exceptionOrNull()?.javaClass?.simpleName ?: rd.getOrNull()?.let { obs(it) }}  model=${md.exceptionOrNull()?.javaClass?.simpleName ?: md.getOrNull()?.let { obs(it) }}") {
+                md.exceptionOrNull()?.javaClass shouldBe rd.exceptionOrNull()?.javaClass
+                if (rd.isSuccess && md.isSuccess) obs(md.getOrThrow()) shouldBe obs(rd.getOrThrow())
+            }
+            val rr = runCatching { rA.remainder(rB) }
+            val mr = runCatching { mA.remainder(mB) }
+            withClue("$uA@$sA remainder $uB@$sB  real=${rr.exceptionOrNull()?.javaClass?.simpleName ?: rr.getOrNull()?.let { obs(it) }}  model=${mr.exceptionOrNull()?.javaClass?.simpleName ?: mr.getOrNull()?.let { obs(it) }}") {
+                mr.exceptionOrNull()?.javaClass shouldBe rr.exceptionOrNull()?.javaClass
+                if (rr.isSuccess && mr.isSuccess) obs(mr.getOrThrow()) shouldBe obs(rr.getOrThrow())
+            }
+            // divideAndRemainder == {divideToIntegralValue, remainder} as a pair.
+            val rp = runCatching { rA.divideAndRemainder(rB) }
+            val mp = runCatching { mA.divideAndRemainder(mB) }
+            withClue("$uA@$sA divideAndRemainder $uB@$sB") {
+                mp.exceptionOrNull()?.javaClass shouldBe rp.exceptionOrNull()?.javaClass
+                if (rp.isSuccess && mp.isSuccess) {
+                    obs(mp.getOrThrow()[0]) shouldBe obs(rp.getOrThrow()[0])
+                    obs(mp.getOrThrow()[1]) shouldBe obs(rp.getOrThrow()[1])
+                }
+            }
+        }
+    }
+
+    // pow(int): exact, scale = this.scale * n; pow(0) == ONE (scale 0); negative/too-large exponent
+    // throws ArithmeticException. Small exponents keep the result inside the long bound.
+    test("pow(int) conforms for small exponents + invalid-exponent parity") {
+        val u = Arb.long(-300L..300L)
+        val s = Arb.int(0..2)
+        val n = Arb.int(-2..6)
+        checkAll(u, s, n) { uA, sA, e ->
+            val rA = RealBD.valueOf(uA, sA); val mA = ModelBD.valueOf(uA, sA)
+            val r = runCatching { rA.pow(e) }; val m = runCatching { mA.pow(e) }
+            withClue("$uA@$sA pow($e)  real=${r.exceptionOrNull()?.javaClass?.simpleName ?: r.getOrNull()?.let { obs(it) }}  model=${m.exceptionOrNull()?.javaClass?.simpleName ?: m.getOrNull()?.let { obs(it) }}") {
+                m.exceptionOrNull()?.javaClass shouldBe r.exceptionOrNull()?.javaClass
+                if (r.isSuccess && m.isSuccess) obs(m.getOrThrow()) shouldBe obs(r.getOrThrow())
+            }
+        }
+    }
+
+    // scaleByPowerOfTen / ulp / precision: scaleByPowerOfTen subtracts n from the scale (may go
+    // negative, unlike movePoint*); ulp is 1 at this scale; precision is the unscaled-digit count.
+    test("scaleByPowerOfTen / ulp / precision conform") {
+        val u = Arb.long(-1_000_000L..1_000_000L)
+        val s = Arb.int(0..4)
+        val n = Arb.int(-6..6)
+        checkAll(u, s, n) { uA, sA, k ->
+            val rA = RealBD.valueOf(uA, sA); val mA = ModelBD.valueOf(uA, sA)
+            withClue("$uA@$sA scaleByPowerOfTen($k)") { obs(mA.scaleByPowerOfTen(k)) shouldBe obs(rA.scaleByPowerOfTen(k)) }
+            withClue("$uA@$sA ulp") { obs(mA.ulp()) shouldBe obs(rA.ulp()) }
+            withClue("$uA@$sA precision") { mA.precision() shouldBe rA.precision() }
+        }
+    }
+
+    // byte/short narrowing + the byte/short/int/long *Exact variants (exact narrowing, JDK exception
+    // parity: a value out of the target range -> Overflow; a nonzero fractional part -> Rounding necessary).
+    test("byteValue/shortValue + byte/short/int/long ValueExact conform") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        checkAll(u, s) { uA, sA ->
+            val rA = RealBD.valueOf(uA, sA); val mA = ModelBD.valueOf(uA, sA)
+            for (op in listOf("byteValue", "shortValue", "byteValueExact", "shortValueExact", "intValueExact", "longValueExact")) {
+                val r = call(rA, op, arrayOf()); val m = call(mA, op, arrayOf())
+                withClue("$uA@$sA $op  real=${r.exceptionOrNull()?.javaClass?.simpleName ?: r.getOrNull()}  model=${m.exceptionOrNull()?.javaClass?.simpleName ?: m.getOrNull()}") {
+                    m.exceptionOrNull()?.javaClass?.name?.removePrefix("bmcref.") shouldBe r.exceptionOrNull()?.javaClass?.name
+                    if (r.isSuccess && m.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+                }
+            }
+        }
+    }
+
     // toBigIntegerExact: exact integer value, throwing ArithmeticException on a nonzero fractional part.
     test("toBigIntegerExact conforms (exact-or-throw)") {
         val u = Arb.long(-100_000L..100_000L)

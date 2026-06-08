@@ -14,7 +14,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
-@BmcModelTail(reason = "bitwise ops (and/or/xor/not/shift*/testBit/setBit/clearBit/flipBit/bitCount/bitLength/getLowestSetBit), the byte/short *Exact narrowing, the remaining number-theory (modInverse/modPow/sqrt*/isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
+@BmcModelTail(reason = "modInverse, the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);
@@ -151,6 +151,248 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
         return new BigInteger(r);
     }
 
+    /**
+     * Modular exponentiation {@code this^exponent mod m} by square-and-multiply, kept exact on the
+     * {@code long} backing. Mirrors the JDK: {@code m} must be positive (else ArithmeticException),
+     * the result is the non-negative residue in {@code [0, m)}, and {@code exponent == 0} yields
+     * {@code 1 mod m}. A NEGATIVE exponent needs the modular inverse (modInverse), which is part of the
+     * unmodeled tail — so a negative exponent fails LOUDLY rather than returning a wrong value. Loud,
+     * never silent at the bound: every intermediate is reduced mod {@code m} before multiplying, and the
+     * product {@code (a*b)} with {@code a,b < m} is checked via {@code Math.multiplyExact}, so a modulus
+     * large enough to overflow the {@code long} product throws instead of wrapping.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger modPow(BigInteger exponent, BigInteger m) {
+        if (m.value <= 0L) {
+            throw new ArithmeticException("BigInteger: modulus not positive");
+        }
+        if (exponent.value < 0L) {
+            throw org.bmc4j.analysis.BmcUnmodelledReached.fail(
+                "bmc4j: unmodelled member java.math.BigInteger.modPow(java.math.BigInteger, java.math.BigInteger)"
+                    + " with a negative exponent — needs the modular inverse (modInverse), part of the unmodeled tail");
+        }
+        if (m.value == 1L) {
+            return ZERO;
+        }
+        long base = value % m.value;
+        if (base < 0L) {
+            base += m.value;
+        }
+        long result = 1L % m.value;
+        long e = exponent.value;
+        while (e > 0L) {
+            if ((e & 1L) == 1L) {
+                result = Math.multiplyExact(result, base) % m.value;
+            }
+            e >>= 1;
+            if (e > 0L) {
+                base = Math.multiplyExact(base, base) % m.value;
+            }
+        }
+        return new BigInteger(result);
+    }
+
+    /**
+     * The integer square root {@code floor(sqrt(this))}, like the JDK ({@code sqrt} of a NEGATIVE value
+     * throws ArithmeticException). Computed with a checked Newton/Heron iteration on the {@code long}
+     * backing; every value in the {@code long} range has a square root that fits, so this never trips
+     * the bound (the {@code Math.*Exact}-checked arithmetic in the iteration stays loud regardless).
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger sqrt() {
+        if (value < 0L) {
+            throw new ArithmeticException("negative BigInteger");
+        }
+        return new BigInteger(isqrt(value));
+    }
+
+    /**
+     * {@code {sqrt, this - sqrt*sqrt}} in one shot, like the JDK — the floor square root and the
+     * remainder it leaves. A negative value throws ArithmeticException (via {@link #sqrt()}).
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger[] sqrtAndRemainder() {
+        long s = isqrt(value < 0L ? sqrtThrows() : value);
+        return new BigInteger[] {new BigInteger(s), new BigInteger(value - s * s)};
+    }
+
+    private static long sqrtThrows() {
+        throw new ArithmeticException("negative BigInteger");
+    }
+
+    /** floor(sqrt(n)) for n &gt;= 0 on a long. */
+    private static long isqrt(long n) {
+        if (n < 2L) {
+            return n;
+        }
+        long x = (long) Math.sqrt((double) n);
+        // Correct the double rounding in either direction so the result is exactly floor(sqrt(n)).
+        while (x > 1L && x > n / x) {
+            x--;
+        }
+        while ((x + 1L) <= n / (x + 1L)) {
+            x++;
+        }
+        return x;
+    }
+
+    // --- bitwise ops (two's-complement, matching the JDK's infinite-width two's-complement view) -----
+    // A long IS two's-complement, so the native long operators agree with BigInteger's conceptual
+    // sign-extended two's-complement bitwise semantics bit-for-bit within the bound.
+
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger and(BigInteger val) {
+        return new BigInteger(value & val.value);
+    }
+
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger or(BigInteger val) {
+        return new BigInteger(value | val.value);
+    }
+
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger xor(BigInteger val) {
+        return new BigInteger(value ^ val.value);
+    }
+
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger not() {
+        return new BigInteger(~value);
+    }
+
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger andNot(BigInteger val) {
+        return new BigInteger(value & ~val.value);
+    }
+
+    /**
+     * {@code this << n}. The JDK's shift is over the infinite-width two's-complement value; on the
+     * {@code long} backing a left shift that pushes set bits past bit 63 overflows the bound, so the
+     * result is checked (left shift == multiply by {@code 2^n}) and fails LOUDLY rather than dropping
+     * high bits. A negative {@code n} is a right shift, like the JDK. {@code n == 0} is identity.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger shiftLeft(int n) {
+        if (n < 0) {
+            return shiftRight(-n);
+        }
+        long r = value;
+        for (int i = 0; i < n; i++) {
+            r = Math.multiplyExact(r, 2L);   // loud if a bit would be lost past the long bound
+        }
+        return new BigInteger(r);
+    }
+
+    /**
+     * {@code this >> n}, an ARITHMETIC (sign-extending) shift like the JDK's two's-complement
+     * {@code shiftRight} (which rounds toward negative infinity). A negative {@code n} is a left shift.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger shiftRight(int n) {
+        if (n < 0) {
+            return shiftLeft(-n);
+        }
+        if (n >= 64) {
+            return new BigInteger(value >> 63);   // collapses to 0 (>=0) or -1 (<0)
+        }
+        return new BigInteger(value >> n);
+    }
+
+    /**
+     * Returns {@code true} iff bit {@code n} is set in the two's-complement representation. A negative
+     * index throws ArithmeticException, like the JDK. For {@code n >= 64} the answer is the (infinitely
+     * repeated) sign bit, so a negative value reads {@code true} and a non-negative value {@code false}.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public boolean testBit(int n) {
+        if (n < 0) {
+            throw new ArithmeticException("Negative bit address");
+        }
+        if (n >= 64) {
+            return value < 0L;
+        }
+        return ((value >> n) & 1L) != 0L;
+    }
+
+    /** Set bit {@code n} (two's-complement). Negative index throws, like the JDK; a high index may push
+     *  the value past the {@code long} bound, which fails LOUDLY (checked add of the bit's weight). */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger setBit(int n) {
+        if (n < 0) {
+            throw new ArithmeticException("Negative bit address");
+        }
+        if (n >= 64) {
+            // The bit is already 1 for a negative value (sign extension); for a non-negative value it
+            // would require precision past the long bound — loud, never a silent wrong value.
+            if (value < 0L) {
+                return this;
+            }
+            throw new ArithmeticException("BigInteger model overflow: setBit past the ~63-bit bound");
+        }
+        return new BigInteger(value | (1L << n));
+    }
+
+    /** Clear bit {@code n} (two's-complement). Negative index throws, like the JDK. */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger clearBit(int n) {
+        if (n < 0) {
+            throw new ArithmeticException("Negative bit address");
+        }
+        if (n >= 64) {
+            // For a non-negative value the bit is already 0; for a negative value clearing a sign bit
+            // needs precision past the long bound — loud, never silent.
+            if (value >= 0L) {
+                return this;
+            }
+            throw new ArithmeticException("BigInteger model overflow: clearBit past the ~63-bit bound");
+        }
+        return new BigInteger(value & ~(1L << n));
+    }
+
+    /** Flip bit {@code n} (two's-complement). Negative index throws, like the JDK. */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger flipBit(int n) {
+        if (n < 0) {
+            throw new ArithmeticException("Negative bit address");
+        }
+        if (n >= 64) {
+            throw new ArithmeticException("BigInteger model overflow: flipBit past the ~63-bit bound");
+        }
+        return new BigInteger(value ^ (1L << n));
+    }
+
+    /**
+     * The index of the rightmost set bit, or {@code -1} when {@code this == 0} — exactly the JDK
+     * contract. {@code Long.numberOfTrailingZeros} gives this directly on the {@code long} backing
+     * (it returns 64 for zero, which we map to {@code -1}).
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public int getLowestSetBit() {
+        return value == 0L ? -1 : Long.numberOfTrailingZeros(value);
+    }
+
+    /**
+     * The number of bits in the two's-complement representation that DIFFER from the sign bit — the
+     * JDK's {@code bitCount}. For {@code value >= 0} that is {@code Long.bitCount(value)}; for a negative
+     * value it is the popcount of {@code ~value} (the bits differing from the all-ones sign).
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public int bitCount() {
+        return Long.bitCount(value >= 0L ? value : ~value);
+    }
+
+    /**
+     * The number of bits in the minimal two's-complement representation EXCLUDING the sign bit — the
+     * JDK's {@code bitLength}: {@code ceil(log2(value < 0 ? -value : value + 1))}. {@code bitLength()}
+     * of 0 and -1 is 0. Computed from leading zeros: for {@code value >= 0} it's
+     * {@code 64 - nlz(value)}; for a negative value it's {@code 64 - nlz(~value)}.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public int bitLength() {
+        long magnitudeBits = value >= 0L ? value : ~value;
+        return 64 - Long.numberOfLeadingZeros(magnitudeBits);
+    }
+
     @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public BigInteger negate() {
         return new BigInteger(Math.negateExact(value));
@@ -198,6 +440,42 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public int intValue() {
         return (int) value;
+    }
+
+    @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public byte byteValue() {
+        return (byte) value;
+    }
+
+    @Override
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public short shortValue() {
+        return (short) value;
+    }
+
+    /**
+     * The exact {@code byte} value, throwing {@link ArithmeticException} ("BigInteger out of byte
+     * range") if it doesn't fit in a {@code byte} — exactly the JDK contract.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public byte byteValueExact() {
+        if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
+            throw new ArithmeticException("BigInteger out of byte range");
+        }
+        return (byte) value;
+    }
+
+    /**
+     * The exact {@code short} value, throwing {@link ArithmeticException} ("BigInteger out of short
+     * range") if it doesn't fit in a {@code short} — exactly the JDK contract.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public short shortValueExact() {
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw new ArithmeticException("BigInteger out of short range");
+        }
+        return (short) value;
     }
 
     @Override

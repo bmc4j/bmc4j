@@ -143,6 +143,74 @@ class BigDecimalLaws {
         Bmc.check(BigDecimal.valueOf(123).movePointLeft(2).compareTo(BigDecimal.valueOf(123, 2)) == 0)
     }
 
+    // --- divide(exact) / divideToIntegralValue / remainder: CONCRETE pins (the divider circuit is
+    // SAT-heavy; the wide axis is differential — the division-cost lesson). Pin the algebra + the
+    // q*divisor + r == this reconstruction concretely under JBMC. -----------------------------------
+
+    @BmcProof
+    fun divide_exact_pins() {
+        Bmc.check(BigDecimal.ONE.divide(BigDecimal.valueOf(8L))
+            .compareTo(BigDecimal.valueOf(125, 3)) == 0)   // 1/8 == 0.125
+        Bmc.check(BigDecimal.valueOf(10L).divide(BigDecimal.valueOf(4L))
+            .compareTo(BigDecimal.valueOf(25, 1)) == 0)    // 10/4 == 2.5
+        Bmc.check(BigDecimal.valueOf(6L).divide(BigDecimal.valueOf(3L))
+            .compareTo(BigDecimal.valueOf(2L)) == 0)       // 6/3 == 2
+    }
+
+    @BmcProof
+    fun divideToIntegralValue_and_remainder_reconstruct_dividend() {
+        // q*divisor + r == this, with q the integer quotient and r the remainder — concrete pin.
+        val a = BigDecimal.valueOf(75, 1)    // 7.5
+        val b = BigDecimal.valueOf(2L)
+        val q = a.divideToIntegralValue(b)
+        val r = a.remainder(b)
+        Bmc.check(q.compareTo(BigDecimal.valueOf(3L)) == 0)   // floor(7.5/2) == 3
+        Bmc.check(r.compareTo(BigDecimal.valueOf(15, 1)) == 0) // 7.5 - 3*2 == 1.5
+        Bmc.check(q.multiply(b).add(r).compareTo(a) == 0)     // reconstruction
+        val dar = a.divideAndRemainder(b)
+        Bmc.check(dar[0].compareTo(q) == 0 && dar[1].compareTo(r) == 0)
+    }
+
+    // --- pow / scaleByPowerOfTen / ulp / precision: cheap algebraic laws (no divider) ---------------
+
+    @BmcProof
+    fun pow_zero_and_one() {
+        val a = anyBd(2, bound = 1_000)
+        Bmc.check(a.pow(0).compareTo(BigDecimal.ONE) == 0)   // x^0 == 1
+        Bmc.check(a.pow(1).compareTo(a) == 0)                // x^1 == x
+    }
+
+    // pow(2) == x*x is a multiplier-equivalence law; full-width multiplier equivalence is SAT-heavy, so
+    // keep the range tight (the law holds for every value — a tight range is just as strong, far cheaper).
+    @BmcProof
+    fun pow_two_is_self_times_self() {
+        val a = anyBd(1, bound = 100)
+        Bmc.check(a.pow(2).compareTo(a.multiply(a)) == 0)    // x^2 == x*x
+    }
+
+    @BmcProof
+    fun scaleByPowerOfTen_round_trips() {
+        val a = anyBd(2, bound = 1_000)
+        Bmc.check(a.scaleByPowerOfTen(3).scaleByPowerOfTen(-3).compareTo(a) == 0)
+    }
+
+    @BmcProof
+    fun ulp_and_precision_pins() {
+        Bmc.check(BigDecimal.valueOf(123, 2).ulp().compareTo(BigDecimal.valueOf(1, 2)) == 0)  // 0.01
+        Bmc.check(BigDecimal.valueOf(12L).ulp().compareTo(BigDecimal.ONE) == 0)
+        Bmc.check(BigDecimal.valueOf(12345, 2).precision() == 5)   // 123.45
+        Bmc.check(BigDecimal.ZERO.precision() == 1)
+        Bmc.check(BigDecimal.valueOf(100L).precision() == 3)
+    }
+
+    @BmcProof
+    fun valueExact_narrowing_pins() {
+        Bmc.check(BigDecimal.valueOf(1200, 2).intValueExact() == 12)     // 12.00 -> 12
+        Bmc.check(BigDecimal.valueOf(1200, 2).longValueExact() == 12L)
+        Bmc.check(BigDecimal.valueOf(50L).byteValueExact().toInt() == 50)
+        Bmc.check(BigDecimal.valueOf(-50L).shortValueExact().toInt() == -50)
+    }
+
     // --- toBigIntegerExact: exact-or-throw ----------------------------------------------------------
 
     @BmcProof
