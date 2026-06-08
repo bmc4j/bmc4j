@@ -8,7 +8,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Bounded BMC model of {@link java.math.BigDecimal}: an unscaled {@code long} value plus an
- * {@code int} scale (value = unscaled × 10⁻ˢᶜᵃˡᵉ). All arithmetic is exact integer arithmetic on the
+ * {@code int} scale (value = unscaled × 10). All arithmetic is exact integer arithmetic on the
  * unscaled values with scale alignment — so it captures the *decimal* exactness that is the whole
  * point of BigDecimal (e.g. {@code 0.10 + 0.20} compares equal to {@code 0.30}), unlike a
  * double-backed model. Sound while the unscaled value and intermediate rescalings stay within the
@@ -21,7 +21,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
  */
-@BmcModelTail(reason = "MathContext-rounded arithmetic overloads (add/subtract/multiply/divide/pow/round/plus with MathContext, sqrt(MathContext)), the deprecated int-rounding-mode overloads (divide(BigDecimal,int[,int]), setScale(int,int)), and toEngineeringString/toPlainString are out of scope for the bounded long-backed model; all loud under JBMC")
+@BmcModelTail(reason = "the bounded long-backed model has no exotic remaining surface beyond the per-member-declared MathContext/formatting/double members; the tail catch-all is retained for JDK drift")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     public static final BigDecimal ZERO = new BigDecimal(0L, 0);
@@ -161,6 +161,26 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
         return neg ? -q : q;
     }
 
+    /**
+     * Map a legacy {@code ROUND_*} int constant to the corresponding {@link RoundingMode}, exactly as
+     * the JDK's deprecated int-rounding overloads do (the int constants 0..7 mirror the RoundingMode
+     * ordinals UP..UNNECESSARY). An out-of-range constant throws {@link IllegalArgumentException}, like
+     * the JDK ("Invalid rounding mode").
+     */
+    private static RoundingMode roundingModeFromLegacyInt(int roundingMode) {
+        switch (roundingMode) {
+            case 0: return RoundingMode.UP;
+            case 1: return RoundingMode.DOWN;
+            case 2: return RoundingMode.CEILING;
+            case 3: return RoundingMode.FLOOR;
+            case 4: return RoundingMode.HALF_UP;
+            case 5: return RoundingMode.HALF_DOWN;
+            case 6: return RoundingMode.HALF_EVEN;
+            case 7: return RoundingMode.UNNECESSARY;
+            default: throw new IllegalArgumentException("Invalid rounding mode");
+        }
+    }
+
     private long truncatedToLong() {
         return scale <= 0 ? unscaled * pow10(-scale) : unscaled / pow10(scale);
     }
@@ -195,6 +215,27 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public BigDecimal divide(BigDecimal divisor, RoundingMode mode) {
         return divide(divisor, scale, mode);
+    }
+
+    /**
+     * Deprecated int-rounding-mode overload of {@link #divide(BigDecimal, int, RoundingMode)}: the legacy
+     * {@code ROUND_*} int maps to the corresponding {@link RoundingMode} and delegates to the same sound
+     * rounding kernel. An invalid rounding constant throws {@link IllegalArgumentException}, like the JDK.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal divide(BigDecimal divisor, int newScale, int roundingMode) {
+        return divide(divisor, newScale, roundingModeFromLegacyInt(roundingMode));
+    }
+
+    /**
+     * Deprecated int-rounding-mode overload of {@link #divide(BigDecimal, RoundingMode)} (result scale =
+     * {@code this.scale}): the legacy {@code ROUND_*} int maps to the corresponding {@link RoundingMode}
+     * and delegates to the same sound rounding kernel. An invalid constant throws
+     * {@link IllegalArgumentException}, like the JDK.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal divide(BigDecimal divisor, int roundingMode) {
+        return divide(divisor, scale, roundingModeFromLegacyInt(roundingMode));
     }
 
     /**
@@ -378,6 +419,16 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     /**
+     * Deprecated int-rounding-mode overload of {@link #setScale(int, RoundingMode)}: the legacy
+     * {@code ROUND_*} int maps to the corresponding {@link RoundingMode} and delegates to the same sound
+     * rounding kernel. An invalid rounding constant throws {@link IllegalArgumentException}, like the JDK.
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal setScale(int newScale, int roundingMode) {
+        return setScale(newScale, roundingModeFromLegacyInt(roundingMode));
+    }
+
+    /**
      * Rescale with {@link RoundingMode#UNNECESSARY}: scaling UP (newScale &gt;= scale) is always exact;
      * scaling DOWN throws {@link ArithmeticException} ("Rounding necessary") unless the dropped digits
      * are all zero — exactly the JDK contract for the no-rounding overload.
@@ -395,7 +446,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     /**
-     * Move the decimal point right by {@code n} (multiply by 10ⁿ), like the JDK: the scale drops by
+     * Move the decimal point right by {@code n} (multiply by 10^n), like the JDK: the scale drops by
      * {@code n}, and once it would go negative the unscaled value absorbs the surplus power of ten
      * (the result then has scale 0). Exact integer arithmetic; loud past the {@code long} bound.
      */
@@ -409,7 +460,7 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     }
 
     /**
-     * Move the decimal point left by {@code n} (divide by 10ⁿ), like the JDK: the scale rises by
+     * Move the decimal point left by {@code n} (divide by 10^n), like the JDK: the scale rises by
      * {@code n}; if {@code n} is negative far enough to drive the scale below zero, the unscaled value
      * absorbs the surplus power of ten (the result then has scale 0). Exact; loud past the bound.
      */
@@ -598,5 +649,115 @@ public class BigDecimal extends Number implements Comparable<BigDecimal> {
     @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
     public double doubleValue() {
         return scale <= 0 ? (double) (unscaled * pow10(-scale)) : (double) unscaled / (double) pow10(scale);
+    }
+
+    /**
+     * Unary plus {@code +this}: returns {@code this} unchanged (same unscaled value and scale), exactly
+     * the JDK's no-context {@code plus()}. (The {@code plus(MathContext)} overload that rounds is loud —
+     * see below.)
+     */
+    @BmcModelConforms("differential (BigDecimalConformanceTest) + @BmcProof (proofs.bigdecimal)")
+    public BigDecimal plus() {
+        return this;
+    }
+
+    // --- MathContext-rounded overloads: LOUD ----------------------------------------------------------
+    // These round to a requested *significant-digit precision*. The bounded long-backed model represents
+    // a value as (unscaled long, int scale); it cannot faithfully carry an arbitrary MathContext precision
+    // (a precision exceeding ~18 significant digits, or one demanding a digit position the long backing
+    // can't hold, would silently truncate). Rather than risk a silent wrong value, every MathContext
+    // overload fails LOUDLY — honest model gap, never a fiction. Use the RoundingMode/scale overloads,
+    // which the bounded model rounds soundly.
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal round(java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.round(java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal add(BigDecimal augend, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.add(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal subtract(BigDecimal subtrahend, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.subtract(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal multiply(BigDecimal multiplicand, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.multiply(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal divide(BigDecimal divisor, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.divide(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal divideToIntegralValue(BigDecimal divisor, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.divideToIntegralValue(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal[] divideAndRemainder(BigDecimal divisor, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.divideAndRemainder(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal remainder(BigDecimal divisor, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.remainder(java.math.BigDecimal, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal pow(int n, java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.pow(int, java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal plus(java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.plus(java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal negate(java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.negate(java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "MathContext significant-digit rounding can't be faithfully represented by the bounded (unscaled long, scale) model")
+    public BigDecimal abs(java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.abs(java.math.MathContext)"
+            + " — MathContext significant-digit rounding can't be faithfully represented by the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "irrational square root to a MathContext precision — not soundly representable in the bounded model")
+    public BigDecimal sqrt(java.math.MathContext mc) {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.sqrt(java.math.MathContext)"
+            + " — an irrational square root to a MathContext precision is not soundly representable in the bounded model");
+    }
+
+    // --- decimal string formatting: LOUD (dtoa-class) -------------------------------------------------
+
+    @BmcUnmodelable(reason = "decimal string formatting (dtoa-class) — not soundly modelable in the bounded model")
+    public String toPlainString() {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.toPlainString()"
+            + " — decimal string formatting (dtoa-class) is not soundly modelable in the bounded model");
+    }
+
+    @BmcUnmodelable(reason = "decimal string formatting (dtoa-class) — not soundly modelable in the bounded model")
+    public String toEngineeringString() {
+        throw fail("bmc4j: unmodelled member java.math.BigDecimal.toEngineeringString()"
+            + " — decimal string formatting (dtoa-class) is not soundly modelable in the bounded model");
     }
 }

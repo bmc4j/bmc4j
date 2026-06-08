@@ -66,6 +66,64 @@ class BigDecimalConformanceTest : FunSpec({
         }
     }
 
+    // Deprecated int-rounding overloads: divide(divisor, scale, int) / divide(divisor, int) / setScale(
+    // newScale, int). The legacy ROUND_* int (== RoundingMode ordinal) must produce exactly the same
+    // result as the RoundingMode overload. Driven across every valid constant, plus zero-divisor parity.
+    test("deprecated int-rounding overloads conform to their RoundingMode siblings") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val divU = Arb.long(-1000L..1000L)   // includes 0 -> ArithmeticException parity
+        val modes = java.math.RoundingMode.values().filter { it != java.math.RoundingMode.UNNECESSARY }
+        checkAll(u, s, divU, s) { uA, sA, uB, sB ->
+            val rA = RealBD.valueOf(uA, sA); val rB = RealBD.valueOf(uB, sB)
+            val mA = ModelBD.valueOf(uA, sA); val mB = ModelBD.valueOf(uB, sB)
+            for (mode in modes) {
+                val legacyInt = mode.ordinal   // ROUND_* constant == RoundingMode ordinal
+                // divide(divisor, scale, int)
+                val rDiv = runCatching { rA.divide(rB, 2, mode.ordinal) }
+                val mDiv = runCatching { mA.divide(mB, 2, legacyInt) }
+                withClue("$uA@$sA / $uB@$sB scale=2 int-mode=$legacyInt [$mode]") {
+                    mDiv.exceptionOrNull()?.javaClass shouldBe rDiv.exceptionOrNull()?.javaClass
+                    if (rDiv.isSuccess && mDiv.isSuccess) obs(mDiv.getOrThrow()) shouldBe obs(rDiv.getOrThrow())
+                }
+                // divide(divisor, int) — result scale == this.scale
+                val rDiv2 = runCatching { rA.divide(rB, mode.ordinal) }
+                val mDiv2 = runCatching { mA.divide(mB, legacyInt) }
+                withClue("$uA@$sA / $uB@$sB int-mode=$legacyInt [$mode] (scale=this)") {
+                    mDiv2.exceptionOrNull()?.javaClass shouldBe rDiv2.exceptionOrNull()?.javaClass
+                    if (rDiv2.isSuccess && mDiv2.isSuccess) obs(mDiv2.getOrThrow()) shouldBe obs(rDiv2.getOrThrow())
+                }
+            }
+        }
+    }
+
+    test("deprecated setScale(int, int) conforms to setScale(int, RoundingMode)") {
+        val u = Arb.long(-100_000L..100_000L)
+        val s = Arb.int(0..4)
+        val target = Arb.int(0..4)
+        val modes = java.math.RoundingMode.values().filter { it != java.math.RoundingMode.UNNECESSARY }
+        checkAll(u, s, target) { uA, sA, ns ->
+            val rA = RealBD.valueOf(uA, sA); val mA = ModelBD.valueOf(uA, sA)
+            for (mode in modes) {
+                val r = runCatching { rA.setScale(ns, mode.ordinal) }
+                val m = runCatching { mA.setScale(ns, mode.ordinal) }
+                withClue("$uA@$sA setScale($ns, int=${mode.ordinal}) [$mode]") {
+                    m.exceptionOrNull()?.javaClass shouldBe r.exceptionOrNull()?.javaClass
+                    if (r.isSuccess && m.isSuccess) obs(m.getOrThrow()) shouldBe obs(r.getOrThrow())
+                }
+            }
+        }
+    }
+
+    // plus() (unary +): returns this unchanged (unscaled + scale identical) — exact identity parity.
+    test("plus() conforms (identity)") {
+        val u = Arb.long(-1_000_000L..1_000_000L)
+        val s = Arb.int(0..4)
+        checkAll(u, s) { uA, sA ->
+            obs(ModelBD.valueOf(uA, sA).plus()) shouldBe obs(RealBD.valueOf(uA, sA).plus())
+        }
+    }
+
     // setScale narrowing rounds via the same roundDiv kernel; widening is exact. Cover both directions
     // across all rounding modes.
     test("setScale(newScale, RoundingMode) conforms across rounding modes") {

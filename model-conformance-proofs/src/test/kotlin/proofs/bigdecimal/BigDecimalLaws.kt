@@ -127,6 +127,31 @@ class BigDecimalLaws {
                 .compareTo(BigDecimal.valueOf(4)) == 0)
     }
 
+    // Deprecated int-rounding overloads == their RoundingMode siblings. The legacy ROUND_* int (==
+    // RoundingMode ordinal) must route through the same kernel. CONCRETE pins keep the rounding divider
+    // off the proof; the wide axis is differential (BigDecimalConformanceTest). HALF_UP ordinal == 4.
+    @BmcProof
+    fun int_rounding_overloads_match_RoundingMode() {
+        val a = BigDecimal.ONE
+        val b = BigDecimal.valueOf(3L)
+        // divide(divisor, scale, int) == divide(divisor, scale, RoundingMode)
+        Bmc.check(a.divide(b, 2, 4).compareTo(a.divide(b, 2, RoundingMode.HALF_UP)) == 0)
+        Bmc.check(a.divide(b, 2, 4).compareTo(BigDecimal.valueOf(33, 2)) == 0)   // 0.33
+        // divide(divisor, int) — result scale == this.scale (0 here)
+        Bmc.check(BigDecimal.valueOf(7L).divide(BigDecimal.valueOf(2L), 4)
+            .compareTo(BigDecimal.valueOf(7L).divide(BigDecimal.valueOf(2L), RoundingMode.HALF_UP)) == 0)
+        // setScale(newScale, int) == setScale(newScale, RoundingMode)
+        Bmc.check(BigDecimal.valueOf(12345, 3).setScale(1, 4)
+            .compareTo(BigDecimal.valueOf(12345, 3).setScale(1, RoundingMode.HALF_UP)) == 0)
+    }
+
+    // plus() (unary +) is identity. Symbolic + divider-free (returns this) — WIDE.
+    @BmcProof
+    fun plus_is_identity() {
+        val a = anyBd(2)
+        Bmc.check(a.plus().compareTo(a) == 0)
+    }
+
     // --- setScale(int) (RoundingMode.UNNECESSARY): widen is exact, narrow throws unless exact --------
     // Symbolic widening is a rescale (multiply), cheap and a real law; the narrow-with-rounding path is
     // covered concretely + on the differential axis (the wide rounding-divider stays off this proof).

@@ -1,7 +1,10 @@
 package java.math;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Bounded BMC model of {@link java.math.BigInteger}, backed by a {@code long}. Sound for values
@@ -14,7 +17,7 @@ import org.bmc4j.models.audit.BmcModelTail;
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
  */
-@BmcModelTail(reason = "modInverse, the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime), and serialization (toByteArray/toString(int)/parallelMultiply) are out of scope for a long-backed bounded model; all loud under JBMC")
+@BmcModelTail(reason = "the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime) and radix formatting (toString(int)) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);
@@ -513,5 +516,110 @@ public class BigInteger extends Number implements Comparable<BigInteger> {
     @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
     public double doubleValue() {
         return (double) value;
+    }
+
+    /**
+     * The modular multiplicative inverse {@code this^-1 mod m}: the unique value {@code x} in
+     * {@code [0, m)} with {@code this·x ≡ 1 (mod m)}, computed by the extended Euclidean algorithm on
+     * the {@code long} backing. Mirrors the JDK: {@code m} must be positive (else ArithmeticException
+     * "BigInteger: modulus not positive"), and if {@code this} is not invertible modulo {@code m}
+     * (i.e. {@code gcd(this, m) != 1}, including {@code m == 1} where the only residue is 0) it throws
+     * ArithmeticException "BigInteger not invertible." Loud, never silent at the bound: the modulus and
+     * residues are below {@code m}, and the extended-Euclid bookkeeping stays within the {@code long}
+     * range for any {@code m} that fits the backing.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger modInverse(BigInteger m) {
+        if (m.value <= 0L) {
+            throw new ArithmeticException("BigInteger: modulus not positive");
+        }
+        if (m.value == 1L) {
+            // The ring Z/1 has the single residue 0; nothing is invertible there (gcd(this,1)==1 but the
+            // inverse, reduced mod 1, is 0 — the JDK returns ZERO here).
+            return ZERO;
+        }
+        // Reduce this into [0, m) first (the inverse depends only on the residue class).
+        long a = value % m.value;
+        if (a < 0L) {
+            a += m.value;
+        }
+        // Extended Euclid: track the Bezout coefficient of `a` only (t), modulo m.value.
+        long oldR = a;
+        long r = m.value;
+        long oldT = 1L;
+        long t = 0L;
+        while (r != 0L) {
+            long q = oldR / r;
+            long tmpR = oldR - q * r;
+            oldR = r;
+            r = tmpR;
+            long tmpT = oldT - q * t;
+            oldT = t;
+            t = tmpT;
+        }
+        if (oldR != 1L) {
+            throw new ArithmeticException("BigInteger not invertible.");
+        }
+        long inv = oldT % m.value;
+        if (inv < 0L) {
+            inv += m.value;
+        }
+        return new BigInteger(inv);
+    }
+
+    /**
+     * {@code this · val}, identical to {@link #multiply(BigInteger)} — the JDK's {@code parallelMultiply}
+     * differs only by using multiple threads for very large magnitudes, an optimization with no
+     * observable effect on the (single-threaded) bounded model. Loud past the {@code long} bound, exactly
+     * like {@link #multiply(BigInteger)}.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public BigInteger parallelMultiply(BigInteger val) {
+        return multiply(val);
+    }
+
+    /**
+     * The minimal two's-complement big-endian byte array, exactly the JDK contract: the array's length
+     * is {@code bitLength()/8 + 1}, the high bit of {@code byte[0]} is the sign bit, and the value of
+     * {@code 0} is the single byte {@code {0}}. On the {@code long} backing this is the minimal-length
+     * big-endian encoding of the (signed) {@code long}; every {@code long} value encodes in at most 8
+     * bytes, so this never trips the bound.
+     */
+    @BmcModelConforms("differential (BigIntegerConformanceTest) + @BmcProof (proofs.biginteger)")
+    public byte[] toByteArray() {
+        // Number of bytes the JDK uses: one more than the minimal magnitude bit-length over 8 (the extra
+        // bit/byte carries the sign), with a floor of one byte (value 0 -> {0}).
+        int byteLen = bitLength() / 8 + 1;
+        byte[] out = new byte[byteLen];
+        long v = value;
+        for (int i = byteLen - 1; i >= 0; i--) {
+            out[i] = (byte) (v & 0xFFL);
+            v >>= 8;   // arithmetic shift sign-extends, matching two's-complement big-endian
+        }
+        return out;
+    }
+
+    @BmcUnmodelable(reason = "probabilistic primality (Miller-Rabin/Lucas) — genuine number-theoretic wall, no sound bounded model")
+    public boolean isProbablePrime(int certainty) {
+        throw fail("bmc4j: unmodelled member java.math.BigInteger.isProbablePrime(int)"
+            + " — probabilistic primality (Miller-Rabin/Lucas) is a genuine number-theoretic wall with no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "probabilistic primality search — genuine number-theoretic wall, no sound bounded model")
+    public BigInteger nextProbablePrime() {
+        throw fail("bmc4j: unmodelled member java.math.BigInteger.nextProbablePrime()"
+            + " — probabilistic primality search is a genuine number-theoretic wall with no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "probabilistic prime generation over a Random source — genuine number-theoretic wall, no sound bounded model")
+    public static BigInteger probablePrime(int bitLength, java.util.Random rnd) {
+        throw fail("bmc4j: unmodelled member java.math.BigInteger.probablePrime(int, java.util.Random)"
+            + " — probabilistic prime generation is a genuine number-theoretic wall with no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "radix formatting (dtoa-class) — not soundly modelable in the bounded model")
+    public String toString(int radix) {
+        throw fail("bmc4j: unmodelled member java.math.BigInteger.toString(int)"
+            + " — radix formatting (dtoa-class) is not soundly modelable in the bounded model");
     }
 }

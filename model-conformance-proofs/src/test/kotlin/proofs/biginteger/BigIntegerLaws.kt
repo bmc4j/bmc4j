@@ -186,6 +186,45 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.valueOf(a.shortValueExact().toLong()) == a)
     }
 
+    // modInverse: the defining round-trip a·a⁻¹ ≡ 1 (mod m). CONCRETE pins keep the extended-Euclid
+    // loop (over a symbolic count) off the proof — the symbolic axis + non-invertible/non-positive
+    // boundaries are covered differentially (BigIntegerConformanceTest). Pins the algebra under JBMC.
+    @BmcProof
+    fun modInverse_round_trips() {
+        // 3·inv ≡ 1 (mod 11): inv == 4 (3*4 = 12 ≡ 1).
+        val inv = BigInteger.valueOf(3L).modInverse(BigInteger.valueOf(11L))
+        Bmc.check(inv == BigInteger.valueOf(4L))
+        Bmc.check(BigInteger.valueOf(3L).multiply(inv).mod(BigInteger.valueOf(11L)) == BigInteger.ONE)
+        // a negative residue is reduced into [0, m): -7 ≡ 4 (mod 11), inv(4) == 3.
+        Bmc.check(BigInteger.valueOf(-7L).modInverse(BigInteger.valueOf(11L)) == BigInteger.valueOf(3L))
+        // modInverse mod 1 is ZERO (single-residue ring), per the JDK.
+        Bmc.check(BigInteger.valueOf(5L).modInverse(BigInteger.ONE).signum() == 0)
+    }
+
+    // toByteArray: minimal two's-complement big-endian encoding — concrete pins under JBMC (the array
+    // build is over a symbolic length if value-symbolic; the wide byte-for-byte axis is differential).
+    @BmcProof
+    fun toByteArray_pins() {
+        Bmc.check(BigInteger.ZERO.toByteArray().let { it.size == 1 && it[0].toInt() == 0 })       // {0}
+        Bmc.check(BigInteger.valueOf(127L).toByteArray().let { it.size == 1 && it[0].toInt() == 127 })
+        Bmc.check(BigInteger.valueOf(128L).toByteArray()
+            .let { it.size == 2 && it[0].toInt() == 0 && (it[1].toInt() and 0xFF) == 128 })        // 0x0080
+        Bmc.check(BigInteger.valueOf(-1L).toByteArray().let { it.size == 1 && it[0].toInt() == -1 }) // {0xFF}
+    }
+
+    // parallelMultiply delegates to multiply, so this is a full-width multiplier-EQUIVALENCE check —
+    // SAT-pathological at the wide any() bound (two symbolic multipliers proven equal). A tight range
+    // keeps the multiplier circuit small (the same lesson as the divider proofs); wide-value parity is
+    // already on the differential axis (BigIntegerConformanceTest), so this stays a real proof of the
+    // delegation. kissat is markedly faster than the built-in MiniSat on multiplier CNF (falls back to
+    // the default solver if the bundled binary isn't present, which the tight range still discharges).
+    @BmcProof
+    fun parallelMultiply_equals_multiply() {
+        val a = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
+        val b = BigInteger.valueOf(Bmc.anyInt(-100, 100).toLong())
+        Bmc.check(a.parallelMultiply(b) == a.multiply(b))
+    }
+
     // ~80s, the module's heaviest BigInteger division proof — pinned to shard 3 (setScale → 1,
     // add_then_subtract → 2 in BigDecimalLaws), so the three slow model-conformance proofs spread out.
     @Shard(3)
