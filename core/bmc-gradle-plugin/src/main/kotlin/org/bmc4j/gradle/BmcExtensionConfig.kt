@@ -182,6 +182,78 @@ abstract class BmcExtensionConfig {
         action.execute(modelSpec)
     }
 
+    // --- Deliberately out-of-scope packages -------------------------------------------------------
+
+    /**
+     * Whole packages declared **deliberately out of scope for modeling**. A class under a declared
+     * package that bmc4j has no model for is classified as an intentional, reviewable out-of-scope
+     * declaration rather than an un-tracked gap.
+     *
+     * ```
+     * bmc {
+     *     notModeledPackages {
+     *         +"javax.swing.*"
+     *         +"java.sql.*"
+     *         +"java.nio.file.*"
+     *     }
+     * }
+     * ```
+     *
+     * (The leading `+` is Kotlin's `unaryPlus` — the standard Gradle idiom for a bare-string list
+     * statement; Java/Groovy consumers call [NotModeledPackages.pkg] instead.)
+     *
+     * **Glob semantics — RECURSIVE.** A glob covers the named package *and all its subpackages*:
+     * `java.nio.*` matches `java.nio.ByteBuffer` **and** `java.nio.file.Path`,
+     * `java.nio.file.attribute.FileTime`, … A bare prefix (`java.nio`) recurses identically; a trailing
+     * `.*` is the documented spelling. There is no exact-package-only form — recursion is the only mode,
+     * because a subpackage of an out-of-scope area is itself out of scope.
+     *
+     * **Precedence — the registry WINS.** A package waiver applies ONLY to a class bmc4j does not
+     * otherwise model. A modeled class inside a declared package (e.g. a future `java.nio` model) is
+     * still the model — the waiver never demotes it; it only catches the otherwise-unmodeled remainder.
+     *
+     * **Loudness — a waiver CLASSIFIES, it never SUPPRESSES.** Reaching a class under a declared package
+     * still produces a LOUD, member-named **out-of-scope (declared)** `UNKNOWN`, never a silent nondet
+     * stub and never a path to a false `VERIFIED` — the same loudness the per-member tail guarantees,
+     * with a distinct reason so a reviewer can tell "deliberately declined" from "model gap not yet
+     * filled". A proof can opt a specific member back into the classic footnoted-nondet behavior with
+     * `@BmcProof(acknowledgeUnmodelled = …)` exactly as for an unmodelled member.
+     *
+     * Overridable / forwardable with `-Dbmc.notModeledPackages` (comma-separated globs).
+     */
+    @get:Nested
+    abstract val notModeledPackagesSpec: NotModeledPackages
+
+    /** Configure the deliberately-out-of-scope packages -- see [notModeledPackagesSpec]. */
+    fun notModeledPackages(action: Action<in NotModeledPackages>) {
+        action.execute(notModeledPackagesSpec)
+    }
+
+    /**
+     * The `notModeledPackages { "glob"; … }` DSL block. A Gradle **managed** type (abstract, no
+     * fields): its one property is the abstract [globs] list Gradle instantiates. Each statement in the
+     * block is a bare string whose Kotlin `invoke` appends it; Java/Groovy consumers call [pkg].
+     */
+    abstract class NotModeledPackages {
+
+        /** The declared out-of-scope package globs, e.g. `["javax.swing.*", "java.sql.*"]`. */
+        abstract val globs: ListProperty<String>
+
+        /** Declare a package glob out of scope (Kotlin DSL: a `+"javax.swing.*"` statement). */
+        operator fun String.unaryPlus() {
+            pkg(this)
+        }
+
+        /** Declare a package glob out of scope (Java/Groovy form). */
+        fun pkg(glob: String) {
+            if (glob.isBlank()) {
+                throw IllegalArgumentException(
+                        "bmc { notModeledPackages { ... } } requires a non-blank package glob")
+            }
+            globs.add(glob.trim())
+        }
+    }
+
     /**
      * Strict user-model mode, the `strictStubs` analog. When `true`, a model present under
      * `src/bmcModel` with no `bmc { models { ... } }` intent declaration turns the proof's

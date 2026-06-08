@@ -14,6 +14,12 @@ bmc {
     strictStubs = false               // true: any *unacknowledged* stub -> UNKNOWN (-Dbmc.strictStubs)
     userPackages = ["com.acme"]       // your module's prefixes: a stub here is a config bug, warned loud
 
+    // Deliberately out-of-scope packages (declare whole areas bmc4j won't model)
+    notModeledPackages {              // a reach into one of these = a LOUD out-of-scope (declared) UNKNOWN
+        +"javax.swing.*"              // recursive glob: covers subpackages too (java.nio.* ⊇ java.nio.file)
+        +"java.sql.*"                 // the registry WINS: a class bmc4j models is still modeled, never waived
+    }
+
     // Kotlin proof parameters (default: Kotlin-type-faithful)
     kotlinNullableParams = false      // true: a @BmcProof's own non-null Kotlin parameters get the
                                       // honest-JVM null domain back — the kotlinc prologue throws on
@@ -104,6 +110,39 @@ time: flipping `strictStubs` or editing `allowStubs` re-decides from the stored 
 engine re-run (the cache key is unchanged). The **`bmcStubReport`** task aggregates the harvested stubs
 across the suite into a ranked "most-hit unmodeled methods" list — a data-driven `bmc-models` backlog.
 See [`examples/stdlib`](../examples/stdlib) (the `stubs` concept).
+
+## Deliberately out-of-scope packages
+
+`bmc { notModeledPackages { ... } }` declares whole packages **deliberately out of scope for
+modeling** — the vast un-modeled remainder of the stdlib bmc4j has no stand-in for. It turns a reach
+into one of those areas from a silent gap into an intentional, reviewable decision, and lets the audit
+assert *completeness* (every reached class is modeled **or** declared out of scope).
+
+```kotlin
+bmc {
+    notModeledPackages {
+        +"javax.swing.*"
+        +"java.sql.*"
+        +"java.nio.file.*"
+    }
+}
+```
+
+- **Glob semantics — recursive.** A glob covers the named package **and all subpackages**: `java.nio.*`
+  (or the bare `java.nio`) matches `java.nio.ByteBuffer` **and** `java.nio.file.Path` — a subpackage of
+  an out-of-scope area is itself out of scope. There is no exact-package-only form.
+- **Precedence — the registry wins.** A waiver applies only to a class bmc4j does **not** otherwise
+  model. A modeled class inside a declared package is still the model; the waiver never demotes it.
+- **Loudness — a waiver classifies, it never suppresses.** Reaching a declared-package class still
+  produces a **LOUD, member-named `out-of-scope (declared)` UNKNOWN** — never a silent nondet stub and
+  never a path to a false `VERIFIED`. The reason text is **distinct** from a generic unmodelled-member
+  gap, so a reviewer can tell *"deliberately declined"* from *"model gap not yet filled"*. A proof can
+  opt a member back into footnoted-nondet with `@BmcProof(acknowledgeUnmodelled = …)`, exactly as for an
+  unmodelled member.
+
+This is the package-grain **completeness ratchet**: a newly-reached, *undeclared* package becomes a
+build failure (a deliberate decision point — model it, or declare the package), and removing a glob
+re-surfaces its classes as failures. Overridable with `-Dbmc.notModeledPackages` (comma-separated globs).
 
 ## User models (declared intent + provenance)
 

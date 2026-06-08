@@ -270,6 +270,12 @@ class BmcPlugin : Plugin<Project> {
                 forwardListOrCli(test, "bmc.acknowledgeUnmodelled",
                         ext.acknowledgeUnmodelled.getOrElse(emptyList()))
                 forwardListOrCli(test, "bmc.userPackages", ext.userPackages.getOrElse(emptyList()))
+                // Deliberately out-of-scope packages: a class under one of these globs that bmc4j does
+                // not model resolves to a LOUD member-named out-of-scope UNKNOWN (never a silent stub).
+                // Read-time policy like the stub/acknowledge knobs — a -D flag wins, the list joins with
+                // commas, runtime treats an absent property as "none declared".
+                forwardListOrCli(test, "bmc.notModeledPackages",
+                        ext.notModeledPackagesSpec.globs.getOrElse(emptyList()))
                 val cliStrict = System.getProperty("bmc.strictStubs")
                 if (!cliStrict.isNullOrBlank()) {
                     test.systemProperty("bmc.strictStubs", cliStrict)

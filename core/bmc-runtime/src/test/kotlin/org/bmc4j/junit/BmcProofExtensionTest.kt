@@ -126,6 +126,102 @@ internal class BmcProofExtensionTest {
         assertTrue(msg.contains("model it"), msg)
     }
 
+    // --- Deliberately out-of-scope (declared) packages ------------
+
+    @Test
+    fun matchesNotModeledPackage_isRecursive_overSubpackages() {
+        val globs = listOf("java.nio.*")
+        // exact package member matches
+        assertTrue(BmcProofExtension.matchesNotModeledPackage("java.nio.ByteBuffer.get", globs))
+        // a SUBPACKAGE member matches too — recursion is the only mode
+        assertTrue(BmcProofExtension.matchesNotModeledPackage("java.nio.file.Path.resolve", globs))
+        assertTrue(BmcProofExtension.matchesNotModeledPackage(
+                "java.nio.file.attribute.FileTime.toMillis", globs))
+        // an unrelated package does not
+        assertFalse(BmcProofExtension.matchesNotModeledPackage("java.util.ArrayList.add", globs))
+    }
+
+    @Test
+    fun matchesNotModeledPackage_barePrefixAndExact_recurseToo_onDottedBoundary() {
+        // a bare prefix (no wildcard) recurses identically
+        assertTrue(BmcProofExtension.matchesNotModeledPackage(
+                "java.sql.Date.toString", listOf("java.sql")))
+        assertTrue(BmcProofExtension.matchesNotModeledPackage(
+                "java.sql.rowset.Predicate.evaluate", listOf("java.sql")))
+        // the dotted boundary prevents java.sql spuriously matching a sibling java.sqlx package
+        assertFalse(BmcProofExtension.matchesNotModeledPackage(
+                "java.sqlx.Foo.bar", listOf("java.sql")))
+        // a `**`-style or trailing-`*` spelling normalizes to the same recursive prefix
+        assertTrue(BmcProofExtension.matchesNotModeledPackage(
+                "javax.swing.JButton.doClick", listOf("javax.swing.*")))
+    }
+
+    @Test
+    fun outOfScopePackageUndecided_isUnknown_namesMember_distinctText_saysWhatToDo() {
+        val err = BmcProofExtension.outOfScopePackageUndecided(
+                "jbmc", "pkg.T.proof", listOf("java.sql.Date.toString"))
+        // A declared waiver is a real, acknowledgeable boundary (satisfies expect=UNKNOWN), not infra.
+        assertFalse(err.isEngineInfrastructure(),
+                "a declared out-of-scope reach is a deliberate boundary, not engine infrastructure")
+        // Typed kind: OUT_OF_SCOPE, and (a declared decline is deterministic) NOT retryable.
+        assertEquals(org.bmc4j.engine.UnknownKind.OUT_OF_SCOPE, err.kind,
+                "a declared out-of-scope reach carries the OUT_OF_SCOPE kind")
+        assertFalse(err.kind!!.retryable,
+                "OUT_OF_SCOPE is deterministic (a declared decline), so it must not be retryable")
+        val msg = err.message!!
+        assertTrue(msg.contains("(UNKNOWN)"), msg)
+        assertTrue(msg.contains("java.sql.Date.toString"), msg)
+        // DISTINCT from the generic unmodelled-member text so a reviewer can tell the two apart.
+        assertTrue(msg.contains("out-of-scope (declared)"), msg)
+        assertTrue(msg.contains("notModeledPackages"), msg)
+        assertTrue(msg.contains("acknowledgeUnmodelled"), msg)
+    }
+
+    @Test
+    fun outOfScopeStubsToDemote_flagsUnmodeledDeclaredStub_butRegistryWins_forModeledClass() {
+        val globs = listOf("java.util.*", "java.sql.*")
+        val acked = emptyList<String>()
+        // A MODELED class (ArrayList) has a body -> it is NEVER nondet-stubbed -> it never appears in the
+        // harvested stub stream the waiver inspects. So even with java.util.* declared, a stub stream that
+        // contains only the modeled-class members yields NO demotion: the registry wins over the waiver.
+        // (Here the stub stream simulates a reach where ONLY an unmodeled declared-package member stubbed.)
+        val stubbed = listOf("java.sql.Date.getTime", "java.lang.System.nanoTime")
+        val demoted = BmcProofExtension.outOfScopeStubsToDemote(stubbed, globs, acked)
+        // java.sql.Date is under a declared glob and unmodeled -> flagged; java.lang.System is not -> not.
+        assertEquals(listOf("java.sql.Date.getTime"), demoted)
+    }
+
+    @Test
+    fun outOfScopeStubsToDemote_isEmpty_whenNoStubUnderDeclaredPackage() {
+        // A modeled class never stubs, so this models the registry-wins case directly: the only stubs are
+        // outside every declared package -> nothing to demote, the proof keeps its (modeled) verdict.
+        val demoted = BmcProofExtension.outOfScopeStubsToDemote(
+                listOf("java.util.ArrayList.trimToSize"), listOf("java.sql.*"), emptyList())
+        assertTrue(demoted.isEmpty(), "no stub under a declared package -> no out-of-scope demotion")
+    }
+
+    @Test
+    fun outOfScopeStubsToDemote_acknowledgedMember_optsOut() {
+        // The same acknowledgeUnmodelled opt-out as the per-member tail: an acknowledged member degrades
+        // to footnoted-nondet (handled by the stub policy), so it is NOT in the demote-to-UNKNOWN set.
+        val demoted = BmcProofExtension.outOfScopeStubsToDemote(
+                listOf("java.sql.Date.getTime"), listOf("java.sql.*"), listOf("java.sql.Date.getTime"))
+        assertTrue(demoted.isEmpty(), "an acknowledged out-of-scope member is not demoted to UNKNOWN")
+    }
+
+    @Test
+    fun notModeledPackageGlobs_parsesCommaSeparated_trimmed() {
+        val prev = System.getProperty("bmc.notModeledPackages")
+        try {
+            System.setProperty("bmc.notModeledPackages", " javax.swing.* , java.sql.* ,, ")
+            assertEquals(listOf("javax.swing.*", "java.sql.*"),
+                    BmcProofExtension.notModeledPackageGlobs())
+        } finally {
+            if (prev == null) System.clearProperty("bmc.notModeledPackages")
+            else System.setProperty("bmc.notModeledPackages", prev)
+        }
+    }
+
     // --- Nondet-stub policy ---------------------------------------
 
     @Test

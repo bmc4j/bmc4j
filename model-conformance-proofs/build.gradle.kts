@@ -41,6 +41,14 @@ bmc {
     // Opt-in concurrency cap (-PbmcParallelism=N): string-heavy proofs can eat all machine
     // memory at the default per-core fan-out; cap the jbmc pool when running these locally.
     providers.gradleProperty("bmcParallelism").orNull?.let { parallelism.set(it.toInt()) }
+    // Deliberately out-of-scope packages: bmc4j models no java.sql / javax.swing surface, and the
+    // soundness probe (proofs.audit.OutOfScopePackageProbe) reaches a java.sql class to PIN that a
+    // declared-package reach still surfaces as a LOUD member-named out-of-scope (declared) UNKNOWN —
+    // never a silent nondet stub, never a false VERIFIED. Recursive glob: java.sql.* covers subpackages.
+    notModeledPackages {
+        +"java.sql.*"
+        +"javax.swing.*"
+    }
 }
 
 // Opt-in benchmarking escape hatch (no-op unless -PsatPath is passed): route the proofs at an
