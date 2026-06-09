@@ -3,14 +3,16 @@ package kotlin.sequences;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import kotlin.Pair;
 import kotlin.collections.IndexedValue;
@@ -40,8 +42,6 @@ import org.cprover.CProver;
  * {@code Function1} argument, which bmc4j desugars from the lambda, so the user predicate/mapper is
  * actually applied — not stubbed.
  */
-@BmcModelTail(reason = "exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence "
-        + "operators/generators the bounded proofs do not exercise; loud under JBMC if reached")
 public final class SequencesKt {
 
     private SequencesKt() {
@@ -245,6 +245,656 @@ public final class SequencesKt {
             out.add(it.next());
         }
         return out;
+    }
+
+    // ==== #184 tail-drain: terminal accessors, conversions, numeric reductions, comparator/Comparable
+    // extrema and the remaining intermediate ops. All eager over the concrete bounded backing via
+    // seqIter/backing (NEVER the kotlinc-version-fragile virtual Sequence.iterator() — see backing's
+    // #169 rationale), so the descriptors that previously fell through to @BmcModelTail are now sound.
+
+    // ---- single-element / empty constructors. sequenceOf(T) wraps one element; emptySequence() is the
+    // empty sequence (stdlib's EmptySequence singleton). Both eager ListSequences.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> sequenceOf(T element) {
+        ArrayList<T> out = new ArrayList<>();
+        out.add(element);
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> emptySequence() {
+        return new ListSequence<>(new ArrayList<T>());
+    }
+
+    // ---- asSequence(Iterator): wrap a (bounded) iterator's elements into an eager ListSequence so the
+    // downstream ops analyse over the bounded model. The real impl is lazy over the SAME iterator; eager
+    // is observationally identical for a terminating iterator.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> asSequence(Iterator<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        while (source.hasNext()) {
+            out.add(source.next());
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- first / last / single / singleOrNull (no-predicate terminals). first/last/single throw
+    // NoSuchElementException on empty (single also throws IllegalArgumentException on >1); singleOrNull
+    // returns null unless there is exactly one element. (The predicate overloads are INLINE — they
+    // desugar into the caller — so only the no-arg forms are facade methods needing a model.)
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T first(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        return it.next();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T last(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T last = it.next();
+        while (it.hasNext()) {
+            last = it.next();
+        }
+        return last;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T single(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T single = it.next();
+        if (it.hasNext()) {
+            throw new IllegalArgumentException("Sequence has more than one element.");
+        }
+        return single;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T singleOrNull(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            return null;
+        }
+        T single = it.next();
+        if (it.hasNext()) {
+            return null;
+        }
+        return single;
+    }
+
+    // ---- any() / none() (no-predicate terminals): any() is true iff the sequence is non-empty; none()
+    // is its negation. (The predicate overloads are INLINE.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean any(Sequence<T> source) {
+        return seqIter(source).hasNext();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean none(Sequence<T> source) {
+        return !seqIter(source).hasNext();
+    }
+
+    // ---- contains / indexOf / lastIndexOf / elementAt / elementAtOrElse: positional / membership
+    // terminals. contains == indexOf >= 0; indexOf returns the FIRST equals-match index or -1; lastIndexOf
+    // the LAST; elementAt throws IndexOutOfBoundsException out of range; elementAtOrElse calls the default
+    // function with the index when out of range. All eager over the bounded backing, equals via objEquals.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean contains(Sequence<T> source, T element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> int indexOf(Sequence<T> source, T element) {
+        int index = 0;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            if (objEquals(it.next(), element)) {
+                return index;
+            }
+            index++;
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> int lastIndexOf(Sequence<T> source, T element) {
+        int index = 0;
+        int last = -1;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            if (objEquals(it.next(), element)) {
+                last = index;
+            }
+            index++;
+        }
+        return last;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T elementAt(Sequence<T> source, int index) {
+        if (index < 0) {
+            throw new IndexOutOfBoundsException(
+                    "Sequence doesn't contain element at index " + index + ".");
+        }
+        int count = 0;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T element = it.next();
+            if (index == count) {
+                return element;
+            }
+            count++;
+        }
+        throw new IndexOutOfBoundsException(
+                "Sequence doesn't contain element at index " + index + ".");
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T elementAtOrElse(Sequence<T> source, int index, Function1<? super Integer, ? extends T> defaultValue) {
+        if (index < 0) {
+            return defaultValue.invoke(index);
+        }
+        int count = 0;
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T element = it.next();
+            if (index == count) {
+                return element;
+            }
+            count++;
+        }
+        return defaultValue.invoke(index);
+    }
+
+    // ---- filterNotNullTo(dest): drain the non-null elements into the destination, in order.
+    // (filterIsInstance/filterIsInstanceTo's reflective Class.isInstance check is WALLED below — it
+    // routes through CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly.)
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <C extends Collection<? super T>, T> C filterNotNullTo(Sequence<T> source, C destination) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            T v = it.next();
+            if (v != null) {
+                destination.add(v);
+            }
+        }
+        return destination;
+    }
+
+    // ---- flatMapIterable(transform) / flatten / flattenSequenceOfIterable: concatenation flatteners.
+    // flatMapIterable's transform yields an Iterable per element (the @JvmName twin of flatMap whose
+    // transform yields a Sequence — already modeled); flatten concatenates a Sequence<Sequence>;
+    // flattenSequenceOfIterable concatenates a Sequence<Iterable>. All eager over the bounded backing.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Sequence<R> flatMapIterable(
+            Sequence<T> source, Function1<? super T, ? extends Iterable<? extends R>> transform) {
+        ArrayList<R> out = new ArrayList<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            Iterable<? extends R> inner = transform.invoke(it.next());
+            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
+                out.add(in.next());
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> flatten(Sequence<? extends Sequence<? extends T>> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<? extends Sequence<? extends T>> it = seqIter(source); it.hasNext(); ) {
+            for (Iterator<? extends T> in = seqIter(it.next()); in.hasNext(); ) {
+                out.add(in.next());
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Sequence<T> flattenSequenceOfIterable(Sequence<? extends Iterable<? extends T>> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<? extends Iterable<? extends T>> it = seqIter(source); it.hasNext(); ) {
+            for (Iterator<? extends T> in = it.next().iterator(); in.hasNext(); ) {
+                out.add(in.next());
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // ---- unzip: split a Sequence<Pair> into a Pair of two parallel lists, in order.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, R> Pair<List<T>, List<R>> unzip(Sequence<? extends Pair<? extends T, ? extends R>> source) {
+        ArrayList<T> firsts = new ArrayList<>();
+        ArrayList<R> seconds = new ArrayList<>();
+        for (Iterator<? extends Pair<? extends T, ? extends R>> it = seqIter(source); it.hasNext(); ) {
+            Pair<? extends T, ? extends R> p = it.next();
+            firsts.add(p.getFirst());
+            seconds.add(p.getSecond());
+        }
+        return new Pair<>(firsts, seconds);
+    }
+
+    // ---- toCollection / toHashSet / toMutableList / toMutableSet / toSortedSet(+Comparator): bulk
+    // drains into a fresh collection. toMutableSet preserves first-occurrence order (LinkedHashSet);
+    // toHashSet is unordered; toSortedSet sorts by natural order (or the supplied Comparator). All eager.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T, C extends Collection<? super T>> C toCollection(Sequence<T> source, C destination) {
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            destination.add(it.next());
+        }
+        return destination;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> HashSet<T> toHashSet(Sequence<T> source) {
+        HashSet<T> out = new HashSet<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> toMutableList(Sequence<T> source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> Set<T> toMutableSet(Sequence<T> source) {
+        LinkedHashSet<T> out = new LinkedHashSet<>();
+        for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
+            out.add(it.next());
+        }
+        return out;
+    }
+
+    // ---- sumOf* / averageOf* numeric reductions over the boxed-primitive backing. sum folds the elements;
+    // average is sum/count as a double (NaN for an empty source, matching Kotlin). sumOfByte/Short widen to
+    // int, matching the stdlib return types. (sumOfInt is already modeled above.)
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int sumOfByte(Sequence<Byte> source) {
+        int sum = 0;
+        for (Iterator<Byte> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int sumOfShort(Sequence<Short> source) {
+        int sum = 0;
+        for (Iterator<Short> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long sumOfLong(Sequence<Long> source) {
+        long sum = 0;
+        for (Iterator<Long> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float sumOfFloat(Sequence<Float> source) {
+        float sum = 0;
+        for (Iterator<Float> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double sumOfDouble(Sequence<Double> source) {
+        double sum = 0;
+        for (Iterator<Double> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+        }
+        return sum;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfByte(Sequence<Byte> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Byte> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfShort(Sequence<Short> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Short> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfInt(Sequence<Integer> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Integer> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfLong(Sequence<Long> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Long> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfFloat(Sequence<Float> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Float> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double averageOfDouble(Sequence<Double> source) {
+        double sum = 0;
+        int count = 0;
+        for (Iterator<Double> it = seqIter(source); it.hasNext(); ) {
+            sum += it.next();
+            count++;
+        }
+        return count == 0 ? Double.NaN : sum / count;
+    }
+
+    // ---- maxOrNull / maxOrThrow / minOrNull / minOrThrow (natural Comparable fold) and the
+    // maxWith*/minWith* (Comparator-driven) extrema. The *OrNull forms return null on empty; *OrThrow
+    // throw NoSuchElementException. The natural-order fold uses compareTo (sound for the boxed-primitive
+    // backing the proofs exercise); the *With forms apply the supplied Comparator — the same proven
+    // pattern as CollectionsKt.max/minWith*. Mirrors the erased generic overload (the Double/Float
+    // primitive overloads share its erased descriptor, so one model covers all).
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> T maxOrNull(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            return null;
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (max.compareTo(e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> T maxOrThrow(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (max.compareTo(e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> T minOrNull(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            return null;
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (min.compareTo(e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T extends Comparable<? super T>> T minOrThrow(Sequence<T> source) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (min.compareTo(e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T maxWithOrNull(Sequence<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            return null;
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(max, e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T maxWithOrThrow(Sequence<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T max = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(max, e) < 0) {
+                max = e;
+            }
+        }
+        return max;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T minWithOrNull(Sequence<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            return null;
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(min, e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T minWithOrThrow(Sequence<T> source, Comparator<? super T> comparator) {
+        Iterator<T> it = seqIter(source);
+        if (!it.hasNext()) {
+            throw new NoSuchElementException("Sequence is empty.");
+        }
+        T min = it.next();
+        while (it.hasNext()) {
+            T e = it.next();
+            if (comparator.compare(min, e) > 0) {
+                min = e;
+            }
+        }
+        return min;
+    }
+
+    // ---- runningReduce / runningReduceIndexed: like runningFold but seeded by the FIRST element (no
+    // explicit initial). Empty source -> empty result; otherwise the result begins with the first element
+    // then each successive accumulator. The operation is the desugared user lambda, genuinely applied.
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <S, T extends S> Sequence<S> runningReduce(
+            Sequence<T> source, Function2<? super S, ? super T, ? extends S> operation) {
+        ArrayList<S> out = new ArrayList<>();
+        Iterator<T> it = seqIter(source);
+        if (it.hasNext()) {
+            S acc = it.next();
+            out.add(acc);
+            while (it.hasNext()) {
+                acc = (S) operation.invoke(acc, it.next());
+                out.add(acc);
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <S, T extends S> Sequence<S> runningReduceIndexed(
+            Sequence<T> source, Function3<? super Integer, ? super S, ? super T, ? extends S> operation) {
+        ArrayList<S> out = new ArrayList<>();
+        Iterator<T> it = seqIter(source);
+        if (it.hasNext()) {
+            S acc = it.next();
+            out.add(acc);
+            int index = 1;
+            while (it.hasNext()) {
+                acc = (S) operation.invoke(index, acc, it.next());
+                out.add(acc);
+                index++;
+            }
+        }
+        return new ListSequence<>(out);
+    }
+
+    // --- WALLED members (@BmcUnmodelable, loud-if-reached): no sound bounded eager model exists. ---
+
+    @BmcUnmodelable(reason = "laziness-only: an infinite pure-supplier generator whose finite prefix is "
+            + "observable only via a downstream take(n) — cannot be drained eagerly without truncating to a "
+            + "wrong sequence")
+    public static void generateSequence(Function0 nextFunction) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.generateSequence(kotlin.jvm.functions.Function0) — laziness-only: an infinite pure-supplier generator whose finite prefix is observable only via a downstream take(n) — cannot be drained eagerly without truncating to a wrong sequence");
+    }
+
+    @BmcUnmodelable(reason = "once-iteration-observable: constrainOnce wraps a sequence so a SECOND iteration "
+            + "throws — a stateful laziness property an eager bounded snapshot cannot represent")
+    public static void constrainOnce(Sequence a0) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.constrainOnce(kotlin.sequences.Sequence) — once-iteration-observable: constrainOnce wraps a sequence so a SECOND iteration throws — a stateful laziness property an eager bounded snapshot cannot represent");
+    }
+
+    @BmcUnmodelable(reason = "coroutine sequence builder: the Function2 is a restricted suspend lambda over "
+            + "SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model")
+    public static void sequence(Function2 a0) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.sequence(kotlin.jvm.functions.Function2) — coroutine sequence builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model");
+    }
+
+    @BmcUnmodelable(reason = "coroutine iterator builder: the Function2 is a restricted suspend lambda over "
+            + "SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model")
+    public static void iterator(Function2 a0) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.iterator(kotlin.jvm.functions.Function2) — coroutine iterator builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model");
+    }
+
+    @BmcUnmodelable(reason = "nondeterministic: shuffled draws a random permutation from Random — there is no "
+            + "single sound value an eager model can return")
+    public static void shuffled(Sequence a0) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.shuffled(kotlin.sequences.Sequence) — nondeterministic: shuffled draws a random permutation from Random — there is no single sound value an eager model can return");
+    }
+
+    @BmcUnmodelable(reason = "nondeterministic: shuffled draws a random permutation from the supplied Random — "
+            + "there is no single sound value an eager model can return")
+    public static void shuffled(Sequence a0, kotlin.random.Random a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.shuffled(kotlin.sequences.Sequence,kotlin.random.Random) — nondeterministic: shuffled draws a random permutation from the supplied Random — there is no single sound value an eager model can return");
+    }
+
+    @BmcUnmodelable(reason = "string-heavy + `$default` bridge: joinTo's StringBuilder/append reasoning is the "
+            + "JBMC string blowup, and the call site routes through a kotlinc-synthesized joinTo$default the "
+            + "engine nondet-stubs — verdict is UNKNOWN regardless of body correctness")
+    public static void joinTo(Sequence a0, Appendable a1, CharSequence a2, CharSequence a3, CharSequence a4, int a5, CharSequence a6, Function1 a7) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.joinTo(kotlin.sequences.Sequence,java.lang.Appendable,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1) — string-heavy + $default bridge: joinTo's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinTo$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness");
+    }
+
+    @BmcUnmodelable(reason = "string-heavy + `$default` bridge: joinToString's StringBuilder/append reasoning is "
+            + "the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinToString$default "
+            + "the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness")
+    public static void joinToString(Sequence a0, CharSequence a1, CharSequence a2, CharSequence a3, int a4, CharSequence a5, Function1 a6) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.joinToString(kotlin.sequences.Sequence,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1) — string-heavy + $default bridge: joinToString's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinToString$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness");
+    }
+
+    @BmcUnmodelable(reason = "private shared iterator-extractor helper (flatMapIndexed(Sequence,Function2,Function1)) "
+            + "— never a Kotlin call site; the public flatMapIndexedIterable/flatMapIndexedSequence twins are modeled")
+    public static void flatMapIndexed(Sequence a0, Function2 a1, Function1 a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.flatMapIndexed(kotlin.sequences.Sequence,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function1) — private shared iterator-extractor helper — never a Kotlin call site; the public flatMapIndexedIterable/flatMapIndexedSequence twins are modeled");
+    }
+
+    @BmcUnmodelable(reason = "reflective type check: filterIsInstance routes through Class.isInstance -> "
+            + "CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound "
+            + "model) — same out-of-scope boundary as CollectionsKt")
+    public static void filterIsInstance(Sequence a0, Class a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.filterIsInstance(kotlin.sequences.Sequence,java.lang.Class) — reflective type check: filterIsInstance routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly");
+    }
+
+    @BmcUnmodelable(reason = "reflective type check: filterIsInstanceTo routes through Class.isInstance -> "
+            + "CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound model)")
+    public static void filterIsInstanceTo(Sequence a0, Collection a1, Class a2) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.filterIsInstanceTo(kotlin.sequences.Sequence,java.util.Collection,java.lang.Class) — reflective type check: filterIsInstanceTo routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly");
+    }
+
+    @BmcUnmodelable(reason = "TreeSet natural-order total-order over unconstrained Comparable T: the JDK TreeSet "
+            + "model's internal comparison cast refutes under JBMC (Dynamic cast check) — no sound bounded model, "
+            + "matching the CollectionsKt.toSortedSet out-of-scope boundary")
+    public static void toSortedSet(Sequence a0) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.toSortedSet(kotlin.sequences.Sequence) — TreeSet natural-order total-order over unconstrained Comparable T: the JDK TreeSet model's internal comparison cast refutes under JBMC; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "TreeSet comparator total-order: shares the JDK TreeSet model's internal comparison-cast "
+            + "fragility under JBMC — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary")
+    public static void toSortedSet(Sequence a0, Comparator a1) {
+        throw fail("bmc4j: unmodelled member kotlin.sequences.SequencesKt.toSortedSet(kotlin.sequences.Sequence,java.util.Comparator) — TreeSet comparator total-order: shares the JDK TreeSet model's internal comparison-cast fragility under JBMC; no sound bounded model");
     }
 
     // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---

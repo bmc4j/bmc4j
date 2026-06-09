@@ -1594,9 +1594,9 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 
 ## `kotlin.sequences.SequencesKt`
 
-Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
+Real surface: 164 members — modeled 100, unmodelable 64, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `asIterable(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `dropWhile(Sequence, Function1)`, `elementAtOrNull(Sequence, int)`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object[])`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `takeWhile(Sequence, Function1)`, `toList(Sequence)`, `toSet(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
+**Modeled** (`@BmcModelConforms`): `any(Sequence)`, `asIterable(Sequence)`, `asSequence(Iterator)`, `averageOfByte(Sequence)`, `averageOfDouble(Sequence)`, `averageOfFloat(Sequence)`, `averageOfInt(Sequence)`, `averageOfLong(Sequence)`, `averageOfShort(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `contains(Sequence, Object)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `dropWhile(Sequence, Function1)`, `elementAt(Sequence, int)`, `elementAtOrElse(Sequence, int, Function1)`, `elementAtOrNull(Sequence, int)`, `emptySequence()`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `filterNotNullTo(Sequence, Collection)`, `first(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `flatMapIterable(Sequence, Function1)`, `flatten(Sequence)`, `flattenSequenceOfIterable(Sequence)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `indexOf(Sequence, Object)`, `last(Sequence)`, `lastIndexOf(Sequence, Object)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `maxOrNull(Sequence)`, `maxOrThrow(Sequence)`, `maxWithOrNull(Sequence, Comparator)`, `maxWithOrThrow(Sequence, Comparator)`, `minOrNull(Sequence)`, `minOrThrow(Sequence)`, `minWithOrNull(Sequence, Comparator)`, `minWithOrThrow(Sequence, Comparator)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `none(Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `runningReduce(Sequence, Function2)`, `runningReduceIndexed(Sequence, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object)`, `sequenceOf(Object[])`, `single(Sequence)`, `singleOrNull(Sequence)`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfByte(Sequence)`, `sumOfDouble(Sequence)`, `sumOfFloat(Sequence)`, `sumOfInt(Sequence)`, `sumOfLong(Sequence)`, `sumOfShort(Sequence)`, `take(Sequence, int)`, `takeWhile(Sequence, Function1)`, `toCollection(Sequence, Collection)`, `toHashSet(Sequence)`, `toList(Sequence)`, `toMutableList(Sequence)`, `toMutableSet(Sequence)`, `toSet(Sequence)`, `unzip(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1610,18 +1610,23 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `associateTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWith(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWithTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `constrainOnce(Sequence)` | once-iteration-observable: constrainOnce wraps a sequence so a SECOND iteration throws — a stateful laziness property an eager bounded snapshot cannot represent |
 | `count(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexedTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIsInstance(Sequence, Class)` | reflective type check: filterIsInstance routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound model) — same out-of-scope boundary as CollectionsKt |
+| `filterIsInstanceTo(Sequence, Collection, Class)` | reflective type check: filterIsInstanceTo routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound model) |
 | `filterNotTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `first(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `firstOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapIndexed(Sequence, Function2, Function1)` | private shared iterator-extractor helper (flatMapIndexed(Sequence,Function2,Function1)) — never a Kotlin call site; the public flatMapIndexedIterable/flatMapIndexedSequence twins are modeled |
 | `flatMapIterableTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `flatMapTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `fold(Sequence, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `foldIndexed(Sequence, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEach(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEachIndexed(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `generateSequence(Function0)` | laziness-only: an infinite pure-supplier generator whose finite prefix is observable only via a downstream take(n) — cannot be drained eagerly without truncating to a wrong sequence |
 | `groupBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupBy(Sequence, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupByTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1629,6 +1634,9 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `groupingBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfFirst(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfLast(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `iterator(Function2)` | coroutine iterator builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model |
+| `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | string-heavy + `$default` bridge: joinTo's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinTo$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness |
+| `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | string-heavy + `$default` bridge: joinToString's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinToString$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness |
 | `last(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `lastOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `mapIndexedNotNullTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1645,74 +1653,17 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `reduceIndexed(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceIndexedOrNull(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceOrNull(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sequence(Function2)` | coroutine sequence builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model |
+| `shuffled(Sequence)` | nondeterministic: shuffled draws a random permutation from Random — there is no single sound value an eager model can return |
+| `shuffled(Sequence, Random)` | nondeterministic: shuffled draws a random permutation from the supplied Random — there is no single sound value an eager model can return |
 | `single(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `singleOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sortedBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sortedByDescending(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 57 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `any(Sequence)`
-- `asSequence(Iterator)`
-- `averageOfByte(Sequence)`
-- `averageOfDouble(Sequence)`
-- `averageOfFloat(Sequence)`
-- `averageOfInt(Sequence)`
-- `averageOfLong(Sequence)`
-- `averageOfShort(Sequence)`
-- `constrainOnce(Sequence)`
-- `contains(Sequence, Object)`
-- `elementAt(Sequence, int)`
-- `elementAtOrElse(Sequence, int, Function1)`
-- `emptySequence()`
-- `filterIsInstance(Sequence, Class)`
-- `filterIsInstanceTo(Sequence, Collection, Class)`
-- `filterNotNullTo(Sequence, Collection)`
-- `first(Sequence)`
-- `flatMapIndexed(Sequence, Function2, Function1)`
-- `flatMapIterable(Sequence, Function1)`
-- `flatten(Sequence)`
-- `flattenSequenceOfIterable(Sequence)`
-- `generateSequence(Function0)`
-- `indexOf(Sequence, Object)`
-- `iterator(Function2)`
-- `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `last(Sequence)`
-- `lastIndexOf(Sequence, Object)`
-- `maxOrNull(Sequence)`
-- `maxOrThrow(Sequence)`
-- `maxWithOrNull(Sequence, Comparator)`
-- `maxWithOrThrow(Sequence, Comparator)`
-- `minOrNull(Sequence)`
-- `minOrThrow(Sequence)`
-- `minWithOrNull(Sequence, Comparator)`
-- `minWithOrThrow(Sequence, Comparator)`
-- `none(Sequence)`
-- `runningReduce(Sequence, Function2)`
-- `runningReduceIndexed(Sequence, Function3)`
-- `sequence(Function2)`
-- `sequenceOf(Object)`
-- `shuffled(Sequence)`
-- `shuffled(Sequence, Random)`
-- `single(Sequence)`
-- `singleOrNull(Sequence)`
-- `sumOfByte(Sequence)`
-- `sumOfDouble(Sequence)`
-- `sumOfFloat(Sequence)`
-- `sumOfLong(Sequence)`
-- `sumOfShort(Sequence)`
-- `toCollection(Sequence, Collection)`
-- `toHashSet(Sequence)`
-- `toMutableList(Sequence)`
-- `toMutableSet(Sequence)`
-- `toSortedSet(Sequence)`
-- `toSortedSet(Sequence, Comparator)`
-- `unzip(Sequence)`
-
-</details>
+| `toSortedSet(Sequence)` | TreeSet natural-order total-order over unconstrained Comparable T: the JDK TreeSet model's internal comparison cast refutes under JBMC (Dynamic cast check) — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
+| `toSortedSet(Sequence, Comparator)` | TreeSet comparator total-order: shares the JDK TreeSet model's internal comparison-cast fragility under JBMC — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
 
 
 ## `kotlin.text.StringsKt`
