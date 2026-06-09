@@ -31,6 +31,26 @@ internal class BundledKotlinModelsTest {
     }
 
     @Test
+    fun coroutine_core_type_hierarchy_is_bundled() {
+        // The kotlin.coroutines.* core hierarchy must be bundled so a checkcast on a bundled coroutine
+        // subtype (e.g. CoroutineDispatcher -> CoroutineContext, a state machine -> Continuation) resolves
+        // its whole supertype chain within ONE classpath source. If these resolve against the real
+        // kotlin-stdlib jar instead, JBMC has to lazily link the hierarchy across classpath sources and
+        // can nondeterministically havoc the cast (a spurious "Dynamic cast check" refutation).
+        val root = Path.of(BundledKotlinModels.extractRoot())
+        for (rel in listOf(
+                "kotlin/coroutines/Continuation.class",
+                "kotlin/coroutines/CoroutineContext.class",
+                "kotlin/coroutines/CoroutineContext\$Element.class",
+                "kotlin/coroutines/ContinuationInterceptor.class",
+                "kotlin/coroutines/AbstractCoroutineContextElement.class",
+                "kotlin/coroutines/EmptyCoroutineContext.class")) {
+            assertTrue(Files.isRegularFile(root.resolve(rel)),
+                    "$rel missing — the coroutine cast hierarchy is no longer single-source")
+        }
+    }
+
+    @Test
     fun a_representative_spread_of_models_extracts() {
         val root = Path.of(BundledKotlinModels.extractRoot())
         val classes: Long

@@ -46,184 +46,144 @@ Real surface: 50 members — modeled 46, unmodelable 4, not-needed 0, tail 0.
 
 ## `java.time.Duration`
 
-Real surface: 57 members — modeled 41, unmodelable 2, not-needed 0, tail 14.
+Real surface: 57 members — modeled 44, unmodelable 13, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `get(TemporalUnit)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `get(TemporalUnit)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `of(long, TemporalUnit)`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `addTo(Temporal)` | applying a Duration to a Temporal (addTo) needs that Temporal's unmodeled field/plus surface |
+| `from(TemporalAmount)` | extracting a Duration from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Duration.of*/ofMillis |
+| `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the millis backing |
+| `getUnits()` | the supported-units list (getUnits) is the TemporalAmount plumbing; this model exposes typed accessors, not the generic-unit view |
+| `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the millis backing |
 | `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
+| `ofSeconds(long, long)` | the seconds + nanoAdjustment factory needs the sub-millisecond nano field the millis backing lacks |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
-
-- `addTo(Temporal)`
-- `from(TemporalAmount)`
-- `getNano()`
-- `getUnits()`
-- `minus(long, TemporalUnit)`
-- `minusNanos(long)`
-- `of(long, TemporalUnit)`
-- `ofSeconds(long, long)`
-- `plus(long, TemporalUnit)`
-- `plusNanos(long)`
-- `subtractFrom(Temporal)`
-- `toNanosPart()`
-- `truncatedTo(TemporalUnit)`
-- `withNanos(int)`
-
-</details>
+| `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the millis backing |
+| `subtractFrom(Temporal)` | subtracting a Duration from a Temporal (subtractFrom) needs that Temporal's unmodeled field/minus surface |
+| `toNanosPart()` | sub-millisecond resolution — the nano-of-second part is always 0 on the millis backing and can't be modeled faithfully |
+| `truncatedTo(TemporalUnit)` | truncating to an arbitrary TemporalUnit (the JDK rejects units past DAYS and non-divisor units) is out of scope; use the typed conversions on the millis backing |
+| `withNanos(int)` | sub-millisecond resolution — replacing the nano-of-second needs a field the millis backing lacks |
 
 
 ## `java.time.Instant`
 
-Real surface: 36 members — modeled 20, unmodelable 5, not-needed 0, tail 11.
+Real surface: 36 members — modeled 20, unmodelable 16, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `get(TemporalField)`, `getEpochSecond()`, `getLong(TemporalField)`, `isAfter(Instant)`, `isBefore(Instant)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plus(long, TemporalUnit)`, `plusMillis(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toEpochMilli()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `adjustInto(Temporal)` | adjusting an arbitrary Temporal with this Instant's INSTANT_SECONDS/NANO_OF_SECOND fields needs the sub-millisecond field the epoch-millis backing lacks |
+| `atOffset(ZoneOffset)` | projecting an Instant onto an offset builds an OffsetDateTime (date+time+nanos) the epoch-millis backing can't carry |
+| `atZone(ZoneId)` | projecting an Instant onto a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits |
+| `from(TemporalAccessor)` | extracting an Instant from an arbitrary TemporalAccessor needs its open-ended field surface; build via ofEpochMilli/ofEpochSecond |
 | `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing |
+| `minus(TemporalAmount)` | the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusMillis/minusSeconds or minus(long,TemporalUnit) |
 | `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 | `now()` | wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters |
+| `now(Clock)` | a Clock is non-deterministic external state — pass Instants as symbolic proof parameters |
 | `ofEpochSecond(long, long)` | the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks |
+| `parse(CharSequence)` | ISO-8601 instant text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing) |
+| `plus(TemporalAmount)` | the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusMillis/plusSeconds or plus(long,TemporalUnit) |
 | `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
-
-- `adjustInto(Temporal)`
-- `atOffset(ZoneOffset)`
-- `atZone(ZoneId)`
-- `from(TemporalAccessor)`
-- `minus(TemporalAmount)`
-- `now(Clock)`
-- `parse(CharSequence)`
-- `plus(TemporalAmount)`
-- `query(TemporalQuery)`
-- `truncatedTo(TemporalUnit)`
-- `with(TemporalAdjuster)`
-
-</details>
+| `query(TemporalQuery)` | the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor |
+| `truncatedTo(TemporalUnit)` | truncating to a unit below MILLIS (e.g. MICROS/NANOS) needs sub-millisecond resolution the epoch-millis backing lacks; the open-ended TemporalUnit surface is out of scope |
+| `with(TemporalAdjuster)` | the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed plus*/minus* on the epoch-millis backing |
 
 
 ## `java.time.LocalDate`
 
-Real surface: 65 members — modeled 42, unmodelable 1, not-needed 0, tail 22.
+Real surface: 65 members — modeled 47, unmodelable 18, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getLong(TemporalField)`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `lengthOfMonth()`, `lengthOfYear()`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochDay()`, `until(ChronoLocalDate)`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfWeek()`, `getDayOfYear()`, `getEra()`, `getLong(TemporalField)`, `getMonth()`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `lengthOfMonth()`, `lengthOfYear()`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, Month, int)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochDay()`, `toEpochSecond(LocalTime, ZoneOffset)`, `until(ChronoLocalDate)`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `adjustInto(Temporal)` | adjusting an arbitrary Temporal with this date's EPOCH_DAY needs that Temporal's unmodeled field surface |
+| `atStartOfDay(ZoneId)` | the start-of-day instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits |
+| `atTime(OffsetTime)` | pairing a date with an OffsetTime builds an OffsetDateTime the epoch-day+nano model doesn't carry |
+| `datesUntil(LocalDate)` | datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model |
+| `datesUntil(LocalDate, Period)` | datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model |
+| `format(DateTimeFormatter)` | formatter-driven date text rendering routes through DateTimeFormatter (locale) — out of scope for a bounded model |
+| `from(TemporalAccessor)` | extracting a LocalDate from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalDate.of/ofEpochDay |
 | `getChronology()` | the Chronology accessor (getChronology) is out of scope for this epoch-day model |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 22 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
-
-- `adjustInto(Temporal)`
-- `atStartOfDay(ZoneId)`
-- `atTime(OffsetTime)`
-- `datesUntil(LocalDate)`
-- `datesUntil(LocalDate, Period)`
-- `format(DateTimeFormatter)`
-- `from(TemporalAccessor)`
-- `getDayOfWeek()`
-- `getEra()`
-- `getMonth()`
-- `minus(TemporalAmount)`
-- `now()`
-- `now(Clock)`
-- `now(ZoneId)`
-- `of(int, Month, int)`
-- `ofInstant(Instant, ZoneId)`
-- `parse(CharSequence)`
-- `parse(CharSequence, DateTimeFormatter)`
-- `plus(TemporalAmount)`
-- `query(TemporalQuery)`
-- `toEpochSecond(LocalTime, ZoneOffset)`
-- `with(TemporalAdjuster)`
-
-</details>
+| `minus(TemporalAmount)` | the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusDays/minusMonths/minusYears or minus(long,TemporalUnit) |
+| `now()` | wall-clock read is non-deterministic external state — pass LocalDates as symbolic proof parameters |
+| `now(Clock)` | a Clock is non-deterministic external state — pass LocalDates as symbolic proof parameters |
+| `now(ZoneId)` | the current date in a named zone is non-deterministic external state plus zone-rules projection — pass LocalDates as symbolic proof parameters |
+| `ofInstant(Instant, ZoneId)` | deriving the local date of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits |
+| `parse(CharSequence)` | ISO-8601 date text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing) |
+| `parse(CharSequence, DateTimeFormatter)` | formatter-driven date text parsing — out of scope for a bounded model (no text parsing/locale) |
+| `plus(TemporalAmount)` | the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusDays/plusMonths/plusYears or plus(long,TemporalUnit) |
+| `query(TemporalQuery)` | the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor |
+| `with(TemporalAdjuster)` | the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the epoch-day backing |
 
 
 ## `java.time.LocalDateTime`
 
-Real surface: 76 members — modeled 51, unmodelable 2, not-needed 0, tail 23.
+Real surface: 76 members — modeled 58, unmodelable 18, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toLocalDate()`, `toLocalTime()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfWeek()`, `getDayOfYear()`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getMonth()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, Month, int, int, int)`, `of(int, Month, int, int, int, int)`, `of(int, Month, int, int, int, int, int)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `ofEpochSecond(long, int, ZoneOffset)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochSecond(ZoneOffset)`, `toLocalDate()`, `toLocalTime()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `adjustInto(Temporal)` | adjusting an arbitrary Temporal with this date-time's EPOCH_DAY/NANO_OF_DAY needs that Temporal's unmodeled field surface |
+| `atOffset(ZoneOffset)` | pairing a date-time with an offset builds an OffsetDateTime the (epoch-day, nano-of-day) model doesn't carry as a distinct type |
 | `atZone(ZoneId)` | time zones (atZone) are out of scope for this local date+time model |
+| `format(DateTimeFormatter)` | formatter-driven date-time text rendering routes through DateTimeFormatter (dtoa/locale) — out of scope for a bounded model |
+| `from(TemporalAccessor)` | extracting a LocalDateTime from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalDateTime.of/ofEpochSecond |
+| `getChronology()` | the Chronology accessor (getChronology) is out of scope for this date+time model |
+| `minus(TemporalAmount)` | the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minus* or minus(long,TemporalUnit) |
 | `now()` | wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atZone/atOffset/format/query/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
-
-- `adjustInto(Temporal)`
-- `atOffset(ZoneOffset)`
-- `format(DateTimeFormatter)`
-- `from(TemporalAccessor)`
-- `getChronology()`
-- `getDayOfWeek()`
-- `getMonth()`
-- `minus(TemporalAmount)`
-- `now(Clock)`
-- `now(ZoneId)`
-- `of(int, Month, int, int, int)`
-- `of(int, Month, int, int, int, int)`
-- `of(int, Month, int, int, int, int, int)`
-- `ofEpochSecond(long, int, ZoneOffset)`
-- `ofInstant(Instant, ZoneId)`
-- `parse(CharSequence)`
-- `parse(CharSequence, DateTimeFormatter)`
-- `plus(TemporalAmount)`
-- `query(TemporalQuery)`
-- `toEpochSecond(ZoneOffset)`
-- `toInstant(ZoneOffset)`
-- `truncatedTo(TemporalUnit)`
-- `with(TemporalAdjuster)`
-
-</details>
+| `now(Clock)` | a Clock is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters |
+| `now(ZoneId)` | the current date-time in a named zone is non-deterministic external state plus zone-rules projection — pass LocalDateTimes as symbolic proof parameters |
+| `ofInstant(Instant, ZoneId)` | deriving the local date-time of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits |
+| `parse(CharSequence)` | ISO-8601 date-time text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing) |
+| `parse(CharSequence, DateTimeFormatter)` | formatter-driven date-time text parsing — out of scope for a bounded model (no text parsing/locale) |
+| `plus(TemporalAmount)` | the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plus* or plus(long,TemporalUnit) |
+| `query(TemporalQuery)` | the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor |
+| `toInstant(ZoneOffset)` | Instant is millis-bounded here, so an Instant carrying this date-time's sub-millisecond nanos can't be represented — use toEpochSecond(offset) |
+| `truncatedTo(TemporalUnit)` | the open-ended TemporalUnit truncation surface is out of scope; use the typed with*/plus* on the (epoch-day, nano-of-day) backing |
+| `with(TemporalAdjuster)` | the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the (epoch-day, nano-of-day) backing |
 
 
 ## `java.time.LocalTime`
 
-Real surface: 52 members — modeled 36, unmodelable 1, not-needed 0, tail 15.
+Real surface: 52 members — modeled 37, unmodelable 15, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `get(TemporalField)`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plus(long, TemporalUnit)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toNanoOfDay()`, `toSecondOfDay()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
+**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `get(TemporalField)`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plus(long, TemporalUnit)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toEpochSecond(LocalDate, ZoneOffset)`, `toNanoOfDay()`, `toSecondOfDay()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `adjustInto(Temporal)` | adjusting an arbitrary Temporal with this time's NANO_OF_DAY needs that Temporal's unmodeled field surface |
+| `atOffset(ZoneOffset)` | pairing a time with an offset builds an OffsetTime; the offset-only zone model deliberately omits the OffsetTime view |
+| `format(DateTimeFormatter)` | formatter-driven time text rendering routes through DateTimeFormatter (dtoa/locale) — out of scope for a bounded model |
+| `from(TemporalAccessor)` | extracting a LocalTime from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalTime.of/ofNanoOfDay |
+| `minus(TemporalAmount)` | the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusHours/minusMinutes/minusSeconds/minusNanos or minus(long,TemporalUnit) |
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atOffset/format/query/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
-
-- `adjustInto(Temporal)`
-- `atOffset(ZoneOffset)`
-- `format(DateTimeFormatter)`
-- `from(TemporalAccessor)`
-- `minus(TemporalAmount)`
-- `now(Clock)`
-- `now(ZoneId)`
-- `ofInstant(Instant, ZoneId)`
-- `parse(CharSequence)`
-- `parse(CharSequence, DateTimeFormatter)`
-- `plus(TemporalAmount)`
-- `query(TemporalQuery)`
-- `toEpochSecond(LocalDate, ZoneOffset)`
-- `truncatedTo(TemporalUnit)`
-- `with(TemporalAdjuster)`
-
-</details>
+| `now(Clock)` | a Clock is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
+| `now(ZoneId)` | the current time in a named zone is non-deterministic external state plus zone-rules projection — pass LocalTimes as symbolic proof parameters |
+| `ofInstant(Instant, ZoneId)` | deriving the local time of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits |
+| `parse(CharSequence)` | ISO-8601 time text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing) |
+| `parse(CharSequence, DateTimeFormatter)` | formatter-driven time text parsing — out of scope for a bounded model (no text parsing/locale) |
+| `plus(TemporalAmount)` | the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusHours/plusMinutes/plusSeconds/plusNanos or plus(long,TemporalUnit) |
+| `query(TemporalQuery)` | the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor |
+| `truncatedTo(TemporalUnit)` | the open-ended TemporalUnit truncation surface is out of scope; use the typed with*/plus* on the nano-of-day backing |
+| `with(TemporalAdjuster)` | the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the nano-of-day backing |
 
 
 ## `java.time.Period`
 
-Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
+Real surface: 33 members — modeled 24, unmodelable 9, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `between(LocalDate, LocalDate)`, `getDays()`, `getMonths()`, `getYears()`, `isNegative()`, `isZero()`, `minusDays(long)`, `minusMonths(long)`, `minusYears(long)`, `multipliedBy(int)`, `negated()`, `normalized()`, `of(int, int, int)`, `ofDays(int)`, `ofMonths(int)`, `ofWeeks(int)`, `ofYears(int)`, `plusDays(long)`, `plusMonths(long)`, `plusYears(long)`, `toTotalMonths()`, `withDays(int)`, `withMonths(int)`, `withYears(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `addTo(Temporal)` | applying a Period to a Temporal (addTo) is out of scope for this bounded model |
+| `from(TemporalAmount)` | extracting a Period from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Period.of/ofYears/ofMonths/ofDays |
 | `get(TemporalUnit)` | the TemporalUnit accessor (get) is out of scope; this model exposes years/months/days, not the generic-unit view |
 | `getChronology()` | the Chronology accessor (getChronology) is out of scope for this bounded model |
 | `getUnits()` | the supported-units list (getUnits) is out of scope for this years/months/days model |
@@ -232,18 +192,12 @@ Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
 | `plus(TemporalAmount)` | the TemporalAmount-typed add (plus) is out of scope; use the typed plusYears/plusMonths/plusDays |
 | `subtractFrom(Temporal)` | subtracting a Period from a Temporal (subtractFrom) is out of scope for this bounded model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), plus/minus(TemporalAmount) and toString are out of scope; all loud under JBMC</summary>
-
-- `from(TemporalAmount)`
-
-</details>
-
 
 ## `java.time.ZoneOffset`
 
-Real surface: 22 members — modeled 11, unmodelable 9, not-needed 0, tail 2.
+Real surface: 22 members — modeled 12, unmodelable 10, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `get(TemporalField)`, `getId()`, `getLong(TemporalField)`, `getTotalSeconds()`, `isSupported(TemporalField)`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`, `range(TemporalField)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `get(TemporalField)`, `getId()`, `getLong(TemporalField)`, `getTotalSeconds()`, `isSupported(TemporalField)`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofHoursMinutesSeconds(int, int, int)`, `ofTotalSeconds(int)`, `range(TemporalField)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -255,14 +209,8 @@ Real surface: 22 members — modeled 11, unmodelable 9, not-needed 0, tail 2.
 | `of(String)` | named-region parsing is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `of(String, Map)` | named-region parsing with aliases is out of scope for the offset-only zone model |
 | `ofOffset(String, ZoneOffset)` | the prefix+offset region factory is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
+| `query(TemporalQuery)` | the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor |
 | `systemDefault()` | the system default zone is non-deterministic external state — out of scope for the offset-only zone model |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
-
-- `ofHoursMinutesSeconds(int, int, int)`
-- `query(TemporalQuery)`
-
-</details>
 
 
 ## `java.time.temporal.ValueRange`
@@ -271,41 +219,20 @@ Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `checkValidIntValue(long, TemporalField)`, `checkValidValue(long, TemporalField)`, `getLargestMinimum()`, `getMaximum()`, `getMinimum()`, `getSmallestMaximum()`, `isFixed()`, `isIntValue()`, `isValidIntValue(long)`, `isValidValue(long)`, `of(long, long)`, `of(long, long, long)`, `of(long, long, long, long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the locale/resolver display surface is out of scope for this four-long range model; loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.util.ArrayList`
 
-Real surface: 42 members — modeled 27, unmodelable 7, not-needed 0, tail 8.
+Real surface: 42 members — modeled 37, unmodelable 5, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `ensureCapacity(int)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `trimToSize()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): exotic remainder: listIterator (ListIterator interface), spliterator/parallelStream (parallel split), capacity tuning (ensureCapacity/trimToSize), removeRange, toArray(IntFunction) — out of scope for a bounded array-backed model; all loud under JBMC. subList and reversed are now MODELED as bounded snapshot views</summary>
-
-- `ensureCapacity(int)`
-- `listIterator()`
-- `listIterator(int)`
-- `parallelStream()`
-- `removeRange(int, int)`
-- `spliterator()`
-- `toArray(IntFunction)`
-- `trimToSize()`
-
-</details>
 
 
 ## `java.util.Arrays`
@@ -434,43 +361,27 @@ Real surface: 8 members — modeled 5, unmodelable 2, not-needed 1, tail 0.
 
 ## `java.util.HashMap`
 
-Real surface: 25 members — modeled 21, unmodelable 4, not-needed 0, tail 0.
+Real surface: 25 members — modeled 24, unmodelable 1, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): no remaining tail members: the full audited surface is modeled or declared. newHashMap(int) presizing factory is now MODELED</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.HashSet`
 
-Real surface: 21 members — modeled 15, unmodelable 4, not-needed 0, tail 2.
+Real surface: 21 members — modeled 17, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `toArray()` | array snapshot — iterate the model instead |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): exotic remainder: spliterator (parallel-decomposition view) and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope; all loud under JBMC. newHashSet(int) presizing factory is now MODELED</summary>
-
-- `spliterator()`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.IntSummaryStatistics`
@@ -486,17 +397,14 @@ Real surface: 8 members — modeled 7, unmodelable 0, not-needed 1, tail 0.
 
 ## `java.util.LinkedHashMap`
 
-Real surface: 37 members — modeled 32, unmodelable 5, not-needed 0, tail 0.
+Real surface: 37 members — modeled 35, unmodelable 2, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `reversed()`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `reversed()`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 | `removeEldestEntry(Entry)` | access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED</summary>
 
@@ -507,51 +415,37 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.LinkedHashSet`
 
-Real surface: 29 members — modeled 23, unmodelable 4, not-needed 0, tail 2.
+Real surface: 29 members — modeled 25, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `toArray()` | array snapshot — iterate the model instead |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
 
-- `spliterator()`
-- `toArray(IntFunction)`
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `java.util.LinkedList`
 
-Real surface: 56 members — modeled 43, unmodelable 7, not-needed 0, tail 6.
+Real surface: 56 members — modeled 51, unmodelable 5, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `parallelStream()`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): the remaining Deque/List surface not implemented (listIterator, spliterator, parallelStream, removeRange, clone) is out of scope for this array-backed model; all loud under JBMC. subList/reversed are inherited from the ArrayList model; descendingIterator is implemented here</summary>
-
-- `listIterator()`
-- `listIterator(int)`
-- `parallelStream()`
-- `removeRange(int, int)`
-- `spliterator()`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.LongSummaryStatistics`
@@ -626,58 +520,43 @@ Real surface: 33 members — modeled 13, unmodelable 20, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 40, unmodelable 7, not-needed 0, tail 7.
+Real surface: 54 members — modeled 43, unmodelable 11, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead; loud under JBMC (inherited from the HashMap model stub) |
 | `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
+| `headMap(Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg headMap); loud under JBMC |
+| `reversed()` | SequencedMap.reversed would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot. |
+| `sequencedEntrySet()` | SequencedMap.sequencedEntrySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
+| `sequencedKeySet()` | SequencedMap.sequencedKeySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. Use navigableKeySet() for the modeled ascending snapshot. |
+| `sequencedValues()` | SequencedMap.sequencedValues would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
 | `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
+| `subMap(Object, boolean, Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 2-arg subMap); loud under JBMC |
 | `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): the boolean-inclusive NavigableMap range views (subMap/headMap/tailMap with from/to inclusivity) and the comparator-taking constructor — live range views over a bounded unordered store are out of scope; all loud under JBMC. descendingMap/descendingKeySet/navigableKeySet/reversed and the SequencedMap sequenced* views are now MODELED as bounded ascending/descending snapshots (differential axis for the SequencedMap defaults, like LinkedHashMap)</summary>
-
-- `headMap(Object, boolean)`
-- `reversed()`
-- `sequencedEntrySet()`
-- `sequencedKeySet()`
-- `sequencedValues()`
-- `subMap(Object, boolean, Object, boolean)`
-- `tailMap(Object, boolean)`
-
-</details>
+| `tailMap(Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg tailMap); loud under JBMC |
 
 
 ## `java.util.TreeSet`
 
-Real surface: 44 members — modeled 32, unmodelable 7, not-needed 0, tail 5.
+Real surface: 44 members — modeled 34, unmodelable 10, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `headSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.headMap); loud under JBMC |
+| `headSet(Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg headSet); loud under JBMC |
+| `spliterator()` | Spliterator (parallel-decomposition) view is out of scope for the sequential bounded model — iterate the model instead; loud under JBMC |
 | `subSet(Object, Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC |
+| `subSet(Object, boolean, Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 2-arg subSet / TreeMap.subMap); loud under JBMC |
 | `tailSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC |
-| `toArray()` | array snapshot — iterate the model instead |
+| `tailSet(Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg tailSet); loud under JBMC |
+| `toArray(IntFunction)` | typed array snapshot via a generator — iterate the model instead; loud under JBMC |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set</summary>
-
-- `headSet(Object, boolean)`
-- `spliterator()`
-- `subSet(Object, boolean, Object, boolean)`
-- `tailSet(Object, boolean)`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.concurrent.ArrayBlockingQueue`
@@ -737,16 +616,13 @@ Real surface: 79 members — modeled 47, unmodelable 32, not-needed 0, tail 0.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 58, unmodelable 4, not-needed 0, tail 0.
+Real surface: 62 members — modeled 61, unmodelable 1, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC</summary>
 
@@ -757,21 +633,14 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-Real surface: 43 members — modeled 32, unmodelable 11, not-needed 0, tail 0.
+Real surface: 43 members — modeled 39, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `listIterator()` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
-| `listIterator(int)` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
-| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
 | `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/get()/size() instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
@@ -883,32 +752,27 @@ Real surface: 44 members — modeled 33, unmodelable 11, not-needed 0, tail 0.
 
 ## `java.util.stream.DoubleStream`
 
-Real surface: 48 members — modeled 33, unmodelable 3, not-needed 0, tail 12.
+Real surface: 48 members — modeled 33, unmodelable 15, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `allMatch(DoublePredicate)`, `anyMatch(DoublePredicate)`, `average()`, `boxed()`, `collect(Supplier, ObjDoubleConsumer, BiConsumer)`, `concat(DoubleStream, DoubleStream)`, `count()`, `distinct()`, `dropWhile(DoublePredicate)`, `empty()`, `filter(DoublePredicate)`, `findAny()`, `findFirst()`, `flatMap(DoubleFunction)`, `forEach(DoubleConsumer)`, `forEachOrdered(DoubleConsumer)`, `iterate(double, DoublePredicate, DoubleUnaryOperator)`, `limit(long)`, `map(DoubleUnaryOperator)`, `mapToInt(DoubleToIntFunction)`, `mapToLong(DoubleToLongFunction)`, `mapToObj(DoubleFunction)`, `noneMatch(DoublePredicate)`, `of(double)`, `of(double[])`, `peek(DoubleConsumer)`, `reduce(DoubleBinaryOperator)`, `reduce(double, DoubleBinaryOperator)`, `skip(long)`, `sum()`, `summaryStatistics()`, `takeWhile(DoublePredicate)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `builder()` | lazy DoubleStream.Builder accumulation is out of scope for the eager array-backed model |
+| `close()` | BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached |
+| `generate(DoubleSupplier)` | infinite producer — never terminates; a bounded eager model would diverge from the JDK observable |
+| `isParallel()` | BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached |
+| `iterate(double, DoubleUnaryOperator)` | the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled |
+| `iterator()` | virtual PrimitiveIterator.OfDouble dispatch is out of scope for the eager array model |
+| `mapMulti(DoubleMapMultiConsumer)` | primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model |
 | `max()` | DoubleStream.max is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive > model would diverge from the JDK on NaN/signed zero |
 | `min()` | DoubleStream.min is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive < model would diverge from the JDK on NaN/signed zero |
+| `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
+| `parallel()` | true-parallel execution is out of scope for the sequential eager model |
+| `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
 | `sorted()` | DoubleStream.sorted is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-< sort would diverge from the JDK on NaN/signed zero |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining DoubleStream surface (the infinite generate(supplier)/iterate(seed,next); mapMulti (nested DoubleMapMultiConsumer SAM); builder/iterator/spliterator; sequential/parallel lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
-
-- `builder()`
-- `close()`
-- `generate(DoubleSupplier)`
-- `isParallel()`
-- `iterate(double, DoubleUnaryOperator)`
-- `iterator()`
-- `mapMulti(DoubleMapMultiConsumer)`
-- `onClose(Runnable)`
-- `parallel()`
-- `sequential()`
-- `spliterator()`
-- `unordered()`
-
-</details>
+| `spliterator()` | Spliterator.OfDouble (parallel-decomposition) dispatch is out of scope for the sequential eager model |
+| `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
 
 ## `java.util.stream.IntStream`

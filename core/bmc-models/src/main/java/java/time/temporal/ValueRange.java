@@ -3,7 +3,6 @@ package java.time.temporal;
 import java.time.DateTimeException;
 import java.io.Serializable;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * JBMC model of {@link java.time.temporal.ValueRange} — the valid-value range of a {@link TemporalField},
@@ -18,9 +17,10 @@ import org.bmc4j.models.audit.BmcModelTail;
  * {@code hashCode} compare the four bounds. All are validated bit-for-bit by the differential suite vs
  * the real JDK.
  *
- * <p>The {@code resolve}-style locale display surface is out of scope and tailed loud.
+ * <p>The whole real {@code ValueRange} surface is modeled (the four-long range is closed: factories,
+ * bound accessors, validation predicates, the loud checks, equals/hashCode and the pure-integer
+ * toString), so there is NO class-level {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "the locale/resolver display surface is out of scope for this four-long range model; loud under JBMC")
 public final class ValueRange implements Serializable {
 
     private final long minSmallest;

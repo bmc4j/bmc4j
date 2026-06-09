@@ -94,8 +94,12 @@ val WAIVED: Map<String, String> = mapOf(
     "java.lang.Iterable" to "interface — exercised via concrete impls",
     "java.util.Collection" to "interface — via impls",
     "java.util.List" to "interface — via ArrayList/LinkedList",
+    "java.util.ArrayListView" to "internal model helper (no JDK twin) — the live subList/reversed view over the ArrayList model; exercised via ArrayList's subList/reversed conformance + @BmcProof",
     "java.util.Map" to "interface — via HashMap/TreeMap/ConcurrentHashMap",
     "java.util.Set" to "interface — via HashSet/LinkedHashSet",
+    "java.util.SequencedCollection" to "interface (Java 21+) — head/tail surface modeled on the concrete collections; type-only here for the Java-17 floor build",
+    "java.util.SequencedSet" to "interface (Java 21+) — head/tail surface modeled on the concrete sets; type-only here for the Java-17 floor build",
+    "java.util.SequencedMap" to "interface (Java 21+) — head/tail surface modeled on the concrete maps; type-only here for the Java-17 floor build",
     "java.util.Queue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",
     "java.util.Iterator" to "interface — via collection iteration",
     "java.util.Enumeration" to "interface — via Collections.enumeration's concrete bounded enumeration",
@@ -112,6 +116,14 @@ val WAIVED: Map<String, String> = mapOf(
     "java.time.ZoneId" to "abstract base — exercised via the concrete ZoneOffset model (per-member-enforced)",
     "java.util.stream.Collector" to "interface — via Collectors",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
+    // kotlin.coroutines core hierarchy — type-only stand-ins bundled so coroutine casts resolve from a
+    // single source. No analysis surface to differentially test (like the java.util Collection/List/Set
+    // and SequencedCollection/Set/Map structural-interface waivers); exercised via the coroutines example.
+    "kotlin.coroutines.Continuation" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.CoroutineContext" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.ContinuationInterceptor" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.AbstractCoroutineContextElement" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.EmptyCoroutineContext" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
     "kotlin.coroutines.intrinsics.CoroutineSingletons" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.intrinsics.IntrinsicsKt" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.jvm.internal.BaseContinuationImpl" to "coroutine runtime model — coroutines example",

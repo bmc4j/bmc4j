@@ -178,6 +178,45 @@ class HashMapLaws {
         Bmc.check(m[k] == a)
     }
 
+    // --- bulk / compare-and-remove / replaceAll -----------------------------------------------------
+
+    @BmcProof
+    fun putAll_inserts_every_source_mapping() {
+        val src = HashMap<Int, Int>()
+        val k1 = Bmc.anyInt()
+        val v1 = Bmc.anyInt()
+        src[k1] = v1
+        val dst = HashMap<Int, Int>()
+        val k0 = k1 + 1                              // distinct key
+        val v0 = Bmc.anyInt()
+        dst[k0] = v0
+        dst.putAll(src)
+        Bmc.check(dst.size == 2 && dst[k0] == v0 && dst[k1] == v1)
+    }
+
+    @BmcProof
+    fun remove_key_value_only_on_value_match() {
+        val m = HashMap<Int, Int>()
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        m[k] = v
+        Bmc.check(!m.remove(k, v + 1))              // wrong value -> not removed
+        Bmc.check(m.containsKey(k))
+        Bmc.check(m.remove(k, v))                   // right value -> removed
+        Bmc.check(!m.containsKey(k) && m.size == 0)
+    }
+
+    @BmcProof
+    fun replaceAll_remaps_every_value_via_lambda() {
+        val m = HashMap<Int, Int>()
+        val k1 = Bmc.anyInt(-1000, 1000)
+        val k2 = k1 + 1                             // distinct key
+        m[k1] = 10
+        m[k2] = 20
+        m.replaceAll { _, v -> v + 1 }              // BiFunction through the model
+        Bmc.check(m[k1] == 11 && m[k2] == 21 && m.size == 2)
+    }
+
     @BmcProof
     fun forEach_visits_every_mapping_via_lambda() {
         val m = HashMap<Int, Int>()
@@ -186,5 +225,19 @@ class HashMapLaws {
         val sum = intArrayOf(0)
         m.forEach { _, v -> sum[0] += v }           // lambda through the model's forEach
         Bmc.check(sum[0] == 30)
+    }
+
+    // --- presizing factory (Java 19+) ---------------------------------------------------------------
+
+    @BmcProof
+    fun newHashMap_returns_an_empty_usable_map() {
+        // The presizing hint is observably irrelevant to the bounded model: a fresh empty map that
+        // behaves exactly like new HashMap().
+        val m = java.util.HashMap.newHashMap<Int, Int>(8)
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        Bmc.check(m.size == 0 && m.isEmpty())
+        m[k] = v
+        Bmc.check(m[k] == v && m.size == 1)
     }
 }

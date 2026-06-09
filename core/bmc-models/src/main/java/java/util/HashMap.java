@@ -7,7 +7,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -16,7 +15,6 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * proof's {@code unwind} bound. Key equality uses {@code equals} (sound for boxed primitives).
  * Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "no remaining tail members: the full audited surface is modeled or declared. newHashMap(int) presizing factory is now MODELED")
 public class HashMap<K, V> implements Map<K, V> {
 
     private static final int CAPACITY = 64;
@@ -26,19 +24,6 @@ public class HashMap<K, V> implements Map<K, V> {
     private int size;
 
     public HashMap() {
-    }
-
-    /**
-     * Presizing factory ({@code HashMap.newHashMap(numMappings)}, Java 19+) — capacity is a hint only,
-     * so the model returns a fresh empty map (its fixed backing absorbs the hint). Negative throws
-     * IllegalArgumentException, like the JDK.
-     */
-    @BmcModelConforms("differential (MapConformanceTest): newHashMap(int) presizing factory -> empty map")
-    public static <K, V> HashMap<K, V> newHashMap(int numMappings) {
-        if (numMappings < 0) {
-            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
-        }
-        return new HashMap<>();
     }
 
     public HashMap(int initialCapacity) {
@@ -351,22 +336,59 @@ public class HashMap<K, V> implements Map<K, V> {
         return es;
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+    // --- functional / bulk ops over the bounded backing arrays (modeled) ------------------------
+    // replaceAll remaps each value in place (bounded scan); remove(key,value) is compare-and-remove;
+    // putAll inserts every source mapping (loud out-of-bounds past CAPACITY). Functional args are plain
+    // SAM calls (bmc4j desugars the lambda so JBMC devirtualizes apply).
 
-    @BmcUnmodelable(reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch")
+    @SuppressWarnings("unchecked")
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-        throw fail("bmc4j: unmodelled member java.util.HashMap.replaceAll(java.util.function.BiFunction) — functional-arg bulk replace — JBMC stubs the lambda dispatch");
+        // Route the new value back through put(key, ...) so a subclass that rejects nulls
+        // (ConcurrentHashMap.put throws on a null value) keeps its contract on the inherited model
+        // rather than silently storing the null a direct array write would.
+        for (int i = 0; i < size; i++) {
+            put((K) keys[i], function.apply((K) keys[i], (V) vals[i]));
+        }
     }
 
-    @BmcUnmodelable(reason = "compare-and-remove — compose get()/remove() explicitly")
+    /** Compare-and-remove: remove {@code key} only if it currently maps to {@code value}; true if removed. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public boolean remove(Object key, Object value) {
-        throw fail("bmc4j: unmodelled member java.util.HashMap.remove(java.lang.Object,java.lang.Object) — compare-and-remove — compose get()/remove() explicitly");
+        int i = indexOfKey(key);
+        if (i < 0) {
+            return false;
+        }
+        Object cur = vals[i];
+        if (cur == null ? value != null : !cur.equals(value)) {
+            return false;
+        }
+        remove(key);
+        return true;
     }
 
-    @BmcUnmodelable(reason = "bulk put — put entries explicitly over the bounded model")
+    /** Bulk put: insert every mapping of {@code m} (loud out-of-bounds past CAPACITY), like the JDK. */
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void putAll(Map<? extends K, ? extends V> m) {
-        throw fail("bmc4j: unmodelled member java.util.HashMap.putAll(java.util.Map) — bulk put — put entries explicitly over the bounded model");
+        for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+            put(e.getKey(), e.getValue());
+        }
     }
+
+    // --- presizing factory (Java 19+) ----------------------------------------
+    // newHashMap(numMappings) returns an EMPTY map sized to hold numMappings without resizing. The
+    // capacity hint is observably irrelevant to this fixed-capacity bounded model (lookups/iteration
+    // are over the live size, not the requested capacity), so it is exactly a fresh empty map.
+
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
+    public static <K, V> HashMap<K, V> newHashMap(int numMappings) {
+        if (numMappings < 0) {
+            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
+        }
+        return new HashMap<>();
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead")
     public Object clone() {

@@ -63,6 +63,24 @@ object BundledKotlinModels {
             "kotlin/sequences/SequencesKt.class",
             "kotlin/sequences/Sequence.class",
             "kotlin/sequences/ListSequence.class",
+            // Coroutine CORE type hierarchy (kotlin.coroutines.*): the Continuation / CoroutineContext
+            // tree the bundled continuation impls and kotlinx CoroutineDispatcher extend/implement. These
+            // are bundled — rather than left to resolve against the real kotlin-stdlib jar — so that the
+            // checkcast on a bundled subtype (e.g. `withContext(Dispatchers.IO){}` emits
+            // `checkcast CoroutineContext` on the bundled dispatcher; a state machine emits
+            // `checkcast Continuation` on its bundled continuation) resolves its whole subtype->supertype
+            // chain within ONE classpath source. With the supertype in the real stdlib jar instead, JBMC
+            // had to lazily link that hierarchy edge ACROSS classpath sources, and on some platforms /
+            // conversion orders dropped the link and havoc'd the cast — a nondeterministic spurious
+            // "Dynamic cast check" refutation. Single-source resolution makes the cast deterministic.
+            "kotlin/coroutines/Continuation.class",
+            "kotlin/coroutines/CoroutineContext.class",
+            "kotlin/coroutines/CoroutineContext\$Element.class",
+            "kotlin/coroutines/CoroutineContext\$Key.class",
+            "kotlin/coroutines/ContinuationInterceptor.class",
+            "kotlin/coroutines/ContinuationInterceptor\$KeyImpl.class",
+            "kotlin/coroutines/AbstractCoroutineContextElement.class",
+            "kotlin/coroutines/EmptyCoroutineContext.class",
             // Coroutine models (suspend support).
             "kotlin/coroutines/intrinsics/CoroutineSingletons.class",
             "kotlin/coroutines/intrinsics/IntrinsicsKt.class",

@@ -220,6 +220,56 @@ class MapConformanceTest : FunSpec({
         }
     }
 
+    // --- bulk / compare-and-remove ops (putAll / remove(key,value) / replaceAll) --------------------
+    // putAll inserts every source mapping; remove(key,value) removes only on a value match; replaceAll
+    // remaps each value via a BiFunction. Compared vs the JDK HashMap/LinkedHashMap/TreeMap (all inherit
+    // these from the HashMap model). replaceAll takes a lambda (exercised directly).
+    test("HashMap/LinkedHashMap/TreeMap putAll + remove(key,value) conform") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..15), Arb.list(entry, 0..8)) { seed, src ->
+            for ((real, model) in listOf(
+                { java.util.HashMap<Any?, Any?>() } to { bmcref.java.util.HashMap<Any?, Any?>() },
+                { java.util.LinkedHashMap<Any?, Any?>() } to { bmcref.java.util.LinkedHashMap<Any?, Any?>() },
+                { java.util.TreeMap<Any?, Any?>() } to { bmcref.java.util.TreeMap<Any?, Any?>() },
+            )) {
+                // putAll a source map.
+                run {
+                    val r = real(); val m = model()
+                    for ((k, v) in seed) { call(r, "put", arrayOf(OBJECT, OBJECT), k, v); call(m, "put", arrayOf(OBJECT, OBJECT), k, v) }
+                    val rSrc = java.util.HashMap<Any?, Any?>(); val mSrc = bmcref.java.util.HashMap<Any?, Any?>()
+                    for ((k, v) in src) { rSrc.put(k, v); mSrc.put(k, v) }
+                    call(r, "putAll", arrayOf(java.util.Map::class.java), rSrc)
+                    call(m, "putAll", arrayOf(bmcref.java.util.Map::class.java), mSrc)
+                    assertEquivalent("putAll.size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+                    for (k in -3..5) assertEquivalent("putAll.get($k)", call(r, "get", arrayOf(OBJECT), k), call(m, "get", arrayOf(OBJECT), k))
+                }
+                // remove(key, value): only removes on a value match. Probe a present key with right/wrong value.
+                run {
+                    val r = real(); val m = model()
+                    for ((k, v) in seed) { call(r, "put", arrayOf(OBJECT, OBJECT), k, v); call(m, "put", arrayOf(OBJECT, OBJECT), k, v) }
+                    for (k in -3..5) for (v in listOf(0, 5, -9)) {
+                        assertEquivalent("remove($k,$v)",
+                            call(r, "remove", arrayOf(OBJECT, OBJECT), k, v),
+                            call(m, "remove", arrayOf(OBJECT, OBJECT), k, v))
+                    }
+                    assertEquivalent("remove.size", call(r, "size", arrayOf()), call(m, "size", arrayOf()))
+                }
+            }
+        }
+    }
+
+    test("HashMap replaceAll conforms (BiFunction value remap)") {
+        val entry = Arb.bind(Arb.int(-3..5), Arb.int(-9..9)) { k, v -> k to v }
+        checkAll(Arb.list(entry, 0..20)) { pairs ->
+            val r = java.util.HashMap<Int, Int>(); val m = bmcref.java.util.HashMap<Int, Int>()
+            for ((k, v) in pairs) { r.put(k, v); m.put(k, v) }
+            r.replaceAll { k, v -> k + v * 2 }
+            m.replaceAll { k, v -> k + v * 2 }
+            (call(m, "size", arrayOf()).getOrThrow() as Int) shouldBe r.size
+            for (k in -3..5) call(m, "get", arrayOf(OBJECT), k).getOrThrow() shouldBe r.get(k)
+        }
+    }
+
     test("ConcurrentHashMap functional-arg ops conform (merge/compute, null-result removal)") {
         val r = java.util.concurrent.ConcurrentHashMap<Int, Int>()
         val m = bmcref.java.util.concurrent.ConcurrentHashMap<Int, Int>()

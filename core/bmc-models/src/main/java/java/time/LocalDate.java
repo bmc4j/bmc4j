@@ -4,14 +4,19 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import java.time.chrono.ChronoLocalDate;
 import java.time.chrono.Chronology;
+import java.time.chrono.IsoEra;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAdjuster;
+import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalField;
+import java.time.temporal.TemporalQuery;
 import java.time.temporal.TemporalUnit;
 import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -23,8 +28,15 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * The y/m/d <-> epoch-day machinery mirrors the JDK bit-for-bit (validated by the
  * differential suite vs the real JDK). {@code of(y, m, d)} is NOT a factory here; build
  * dates via {@link #ofEpochDay} (or via LocalDateTime). Formatters/zones are out of scope.
+ *
+ * <p>The whole real {@code LocalDate} surface is now accounted per-member: the modeled epoch-day core
+ * (including the calendar-enum accessors {@code getDayOfWeek}/{@code getMonth}/{@code getEra} over the
+ * now-modeled DayOfWeek/Month/IsoEra enums, the {@code of(int, Month, int)} factory and the
+ * {@code toEpochSecond(LocalTime, ZoneOffset)} conversion) plus a LOUD {@link BmcUnmodelable} stub for
+ * every genuinely-unmodelable member (zone projection, text format/parse, external clock, the Stream
+ * {@code datesUntil} surface, and the open-ended TemporalAmount/Adjuster/Query plumbing). There is NO
+ * class-level {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
 public final class LocalDate implements ChronoLocalDate {
 
     // DAYS from year 0000-01-01 (proleptic) to 1970-01-01.
@@ -74,6 +86,12 @@ public final class LocalDate implements ChronoLocalDate {
             throw new DateTimeException("Invalid date '" + month + " " + dayOfMonth + "'");
         }
         return new LocalDate(toEpochDay(year, month, dayOfMonth));
+    }
+
+    /** Build from year + the modeled {@link Month} enum + day, delegating to the int {@code of}. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public static LocalDate of(int year, Month month, int dayOfMonth) {
+        return of(year, month.getValue(), dayOfMonth);
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
@@ -240,6 +258,37 @@ public final class LocalDate implements ChronoLocalDate {
     public int getDayOfYear() {
         int[] f = ymd();
         return (int) (epochDay - toEpochDay(f[0], 1, 1) + 1);
+    }
+
+    /** Day-of-week as the modeled {@link DayOfWeek} enum, decoded from the epoch-day (Mon=1..Sun=7). */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public DayOfWeek getDayOfWeek() {
+        return DayOfWeek.of(dayOfWeekValue());
+    }
+
+    /** Month as the modeled {@link Month} enum (Jan=1..Dec=12), decoded from the epoch-day. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Month getMonth() {
+        return Month.of(getMonthValue());
+    }
+
+    /** ISO era as the modeled {@link IsoEra} enum: CE for year &gt;= 1, else BCE — exactly like the JDK. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public IsoEra getEra() {
+        return ymd()[0] >= 1 ? IsoEra.CE : IsoEra.BCE;
+    }
+
+    /**
+     * Epoch-second of this date at the given time and offset — pure integer arithmetic over the modeled
+     * pieces (this date's epoch-day, the time's second-of-day, the offset's total seconds), no zone DB.
+     * {@code epochDay*86400 + time.toSecondOfDay() - offset.getTotalSeconds()}, exactly like the JDK;
+     * loud {@code Math.*Exact} overflow.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public long toEpochSecond(LocalTime time, ZoneOffset offset) {
+        long secs = epochDay * 86400L + time.toSecondOfDay();
+        return Math.subtractExact(secs, offset.getTotalSeconds());
     }
 
     @BmcModelConforms("differential (TimeConformanceTest)")
@@ -690,6 +739,95 @@ public final class LocalDate implements ChronoLocalDate {
     @Override
     public Chronology getChronology() {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.getChronology() — the Chronology accessor is out of scope for this epoch-day model");
+    }
+
+    // --- genuinely-unmodelable surface: external clock, zone projection, text format/parse, the Stream
+    //     datesUntil view and the open-ended TemporalAmount/Adjuster/Query plumbing. Each is a LOUD stub. ---
+
+    @BmcUnmodelable(reason = "wall-clock read is non-deterministic external state — pass LocalDates as symbolic proof parameters")
+    public static LocalDate now() {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.now() — wall-clock read is non-deterministic external state — pass LocalDates as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "a Clock is non-deterministic external state — pass LocalDates as symbolic proof parameters")
+    public static LocalDate now(Clock clock) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.now(java.time.Clock) — a Clock is non-deterministic external state — pass LocalDates as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "the current date in a named zone is non-deterministic external state plus zone-rules projection — pass LocalDates as symbolic proof parameters")
+    public static LocalDate now(ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.now(java.time.ZoneId) — the current date in a named zone is non-deterministic external state plus zone-rules projection — pass LocalDates as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "deriving the local date of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits")
+    public static LocalDate ofInstant(Instant instant, ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.ofInstant(java.time.Instant,java.time.ZoneId) — deriving the local date of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits");
+    }
+
+    @BmcUnmodelable(reason = "ISO-8601 date text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)")
+    public static LocalDate parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.parse(java.lang.CharSequence) — ISO-8601 date text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)");
+    }
+
+    @BmcUnmodelable(reason = "formatter-driven date text parsing — out of scope for a bounded model (no text parsing/locale)")
+    public static LocalDate parse(CharSequence text, DateTimeFormatter formatter) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.parse(java.lang.CharSequence,java.time.format.DateTimeFormatter) — formatter-driven date text parsing — out of scope for a bounded model (no text parsing/locale)");
+    }
+
+    @BmcUnmodelable(reason = "extracting a LocalDate from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalDate.of/ofEpochDay")
+    public static LocalDate from(TemporalAccessor temporal) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.from(java.time.temporal.TemporalAccessor) — extracting a LocalDate from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalDate.of/ofEpochDay");
+    }
+
+    @BmcUnmodelable(reason = "the start-of-day instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits")
+    public ZonedDateTime atStartOfDay(ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.atStartOfDay(java.time.ZoneId) — the start-of-day instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits");
+    }
+
+    @BmcUnmodelable(reason = "pairing a date with an OffsetTime builds an OffsetDateTime the epoch-day+nano model doesn't carry")
+    public OffsetDateTime atTime(OffsetTime time) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.atTime(java.time.OffsetTime) — pairing a date with an OffsetTime builds an OffsetDateTime the epoch-day+nano model doesn't carry");
+    }
+
+    @BmcUnmodelable(reason = "datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model")
+    public java.util.stream.Stream<LocalDate> datesUntil(LocalDate endExclusive) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.datesUntil(java.time.LocalDate) — datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model");
+    }
+
+    @BmcUnmodelable(reason = "datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model")
+    public java.util.stream.Stream<LocalDate> datesUntil(LocalDate endExclusive, Period step) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.datesUntil(java.time.LocalDate,java.time.Period) — datesUntil returns a Stream<LocalDate>; the unbounded lazy-stream surface is out of scope for a bounded model");
+    }
+
+    @BmcUnmodelable(reason = "formatter-driven date text rendering routes through DateTimeFormatter (locale) — out of scope for a bounded model")
+    @Override
+    public String format(DateTimeFormatter formatter) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.format(java.time.format.DateTimeFormatter) — formatter-driven date text rendering routes through DateTimeFormatter (locale) — out of scope for a bounded model");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the epoch-day backing")
+    public LocalDate with(TemporalAdjuster adjuster) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalAdjuster) — the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the epoch-day backing");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusDays/plusMonths/plusYears or plus(long,TemporalUnit)")
+    public LocalDate plus(TemporalAmount amountToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusDays/plusMonths/plusYears or plus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusDays/minusMonths/minusYears or minus(long,TemporalUnit)")
+    public LocalDate minus(TemporalAmount amountToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.minus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusDays/minusMonths/minusYears or minus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor")
+    public <R> R query(TemporalQuery<R> query) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.query(java.time.temporal.TemporalQuery) — the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor");
+    }
+
+    @BmcUnmodelable(reason = "adjusting an arbitrary Temporal with this date's EPOCH_DAY needs that Temporal's unmodeled field surface")
+    public Temporal adjustInto(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.LocalDate.adjustInto(java.time.temporal.Temporal) — adjusting an arbitrary Temporal with this date's EPOCH_DAY needs that Temporal's unmodeled field surface");
     }
 
     @Override

@@ -35,4 +35,22 @@ class ArrayListSequencedLaws {
         val last = l.removeLast()                 // c, leaves [b]
         Bmc.check(first == a && last == c && l.size == 1 && l[0] == b)
     }
+
+    // --- reversed() is a live reverse view (Java 21+) -----------------------------------------------
+    // The read view verifies under JBMC (the model's reversed() body is reached). The write-through to
+    // the returned view (mutating rev, observing the parent) is a JBMC devirtualization artifact — JBMC
+    // can bind the real SequencedCollection/List.reversed() default over this override and havoc the
+    // returned view's identity, exactly like the LinkedHashMap sequenced-view artifact — so it is pinned
+    // on the differential axis (ArrayListConformanceTest), not as a @BmcProof.
+
+    @BmcProof
+    fun reversed_reads_the_backing_in_reverse_order() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val c = Bmc.anyInt()
+        l.add(a); l.add(b); l.add(c)              // [a, b, c]
+        val rev = l.reversed()                    // view [c, b, a]
+        Bmc.check(rev.size == 3 && rev[0] == c && rev[1] == b && rev[2] == a)
+    }
 }
