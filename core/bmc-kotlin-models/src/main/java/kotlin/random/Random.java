@@ -3,7 +3,6 @@ package kotlin.random;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 import org.cprover.CProver;
 
@@ -39,12 +38,11 @@ import org.cprover.CProver;
  * {@code Random} without that loud factory, so the false-refutation can never arise.
  *
  * <p>Per the no-{@code double} convention, {@code nextDouble}/{@code nextFloat} are loud; together with
- * the {@code nextBytes} family and the value-returning bit helpers they live in the {@link BmcModelTail}.
- * Reaching any is a NAMED, LOUD {@code UNKNOWN}, never a silent nondet stub.
+ * the {@code nextBytes} family they are walled off member-by-member as loud {@link BmcUnmodelable} stubs
+ * (the IEEE-754 mapping needs the real bit math; the byte-array fill draws are unbounded). Reaching any
+ * is a NAMED, LOUD {@code UNKNOWN}, never a silent nondet stub — so the model's whole real surface is
+ * accounted for without a {@code @BmcModelTail} catch-all.
  */
-@BmcModelTail(reason = "exotic kotlin.random.Random remainder — the double-valued draws "
-        + "(nextDouble/nextDouble(bound)/nextDouble(from,until)/nextFloat, no-double policy) and the "
-        + "nextBytes(...) family (byte-array fill); loud (UNKNOWN) under JBMC if reached")
 public class Random {
 
     /**
@@ -130,6 +128,42 @@ public class Random {
         throw fail("bmc4j: unmodelled member kotlin.random.Random.nextDouble() — no-double policy");
     }
 
+    /** LOUD: {@code double} draw in {@code [0, until)} — no-double policy. */
+    @BmcUnmodelable(reason = "double draw — no-double policy; the IEEE-754 mapping needs the real bit math")
+    public double nextDouble(double until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextDouble(double) — no-double policy");
+    }
+
+    /** LOUD: {@code double} draw in {@code [from, until)} — no-double policy. */
+    @BmcUnmodelable(reason = "double draw — no-double policy; the IEEE-754 mapping needs the real bit math")
+    public double nextDouble(double from, double until) {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextDouble(double,double) — no-double policy");
+    }
+
+    /** LOUD: {@code float} draw — no-double policy (the IEEE-754 mapping needs the real bit math). */
+    @BmcUnmodelable(reason = "float draw — no-double policy; the IEEE-754 mapping needs the real bit math")
+    public float nextFloat() {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextFloat() — no-double policy");
+    }
+
+    /** LOUD: fills the array with random bytes — an unbounded byte-array fill, out of scope. */
+    @BmcUnmodelable(reason = "byte-array fill draw — unbounded array write; out of scope for the bounded model")
+    public byte[] nextBytes(byte[] array) {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextBytes(byte[]) — byte-array fill draw");
+    }
+
+    /** LOUD: fills {@code array[fromIndex, toIndex)} with random bytes — unbounded fill, out of scope. */
+    @BmcUnmodelable(reason = "byte-array fill draw — unbounded array write; out of scope for the bounded model")
+    public byte[] nextBytes(byte[] array, int fromIndex, int toIndex) {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextBytes(byte[],int,int) — byte-array fill draw");
+    }
+
+    /** LOUD: returns a new array of {@code size} random bytes — unbounded allocation+fill, out of scope. */
+    @BmcUnmodelable(reason = "byte-array fill draw — unbounded array write; out of scope for the bounded model")
+    public byte[] nextBytes(int size) {
+        throw fail("bmc4j: unmodelled member kotlin.random.Random.nextBytes(int) — byte-array fill draw");
+    }
+
     // --- internal nondet-in-range helpers ------------------------------------------------------------
 
     private static int anyIntInRange(int lo, int hi) {
@@ -200,6 +234,36 @@ public class Random {
         @Override
         public double nextDouble() {
             return super.nextDouble();
+        }
+
+        @Override
+        public double nextDouble(double until) {
+            return super.nextDouble(until);
+        }
+
+        @Override
+        public double nextDouble(double from, double until) {
+            return super.nextDouble(from, until);
+        }
+
+        @Override
+        public float nextFloat() {
+            return super.nextFloat();
+        }
+
+        @Override
+        public byte[] nextBytes(byte[] array) {
+            return super.nextBytes(array);
+        }
+
+        @Override
+        public byte[] nextBytes(byte[] array, int fromIndex, int toIndex) {
+            return super.nextBytes(array, fromIndex, toIndex);
+        }
+
+        @Override
+        public byte[] nextBytes(int size) {
+            return super.nextBytes(size);
         }
     }
 }

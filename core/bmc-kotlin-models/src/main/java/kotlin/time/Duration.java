@@ -1,7 +1,7 @@
 package kotlin.time;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean model of Kotlin's {@code kotlin.time.Duration} value class. Like the real type, {@code Duration}
@@ -38,12 +38,52 @@ import org.bmc4j.models.audit.BmcModelTail;
  * model is authored with legal Java placeholder names that the build's {@code renameDurationAbi} pass
  * rewrites to those exact dashed names — carrying the {@code @BmcModelConforms} annotation along with the
  * renamed method — a modeled member keys against its real twin by the mangled name directly (no special
- * casing in the gate). The mangled-but-unmodeled members (toString/parse/Double overloads) fall into the
- * {@link BmcModelTail} below, enumerated under their mangled names in {@code docs/model-coverage.md}.
+ * casing in the gate). The mangled-but-unmodeled members (toString/toIsoString formatting, the Double
+ * times/div/ratio overloads, the boxed {@code compareTo}, value-class {@code equals}) are walled off
+ * member-by-member as loud {@link BmcUnmodelable} declarations below — a class-level form because their
+ * mangled names ({@code toString-impl}, {@code div-LRDsOJo}, …) contain {@code '-'} and so cannot be
+ * written as a Java stub method. The build-time synthesis pass gives each a loud body keyed by the
+ * mangled name, so reaching one is a member-named UNKNOWN; the whole real surface is now per-member
+ * accounted and no {@code @BmcModelTail} catch-all is needed.
+ *
+ * <p><b>Walled remainder (mangled ABI names):</b>
+ * <ul>
+ *   <li>{@code toString-impl(long)} / {@code toString-impl(long, DurationUnit, int)} /
+ *       {@code toIsoString-impl(long)} — decimal/ISO formatting (dtoa), out of scope, same as the
+ *       {@code java.time} formatting walls.</li>
+ *   <li>{@code div-LRDsOJo(long, long)} (the {@code Duration / Duration -> Double} ratio),
+ *       {@code div-UwyO8pc(long, double)}, {@code times-UwyO8pc(long, double)}, and
+ *       {@code toDouble-impl(long, DurationUnit)} — {@code double} arithmetic, no-double policy (use the
+ *       modeled {@code Int}-scalar {@code times}/{@code div} and the {@code inWhole*}/{@code toLong}
+ *       conversions instead).</li>
+ *   <li>{@code compareTo-LRDsOJo(long)} — the boxed-receiver {@code Comparable.compareTo} (one-arg); the
+ *       sound primitive comparison is the modeled static {@code compareTo(long, long)}
+ *       ({@code compareTo-LRDsOJo(long, long)}).</li>
+ *   <li>{@code equals-impl(long, Object)} — value-class identity equals against an arbitrary {@code Object}
+ *       (boxing/unboxing identity); the sound structural compare is the modeled
+ *       {@code equals-impl0(long, long)}.</li>
+ * </ul>
  */
-@BmcModelTail(reason = "exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — "
-        + "toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), "
-        + "TimeSource/TimeMark wall-clock; loud under JBMC if reached")
+@BmcUnmodelable(member = "toString-impl(long)",
+        reason = "Duration decimal formatting (dtoa) — out of scope, same as the java.time formatting walls")
+@BmcUnmodelable(member = "toString-impl(long, kotlin.time.DurationUnit, int)",
+        reason = "Duration decimal formatting with unit+decimals (dtoa) — out of scope")
+@BmcUnmodelable(member = "toIsoString-impl(long)",
+        reason = "Duration ISO-8601 string formatting (dtoa) — out of scope")
+@BmcUnmodelable(member = "div-LRDsOJo(long, long)",
+        reason = "Duration / Duration -> Double ratio — no-double policy; use the Int-scalar div")
+@BmcUnmodelable(member = "div-UwyO8pc(long, double)",
+        reason = "Duration / Double scalar — no-double policy; use the Int-scalar div")
+@BmcUnmodelable(member = "times-UwyO8pc(long, double)",
+        reason = "Duration * Double scalar — no-double policy; use the Int-scalar times")
+@BmcUnmodelable(member = "toDouble-impl(long, kotlin.time.DurationUnit)",
+        reason = "Duration -> Double in a unit — no-double policy; use toLong/inWhole* conversions")
+@BmcUnmodelable(member = "compareTo-LRDsOJo(long)",
+        reason = "boxed-receiver Comparable.compareTo — the sound primitive compare is the modeled "
+                + "static compareTo(long, long); loud if reached")
+@BmcUnmodelable(member = "equals-impl(long, java.lang.Object)",
+        reason = "value-class identity equals against an arbitrary Object — the sound structural compare "
+                + "is the modeled equals-impl0(long, long); loud if reached")
 public final class Duration {
 
     // The ranges mirror the real kotlin.time.Duration: symmetric about zero, non-overlapping but adjacent

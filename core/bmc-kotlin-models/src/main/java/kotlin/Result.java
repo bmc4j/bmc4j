@@ -1,7 +1,7 @@
 package kotlin;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean model of Kotlin's {@code kotlin.Result<T>} {@code @JvmInline value class}. Like
@@ -27,14 +27,31 @@ import org.bmc4j.models.audit.BmcModelTail;
  * the compiler inlines them straight into the caller, so there is no ABI method to model — verified by
  * reflection over kotlin-stdlib (they are absent from the public surface). {@code toString-impl},
  * {@code equals-impl}/{@code equals-impl0}, {@code hashCode-impl}, {@code box-impl}/{@code unbox-impl} and
- * the {@code getValue} accessor are the value-class boxing/identity remainder absorbed by the tail below;
- * loud under JBMC if reached. The {@link Failure} carrier + {@link ResultKt#throwOnFailure} remain modeled
- * for the coroutine resume plumbing (the original reason this class existed).
+ * the {@code getValue} accessor are the value-class boxing/identity remainder, walled off member-by-member
+ * below as loud {@link BmcUnmodelable} stubs. The {@link Failure} carrier + {@link ResultKt#throwOnFailure}
+ * remain modeled for the coroutine resume plumbing (the original reason this class existed).
+ *
+ * <p><b>Walled remainder (mangled ABI names — class-level form, a Java stub can't carry a {@code '-'}):</b>
+ * {@code toString-impl} (decimal/value formatting via {@code String.valueOf} of the carrier — out of scope,
+ * same as the {@code Duration}/{@code java.time} formatting walls), and {@code equals-impl}/
+ * {@code equals-impl0}/{@code hashCode-impl} (value-class identity over the erased carrier; a sound model
+ * would have to commit to the arbitrary carrier's own equals/hashCode, which JBMC does not soundly provide).
+ * The build-time synthesis pass gives each a loud body, so reaching one is a member-named UNKNOWN.
+ * ({@code box-impl}/{@code unbox-impl}/{@code getValue} are {@code @InlineOnly} / private — no public ABI
+ * method to account for.)
  */
-@BmcModelTail(reason = "kotlin.Result value-class boxing/identity remainder under the mangled JVM ABI — "
-        + "toString-impl formatting, equals/hashCode/box/unbox value-class identity, getValue accessor; "
-        + "the getOrNull/fold/map/recover and Companion.success/failure surface is @InlineOnly (no ABI "
-        + "method to model); loud under JBMC if reached")
+@BmcUnmodelable(member = "toString-impl(java.lang.Object)",
+        reason = "kotlin.Result value-class toString formatting (String.valueOf of the carrier) — out of "
+                + "scope for the bounded model, same as the Duration/java.time formatting walls")
+@BmcUnmodelable(member = "equals-impl(java.lang.Object, java.lang.Object)",
+        reason = "kotlin.Result value-class identity equals over the erased Object carrier — no sound "
+                + "bounded model (depends on the arbitrary carrier's own equals); loud if reached")
+@BmcUnmodelable(member = "equals-impl0(java.lang.Object, java.lang.Object)",
+        reason = "kotlin.Result value-class structural equals over the erased Object carrier — no sound "
+                + "bounded model (depends on the arbitrary carrier's own equals); loud if reached")
+@BmcUnmodelable(member = "hashCode-impl(java.lang.Object)",
+        reason = "kotlin.Result value-class hashCode over the erased Object carrier — no sound bounded "
+                + "model (depends on the arbitrary carrier's own hashCode); loud if reached")
 public final class Result {
 
     private Result() {

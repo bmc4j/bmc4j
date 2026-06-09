@@ -1,7 +1,9 @@
 package kotlin.time;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Clean model of Kotlin's {@code kotlin.time.DurationKt} top-level facade — the duration-construction
@@ -12,13 +14,21 @@ import org.bmc4j.models.audit.BmcModelTail;
  * {@link Duration} model's faithful packing.
  *
  * <p>Only the {@code Int}/{@code Long} construction surface is modeled (bmc4j avoids {@code double}); the
- * {@code Double} overloads remain JBMC stubs, consistent with the model's documented holes.
+ * single {@code Double} {@code toDuration} overload is walled off as a loud {@link BmcUnmodelable} stub
+ * (no-double policy), so the whole facade surface is per-member accounted and no {@code @BmcModelTail}
+ * catch-all is needed.
  */
-@BmcModelTail(reason = "DurationKt Double-valued toDuration overload (no-double policy) plus the mangled "
-        + "extension-property getters; loud under JBMC if reached")
 public final class DurationKt {
 
     private DurationKt() {
+    }
+
+    /** LOUD: {@code Double.toDuration(unit)} — no-double policy (the fractional packing needs FP math). */
+    @BmcUnmodelable(reason = "double-valued duration construction — no-double policy; the fractional "
+            + "nanos/millis packing needs the real FP math")
+    public static long toDuration(double value, DurationUnit unit) {
+        throw fail("bmc4j: unmodelled member kotlin.time.DurationKt.toDuration(double,kotlin.time.DurationUnit) "
+                + "— no-double policy");
     }
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")

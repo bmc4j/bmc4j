@@ -3,7 +3,6 @@ package kotlin.comparisons;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -15,9 +14,12 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * models the documented contract: natural-ordering compare via {@code Comparable.compareTo}, with
  * nulls ordered first (a null is "less than" any non-null, two nulls are equal). Sound for boxed
  * primitives and Strings' lexicographic compareTo.
+ *
+ * <p>The whole real surface is now enumerated per-member: {@code compareValues} is modeled and every
+ * other facade member (compareBy/thenBy builders, nullsFirst/nullsLast, the min/maxOf variadics over
+ * doubles whose total order is unsound) is a loud {@link BmcUnmodelable} stub — so the class no longer
+ * needs a {@code @BmcModelTail} catch-all.
  */
-@BmcModelTail(reason = "exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/"
-        + "nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached")
 public final class ComparisonsKt {
 
     private ComparisonsKt() {

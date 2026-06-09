@@ -3,7 +3,6 @@ package kotlin.ranges;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -17,12 +16,13 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * <p>{@code coerceAtMost}/{@code coerceIn} are modeled for the same reason consumers reach them
  * directly: this class REPLACES the stdlib facade on the analysis path, so any member it lacks is a
  * JBMC nondet stub — a call to un-modeled {@code coerceIn} produced a spurious counterexample
- * ({@code coerceIn(0, 0, 95) == 96}) the moment an example used it. Other primitive overloads
- * (double/float/Comparable) remain stubs until something needs them.
+ * ({@code coerceIn(0, 0, 95) == 96}) the moment an example used it. The {@code Int}/{@code Long}
+ * {@code range.random(rng)} draws are MODELED (sound nondet-in-range, delegating to the modeled
+ * {@code Random.nextInt/nextLong} with the stdlib overflow handling). Other primitive overloads
+ * (double/float/Comparable, the {@code Char} random draw, every {@code randomOrNull}) are walled off
+ * member-by-member as loud {@link BmcUnmodelable} stubs, so the whole real facade surface is per-member
+ * accounted and no {@code @BmcModelTail} catch-all is needed.
  */
-@BmcModelTail(reason = "exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce "
-        + "primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not "
-        + "exercise; loud under JBMC if reached")
 public final class RangesKt {
 
     private RangesKt() {
@@ -487,6 +487,70 @@ public final class RangesKt {
     @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
     public static void rangeUntil(java.lang.Comparable a0, java.lang.Comparable a1) {
         throw fail("bmc4j: unmodelled member kotlin.ranges.RangesKt.rangeUntil(java.lang.Comparable,java.lang.Comparable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
+    }
+
+    // random over an Int/Long range: a SOUND nondet-in-range draw — delegate to the modeled
+    // Random.nextInt(from, until) / nextLong(from, until) with the stdlib's exact last==MAX_VALUE overflow
+    // handling, throwing NoSuchElementException on an empty range. (This RangesKt.random is the entry point
+    // the Kotlin compiler emits for `(a..b).random(rng)`.) The Char overload + every randomOrNull stay loud
+    // walls: a char draw / boxed-null draw earns nothing over the modeled Int/Long path.
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int random(kotlin.ranges.IntRange range, kotlin.random.Random random) {
+        if (range.isEmpty()) {
+            throw new java.util.NoSuchElementException("Cannot get random in empty range: " + range);
+        }
+        int first = range.getFirst();
+        int last = range.getLast();
+        if (last < Integer.MAX_VALUE) {
+            return random.nextInt(first, last + 1);
+        }
+        if (first > Integer.MIN_VALUE) {
+            return random.nextInt(first - 1, last) + 1;
+        }
+        return random.nextInt();
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long random(kotlin.ranges.LongRange range, kotlin.random.Random random) {
+        if (range.isEmpty()) {
+            throw new java.util.NoSuchElementException("Cannot get random in empty range: " + range);
+        }
+        long first = range.getFirst();
+        long last = range.getLast();
+        if (last < Long.MAX_VALUE) {
+            return random.nextLong(first, last + 1);
+        }
+        if (first > Long.MIN_VALUE) {
+            return random.nextLong(first - 1, last) + 1;
+        }
+        return random.nextLong();
+    }
+
+    // random(CharRange,...) + every randomOrNull(...) over a range stay loud (a reach demotes to a
+    // member-named UNKNOWN): a char draw / boxed-null-on-empty draw earns nothing over the modeled
+    // Int/Long path, and modeling them would only add CharRange/boxing surface the proofs don't exercise.
+    @BmcUnmodelable(reason = "ranged Random draw over CharRange — use the modeled Int/Long range draws")
+    public static char random(kotlin.ranges.CharRange range, kotlin.random.Random random) {
+        throw fail("bmc4j: unmodelled member kotlin.ranges.RangesKt.random(kotlin.ranges.CharRange,"
+                + "kotlin.random.Random) — use the modeled Int/Long range.random(rng) draws");
+    }
+
+    @BmcUnmodelable(reason = "ranged Random draw over CharRange — use the modeled Int/Long range draws")
+    public static Character randomOrNull(kotlin.ranges.CharRange range, kotlin.random.Random random) {
+        throw fail("bmc4j: unmodelled member kotlin.ranges.RangesKt.randomOrNull(kotlin.ranges.CharRange,"
+                + "kotlin.random.Random) — a Random draw is nondeterministic by nature; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "ranged Random draw over IntRange — nondeterministic by nature; no sound bounded model")
+    public static Integer randomOrNull(kotlin.ranges.IntRange range, kotlin.random.Random random) {
+        throw fail("bmc4j: unmodelled member kotlin.ranges.RangesKt.randomOrNull(kotlin.ranges.IntRange,"
+                + "kotlin.random.Random) — a Random draw is nondeterministic by nature; no sound bounded model");
+    }
+
+    @BmcUnmodelable(reason = "ranged Random draw over LongRange — nondeterministic by nature; no sound bounded model")
+    public static Long randomOrNull(kotlin.ranges.LongRange range, kotlin.random.Random random) {
+        throw fail("bmc4j: unmodelled member kotlin.ranges.RangesKt.randomOrNull(kotlin.ranges.LongRange,"
+                + "kotlin.random.Random) — a Random draw is nondeterministic by nature; no sound bounded model");
     }
 
     @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")

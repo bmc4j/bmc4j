@@ -1024,58 +1024,37 @@ Real surface: 56 members — modeled 44, unmodelable 12, not-needed 0, tail 0.
 
 ## `kotlin.Pair`
 
-Real surface: 5 members — modeled 4, unmodelable 0, not-needed 0, tail 1.
+Real surface: 5 members — modeled 5, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getFirst()`, `getSecond()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Pair data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(Object, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `copy(Object, Object)`, `getFirst()`, `getSecond()`
 
 
 ## `kotlin.Result`
 
-Real surface: 8 members — modeled 4, unmodelable 0, not-needed 0, tail 4.
+Real surface: 8 members — modeled 4, unmodelable 4, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `constructor-impl(Object)`, `exceptionOrNull-impl(Object)`, `isFailure-impl(Object)`, `isSuccess-impl(Object)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): kotlin.Result value-class boxing/identity remainder under the mangled JVM ABI — toString-impl formatting, equals/hashCode/box/unbox value-class identity, getValue accessor; the getOrNull/fold/map/recover and Companion.success/failure surface is @InlineOnly (no ABI method to model); loud under JBMC if reached</summary>
-
-- `equals-impl(Object, Object)`
-- `equals-impl0(Object, Object)`
-- `hashCode-impl(Object)`
-- `toString-impl(Object)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `equals-impl(Object, Object)` | kotlin.Result value-class identity equals over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own equals); loud if reached |
+| `equals-impl0(Object, Object)` | kotlin.Result value-class structural equals over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own equals); loud if reached |
+| `hashCode-impl(Object)` | kotlin.Result value-class hashCode over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own hashCode); loud if reached |
+| `toString-impl(Object)` | kotlin.Result value-class toString formatting (String.valueOf of the carrier) — out of scope for the bounded model, same as the Duration/java.time formatting walls |
 
 
 ## `kotlin.Triple`
 
-Real surface: 7 members — modeled 6, unmodelable 0, not-needed 0, tail 1.
+Real surface: 7 members — modeled 7, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `component3()`, `getFirst()`, `getSecond()`, `getThird()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Triple data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(Object, Object, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `component3()`, `copy(Object, Object, Object)`, `getFirst()`, `getSecond()`, `getThird()`
 
 
 ## `kotlin.TuplesKt`
 
-Real surface: 3 members — modeled 1, unmodelable 0, not-needed 0, tail 2.
+Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `to(Object, Object)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): TuplesKt remainder (toList overloads) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `toList(Pair)`
-- `toList(Triple)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `to(Object, Object)`, `toList(Pair)`, `toList(Triple)`
 
 
 ## `kotlin.collections.CollectionsKt`
@@ -1371,12 +1350,6 @@ Real surface: 34 members — modeled 1, unmodelable 33, not-needed 0, tail 0.
 | `then(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `thenDescending(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `kotlin.enums.EnumEntriesKt`
 
@@ -1421,54 +1394,44 @@ Real surface: 40 members — modeled 16, unmodelable 24, not-needed 0, tail 0.
 
 ## `kotlin.random.Random`
 
-Real surface: 15 members — modeled 8, unmodelable 1, not-needed 0, tail 6.
+Real surface: 15 members — modeled 8, unmodelable 7, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `nextBits(int)`, `nextBoolean()`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `nextBytes(byte[])` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
+| `nextBytes(byte[], int, int)` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
+| `nextBytes(int)` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
 | `nextDouble()` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic kotlin.random.Random remainder — the double-valued draws (nextDouble/nextDouble(bound)/nextDouble(from,until)/nextFloat, no-double policy) and the nextBytes(...) family (byte-array fill); loud (UNKNOWN) under JBMC if reached</summary>
-
-- `nextBytes(byte[])`
-- `nextBytes(byte[], int, int)`
-- `nextBytes(int)`
-- `nextDouble(double)`
-- `nextDouble(double, double)`
-- `nextFloat()`
-
-</details>
+| `nextDouble(double)` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
+| `nextDouble(double, double)` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
+| `nextFloat()` | float draw — no-double policy; the IEEE-754 mapping needs the real bit math |
 
 
 ## `kotlin.random.RandomKt`
 
-Real surface: 10 members — modeled 0, unmodelable 2, not-needed 0, tail 8.
+Real surface: 10 members — modeled 2, unmodelable 8, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `nextInt(Random, IntRange)`, `nextLong(Random, LongRange)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `Random(int)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
 | `Random(long)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): RandomKt remainder — the nextInt(Random,IntRange)/nextLong(Random,LongRange) range-extension draws (use Random.nextInt(from,until) directly) and the stdlib internals fastLog2/takeUpperBits/checkRangeBounds/boundsErrorMessage; loud (UNKNOWN) under JBMC if reached</summary>
-
-- `boundsErrorMessage(Object, Object)`
-- `checkRangeBounds(double, double)`
-- `checkRangeBounds(int, int)`
-- `checkRangeBounds(long, long)`
-- `fastLog2(int)`
-- `nextInt(Random, IntRange)`
-- `nextLong(Random, LongRange)`
-- `takeUpperBits(int, int)`
-
-</details>
+| `boundsErrorMessage(Object, Object)` | stdlib internal (error-message formatting) — out of scope; loud if reached |
+| `checkRangeBounds(double, double)` | stdlib internal range-bounds check over doubles (no-double policy) — loud if reached |
+| `checkRangeBounds(int, int)` | stdlib internal range-bounds check — out of scope; loud if reached |
+| `checkRangeBounds(long, long)` | stdlib internal range-bounds check — out of scope; loud if reached |
+| `fastLog2(int)` | stdlib internal bit helper — out of scope; loud if reached |
+| `takeUpperBits(int, int)` | stdlib internal bit helper — out of scope; loud if reached |
 
 
 ## `kotlin.ranges.RangesKt`
 
-Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
+Real surface: 131 members — modeled 20, unmodelable 111, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`
+**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`, `random(IntRange, Random)`, `random(LongRange, Random)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1530,6 +1493,10 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 | `longRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `longRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `longRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `random(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
+| `randomOrNull(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
+| `randomOrNull(IntRange, Random)` | ranged Random draw over IntRange — nondeterministic by nature; no sound bounded model |
+| `randomOrNull(LongRange, Random)` | ranged Random draw over LongRange — nondeterministic by nature; no sound bounded model |
 | `rangeTo(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `rangeTo(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `rangeTo(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
@@ -1579,17 +1546,6 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 | `until(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `random(CharRange, Random)`
-- `random(IntRange, Random)`
-- `random(LongRange, Random)`
-- `randomOrNull(CharRange, Random)`
-- `randomOrNull(IntRange, Random)`
-- `randomOrNull(LongRange, Random)`
-
-</details>
 
 
 ## `kotlin.sequences.SequencesKt`
@@ -1801,34 +1757,30 @@ Real surface: 276 members — modeled 156, unmodelable 17, not-needed 103, tail 
 
 ## `kotlin.time.Duration`
 
-Real surface: 41 members — modeled 32, unmodelable 0, not-needed 0, tail 9.
+Real surface: 41 members — modeled 32, unmodelable 9, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `compareTo-LRDsOJo(long, long)`, `constructor-impl(long)`, `div-UwyO8pc(long, int)`, `equals-impl0(long, long)`, `getAbsoluteValue-UwyO8pc(long)`, `getHoursComponent-impl(long)`, `getInWholeDays-impl(long)`, `getInWholeHours-impl(long)`, `getInWholeMicroseconds-impl(long)`, `getInWholeMilliseconds-impl(long)`, `getInWholeMinutes-impl(long)`, `getInWholeNanoseconds-impl(long)`, `getInWholeSeconds-impl(long)`, `getMinutesComponent-impl(long)`, `getNanosecondsComponent-impl(long)`, `getSecondsComponent-impl(long)`, `hashCode-impl(long)`, `isFinite-impl(long)`, `isInfinite-impl(long)`, `isNegative-impl(long)`, `isPositive-impl(long)`, `minus-LRDsOJo(long, long)`, `plus-LRDsOJo(long, long)`, `times-UwyO8pc(long, int)`, `toComponents-impl(long, Function2)`, `toComponents-impl(long, Function3)`, `toComponents-impl(long, Function4)`, `toComponents-impl(long, Function5)`, `toInt-impl(long, DurationUnit)`, `toLong-impl(long, DurationUnit)`, `truncateTo-UwyO8pc$kotlin_stdlib(long, DurationUnit)`, `unaryMinus-UwyO8pc(long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 9 members, all loud): exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), TimeSource/TimeMark wall-clock; loud under JBMC if reached</summary>
-
-- `compareTo-LRDsOJo(long)`
-- `div-LRDsOJo(long, long)`
-- `div-UwyO8pc(long, double)`
-- `equals-impl(long, Object)`
-- `times-UwyO8pc(long, double)`
-- `toDouble-impl(long, DurationUnit)`
-- `toIsoString-impl(long)`
-- `toString-impl(long)`
-- `toString-impl(long, DurationUnit, int)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `compareTo-LRDsOJo(long)` | boxed-receiver Comparable.compareTo — the sound primitive compare is the modeled static compareTo(long, long); loud if reached |
+| `div-LRDsOJo(long, long)` | Duration / Duration -> Double ratio — no-double policy; use the Int-scalar div |
+| `div-UwyO8pc(long, double)` | Duration / Double scalar — no-double policy; use the Int-scalar div |
+| `equals-impl(long, Object)` | value-class identity equals against an arbitrary Object — the sound structural compare is the modeled equals-impl0(long, long); loud if reached |
+| `times-UwyO8pc(long, double)` | Duration * Double scalar — no-double policy; use the Int-scalar times |
+| `toDouble-impl(long, DurationUnit)` | Duration -> Double in a unit — no-double policy; use toLong/inWhole* conversions |
+| `toIsoString-impl(long)` | Duration ISO-8601 string formatting (dtoa) — out of scope |
+| `toString-impl(long)` | Duration decimal formatting (dtoa) — out of scope, same as the java.time formatting walls |
+| `toString-impl(long, DurationUnit, int)` | Duration decimal formatting with unit+decimals (dtoa) — out of scope |
 
 
 ## `kotlin.time.DurationKt`
 
-Real surface: 3 members — modeled 2, unmodelable 0, not-needed 0, tail 1.
+Real surface: 3 members — modeled 2, unmodelable 1, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `toDuration(int, DurationUnit)`, `toDuration(long, DurationUnit)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): DurationKt Double-valued toDuration overload (no-double policy) plus the mangled extension-property getters; loud under JBMC if reached</summary>
-
-- `toDuration(double, DurationUnit)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `toDuration(double, DurationUnit)` | double-valued duration construction — no-double policy; the fractional nanos/millis packing needs the real FP math |
 
