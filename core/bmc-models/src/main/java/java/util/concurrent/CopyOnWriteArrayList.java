@@ -24,17 +24,18 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * out of scope for the bounded array-backed model; {@code spliterator}/{@code parallelStream} are the
  * parallel-decomposition concurrency wall — those three stay loud-if-reached waivers.
  *
- * <p>The six {@link ArrayList}-model loud stubs ({@code add(int, …)}/{@code addAll(int, …)}/
- * {@code clone}/{@code replaceAll}/{@code sort}/{@code toArray(Object[])}) are inherited unchanged
- * (their loud bodies live on the ArrayList model); they are re-declared here as class-level
- * {@link BmcUnmodelable}(member=…) so the per-member gate accounts for them on this subclass too
- * (a superclass member-level waiver does not propagate to the subclass surface).
+ * <p>The {@link ArrayList}-model loud stubs ({@code add(int, …)}/{@code addAll(int, …)}/
+ * {@code clone}/{@code replaceAll}/{@code toArray(Object[])}) are
+ * inherited unchanged (their loud bodies live on the ArrayList model); they are re-declared here as
+ * class-level {@link BmcUnmodelable}(member=…) so the per-member gate accounts for them on this
+ * subclass too (a superclass member-level waiver does not propagate to the subclass surface). The
+ * {@code sort(Comparator)} member is now <em>modeled</em> on the ArrayList superclass (the nondet
+ * sorted-permutation witness) and resolves through inheritance, so it needs no waiver here.
  */
 @BmcUnmodelable(member = "add(int, java.lang.Object)", reason = "positional insert — inherited ArrayList-model loud stub; append + shift not modeled")
 @BmcUnmodelable(member = "addAll(int, java.util.Collection)", reason = "positional bulk add — inherited ArrayList-model loud stub; add elements explicitly")
 @BmcUnmodelable(member = "clone()", reason = "shallow copy of a bounded model — inherited ArrayList-model loud stub; construct a fresh list instead")
 @BmcUnmodelable(member = "replaceAll(java.util.function.UnaryOperator)", reason = "functional-arg map — inherited ArrayList-model loud stub; JBMC stubs the operator dispatch")
-@BmcUnmodelable(member = "sort(java.util.Comparator)", reason = "comparator-driven sort over the bounded array — inherited ArrayList-model loud stub; not modeled")
 @BmcUnmodelable(member = "toArray(java.lang.Object[])", reason = "typed array snapshot — inherited ArrayList-model loud stub; use toArray()/toArray(IntFunction) or iterate")
 public class CopyOnWriteArrayList<E> extends ArrayList<E> {
 

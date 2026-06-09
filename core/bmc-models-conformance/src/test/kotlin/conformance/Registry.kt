@@ -100,6 +100,8 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.Collection" to "interface — via impls",
     "java.util.List" to "interface — via ArrayList/LinkedList",
     "java.util.ArrayListView" to "internal model helper (no JDK twin) — the live subList/reversed view over the ArrayList model; exercised via ArrayList's subList/reversed conformance + @BmcProof",
+    "java.util.BmcSortWitness" to "internal model helper (no JDK twin) — the nondet sorted-permutation witness shared by the comparator-driven sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort SortWitnessLaws)",
+    "java.util.BmcNaturalOrder" to "internal model helper (no JDK twin) — the single concrete, devirtualizable natural-order comparison (bit-precise for the builtin Comparables, loud otherwise) that drives the witness for the natural-order sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort NaturalOrderSortLaws)",
     "java.util.Map" to "interface — via HashMap/TreeMap/ConcurrentHashMap",
     "java.util.Set" to "interface — via HashSet/LinkedHashSet",
     "java.util.SequencedCollection" to "interface (Java 21+) — head/tail surface modeled on the concrete collections; type-only here for the Java-17 floor build",

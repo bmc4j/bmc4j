@@ -176,9 +176,15 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
     // stubs, so the loud stubs the ArrayList model declares for these members are re-declared here for
     // the (covariantly-typed) LinkedList surface. Same decisions + reasons as the ArrayList model.
 
-    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public void sort(Comparator<? super E> c) {
-        throw fail("bmc4j: unmodelled member java.util.LinkedList.sort(java.util.Comparator) — comparator-driven sort over the bounded array: O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof");
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness), in place over the inherited
+        // ArrayList backing via set(int, E): a bijective permutation of the current elements that is
+        // non-decreasing under the comparator. Sound for ordering proofs; equal elements not stable.
+        ArrayList<E> ordered = BmcSortWitness.sorted(this, c);
+        for (int i = 0; i < ordered.size(); i++) {
+            set(i, ordered.get(i));
+        }
     }
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")

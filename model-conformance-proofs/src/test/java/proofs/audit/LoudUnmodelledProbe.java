@@ -34,16 +34,18 @@ import org.junit.jupiter.api.Test;
 class LoudUnmodelledProbe {
 
     /**
-     * {@code ArrayList.sort(Comparator)} is a {@code @BmcUnmodelable} member (comparator-driven sort
-     * over the bounded array). Reaching it is honestly UNKNOWN — bmc4j can't model it — NOT a false
-     * REFUTED that would claim the user's code has a counterexample.
+     * {@code ArrayList.spliterator()} is a {@code @BmcUnmodelable} member (the parallel-decomposition
+     * Spliterator view a sequential bounded model can't represent). Reaching it is honestly UNKNOWN —
+     * bmc4j can't model it — NOT a false REFUTED that would claim the user's code has a counterexample.
+     * (Previously targeted {@code ArrayList.sort}; that member is now modeled via the nondet
+     * sorted-permutation witness, so this probe retargeted to a still-unmodelable member.)
      */
     @BmcProof(expect = Verdict.UNKNOWN)
     void reaching_an_unmodelled_list_member_is_undecided() {
         ArrayList<Integer> a = new ArrayList<>();
         a.add(2);
         a.add(1);
-        a.sort((x, y) -> x - y); // no real model body; the loud body routes through the sentinel -> UNKNOWN
+        a.spliterator(); // no real model body; the loud body routes through the sentinel -> UNKNOWN
         Bmc.check(a.get(0) == 1); // never reached
     }
 
@@ -63,18 +65,18 @@ class LoudUnmodelledProbe {
     }
 
     /**
-     * Acknowledgment opt-out (revision 6): the SAME {@code ArrayList.sort} reach, but
+     * Acknowledgment opt-out (revision 6): the SAME {@code ArrayList.spliterator} reach, but
      * {@code acknowledgeUnmodelled} lists it — so instead of UNKNOWN it degrades to the classic
      * nondet-stub behavior (treated as an unconstrained havoc, footnoted, never silent) and the proof
      * proceeds. {@code expect = VERIFIED}: with the member acknowledged-as-nondet and no real
      * counterexample, the proof passes with a loud footnote naming the acknowledged member.
      */
-    @BmcProof(acknowledgeUnmodelled = {"java.util.ArrayList.sort"})
+    @BmcProof(acknowledgeUnmodelled = {"java.util.ArrayList.spliterator"})
     void acknowledged_unmodelled_member_degrades_to_footnoted_nondet() {
         ArrayList<Integer> a = new ArrayList<>();
         a.add(2);
         a.add(1);
-        a.sort((x, y) -> x - y); // acknowledged: treated as nondet stub, footnoted (not UNKNOWN)
+        a.spliterator(); // acknowledged: treated as nondet stub, footnoted (not UNKNOWN)
     }
 
     /** Drives the backend directly to assert the demotion FACT names the reached member — so the
@@ -93,7 +95,7 @@ class LoudUnmodelledProbe {
         // The engine reports a would-be refutation (the loud body's assertion), but the harvested fact
         // names the reached member — which the interpreter then turns into a member-named UNKNOWN.
         assertFalse(result.isVerified(), "the loud body should fire, not verify");
-        assertTrue(result.unmodelledMembers().stream().anyMatch(m -> m.contains("java.util.ArrayList.sort")),
+        assertTrue(result.unmodelledMembers().stream().anyMatch(m -> m.contains("java.util.ArrayList.spliterator")),
                 "the reached unmodelled member must be named: " + result.unmodelledMembers());
     }
 }

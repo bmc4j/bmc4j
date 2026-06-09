@@ -163,29 +163,11 @@ public final class ListStream<T> implements Stream<T> {
     @Override
     @BmcModelConforms("@BmcProof (proofs.stream)")
     public Stream<T> sorted(Comparator<? super T> comparator) {
-        // Stable selection sort over a snapshot, appending in order (no positional ArrayList.add —
-        // that's an unmodeled ArrayList op). Tiny lists only. Marks consumed slots to stay stable.
-        int n = data.size();
-        ArrayList<T> snap = new ArrayList<>();
-        boolean[] used = new boolean[n];
-        for (int i = 0; i < n; i++) {
-            snap.add(data.get(i));
-        }
-        ArrayList<T> out = new ArrayList<>();
-        for (int k = 0; k < n; k++) {
-            int best = -1;
-            for (int i = 0; i < n; i++) {
-                if (used[i]) {
-                    continue;
-                }
-                if (best == -1 || comparator.compare(snap.get(i), snap.get(best)) < 0) {
-                    best = i;
-                }
-            }
-            used[best] = true;
-            out.add(snap.get(best));
-        }
-        return new ListStream<>(out);
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness): havoc an output of the same
+        // length, assume it is a bijective permutation of the input AND non-decreasing under the
+        // comparator. Covers any sort implementation at once and avoids the n^2 data-dependent
+        // comparisons a real selection sort would emit. Tiny lists only.
+        return new ListStream<>(java.util.BmcSortWitness.sorted(data, comparator));
     }
 
     @Override

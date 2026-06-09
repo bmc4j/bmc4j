@@ -293,14 +293,11 @@ class ArraysUtilConformanceTest : FunSpec({
         }
     }
 
-    test("sort(Object[]) conforms (Comparable elements)") {
-        checkAll(Arb.list(Arb.int(-50..50), 0..7)) { xs ->
-            val ar: Array<Any?> = xs.toTypedArray(); val am: Array<Any?> = xs.toTypedArray()
-            java.util.Arrays.sort(ar)
-            staticCall(MODEL, "sort", arrayOf(OBJARR), am).getOrThrow()
-            am.toList() shouldBe ar.toList()
-        }
-    }
+    // Natural-order sort(Object[]) / sort(Object[], from, to) are NO LONGER differential-tested here:
+    // they are now modeled by the nondet sorted-permutation witness driven by BmcNaturalOrder.compare
+    // (the multi-implementor Comparable.compareTo dispatch JBMC can't devirtualize is replaced by a
+    // single concrete comparison), so the model body uses CProver.assume/nondet and cannot run on a
+    // real JVM. They are validated on the proof axis instead (proofs.sort NaturalOrderSortLaws).
 
     // --- binarySearch (sorted-assume: search a SORTED array) ------------------------------------
     test("binarySearch(int[], int) on a sorted array conforms") {
@@ -518,7 +515,7 @@ class ArraysUtilConformanceTest : FunSpec({
 
     // --- range-bounded overloads ----------------------------------------------------------------
 
-    test("sort(int[]/long[]/byte[]/char[]/short[]/Object[], from, to) conform (incl. bad range)") {
+    test("sort(int[]/long[]/byte[]/char[]/short[], from, to) conform (incl. bad range)") {
         checkAll(Arb.list(Arb.int(-50..50), 0..7), Arb.int(-1..7), Arb.int(-1..7)) { xs, from, to ->
             val ar = xs.toIntArray(); val am = xs.toIntArray()
             val rI = staticCall(REAL, "sort", arrayOf(INTARR, INT, INT), ar, from, to)
@@ -546,10 +543,7 @@ class ArraysUtilConformanceTest : FunSpec({
             staticCall(MODEL, "sort", arrayOf(SHORTARR, INT, INT), sm, from, to)
             if (rS.isSuccess) sm.toList() shouldBe sr.toList()
 
-            val or: Array<Any?> = xs.toTypedArray(); val om: Array<Any?> = xs.toTypedArray()
-            val rO = staticCall(REAL, "sort", arrayOf(OBJARR, INT, INT), or, from, to)
-            staticCall(MODEL, "sort", arrayOf(OBJARR, INT, INT), om, from, to)
-            if (rO.isSuccess) om.toList() shouldBe or.toList()
+            // Object[] ranged sort is witness-modeled (proof-only) — see the note above; not differential.
         }
     }
 

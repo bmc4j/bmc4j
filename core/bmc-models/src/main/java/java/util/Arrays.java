@@ -802,18 +802,15 @@ public class Arrays {
         }
     }
 
-    @BmcModelConforms("differential: sort(Object[]) (insertion sort, Comparable elements)")
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    // Natural-order Object[] sort. Rather than a real insertion sort over the elements' VIRTUAL
+    // Comparable.compareTo (a multi-implementor interface dispatch JBMC cannot devirtualize soundly over
+    // the bounded array — the #169 family), we drive the shared nondet sorted-permutation witness with
+    // the single concrete java.util.BmcNaturalOrder.compare: the result is assumed a bijective
+    // permutation of the input AND non-decreasing under the builtin natural order. BmcNaturalOrder is
+    // bit-precise for the builtin Comparables and stays LOUD for any other element type.
+    @BmcModelConforms("@BmcProof (proofs.sort NaturalOrderSortLaws) — nondet sorted-permutation witness, natural order")
     public static void sort(Object[] a) {
-        for (int i = 1; i < a.length; i++) {
-            Object key = a[i];
-            int j = i - 1;
-            while (j >= 0 && ((Comparable) a[j]).compareTo(key) > 0) {
-                a[j + 1] = a[j];
-                j--;
-            }
-            a[j + 1] = key;
-        }
+        BmcSortWitness.sortInPlace(a, 0, a.length, BmcNaturalOrder.COMPARATOR);
     }
 
     // Integral primitive sorts: direct insertion-sort clones of sort(int[]). byte/char/short have a
@@ -963,19 +960,13 @@ public class Arrays {
         }
     }
 
-    @BmcModelConforms("differential: sort(Object[], int, int) (insertion sort over the range, Comparable elements)")
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    // Ranged natural-order Object[] sort — same witness as sort(Object[]), bounded to [fromIndex,
+    // toIndex). rangeCheck throws the JDK's exact exceptions on a bad range; the elements outside the
+    // range are left untouched (the witness only permutes within the range).
+    @BmcModelConforms("@BmcProof (proofs.sort NaturalOrderSortLaws) — nondet sorted-permutation witness, natural order, ranged")
     public static void sort(Object[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        for (int i = fromIndex + 1; i < toIndex; i++) {
-            Object key = a[i];
-            int j = i - 1;
-            while (j >= fromIndex && ((Comparable) a[j]).compareTo(key) > 0) {
-                a[j + 1] = a[j];
-                j--;
-            }
-            a[j + 1] = key;
-        }
+        BmcSortWitness.sortInPlace(a, fromIndex, toIndex, BmcNaturalOrder.COMPARATOR);
     }
 
     @BmcModelConforms("@BmcProof (proofs.primitives.FloatDoubleArraysLaws): sort(float[], int, int) total order, ranged")
@@ -2397,16 +2388,19 @@ public class Arrays {
     // Spliterator interface / parallel split. hashCode/toString of float[]/double[] need the unsound
     // Float.floatToIntBits / Float.toString. copyOf/copyOfRange(…, Class) need reflective newInstance.
 
-    @BmcUnmodelable(reason = "comparator-driven sort — devirt through the Comparator interface")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public static <T> void sort(T[] a, Comparator<? super T> c) {
-        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], java.util.Comparator)"
-                + " — a comparator-driven sort devirts through the Comparator interface; honestly UNKNOWN");
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness): in place, a bijective
+        // permutation of a[0..length) that is non-decreasing under the comparator. Sound for ordering
+        // proofs over the bound; equal elements are not guaranteed stable.
+        BmcSortWitness.sortInPlace(a, 0, a.length, c);
     }
 
-    @BmcUnmodelable(reason = "comparator-driven ranged sort — Comparator devirt")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public static <T> void sort(T[] a, int fromIndex, int toIndex, Comparator<? super T> c) {
-        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], int, int, "
-                + "java.util.Comparator) — comparator devirt through the Comparator interface; honestly UNKNOWN");
+        // Ranged form of the nondet sorted-permutation witness: only a[fromIndex..toIndex) is permuted
+        // and ordered; the rest of the array is left untouched.
+        BmcSortWitness.sortInPlace(a, fromIndex, toIndex, c);
     }
 
     @BmcUnmodelable(reason = "comparator-driven binarySearch — Comparator devirt")
