@@ -129,6 +129,8 @@ val WAIVED: Map<String, String> = mapOf(
     "kotlinx.coroutines.Dispatchers" to "coroutine runtime model — coroutines example",
     "kotlinx.coroutines.Drive" to "coroutine runtime helper — coroutines example",
     "kotlinx.coroutines.Job" to "coroutine runtime model — coroutines example",
+    "kotlin.text.StringCharIterator" to "concrete CharIterator backing for CharSequence.iterator() — " +
+        "a by-index walk over a String; exercised by KotlinStringsLaws.as_sequence_iterable_iterator_concrete",
 )
 
 /**

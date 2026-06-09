@@ -40,6 +40,13 @@ java {
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
+    // Desugar Java string-concatenation (`+`) to explicit StringBuilder bytecode instead of an
+    // `invokedynamic makeConcatWithConstants` bootstrap. invokedynamic is JBMC's one unsoundness
+    // boundary: a model class carrying it FAILS TO CONVERT, and JBMC nondet-stubs EVERY method on the
+    // class (not just the concatenating one) — a whole-class link failure that demotes every proof
+    // reaching it to UNKNOWN. Keeping these analysis-classpath model classes invokedynamic-free is the
+    // same in-layer concat desugaring the bytecode rewrite layer applies to user code.
+    options.compilerArgs.add("-XDstringConcat=inline")
 }
 
 // Pull ONLY the audit annotation classes from bmc-models (not its java.* model classes), so these

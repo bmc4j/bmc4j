@@ -1780,288 +1780,135 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 
 ## `kotlin.text.StringsKt`
 
-Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
+Real surface: 276 members — modeled 156, unmodelable 17, not-needed 103, tail 0.
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 276 members, all loud): exotic StringsKt facade remainder — the bulk of kotlin-stdlib's CharSequence/String extension functions (split/replace/trim/regex/case/parsing/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+**Modeled** (`@BmcModelConforms`): `any(CharSequence)`, `append(Appendable, CharSequence[])`, `append(StringBuilder, Object[])`, `append(StringBuilder, String[])`, `asIterable(CharSequence)`, `asSequence(CharSequence)`, `chunked(CharSequence, int)`, `chunkedSequence(CharSequence, int)`, `clear(StringBuilder)`, `commonPrefixWith(CharSequence, CharSequence, boolean)`, `commonSuffixWith(CharSequence, CharSequence, boolean)`, `compareTo(String, String, boolean)`, `concatToString(char[])`, `concatToString(char[], int, int)`, `contains(CharSequence, CharSequence, boolean)`, `contains(CharSequence, char, boolean)`, `contentEquals(CharSequence, CharSequence)`, `contentEquals(CharSequence, CharSequence, boolean)`, `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`, `contentEqualsImpl(CharSequence, CharSequence)`, `drop(CharSequence, int)`, `drop(String, int)`, `dropLast(CharSequence, int)`, `dropLast(String, int)`, `endsWith(CharSequence, CharSequence, boolean)`, `endsWith(CharSequence, char, boolean)`, `endsWith(String, String, boolean)`, `equals(String, String, boolean)`, `findAnyOf(CharSequence, Collection, int, boolean)`, `findLastAnyOf(CharSequence, Collection, int, boolean)`, `first(CharSequence)`, `firstOrNull(CharSequence)`, `getIndices(CharSequence)`, `getLastIndex(CharSequence)`, `getOrNull(CharSequence, int)`, `hasSurrogatePairAt(CharSequence, int)`, `indexOf(CharSequence, String, int, boolean)`, `indexOf(CharSequence, char, int, boolean)`, `indexOfAny(CharSequence, Collection, int, boolean)`, `indexOfAny(CharSequence, char[], int, boolean)`, `isBlank(CharSequence)`, `iterator(CharSequence)`, `last(CharSequence)`, `lastIndexOf(CharSequence, String, int, boolean)`, `lastIndexOf(CharSequence, char, int, boolean)`, `lastIndexOfAny(CharSequence, Collection, int, boolean)`, `lastIndexOfAny(CharSequence, char[], int, boolean)`, `lastOrNull(CharSequence)`, `lineSequence(CharSequence)`, `lines(CharSequence)`, `maxOrNull(CharSequence)`, `maxWithOrNull(CharSequence, Comparator)`, `minOrNull(CharSequence)`, `minWithOrNull(CharSequence, Comparator)`, `none(CharSequence)`, `padEnd(CharSequence, int, char)`, `padEnd(String, int, char)`, `padStart(CharSequence, int, char)`, `padStart(String, int, char)`, `prependIndent(String, String)`, `random(CharSequence, Random)`, `randomOrNull(CharSequence, Random)`, `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`, `regionMatches(String, int, String, int, int, boolean)`, `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`, `removePrefix(CharSequence, CharSequence)`, `removePrefix(String, CharSequence)`, `removeRange(CharSequence, IntRange)`, `removeRange(CharSequence, int, int)`, `removeSuffix(CharSequence, CharSequence)`, `removeSuffix(String, CharSequence)`, `removeSurrounding(CharSequence, CharSequence)`, `removeSurrounding(CharSequence, CharSequence, CharSequence)`, `removeSurrounding(String, CharSequence)`, `removeSurrounding(String, CharSequence, CharSequence)`, `repeat(CharSequence, int)`, `replace(String, String, String, boolean)`, `replace(String, char, char, boolean)`, `replaceAfter(String, String, String, String)`, `replaceAfter(String, char, String, String)`, `replaceAfterLast(String, String, String, String)`, `replaceAfterLast(String, char, String, String)`, `replaceBefore(String, String, String, String)`, `replaceBefore(String, char, String, String)`, `replaceBeforeLast(String, String, String, String)`, `replaceBeforeLast(String, char, String, String)`, `replaceFirst(String, String, String, boolean)`, `replaceFirst(String, char, char, boolean)`, `replaceIndent(String, String)`, `replaceIndentByMargin(String, String, String)`, `replaceRange(CharSequence, IntRange, CharSequence)`, `replaceRange(CharSequence, int, int, CharSequence)`, `requireNonNegativeLimit(int)`, `reversed(CharSequence)`, `single(CharSequence)`, `singleOrNull(CharSequence)`, `slice(CharSequence, IntRange)`, `slice(CharSequence, Iterable)`, `slice(String, IntRange)`, `split(CharSequence, String[], boolean, int)`, `split(CharSequence, char[], boolean, int)`, `splitToSequence(CharSequence, String[], boolean, int)`, `splitToSequence(CharSequence, char[], boolean, int)`, `startsWith(CharSequence, CharSequence, boolean)`, `startsWith(CharSequence, CharSequence, int, boolean)`, `startsWith(CharSequence, char, boolean)`, `startsWith(String, String, boolean)`, `startsWith(String, String, int, boolean)`, `subSequence(CharSequence, IntRange)`, `substring(CharSequence, IntRange)`, `substring(String, IntRange)`, `substringAfter(String, String, String)`, `substringAfter(String, char, String)`, `substringAfterLast(String, String, String)`, `substringAfterLast(String, char, String)`, `substringBefore(String, String, String)`, `substringBefore(String, char, String)`, `substringBeforeLast(String, String, String)`, `substringBeforeLast(String, char, String)`, `take(CharSequence, int)`, `take(String, int)`, `takeLast(CharSequence, int)`, `takeLast(String, int)`, `toBooleanStrict(String)`, `toBooleanStrictOrNull(String)`, `toByteOrNull(String)`, `toByteOrNull(String, int)`, `toCharArray(String, int, int)`, `toCollection(CharSequence, Collection)`, `toHashSet(CharSequence)`, `toIntOrNull(String)`, `toIntOrNull(String, int)`, `toList(CharSequence)`, `toLongOrNull(String)`, `toLongOrNull(String, int)`, `toMutableList(CharSequence)`, `toSet(CharSequence)`, `toShortOrNull(String)`, `toShortOrNull(String, int)`, `toSortedSet(CharSequence)`, `trim(CharSequence)`, `trim(CharSequence, char[])`, `trim(String, char[])`, `trimEnd(CharSequence)`, `trimEnd(CharSequence, char[])`, `trimEnd(String, char[])`, `trimIndent(String)`, `trimMargin(String, String)`, `trimStart(CharSequence)`, `trimStart(CharSequence, char[])`, `trimStart(String, char[])`, `windowed(CharSequence, int, int, boolean)`, `windowedSequence(CharSequence, int, int, boolean)`, `withIndex(CharSequence)`, `zip(CharSequence, CharSequence)`, `zipWithNext(CharSequence)`
 
-- `all(CharSequence, Function1)`
-- `any(CharSequence)`
-- `any(CharSequence, Function1)`
-- `append(Appendable, CharSequence[])`
-- `append(StringBuilder, Object[])`
-- `append(StringBuilder, String[])`
-- `appendElement(Appendable, Object, Function1)`
-- `appendRange(Appendable, CharSequence, int, int)`
-- `appendln(Appendable)`
-- `appendln(StringBuilder)`
-- `asIterable(CharSequence)`
-- `asSequence(CharSequence)`
-- `associate(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1, Function1)`
-- `associateByTo(CharSequence, Map, Function1)`
-- `associateByTo(CharSequence, Map, Function1, Function1)`
-- `associateTo(CharSequence, Map, Function1)`
-- `associateWith(CharSequence, Function1)`
-- `associateWithTo(CharSequence, Map, Function1)`
-- `capitalize(String)`
-- `capitalize(String, Locale)`
-- `chunked(CharSequence, int)`
-- `chunked(CharSequence, int, Function1)`
-- `chunkedSequence(CharSequence, int)`
-- `chunkedSequence(CharSequence, int, Function1)`
-- `clear(StringBuilder)`
-- `commonPrefixWith(CharSequence, CharSequence, boolean)`
-- `commonSuffixWith(CharSequence, CharSequence, boolean)`
-- `compareTo(String, String, boolean)`
-- `concatToString(char[])`
-- `concatToString(char[], int, int)`
-- `contains(CharSequence, CharSequence, boolean)`
-- `contains(CharSequence, char, boolean)`
-- `contentEquals(CharSequence, CharSequence)`
-- `contentEquals(CharSequence, CharSequence, boolean)`
-- `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`
-- `contentEqualsImpl(CharSequence, CharSequence)`
-- `count(CharSequence, Function1)`
-- `decapitalize(String)`
-- `decapitalize(String, Locale)`
-- `decodeToString(byte[])`
-- `decodeToString(byte[], int, int, boolean)`
-- `drop(CharSequence, int)`
-- `drop(String, int)`
-- `dropLast(CharSequence, int)`
-- `dropLast(String, int)`
-- `dropLastWhile(CharSequence, Function1)`
-- `dropLastWhile(String, Function1)`
-- `dropWhile(CharSequence, Function1)`
-- `dropWhile(String, Function1)`
-- `encodeToByteArray(String)`
-- `encodeToByteArray(String, int, int, boolean)`
-- `endsWith(CharSequence, CharSequence, boolean)`
-- `endsWith(CharSequence, char, boolean)`
-- `endsWith(String, String, boolean)`
-- `equals(String, String, boolean)`
-- `filter(CharSequence, Function1)`
-- `filter(String, Function1)`
-- `filterIndexed(CharSequence, Function2)`
-- `filterIndexed(String, Function2)`
-- `filterIndexedTo(CharSequence, Appendable, Function2)`
-- `filterNot(CharSequence, Function1)`
-- `filterNot(String, Function1)`
-- `filterNotTo(CharSequence, Appendable, Function1)`
-- `filterTo(CharSequence, Appendable, Function1)`
-- `findAnyOf(CharSequence, Collection, int, boolean)`
-- `findLastAnyOf(CharSequence, Collection, int, boolean)`
-- `first(CharSequence)`
-- `first(CharSequence, Function1)`
-- `firstOrNull(CharSequence)`
-- `firstOrNull(CharSequence, Function1)`
-- `flatMap(CharSequence, Function1)`
-- `flatMapTo(CharSequence, Collection, Function1)`
-- `fold(CharSequence, Object, Function2)`
-- `foldIndexed(CharSequence, Object, Function3)`
-- `foldRight(CharSequence, Object, Function2)`
-- `foldRightIndexed(CharSequence, Object, Function3)`
-- `forEach(CharSequence, Function1)`
-- `forEachIndexed(CharSequence, Function2)`
-- `getCASE_INSENSITIVE_ORDER(StringCompanionObject)`
-- `getIndices(CharSequence)`
-- `getLastIndex(CharSequence)`
-- `getOrNull(CharSequence, int)`
-- `groupBy(CharSequence, Function1)`
-- `groupBy(CharSequence, Function1, Function1)`
-- `groupByTo(CharSequence, Map, Function1)`
-- `groupByTo(CharSequence, Map, Function1, Function1)`
-- `groupingBy(CharSequence, Function1)`
-- `hasSurrogatePairAt(CharSequence, int)`
-- `indexOf(CharSequence, String, int, boolean)`
-- `indexOf(CharSequence, char, int, boolean)`
-- `indexOfAny(CharSequence, Collection, int, boolean)`
-- `indexOfAny(CharSequence, char[], int, boolean)`
-- `indexOfFirst(CharSequence, Function1)`
-- `indexOfLast(CharSequence, Function1)`
-- `isBlank(CharSequence)`
-- `iterator(CharSequence)`
-- `last(CharSequence)`
-- `last(CharSequence, Function1)`
-- `lastIndexOf(CharSequence, String, int, boolean)`
-- `lastIndexOf(CharSequence, char, int, boolean)`
-- `lastIndexOfAny(CharSequence, Collection, int, boolean)`
-- `lastIndexOfAny(CharSequence, char[], int, boolean)`
-- `lastOrNull(CharSequence)`
-- `lastOrNull(CharSequence, Function1)`
-- `lineSequence(CharSequence)`
-- `lines(CharSequence)`
-- `map(CharSequence, Function1)`
-- `mapIndexed(CharSequence, Function2)`
-- `mapIndexedNotNull(CharSequence, Function2)`
-- `mapIndexedNotNullTo(CharSequence, Collection, Function2)`
-- `mapIndexedTo(CharSequence, Collection, Function2)`
-- `mapNotNull(CharSequence, Function1)`
-- `mapNotNullTo(CharSequence, Collection, Function1)`
-- `mapTo(CharSequence, Collection, Function1)`
-- `maxByOrNull(CharSequence, Function1)`
-- `maxByOrThrow(CharSequence, Function1)`
-- `maxOrNull(CharSequence)`
-- `maxOrThrow(CharSequence)`
-- `maxWithOrNull(CharSequence, Comparator)`
-- `maxWithOrThrow(CharSequence, Comparator)`
-- `minByOrNull(CharSequence, Function1)`
-- `minByOrThrow(CharSequence, Function1)`
-- `minOrNull(CharSequence)`
-- `minOrThrow(CharSequence)`
-- `minWithOrNull(CharSequence, Comparator)`
-- `minWithOrThrow(CharSequence, Comparator)`
-- `none(CharSequence)`
-- `none(CharSequence, Function1)`
-- `numberFormatError(String)`
-- `onEach(CharSequence, Function1)`
-- `onEachIndexed(CharSequence, Function2)`
-- `padEnd(CharSequence, int, char)`
-- `padEnd(String, int, char)`
-- `padStart(CharSequence, int, char)`
-- `padStart(String, int, char)`
-- `partition(CharSequence, Function1)`
-- `partition(String, Function1)`
-- `prependIndent(String, String)`
-- `random(CharSequence, Random)`
-- `randomOrNull(CharSequence, Random)`
-- `reduce(CharSequence, Function2)`
-- `reduceIndexed(CharSequence, Function3)`
-- `reduceIndexedOrNull(CharSequence, Function3)`
-- `reduceOrNull(CharSequence, Function2)`
-- `reduceRight(CharSequence, Function2)`
-- `reduceRightIndexed(CharSequence, Function3)`
-- `reduceRightIndexedOrNull(CharSequence, Function3)`
-- `reduceRightOrNull(CharSequence, Function2)`
-- `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`
-- `regionMatches(String, int, String, int, int, boolean)`
-- `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`
-- `removePrefix(CharSequence, CharSequence)`
-- `removePrefix(String, CharSequence)`
-- `removeRange(CharSequence, IntRange)`
-- `removeRange(CharSequence, int, int)`
-- `removeSuffix(CharSequence, CharSequence)`
-- `removeSuffix(String, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence, CharSequence)`
-- `removeSurrounding(String, CharSequence)`
-- `removeSurrounding(String, CharSequence, CharSequence)`
-- `repeat(CharSequence, int)`
-- `replace(String, String, String, boolean)`
-- `replace(String, char, char, boolean)`
-- `replaceAfter(String, String, String, String)`
-- `replaceAfter(String, char, String, String)`
-- `replaceAfterLast(String, String, String, String)`
-- `replaceAfterLast(String, char, String, String)`
-- `replaceBefore(String, String, String, String)`
-- `replaceBefore(String, char, String, String)`
-- `replaceBeforeLast(String, String, String, String)`
-- `replaceBeforeLast(String, char, String, String)`
-- `replaceFirst(String, String, String, boolean)`
-- `replaceFirst(String, char, char, boolean)`
-- `replaceIndent(String, String)`
-- `replaceIndentByMargin(String, String, String)`
-- `replaceRange(CharSequence, IntRange, CharSequence)`
-- `replaceRange(CharSequence, int, int, CharSequence)`
-- `requireNonNegativeLimit(int)`
-- `reversed(CharSequence)`
-- `runningFold(CharSequence, Object, Function2)`
-- `runningFoldIndexed(CharSequence, Object, Function3)`
-- `runningReduce(CharSequence, Function2)`
-- `runningReduceIndexed(CharSequence, Function3)`
-- `scan(CharSequence, Object, Function2)`
-- `scanIndexed(CharSequence, Object, Function3)`
-- `single(CharSequence)`
-- `single(CharSequence, Function1)`
-- `singleOrNull(CharSequence)`
-- `singleOrNull(CharSequence, Function1)`
-- `skipWhile(String, int, Function1)`
-- `slice(CharSequence, IntRange)`
-- `slice(CharSequence, Iterable)`
-- `slice(String, IntRange)`
-- `split(CharSequence, Pattern, int)`
-- `split(CharSequence, String[], boolean, int)`
-- `split(CharSequence, char[], boolean, int)`
-- `splitToSequence(CharSequence, String[], boolean, int)`
-- `splitToSequence(CharSequence, char[], boolean, int)`
-- `startsWith(CharSequence, CharSequence, boolean)`
-- `startsWith(CharSequence, CharSequence, int, boolean)`
-- `startsWith(CharSequence, char, boolean)`
-- `startsWith(String, String, boolean)`
-- `startsWith(String, String, int, boolean)`
-- `subSequence(CharSequence, IntRange)`
-- `substring(CharSequence, IntRange)`
-- `substring(String, IntRange)`
-- `substringAfter(String, String, String)`
-- `substringAfter(String, char, String)`
-- `substringAfterLast(String, String, String)`
-- `substringAfterLast(String, char, String)`
-- `substringBefore(String, String, String)`
-- `substringBefore(String, char, String)`
-- `substringBeforeLast(String, String, String)`
-- `substringBeforeLast(String, char, String)`
-- `sumBy(CharSequence, Function1)`
-- `sumByDouble(CharSequence, Function1)`
-- `take(CharSequence, int)`
-- `take(String, int)`
-- `takeLast(CharSequence, int)`
-- `takeLast(String, int)`
-- `takeLastWhile(CharSequence, Function1)`
-- `takeLastWhile(String, Function1)`
-- `takeWhile(CharSequence, Function1)`
-- `takeWhile(String, Function1)`
-- `toBigDecimalOrNull(String)`
-- `toBigDecimalOrNull(String, MathContext)`
-- `toBigIntegerOrNull(String)`
-- `toBigIntegerOrNull(String, int)`
-- `toBooleanStrict(String)`
-- `toBooleanStrictOrNull(String)`
-- `toByteOrNull(String)`
-- `toByteOrNull(String, int)`
-- `toCharArray(String, int, int)`
-- `toCollection(CharSequence, Collection)`
-- `toDoubleOrNull(String)`
-- `toFloatOrNull(String)`
-- `toHashSet(CharSequence)`
-- `toIntOrNull(String)`
-- `toIntOrNull(String, int)`
-- `toList(CharSequence)`
-- `toLongOrNull(String)`
-- `toLongOrNull(String, int)`
-- `toMutableList(CharSequence)`
-- `toSet(CharSequence)`
-- `toShortOrNull(String)`
-- `toShortOrNull(String, int)`
-- `toSortedSet(CharSequence)`
-- `trim(CharSequence)`
-- `trim(CharSequence, Function1)`
-- `trim(CharSequence, char[])`
-- `trim(String, Function1)`
-- `trim(String, char[])`
-- `trimEnd(CharSequence)`
-- `trimEnd(CharSequence, Function1)`
-- `trimEnd(CharSequence, char[])`
-- `trimEnd(String, Function1)`
-- `trimEnd(String, char[])`
-- `trimIndent(String)`
-- `trimMargin(String, String)`
-- `trimStart(CharSequence)`
-- `trimStart(CharSequence, Function1)`
-- `trimStart(CharSequence, char[])`
-- `trimStart(String, Function1)`
-- `trimStart(String, char[])`
-- `windowed(CharSequence, int, int, boolean)`
-- `windowed(CharSequence, int, int, boolean, Function1)`
-- `windowedSequence(CharSequence, int, int, boolean)`
-- `windowedSequence(CharSequence, int, int, boolean, Function1)`
-- `withIndex(CharSequence)`
-- `zip(CharSequence, CharSequence)`
-- `zip(CharSequence, CharSequence, Function2)`
-- `zipWithNext(CharSequence)`
-- `zipWithNext(CharSequence, Function2)`
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `capitalize(String)` | full-Unicode title-case mapping of the first char — needs the Unicode case tables |
+| `capitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decapitalize(String)` | full-Unicode case mapping — needs the Unicode case tables |
+| `decapitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decodeToString(byte[])` | charset decode — UTF-8 byte decoding |
+| `decodeToString(byte[], int, int, boolean)` | charset decode — UTF-8 byte decoding |
+| `encodeToByteArray(String)` | charset encode — UTF-8 byte encoding |
+| `encodeToByteArray(String, int, int, boolean)` | charset encode — UTF-8 byte encoding |
+| `getCASE_INSENSITIVE_ORDER(StringCompanionObject)` | case-insensitive ordering comparator — full-Unicode/locale case fold over an open comparator |
+| `numberFormatError(String)` | number-format error helper — throws a NumberFormatException constructed from locale-formatted text |
+| `split(CharSequence, Pattern, int)` | regex engine — split over a java.util.regex.Pattern |
+| `toBigDecimalOrNull(String)` | BigDecimal parse — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigDecimalOrNull(String, MathContext)` | BigDecimal parse with MathContext — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigIntegerOrNull(String)` | BigInteger parse — arbitrary-precision radix parsing |
+| `toBigIntegerOrNull(String, int)` | BigInteger parse with radix — arbitrary-precision radix parsing |
+| `toDoubleOrNull(String)` | floating-point parse — needs dtoa |
+| `toFloatOrNull(String)` | floating-point parse — needs dtoa |
 
-</details>
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `all(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `any(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendElement(Appendable, Object, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendRange(Appendable, CharSequence, int, int)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(Appendable)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(StringBuilder)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associate(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunked(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunkedSequence(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `count(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(String, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(CharSequence, Appendable, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `first(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `fold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `last(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `map(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `none(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFoldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scan(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scanIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `single(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `skipWhile(String, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowed(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowedSequence(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zip(CharSequence, CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zipWithNext(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
 
 
 ## `kotlin.time.Duration`
