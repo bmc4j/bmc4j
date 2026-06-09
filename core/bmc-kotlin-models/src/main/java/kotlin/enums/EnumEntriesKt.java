@@ -1,7 +1,6 @@
 package kotlin.enums;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of Kotlin's {@code kotlin.enums.EnumEntriesKt} facade. An {@code enum class}'s
@@ -15,9 +14,11 @@ import org.bmc4j.models.audit.BmcModelTail;
  * analyse over the bounded list model. Because this class REPLACES the stdlib facade on the analysis
  * path, every overload an enum's bytecode or consumer code can reach is modeled; the two unused
  * overloads fail loudly rather than nondet-stub.
+ *
+ * <p>No class-level {@code @BmcModelTail}: the real {@code EnumEntriesKt} surface is exactly the three
+ * {@code enumEntries} overloads below, each individually modeled and {@code @BmcModelConforms}-pinned,
+ * so there is no exotic remainder to absorb.
  */
-@BmcModelTail(reason = "EnumEntriesKt has no remainder beyond the two modeled enumEntries overloads; "
-        + "tail present for ratchet completeness, loud under JBMC if any future member is reached")
 public final class EnumEntriesKt {
 
     private EnumEntriesKt() {
