@@ -4,7 +4,7 @@ import kotlin.jvm.functions.Function2;
 
 /**
  * Clean model of {@code kotlin.coroutines.AbstractCoroutineContextElement} — the base the bundled
- * {@link CoroutineDispatcher kotlinx.coroutines.CoroutineDispatcher} extends. Bundled (rather than
+ * {@code kotlinx.coroutines.CoroutineDispatcher} extends. Bundled (rather than
  * resolved against the real stdlib jar) so the dispatcher's whole supertype chain up to {@link
  * CoroutineContext} is single-source; see {@link CoroutineContext} for why that matters for the
  * cast-check determinism. The context-algebra methods are never exercised by a synchronous-drive

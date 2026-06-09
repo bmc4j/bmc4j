@@ -7,7 +7,7 @@ import kotlin.jvm.functions.Function2;
  *
  * <p>The interface itself is just a type with no analysis-relevant body, identical to stdlib's. We
  * bundle it (rather than leaving it to resolve against the real kotlin-stdlib jar) for a SOUNDNESS
- * reason, not a behavioural one: the bundled coroutine subtypes — {@link CoroutineDispatcher
+ * reason, not a behavioural one: the bundled coroutine subtypes — {@code
  * kotlinx.coroutines.CoroutineDispatcher}, the continuation impls — are cast to {@code
  * CoroutineContext} / {@code Continuation} in compiler-generated suspend bodies (e.g. {@code
  * withContext(Dispatchers.IO) { }} emits {@code checkcast CoroutineContext} on the dispatcher).

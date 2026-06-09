@@ -2,7 +2,7 @@ package kotlin.coroutines;
 
 /**
  * Clean model of {@code kotlin.coroutines.ContinuationInterceptor} — the interface the bundled
- * {@link CoroutineDispatcher kotlinx.coroutines.CoroutineDispatcher} implements. Bundled so the
+ * {@code kotlinx.coroutines.CoroutineDispatcher} implements. Bundled so the
  * dispatcher's interface chain is single-source for cast resolution (see {@link CoroutineContext}).
  * Carries the {@code Key} constant the real interface exposes so {@code CoroutineDispatcher}'s
  * {@code super(ContinuationInterceptor.Key)} binds to the bundled member.
