@@ -58,20 +58,19 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.time.Duration`
 
-Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
+Real surface: 57 members — modeled 41, unmodelable 2, not-needed 0, tail 14.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `get(TemporalUnit)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
 
 - `addTo(Temporal)`
 - `from(TemporalAmount)`
-- `get(TemporalUnit)`
 - `getNano()`
 - `getUnits()`
 - `minus(long, TemporalUnit)`
@@ -90,38 +89,29 @@ Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
 
 ## `java.time.Instant`
 
-Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
+Real surface: 36 members — modeled 20, unmodelable 5, not-needed 0, tail 11.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `getEpochSecond()`, `isAfter(Instant)`, `isBefore(Instant)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plusMillis(long)`, `plusSeconds(long)`, `toEpochMilli()`
+**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `get(TemporalField)`, `getEpochSecond()`, `getLong(TemporalField)`, `isAfter(Instant)`, `isBefore(Instant)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plus(long, TemporalUnit)`, `plusMillis(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toEpochMilli()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the epoch-millis model |
 | `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (which fields an Instant supports) is out of scope for the epoch-millis model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (which units an Instant supports) is out of scope for the epoch-millis model |
 | `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 | `now()` | wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters |
 | `ofEpochSecond(long, long)` | the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope for the epoch-millis model |
 | `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for the epoch-millis model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope for the epoch-millis model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the epoch-millis long carries no nanos, zone/offset, or field-enum, so the tail is genuinely not-modelable: sub-milli precision (nano accessors), zone/offset projection (atZone/atOffset), the TemporalField/Unit/Adjuster/Query plumbing (with/get/getLong/until/query/adjustInto/range/isSupported/plus/minus(TemporalAmount or long,TemporalUnit)), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `atZone(ZoneId)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `parse(CharSequence)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `truncatedTo(TemporalUnit)`
 - `with(TemporalAdjuster)`
 
@@ -130,21 +120,15 @@ Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
 
 ## `java.time.LocalDate`
 
-Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
+Real surface: 65 members — modeled 42, unmodelable 1, not-needed 0, tail 22.
 
-**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `getDayOfMonth()`, `getDayOfYear()`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `lengthOfMonth()`, `lengthOfYear()`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `toEpochDay()`, `until(ChronoLocalDate)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getLong(TemporalField)`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `lengthOfMonth()`, `lengthOfYear()`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochDay()`, `until(ChronoLocalDate)`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `getChronology()` | the Chronology accessor (getChronology) is out of scope for this epoch-day model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this epoch-day model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this epoch-day model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this epoch-day model |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusWeeks/plusMonths/plusYears |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this epoch-day model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withDayOf* |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalField/Adjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/range/query/get(TemporalField)/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 22 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atStartOfDay(ZoneId)`
@@ -153,12 +137,10 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `datesUntil(LocalDate, Period)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getDayOfWeek()`
 - `getEra()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now()`
 - `now(Clock)`
 - `now(ZoneId)`
@@ -168,7 +150,6 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalTime, ZoneOffset)`
 - `with(TemporalAdjuster)`
 
@@ -177,33 +158,25 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 
 ## `java.time.LocalDateTime`
 
-Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
+Real surface: 76 members — modeled 51, unmodelable 2, not-needed 0, tail 23.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `toLocalDate()`, `toLocalTime()`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toLocalDate()`, `toLocalTime()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `atZone(ZoneId)` | time zones (atZone) are out of scope for this local date+time model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this date+time model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this date+time model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this date+time model |
 | `now()` | wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusHours/plusMonths/etc. |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this date+time model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withHour/etc. |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 26 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atZone/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atZone/atOffset/format/query/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getChronology()`
 - `getDayOfWeek()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `of(int, Month, int, int, int)`
@@ -215,7 +188,6 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(ZoneOffset)`
 - `toInstant(ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
@@ -226,40 +198,31 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 
 ## `java.time.LocalTime`
 
-Real surface: 52 members — modeled 27, unmodelable 1, not-needed 0, tail 24.
+Real surface: 52 members — modeled 36, unmodelable 1, not-needed 0, tail 15.
 
-**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
+**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `get(TemporalField)`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plus(long, TemporalUnit)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toNanoOfDay()`, `toSecondOfDay()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atOffset/format/query/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
-- `getLong(TemporalField)`
-- `isSupported(TemporalField)`
-- `isSupported(TemporalUnit)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `ofInstant(Instant, ZoneId)`
 - `parse(CharSequence)`
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
-- `plus(long, TemporalUnit)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalDate, ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
-- `until(Temporal, TemporalUnit)`
 - `with(TemporalAdjuster)`
-- `with(TemporalField, long)`
 
 </details>
 
@@ -290,9 +253,9 @@ Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
 
 ## `java.time.ZoneOffset`
 
-Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
+Real surface: 22 members — modeled 11, unmodelable 9, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `getId()`, `getTotalSeconds()`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `get(TemporalField)`, `getId()`, `getLong(TemporalField)`, `getTotalSeconds()`, `isSupported(TemporalField)`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`, `range(TemporalField)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -300,20 +263,29 @@ Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
 | `from(TemporalAccessor)` | extracting a ZoneId from a TemporalAccessor is out of scope for the offset-only zone model |
 | `getAvailableZoneIds()` | the available-zone-ids set is region machinery — out of scope for the offset-only zone model |
 | `getDisplayName(TextStyle, Locale)` | localized zone display text is out of scope for the offset-only zone model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the total-seconds offset model |
 | `getRules()` | the fixed-offset ZoneRules object is DST-rule machinery out of scope for the total-seconds offset model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for the total-seconds offset model |
 | `of(String)` | named-region parsing is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `of(String, Map)` | named-region parsing with aliases is out of scope for the offset-only zone model |
 | `ofOffset(String, ZoneOffset)` | the prefix+offset region factory is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `systemDefault()` | the system default zone is non-deterministic external state — out of scope for the offset-only zone model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): the TemporalAccessor/TemporalAdjuster query plumbing (get/getLong/isSupported/range/query/adjustInto), getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
 
-- `get(TemporalField)`
 - `ofHoursMinutesSeconds(int, int, int)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
+
+</details>
+
+
+## `java.time.temporal.ValueRange`
+
+Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `checkValidIntValue(long, TemporalField)`, `checkValidValue(long, TemporalField)`, `getLargestMinimum()`, `getMaximum()`, `getMinimum()`, `getSmallestMaximum()`, `isFixed()`, `isIntValue()`, `isValidIntValue(long)`, `isValidValue(long)`, `of(long, long)`, `of(long, long, long)`, `of(long, long, long, long)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the locale/resolver display surface is out of scope for this four-long range model; loud under JBMC</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
@@ -1759,288 +1731,135 @@ Real surface: 164 members — modeled 100, unmodelable 64, not-needed 0, tail 0.
 
 ## `kotlin.text.StringsKt`
 
-Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
+Real surface: 276 members — modeled 156, unmodelable 17, not-needed 103, tail 0.
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 276 members, all loud): exotic StringsKt facade remainder — the bulk of kotlin-stdlib's CharSequence/String extension functions (split/replace/trim/regex/case/parsing/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+**Modeled** (`@BmcModelConforms`): `any(CharSequence)`, `append(Appendable, CharSequence[])`, `append(StringBuilder, Object[])`, `append(StringBuilder, String[])`, `asIterable(CharSequence)`, `asSequence(CharSequence)`, `chunked(CharSequence, int)`, `chunkedSequence(CharSequence, int)`, `clear(StringBuilder)`, `commonPrefixWith(CharSequence, CharSequence, boolean)`, `commonSuffixWith(CharSequence, CharSequence, boolean)`, `compareTo(String, String, boolean)`, `concatToString(char[])`, `concatToString(char[], int, int)`, `contains(CharSequence, CharSequence, boolean)`, `contains(CharSequence, char, boolean)`, `contentEquals(CharSequence, CharSequence)`, `contentEquals(CharSequence, CharSequence, boolean)`, `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`, `contentEqualsImpl(CharSequence, CharSequence)`, `drop(CharSequence, int)`, `drop(String, int)`, `dropLast(CharSequence, int)`, `dropLast(String, int)`, `endsWith(CharSequence, CharSequence, boolean)`, `endsWith(CharSequence, char, boolean)`, `endsWith(String, String, boolean)`, `equals(String, String, boolean)`, `findAnyOf(CharSequence, Collection, int, boolean)`, `findLastAnyOf(CharSequence, Collection, int, boolean)`, `first(CharSequence)`, `firstOrNull(CharSequence)`, `getIndices(CharSequence)`, `getLastIndex(CharSequence)`, `getOrNull(CharSequence, int)`, `hasSurrogatePairAt(CharSequence, int)`, `indexOf(CharSequence, String, int, boolean)`, `indexOf(CharSequence, char, int, boolean)`, `indexOfAny(CharSequence, Collection, int, boolean)`, `indexOfAny(CharSequence, char[], int, boolean)`, `isBlank(CharSequence)`, `iterator(CharSequence)`, `last(CharSequence)`, `lastIndexOf(CharSequence, String, int, boolean)`, `lastIndexOf(CharSequence, char, int, boolean)`, `lastIndexOfAny(CharSequence, Collection, int, boolean)`, `lastIndexOfAny(CharSequence, char[], int, boolean)`, `lastOrNull(CharSequence)`, `lineSequence(CharSequence)`, `lines(CharSequence)`, `maxOrNull(CharSequence)`, `maxWithOrNull(CharSequence, Comparator)`, `minOrNull(CharSequence)`, `minWithOrNull(CharSequence, Comparator)`, `none(CharSequence)`, `padEnd(CharSequence, int, char)`, `padEnd(String, int, char)`, `padStart(CharSequence, int, char)`, `padStart(String, int, char)`, `prependIndent(String, String)`, `random(CharSequence, Random)`, `randomOrNull(CharSequence, Random)`, `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`, `regionMatches(String, int, String, int, int, boolean)`, `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`, `removePrefix(CharSequence, CharSequence)`, `removePrefix(String, CharSequence)`, `removeRange(CharSequence, IntRange)`, `removeRange(CharSequence, int, int)`, `removeSuffix(CharSequence, CharSequence)`, `removeSuffix(String, CharSequence)`, `removeSurrounding(CharSequence, CharSequence)`, `removeSurrounding(CharSequence, CharSequence, CharSequence)`, `removeSurrounding(String, CharSequence)`, `removeSurrounding(String, CharSequence, CharSequence)`, `repeat(CharSequence, int)`, `replace(String, String, String, boolean)`, `replace(String, char, char, boolean)`, `replaceAfter(String, String, String, String)`, `replaceAfter(String, char, String, String)`, `replaceAfterLast(String, String, String, String)`, `replaceAfterLast(String, char, String, String)`, `replaceBefore(String, String, String, String)`, `replaceBefore(String, char, String, String)`, `replaceBeforeLast(String, String, String, String)`, `replaceBeforeLast(String, char, String, String)`, `replaceFirst(String, String, String, boolean)`, `replaceFirst(String, char, char, boolean)`, `replaceIndent(String, String)`, `replaceIndentByMargin(String, String, String)`, `replaceRange(CharSequence, IntRange, CharSequence)`, `replaceRange(CharSequence, int, int, CharSequence)`, `requireNonNegativeLimit(int)`, `reversed(CharSequence)`, `single(CharSequence)`, `singleOrNull(CharSequence)`, `slice(CharSequence, IntRange)`, `slice(CharSequence, Iterable)`, `slice(String, IntRange)`, `split(CharSequence, String[], boolean, int)`, `split(CharSequence, char[], boolean, int)`, `splitToSequence(CharSequence, String[], boolean, int)`, `splitToSequence(CharSequence, char[], boolean, int)`, `startsWith(CharSequence, CharSequence, boolean)`, `startsWith(CharSequence, CharSequence, int, boolean)`, `startsWith(CharSequence, char, boolean)`, `startsWith(String, String, boolean)`, `startsWith(String, String, int, boolean)`, `subSequence(CharSequence, IntRange)`, `substring(CharSequence, IntRange)`, `substring(String, IntRange)`, `substringAfter(String, String, String)`, `substringAfter(String, char, String)`, `substringAfterLast(String, String, String)`, `substringAfterLast(String, char, String)`, `substringBefore(String, String, String)`, `substringBefore(String, char, String)`, `substringBeforeLast(String, String, String)`, `substringBeforeLast(String, char, String)`, `take(CharSequence, int)`, `take(String, int)`, `takeLast(CharSequence, int)`, `takeLast(String, int)`, `toBooleanStrict(String)`, `toBooleanStrictOrNull(String)`, `toByteOrNull(String)`, `toByteOrNull(String, int)`, `toCharArray(String, int, int)`, `toCollection(CharSequence, Collection)`, `toHashSet(CharSequence)`, `toIntOrNull(String)`, `toIntOrNull(String, int)`, `toList(CharSequence)`, `toLongOrNull(String)`, `toLongOrNull(String, int)`, `toMutableList(CharSequence)`, `toSet(CharSequence)`, `toShortOrNull(String)`, `toShortOrNull(String, int)`, `toSortedSet(CharSequence)`, `trim(CharSequence)`, `trim(CharSequence, char[])`, `trim(String, char[])`, `trimEnd(CharSequence)`, `trimEnd(CharSequence, char[])`, `trimEnd(String, char[])`, `trimIndent(String)`, `trimMargin(String, String)`, `trimStart(CharSequence)`, `trimStart(CharSequence, char[])`, `trimStart(String, char[])`, `windowed(CharSequence, int, int, boolean)`, `windowedSequence(CharSequence, int, int, boolean)`, `withIndex(CharSequence)`, `zip(CharSequence, CharSequence)`, `zipWithNext(CharSequence)`
 
-- `all(CharSequence, Function1)`
-- `any(CharSequence)`
-- `any(CharSequence, Function1)`
-- `append(Appendable, CharSequence[])`
-- `append(StringBuilder, Object[])`
-- `append(StringBuilder, String[])`
-- `appendElement(Appendable, Object, Function1)`
-- `appendRange(Appendable, CharSequence, int, int)`
-- `appendln(Appendable)`
-- `appendln(StringBuilder)`
-- `asIterable(CharSequence)`
-- `asSequence(CharSequence)`
-- `associate(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1, Function1)`
-- `associateByTo(CharSequence, Map, Function1)`
-- `associateByTo(CharSequence, Map, Function1, Function1)`
-- `associateTo(CharSequence, Map, Function1)`
-- `associateWith(CharSequence, Function1)`
-- `associateWithTo(CharSequence, Map, Function1)`
-- `capitalize(String)`
-- `capitalize(String, Locale)`
-- `chunked(CharSequence, int)`
-- `chunked(CharSequence, int, Function1)`
-- `chunkedSequence(CharSequence, int)`
-- `chunkedSequence(CharSequence, int, Function1)`
-- `clear(StringBuilder)`
-- `commonPrefixWith(CharSequence, CharSequence, boolean)`
-- `commonSuffixWith(CharSequence, CharSequence, boolean)`
-- `compareTo(String, String, boolean)`
-- `concatToString(char[])`
-- `concatToString(char[], int, int)`
-- `contains(CharSequence, CharSequence, boolean)`
-- `contains(CharSequence, char, boolean)`
-- `contentEquals(CharSequence, CharSequence)`
-- `contentEquals(CharSequence, CharSequence, boolean)`
-- `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`
-- `contentEqualsImpl(CharSequence, CharSequence)`
-- `count(CharSequence, Function1)`
-- `decapitalize(String)`
-- `decapitalize(String, Locale)`
-- `decodeToString(byte[])`
-- `decodeToString(byte[], int, int, boolean)`
-- `drop(CharSequence, int)`
-- `drop(String, int)`
-- `dropLast(CharSequence, int)`
-- `dropLast(String, int)`
-- `dropLastWhile(CharSequence, Function1)`
-- `dropLastWhile(String, Function1)`
-- `dropWhile(CharSequence, Function1)`
-- `dropWhile(String, Function1)`
-- `encodeToByteArray(String)`
-- `encodeToByteArray(String, int, int, boolean)`
-- `endsWith(CharSequence, CharSequence, boolean)`
-- `endsWith(CharSequence, char, boolean)`
-- `endsWith(String, String, boolean)`
-- `equals(String, String, boolean)`
-- `filter(CharSequence, Function1)`
-- `filter(String, Function1)`
-- `filterIndexed(CharSequence, Function2)`
-- `filterIndexed(String, Function2)`
-- `filterIndexedTo(CharSequence, Appendable, Function2)`
-- `filterNot(CharSequence, Function1)`
-- `filterNot(String, Function1)`
-- `filterNotTo(CharSequence, Appendable, Function1)`
-- `filterTo(CharSequence, Appendable, Function1)`
-- `findAnyOf(CharSequence, Collection, int, boolean)`
-- `findLastAnyOf(CharSequence, Collection, int, boolean)`
-- `first(CharSequence)`
-- `first(CharSequence, Function1)`
-- `firstOrNull(CharSequence)`
-- `firstOrNull(CharSequence, Function1)`
-- `flatMap(CharSequence, Function1)`
-- `flatMapTo(CharSequence, Collection, Function1)`
-- `fold(CharSequence, Object, Function2)`
-- `foldIndexed(CharSequence, Object, Function3)`
-- `foldRight(CharSequence, Object, Function2)`
-- `foldRightIndexed(CharSequence, Object, Function3)`
-- `forEach(CharSequence, Function1)`
-- `forEachIndexed(CharSequence, Function2)`
-- `getCASE_INSENSITIVE_ORDER(StringCompanionObject)`
-- `getIndices(CharSequence)`
-- `getLastIndex(CharSequence)`
-- `getOrNull(CharSequence, int)`
-- `groupBy(CharSequence, Function1)`
-- `groupBy(CharSequence, Function1, Function1)`
-- `groupByTo(CharSequence, Map, Function1)`
-- `groupByTo(CharSequence, Map, Function1, Function1)`
-- `groupingBy(CharSequence, Function1)`
-- `hasSurrogatePairAt(CharSequence, int)`
-- `indexOf(CharSequence, String, int, boolean)`
-- `indexOf(CharSequence, char, int, boolean)`
-- `indexOfAny(CharSequence, Collection, int, boolean)`
-- `indexOfAny(CharSequence, char[], int, boolean)`
-- `indexOfFirst(CharSequence, Function1)`
-- `indexOfLast(CharSequence, Function1)`
-- `isBlank(CharSequence)`
-- `iterator(CharSequence)`
-- `last(CharSequence)`
-- `last(CharSequence, Function1)`
-- `lastIndexOf(CharSequence, String, int, boolean)`
-- `lastIndexOf(CharSequence, char, int, boolean)`
-- `lastIndexOfAny(CharSequence, Collection, int, boolean)`
-- `lastIndexOfAny(CharSequence, char[], int, boolean)`
-- `lastOrNull(CharSequence)`
-- `lastOrNull(CharSequence, Function1)`
-- `lineSequence(CharSequence)`
-- `lines(CharSequence)`
-- `map(CharSequence, Function1)`
-- `mapIndexed(CharSequence, Function2)`
-- `mapIndexedNotNull(CharSequence, Function2)`
-- `mapIndexedNotNullTo(CharSequence, Collection, Function2)`
-- `mapIndexedTo(CharSequence, Collection, Function2)`
-- `mapNotNull(CharSequence, Function1)`
-- `mapNotNullTo(CharSequence, Collection, Function1)`
-- `mapTo(CharSequence, Collection, Function1)`
-- `maxByOrNull(CharSequence, Function1)`
-- `maxByOrThrow(CharSequence, Function1)`
-- `maxOrNull(CharSequence)`
-- `maxOrThrow(CharSequence)`
-- `maxWithOrNull(CharSequence, Comparator)`
-- `maxWithOrThrow(CharSequence, Comparator)`
-- `minByOrNull(CharSequence, Function1)`
-- `minByOrThrow(CharSequence, Function1)`
-- `minOrNull(CharSequence)`
-- `minOrThrow(CharSequence)`
-- `minWithOrNull(CharSequence, Comparator)`
-- `minWithOrThrow(CharSequence, Comparator)`
-- `none(CharSequence)`
-- `none(CharSequence, Function1)`
-- `numberFormatError(String)`
-- `onEach(CharSequence, Function1)`
-- `onEachIndexed(CharSequence, Function2)`
-- `padEnd(CharSequence, int, char)`
-- `padEnd(String, int, char)`
-- `padStart(CharSequence, int, char)`
-- `padStart(String, int, char)`
-- `partition(CharSequence, Function1)`
-- `partition(String, Function1)`
-- `prependIndent(String, String)`
-- `random(CharSequence, Random)`
-- `randomOrNull(CharSequence, Random)`
-- `reduce(CharSequence, Function2)`
-- `reduceIndexed(CharSequence, Function3)`
-- `reduceIndexedOrNull(CharSequence, Function3)`
-- `reduceOrNull(CharSequence, Function2)`
-- `reduceRight(CharSequence, Function2)`
-- `reduceRightIndexed(CharSequence, Function3)`
-- `reduceRightIndexedOrNull(CharSequence, Function3)`
-- `reduceRightOrNull(CharSequence, Function2)`
-- `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`
-- `regionMatches(String, int, String, int, int, boolean)`
-- `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`
-- `removePrefix(CharSequence, CharSequence)`
-- `removePrefix(String, CharSequence)`
-- `removeRange(CharSequence, IntRange)`
-- `removeRange(CharSequence, int, int)`
-- `removeSuffix(CharSequence, CharSequence)`
-- `removeSuffix(String, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence, CharSequence)`
-- `removeSurrounding(String, CharSequence)`
-- `removeSurrounding(String, CharSequence, CharSequence)`
-- `repeat(CharSequence, int)`
-- `replace(String, String, String, boolean)`
-- `replace(String, char, char, boolean)`
-- `replaceAfter(String, String, String, String)`
-- `replaceAfter(String, char, String, String)`
-- `replaceAfterLast(String, String, String, String)`
-- `replaceAfterLast(String, char, String, String)`
-- `replaceBefore(String, String, String, String)`
-- `replaceBefore(String, char, String, String)`
-- `replaceBeforeLast(String, String, String, String)`
-- `replaceBeforeLast(String, char, String, String)`
-- `replaceFirst(String, String, String, boolean)`
-- `replaceFirst(String, char, char, boolean)`
-- `replaceIndent(String, String)`
-- `replaceIndentByMargin(String, String, String)`
-- `replaceRange(CharSequence, IntRange, CharSequence)`
-- `replaceRange(CharSequence, int, int, CharSequence)`
-- `requireNonNegativeLimit(int)`
-- `reversed(CharSequence)`
-- `runningFold(CharSequence, Object, Function2)`
-- `runningFoldIndexed(CharSequence, Object, Function3)`
-- `runningReduce(CharSequence, Function2)`
-- `runningReduceIndexed(CharSequence, Function3)`
-- `scan(CharSequence, Object, Function2)`
-- `scanIndexed(CharSequence, Object, Function3)`
-- `single(CharSequence)`
-- `single(CharSequence, Function1)`
-- `singleOrNull(CharSequence)`
-- `singleOrNull(CharSequence, Function1)`
-- `skipWhile(String, int, Function1)`
-- `slice(CharSequence, IntRange)`
-- `slice(CharSequence, Iterable)`
-- `slice(String, IntRange)`
-- `split(CharSequence, Pattern, int)`
-- `split(CharSequence, String[], boolean, int)`
-- `split(CharSequence, char[], boolean, int)`
-- `splitToSequence(CharSequence, String[], boolean, int)`
-- `splitToSequence(CharSequence, char[], boolean, int)`
-- `startsWith(CharSequence, CharSequence, boolean)`
-- `startsWith(CharSequence, CharSequence, int, boolean)`
-- `startsWith(CharSequence, char, boolean)`
-- `startsWith(String, String, boolean)`
-- `startsWith(String, String, int, boolean)`
-- `subSequence(CharSequence, IntRange)`
-- `substring(CharSequence, IntRange)`
-- `substring(String, IntRange)`
-- `substringAfter(String, String, String)`
-- `substringAfter(String, char, String)`
-- `substringAfterLast(String, String, String)`
-- `substringAfterLast(String, char, String)`
-- `substringBefore(String, String, String)`
-- `substringBefore(String, char, String)`
-- `substringBeforeLast(String, String, String)`
-- `substringBeforeLast(String, char, String)`
-- `sumBy(CharSequence, Function1)`
-- `sumByDouble(CharSequence, Function1)`
-- `take(CharSequence, int)`
-- `take(String, int)`
-- `takeLast(CharSequence, int)`
-- `takeLast(String, int)`
-- `takeLastWhile(CharSequence, Function1)`
-- `takeLastWhile(String, Function1)`
-- `takeWhile(CharSequence, Function1)`
-- `takeWhile(String, Function1)`
-- `toBigDecimalOrNull(String)`
-- `toBigDecimalOrNull(String, MathContext)`
-- `toBigIntegerOrNull(String)`
-- `toBigIntegerOrNull(String, int)`
-- `toBooleanStrict(String)`
-- `toBooleanStrictOrNull(String)`
-- `toByteOrNull(String)`
-- `toByteOrNull(String, int)`
-- `toCharArray(String, int, int)`
-- `toCollection(CharSequence, Collection)`
-- `toDoubleOrNull(String)`
-- `toFloatOrNull(String)`
-- `toHashSet(CharSequence)`
-- `toIntOrNull(String)`
-- `toIntOrNull(String, int)`
-- `toList(CharSequence)`
-- `toLongOrNull(String)`
-- `toLongOrNull(String, int)`
-- `toMutableList(CharSequence)`
-- `toSet(CharSequence)`
-- `toShortOrNull(String)`
-- `toShortOrNull(String, int)`
-- `toSortedSet(CharSequence)`
-- `trim(CharSequence)`
-- `trim(CharSequence, Function1)`
-- `trim(CharSequence, char[])`
-- `trim(String, Function1)`
-- `trim(String, char[])`
-- `trimEnd(CharSequence)`
-- `trimEnd(CharSequence, Function1)`
-- `trimEnd(CharSequence, char[])`
-- `trimEnd(String, Function1)`
-- `trimEnd(String, char[])`
-- `trimIndent(String)`
-- `trimMargin(String, String)`
-- `trimStart(CharSequence)`
-- `trimStart(CharSequence, Function1)`
-- `trimStart(CharSequence, char[])`
-- `trimStart(String, Function1)`
-- `trimStart(String, char[])`
-- `windowed(CharSequence, int, int, boolean)`
-- `windowed(CharSequence, int, int, boolean, Function1)`
-- `windowedSequence(CharSequence, int, int, boolean)`
-- `windowedSequence(CharSequence, int, int, boolean, Function1)`
-- `withIndex(CharSequence)`
-- `zip(CharSequence, CharSequence)`
-- `zip(CharSequence, CharSequence, Function2)`
-- `zipWithNext(CharSequence)`
-- `zipWithNext(CharSequence, Function2)`
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `capitalize(String)` | full-Unicode title-case mapping of the first char — needs the Unicode case tables |
+| `capitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decapitalize(String)` | full-Unicode case mapping — needs the Unicode case tables |
+| `decapitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decodeToString(byte[])` | charset decode — UTF-8 byte decoding |
+| `decodeToString(byte[], int, int, boolean)` | charset decode — UTF-8 byte decoding |
+| `encodeToByteArray(String)` | charset encode — UTF-8 byte encoding |
+| `encodeToByteArray(String, int, int, boolean)` | charset encode — UTF-8 byte encoding |
+| `getCASE_INSENSITIVE_ORDER(StringCompanionObject)` | case-insensitive ordering comparator — full-Unicode/locale case fold over an open comparator |
+| `numberFormatError(String)` | number-format error helper — throws a NumberFormatException constructed from locale-formatted text |
+| `split(CharSequence, Pattern, int)` | regex engine — split over a java.util.regex.Pattern |
+| `toBigDecimalOrNull(String)` | BigDecimal parse — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigDecimalOrNull(String, MathContext)` | BigDecimal parse with MathContext — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigIntegerOrNull(String)` | BigInteger parse — arbitrary-precision radix parsing |
+| `toBigIntegerOrNull(String, int)` | BigInteger parse with radix — arbitrary-precision radix parsing |
+| `toDoubleOrNull(String)` | floating-point parse — needs dtoa |
+| `toFloatOrNull(String)` | floating-point parse — needs dtoa |
 
-</details>
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `all(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `any(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendElement(Appendable, Object, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendRange(Appendable, CharSequence, int, int)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(Appendable)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(StringBuilder)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associate(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunked(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunkedSequence(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `count(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(String, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(CharSequence, Appendable, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `first(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `fold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `last(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `map(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `none(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFoldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scan(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scanIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `single(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `skipWhile(String, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowed(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowedSequence(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zip(CharSequence, CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zipWithNext(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
 
 
 ## `kotlin.time.Duration`

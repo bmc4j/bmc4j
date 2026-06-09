@@ -4,9 +4,12 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import java.time.chrono.ChronoLocalDateTime;
 import java.time.chrono.ChronoZonedDateTime;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalUnit;
+import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
@@ -25,7 +28,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * unchanged; it is validated bit-for-bit by the differential suite vs the real JDK. Zones, formatters
  * and sub-nano precision are out of scope; {@code now()} is not modeled.
  */
-@BmcModelTail(reason = "the remaining LocalDateTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atZone/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining LocalDateTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atZone/atOffset/format/query/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC")
 public final class LocalDateTime implements ChronoLocalDateTime<LocalDate> {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
@@ -457,44 +460,176 @@ public final class LocalDateTime implements ChronoLocalDateTime<LocalDate> {
         return this.nanoOfDay < o.nanoOfDay ? -1 : (this.nanoOfDay == o.nanoOfDay ? 0 : 1);
     }
 
-    // --- ChronoLocalDateTime / Temporal abstract surface: implemented ONLY to make the LocalDateTime an
-    //     instanceof ChronoLocalDateTime (so the proof-site checkcast passes); each is LOUD, never
-    //     modeled. toLocalDate()/toLocalTime() above already satisfy the interface. ---
+    // --- generic TemporalField / TemporalUnit accessors: split time-based fields/units onto the
+    //     nano-of-day (LocalTime) part and date-based ones onto the epoch-day (LocalDate) part, reusing
+    //     each part-model's own modeled accessors. A non-Chrono field/unit is declined LOUD. The
+    //     ChronoLocalDateTime interface makes a LocalDateTime an instanceof it (proof-site checkcast). ---
 
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (isSupported) is out of scope for this date+time model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this date+time model");
+        return (field instanceof ChronoField)
+            && (((ChronoField) field).isDateBased() || ((ChronoField) field).isTimeBased());
     }
 
-    @BmcUnmodelable(reason = "the TemporalUnit query plumbing (isSupported) is out of scope for this date+time model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for this date+time model");
+        if (unit instanceof ChronoUnit) {
+            return unit != ChronoUnit.FOREVER;
+        }
+        return unit != null && unit.isSupportedBy(this);
     }
 
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for this date+time model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this date+time model");
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.getLong(java.time.temporal.TemporalField) — only ChronoField is dispatched by this date+time model");
+        }
+        return ((ChronoField) field).isTimeBased()
+            ? toLocalTime().getLong(field)
+            : toLocalDate().getLong(field);
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withHour/etc.")
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public int get(TemporalField field) {
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.get(java.time.temporal.TemporalField) — only ChronoField is dispatched by this date+time model");
+        }
+        return ((ChronoField) field).isTimeBased()
+            ? toLocalTime().get(field)
+            : toLocalDate().get(field);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public ValueRange range(TemporalField field) {
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.range(java.time.temporal.TemporalField) — only ChronoField is dispatched by this date+time model");
+        }
+        return ((ChronoField) field).isTimeBased()
+            ? toLocalTime().range(field)
+            : toLocalDate().range(field);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public ChronoLocalDateTime<LocalDate> with(TemporalField field, long newValue) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope; use withYear/withMonth/withHour/etc.");
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.with(java.time.temporal.TemporalField,long) — only ChronoField is dispatched by this date+time model");
+        }
+        if (((ChronoField) field).isTimeBased()) {
+            return new LocalDateTime(epochDay, toLocalTime().with(field, newValue).toNanoOfDay());
+        }
+        LocalDate d = (LocalDate) toLocalDate().with(field, newValue);
+        return new LocalDateTime(d.toEpochDay(), nanoOfDay);
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalUnit add (plus) is out of scope; use plusDays/plusHours/plusMonths/etc.")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public ChronoLocalDateTime<LocalDate> plus(long amountToAdd, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope; use plusDays/plusHours/plusMonths/etc.");
+        if (!(unit instanceof ChronoUnit)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.plus(long,java.time.temporal.TemporalUnit) — only ChronoUnit is dispatched by this date+time model");
+        }
+        switch ((ChronoUnit) unit) {
+            case NANOS:
+                return plusNanos(amountToAdd);
+            case MICROS:
+                return plusNanos(Math.multiplyExact(amountToAdd, 1_000L));
+            case MILLIS:
+                return plusNanos(Math.multiplyExact(amountToAdd, 1_000_000L));
+            case SECONDS:
+                return plusSeconds(amountToAdd);
+            case MINUTES:
+                return plusMinutes(amountToAdd);
+            case HOURS:
+                return plusHours(amountToAdd);
+            case HALF_DAYS:
+                return plusHours(Math.multiplyExact(amountToAdd, 12L));
+            case DAYS:
+                return plusDays(amountToAdd);
+            case WEEKS:
+                return plusWeeks(amountToAdd);
+            case MONTHS:
+                return plusMonths(amountToAdd);
+            case YEARS:
+                return plusYears(amountToAdd);
+            case DECADES:
+                return plusYears(Math.multiplyExact(amountToAdd, 10L));
+            case CENTURIES:
+                return plusYears(Math.multiplyExact(amountToAdd, 100L));
+            case MILLENNIA:
+                return plusYears(Math.multiplyExact(amountToAdd, 1000L));
+            default:
+                throw fail("bmc4j: unmodelled member java.time.LocalDateTime.plus(long,java.time.temporal.TemporalUnit) — the unit " + unit + " (ERAS / FOREVER) is not supported by this date+time model");
+        }
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalUnit difference (until) is out of scope for this date+time model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public ChronoLocalDateTime<LocalDate> minus(long amountToSubtract, TemporalUnit unit) {
+        return amountToSubtract == Long.MIN_VALUE
+            ? plus(Long.MAX_VALUE, unit).plus(1, unit)
+            : plus(-amountToSubtract, unit);
+    }
+
+    /**
+     * The amount in {@code unit} from this date-time to {@code endExclusive}, matching the JDK: time-based
+     * units count the total nanosecond delta (whole-day carry included), date-based units the calendar
+     * difference adjusted by whether the time-of-day has yet reached the start's. The end must be a modeled
+     * LocalDateTime; an unsupported unit is declined LOUD.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDateTime.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for this date+time model");
+        if (!(endExclusive instanceof LocalDateTime)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — only LocalDateTime endpoints are modeled");
+        }
+        if (!(unit instanceof ChronoUnit)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDateTime.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — only ChronoUnit is dispatched by this date+time model");
+        }
+        LocalDateTime end = (LocalDateTime) endExclusive;
+        ChronoUnit cu = (ChronoUnit) unit;
+        if (cu.isTimeBased()) {
+            // Total nanosecond delta (whole-day carry folded in), THEN divide by the unit — exactly the
+            // JDK's order. Computing days*24 + subDayNanos/HOUR separately would diverge (integer division
+            // does not distribute over a mixed-sign sum: days=1,timeNanos=-1 is 23 hours, not 24). The
+            // *NANOS_PER_DAY scale routes through a checked multiply so a day count past the long-nanos
+            // bound fails LOUDLY rather than silently wrapping (the real LocalDateTime overflows here too).
+            long totalNanos = Math.addExact(
+                Math.multiplyExact(end.epochDay - this.epochDay, NANOS_PER_DAY),
+                end.nanoOfDay - this.nanoOfDay);
+            switch (cu) {
+                case NANOS:
+                    return totalNanos;
+                case MICROS:
+                    return totalNanos / 1_000L;
+                case MILLIS:
+                    return totalNanos / 1_000_000L;
+                case SECONDS:
+                    return totalNanos / NANOS_PER_SECOND;
+                case MINUTES:
+                    return totalNanos / NANOS_PER_MINUTE;
+                case HOURS:
+                    return totalNanos / NANOS_PER_HOUR;
+                case HALF_DAYS:
+                    return totalNanos / (12L * NANOS_PER_HOUR);
+                default:
+                    break;
+            }
+        }
+        // Date-based units: the calendar day difference, decremented by one if the end's time-of-day has
+        // not yet caught up to this one's (so the elapsed whole period excludes the partial day), then
+        // the LocalDate calendar arithmetic gives months/years/etc. (mirrors the JDK's adjustment).
+        long endEpochDay = end.epochDay;
+        if (endEpochDay > this.epochDay && end.nanoOfDay < this.nanoOfDay) {
+            endEpochDay--;
+        } else if (endEpochDay < this.epochDay && end.nanoOfDay > this.nanoOfDay) {
+            endEpochDay++;
+        }
+        return LocalDate.ofEpochDay(this.epochDay).until(LocalDate.ofEpochDay(endEpochDay), unit);
     }
 
     @BmcUnmodelable(reason = "time zones (atZone) are out of scope for this local date+time model")

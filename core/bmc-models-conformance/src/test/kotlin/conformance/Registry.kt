@@ -26,6 +26,11 @@ val COVERED: Set<String> = setOf(
     // here and audited (dangling-decl + loud-body) via the annotations they DO carry. ZoneOffset is a
     // concrete value class → per-member-enforced below; its abstract ZoneId base is WAIVED.
     "java.time.DayOfWeek", "java.time.Month", "java.time.chrono.IsoEra", "java.time.ZoneOffset",
+    // java.time.temporal field/unit metadata. ChronoField/ChronoUnit are enums (class-level COVERED only,
+    // like the DayOfWeek/Month enums — their constants + the value/classification surface carry method-level
+    // @BmcModelConforms; values()/valueOf() + the delegating TemporalField/Unit plumbing keep them out of
+    // PER_MEMBER_ENFORCED). ValueRange is a concrete four-long value class → per-member-enforced below.
+    "java.time.temporal.ChronoField", "java.time.temporal.ChronoUnit", "java.time.temporal.ValueRange",
     // NB the float/double IEEE total order is NOT a java.lang.Float/Double model — modeling those
     // pervasively-reached classes put a bounded FP model on every proof's classpath and crashed jbmc's
     // solver on unrelated proofs. It lives in the org.bmc4j.models.audit.FpTotalOrder helper that
@@ -124,6 +129,8 @@ val WAIVED: Map<String, String> = mapOf(
     "kotlinx.coroutines.Dispatchers" to "coroutine runtime model — coroutines example",
     "kotlinx.coroutines.Drive" to "coroutine runtime helper — coroutines example",
     "kotlinx.coroutines.Job" to "coroutine runtime model — coroutines example",
+    "kotlin.text.StringCharIterator" to "concrete CharIterator backing for CharSequence.iterator() — " +
+        "a by-index walk over a String; exercised by KotlinStringsLaws.as_sequence_iterable_iterator_concrete",
 )
 
 /**
@@ -166,6 +173,10 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     // ZoneOffset: a concrete total-seconds value class (its abstract ZoneId base is WAIVED, the enums are
     // class-level COVERED only).
     "java.time.ZoneOffset",
+    // ValueRange: a concrete four-long range value class. ChronoField/ChronoUnit are enums (class-level
+    // COVERED only — values()/valueOf() + the delegating plumbing keep them out of per-member enforcement,
+    // exactly like the DayOfWeek/Month enums).
+    "java.time.temporal.ValueRange",
     "java.util.Random",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",
