@@ -226,8 +226,10 @@ object VerdictCache {
      * 1. the bmc4j runtime semantics identity ([Bmc4jVersion.IDENTITY]) — the rewrite layer
      *    defines the proof's semantics, so a layer change must bust the cache;
      * 2. the engine identity (bundled engine version, or a hash of an explicit `jbmcPath` binary);
-     * 3. the effective request: entry function, unwind, unwinding-assertions, solver,
-     *    maxStringLength, timeoutSeconds;
+     * 3. the effective request: entry function, the verdict-relevant jbmc FLAG SIGNATURE
+     *    ([Jbmc.verdictRelevantFlags] — the actual command flags, so a hard-coded/`-Dbmc.*`-driven
+     *    flag is keyed automatically and can never diverge a cached verdict from the run), plus the
+     *    non-flag inputs (string-refinement mode, per-proof timeout);
      * 4. the proof's **reachable-cone content**: only the `.class` files transitively reachable from
      *    this proof's entry class (a constant-pool / call-graph walk, [ReachableCone]) — so touching a
      *    class outside the cone no longer invalidates this proof. When the cone can't be bounded
@@ -266,6 +268,20 @@ object VerdictCache {
         update(md, "engine", engineIdentity ?: "")
         // 3) effective request
         update(md, "entry", request.entryFunction)
+        // The verdict-relevant jbmc FLAG SIGNATURE — the actual flags the engine receives, derived from
+        // the SAME builder that assembles the command ([Jbmc.verdictRelevantFlags]). This is the single
+        // source of truth for "which flags can change the verdict", so a flag HARD-CODED in (or
+        // -Dbmc.*-driven into) the command — e.g. a future --slice-formula — is captured here
+        // automatically and can never silently diverge a cached verdict from the run that produced it.
+        // It includes --unwind, --unwinding-assertions, --max-nondet-string-length and the full solver
+        // selection; it excludes the executable path, the --classpath VALUE (its content is keyed via
+        // the cone digest below; the path is machine/shard-volatile), the --function/entry (keyed
+        // separately above), and the pure output/UI flags (--json-ui/--trace/--verbosity).
+        update(md, "flags", Jbmc.verdictRelevantFlags(request))
+        // The per-field updates below are kept as belt-and-suspenders alongside the signature: redundant
+        // for the flags the signature already covers, but they additionally fold in inputs that are NOT
+        // jbmc command flags (so the signature can't capture them) — the string-refinement mode and the
+        // per-proof timeout. Over-keying is always sound.
         update(md, "unwind", request.unwind.toString())
         update(md, "ua", request.unwindingAssertions.toString())
         update(md, "solver", request.solver)
@@ -274,10 +290,14 @@ object VerdictCache {
         // proven on the default solver (text reasoning ON), so both must bust the cache: under-keying
         // here would serve a text-reasoning-off verdict for a text-reasoning-on request (or vice versa),
         // a soundness bug. The path (not just the requested name) is folded in, so swapping the bundled
-        // fast binary for a different external solver invalidates too. Over-keying is always sound.
+        // fast binary for a different external solver invalidates too. (stringRefinementOff is NOT a jbmc
+        // command flag — it rides on the external-SAT path selection — so the signature can't carry it;
+        // it must stay an explicit per-field update.) Over-keying is always sound.
         update(md, "externalSat", request.externalSatPath)
         update(md, "stringRefinementOff", request.stringRefinementOff.toString())
         update(md, "msl", request.maxStringLength.toString())
+        // The per-proof timeout is a budget, not a jbmc verdict flag (it bounds wall-clock, not the
+        // formula), so it isn't in the flag signature — fold it in explicitly.
         update(md, "timeout", request.timeoutSeconds.toString())
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
@@ -360,7 +380,7 @@ object VerdictCache {
      */
     private fun memoizedCone(classpath: String?, entryClass: String): String {
         val cp = classpath ?: ""
-        val memoKey = entryClass + " " + cp
+        val memoKey = entryClass + " " + cp
         val fp = fingerprint(cp)
         var m = CONE_MEMO[memoKey]
         if (m != null && m.fingerprint == fp) {

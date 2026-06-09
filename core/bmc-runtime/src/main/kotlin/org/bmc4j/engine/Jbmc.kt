@@ -100,22 +100,14 @@ class Jbmc(private val executable: String) {
             cmd.add(classpath)
             cmd.add("--function")
             cmd.add(entryFunction)
-            cmd.add("--unwind")
-            cmd.add(unwind.toString())
-            if (unwindingAssertions) {
-                cmd.add("--unwinding-assertions")
-            }
-            if (maxStringLength > 0) {
-                cmd.add("--max-nondet-string-length")
-                cmd.add(maxStringLength.toString())
-            }
-            addSolver(cmd, solver, externalSatPath)
-            // NB: --slice-formula / --drop-unused-functions were tried (~1.8x on non-string proofs) but
-            // REVERTED — they break jbmc's STRING REFINEMENT: symbolic string proofs
-            // (StringLaws / KotlinStringsLaws / StringBuilderLaws — ~33 of them) falsely REFUTE under
-            // slicing while concrete ones pass. The "soundness-neutral" claim held only for the
-            // string-free proofs the original benchmark covered. If reintroduced, GATE to string-free
-            // proofs only (like the external-SAT path) and benchmark WITH string proofs in the sample.
+            // The verdict-relevant flags (unwind, unwinding-assertions, max-nondet-string-length, the
+            // solver selection, AND any hard-coded engine flags) come from ONE builder, so the command
+            // and the verdict-cache key can never drift apart — see [appendVerdictRelevantFlags] /
+            // [verdictRelevantFlags].
+            appendVerdictRelevantFlags(cmd, unwind, unwindingAssertions, maxStringLength,
+                    solver, externalSatPath)
+            // Pure OUTPUT/UI flags below — they change what we can OBSERVE, never the verdict, so they
+            // are deliberately NOT part of the verdict-cache signature.
             cmd.add("--json-ui")
             cmd.add("--trace")
             // Bump verbosity so the engine emits its "opaque symbol" messages — the nondet-stub fact we
@@ -126,6 +118,64 @@ class Jbmc(private val executable: String) {
             cmd.add("--verbosity")
             cmd.add("10")
             return cmd
+        }
+
+        /**
+         * Append every jbmc flag that can CHANGE a verdict to [cmd], in the exact form jbmc receives
+         * them. This is the SINGLE SOURCE of the verdict-relevant flag set: [args] calls it when building
+         * the real command, and [verdictRelevantFlags] calls it to derive the verdict-cache key — so the
+         * key can never diverge from the flags actually passed.
+         *
+         * INCLUDES: `--unwind`, `--unwinding-assertions`, `--max-nondet-string-length`, the full solver
+         * selection (`--external-sat-solver` / `--smt2`+`--external-smt2-solver` / `--z3` / `--boolector`
+         * / `--cvc4` / `--cvc5` / `--sat-solver`), and any future HARD-CODED engine flag added here.
+         *
+         * EXCLUDES (by construction — added in [args], not here): the executable path, the `--classpath`
+         * value (its CONTENT is keyed via the reachable-cone digest; the path varies per machine/shard),
+         * the `--function`/entry (keyed separately), and the pure output/UI flags (`--json-ui`,
+         * `--trace`, `--verbosity`) which never affect the verdict.
+         *
+         * NB: `--slice-formula` / `--drop-unused-functions` were tried (~1.8x on non-string proofs) but
+         * REVERTED — they break jbmc's STRING REFINEMENT: symbolic string proofs
+         * (StringLaws / KotlinStringsLaws / StringBuilderLaws — ~33 of them) falsely REFUTE under
+         * slicing while concrete ones pass. The "soundness-neutral" claim held only for the
+         * string-free proofs the original benchmark covered. If reintroduced HERE (the only correct
+         * place — so the cache key tracks them automatically), GATE to string-free proofs only (like the
+         * external-SAT path) and benchmark WITH string proofs in the sample.
+         */
+        private fun appendVerdictRelevantFlags(cmd: MutableList<String>, unwind: Int,
+                                               unwindingAssertions: Boolean, maxStringLength: Int,
+                                               solver: String?, externalSatPath: String) {
+            cmd.add("--unwind")
+            cmd.add(unwind.toString())
+            if (unwindingAssertions) {
+                cmd.add("--unwinding-assertions")
+            }
+            if (maxStringLength > 0) {
+                cmd.add("--max-nondet-string-length")
+                cmd.add(maxStringLength.toString())
+            }
+            addSolver(cmd, solver, externalSatPath)
+        }
+
+        /**
+         * The canonical verdict-relevant flag SIGNATURE for a request — the verdict-changing jbmc flags
+         * joined by a space, derived from the SAME [appendVerdictRelevantFlags] builder the real command
+         * uses. The verdict cache hashes this string so a cached verdict is reused only for a run with
+         * the same verdict-relevant flags. It captures flags a per-field key would miss — in particular
+         * any flag hard-coded in (or `-Dbmc.*`-driven into) the command — closing the gap where such a
+         * flag could silently diverge a cached verdict from reality. See [appendVerdictRelevantFlags] for
+         * the exact include/exclude set.
+         *
+         * NOTE: the resolved solver depends on `-Dbmc.solverCmd`/`-Dbmc.solver` system properties, so
+         * this is evaluated against the live properties at key time — exactly when the command is built.
+         */
+        @JvmStatic
+        internal fun verdictRelevantFlags(request: BmcRequest): String {
+            val flags = mutableListOf<String>()
+            appendVerdictRelevantFlags(flags, request.unwind, request.unwindingAssertions,
+                    request.maxStringLength, request.solver, request.externalSatPath)
+            return flags.joinToString(" ")
         }
 
         /**

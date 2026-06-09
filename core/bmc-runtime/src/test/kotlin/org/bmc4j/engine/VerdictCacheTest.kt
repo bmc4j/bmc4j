@@ -159,6 +159,71 @@ internal class VerdictCacheTest {
                 VerdictCache.computeKey(other, ENGINE))
     }
 
+    // --- Verdict-relevant flag signature (single source of truth with the jbmc command) ----------
+
+    /**
+     * The flag signature must carry exactly the verdict-changing flags and NONE of the
+     * volatile/non-verdict parts. This is the contract that closes the gap a hard-coded jbmc flag
+     * (e.g. `--slice-formula`) opened: such a flag, added to the one builder, lands in BOTH the command
+     * and this signature automatically — so it can never silently diverge a cached verdict from reality.
+     */
+    @Test
+    fun flagSignature_includesVerdictFlags_excludesVolatileAndUi() {
+        val r = BmcRequest("pkg.C", "pkg.C.proof", "/machine/specific/classpath",
+                8, true, 12, "z3", 0)
+        val sig = Jbmc.verdictRelevantFlags(r)
+        // INCLUDES every verdict-relevant flag.
+        assertTrue(sig.contains("--unwind 8"), "the unwind bound is verdict-relevant: $sig")
+        assertTrue(sig.contains("--unwinding-assertions"), "unwinding-assertions is verdict-relevant: $sig")
+        assertTrue(sig.contains("--max-nondet-string-length 12"),
+                "the nondet string-length bound is verdict-relevant: $sig")
+        assertTrue(sig.contains("--z3"), "the solver selection is verdict-relevant: $sig")
+        // EXCLUDES the executable path, the --classpath VALUE, the --function/entry, and UI flags.
+        assertFalse(sig.contains("--classpath"), "the classpath flag/value must be excluded: $sig")
+        assertFalse(sig.contains("/machine/specific/classpath"),
+                "the classpath value (machine/shard-volatile) must be excluded: $sig")
+        assertFalse(sig.contains("--function"), "the entry function must be excluded: $sig")
+        assertFalse(sig.contains("pkg.C.proof"), "the entry value must be excluded: $sig")
+        assertFalse(sig.contains("--json-ui"), "pure UI flags must be excluded: $sig")
+        assertFalse(sig.contains("--trace"), "pure UI flags must be excluded: $sig")
+        assertFalse(sig.contains("--verbosity"), "pure UI flags must be excluded: $sig")
+    }
+
+    /**
+     * Changing a verdict-relevant flag must perturb the key THROUGH the signature — this is the central
+     * guarantee. (unwind/ua/msl/solver each already have a dedicated perturbation test above; here we pin
+     * that the signature itself differs, i.e. the cache derives its flag identity from the same builder
+     * the command uses, so a future hard-coded flag is covered with no further wiring.)
+     */
+    @Test
+    fun changingAVerdictRelevantFlag_perturbsSignatureAndKey() {
+        val base = baseReq()
+        val differentUnwind = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
+                8, true, 16, "", 0)
+        assertNotEquals(Jbmc.verdictRelevantFlags(base), Jbmc.verdictRelevantFlags(differentUnwind),
+                "a verdict-relevant flag change must change the flag signature")
+        assertNotEquals(VerdictCache.computeKey(base, ENGINE),
+                VerdictCache.computeKey(differentUnwind, ENGINE),
+                "...and therefore the cache key")
+    }
+
+    /**
+     * A volatile-only change must NOT perturb the flag signature: the classpath PATH varies per
+     * machine/shard (its CONTENT is keyed via the cone digest, the path is not) and the entry name is
+     * keyed separately, so two requests with identical verdict-relevant flags but different classpath
+     * paths / entry names produce the SAME signature. (Over-keying on volatile noise would wrongly bust
+     * the cache per-shard and break the shard-cache-union design.)
+     */
+    @Test
+    fun volatileOnlyChange_doesNotPerturbSignature() {
+        val onShardA = BmcRequest("pkg.C", "pkg.C.proof", "/runner-a/work/classes",
+                16, true, 16, "", 0)
+        val onShardB = BmcRequest("pkg.C", "pkg.C.proof", "/runner-b/other/classes",
+                16, true, 16, "", 0)
+        assertEquals(Jbmc.verdictRelevantFlags(onShardA), Jbmc.verdictRelevantFlags(onShardB),
+                "a different classpath PATH (same flags) must not change the flag signature")
+    }
+
     @Test
     fun classpathContent_perturbsKey(@TempDir dir: Path) {
         val classes = Files.createDirectory(dir.resolve("classes"))
