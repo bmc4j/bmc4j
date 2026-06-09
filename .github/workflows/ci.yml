@@ -530,9 +530,10 @@ jobs:
   pr-proof-comment:
     name: Proof results report
     needs: [plan, proofs]
-    # pull_request -> PR comment; push to main / dispatch / release call -> job-summary page.
+    # pull_request -> PR comment; merge_group (queue) / push to main / dispatch / release call ->
+    # job-summary page. merge_group MUST be here or a failing queue run reports no readable table.
     # (PR runs from a push to a non-main branch still come through as pull_request, not push.)
-    if: ${{ always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
+    if: ${{ always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.plan.outputs.gate == 'true' && needs.plan.outputs.legs != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
