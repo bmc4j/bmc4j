@@ -197,12 +197,12 @@ jobs:
               ;;
             pull_request)
               gate="true"; sel_spec="linux-arm64"
-              # The PR critical path is this one full leg, so shard it for fast feedback.
-              jdk_leg 21 "$SHARDS"
-              # Kotlin-first: PRs also prove the Kotlin examples/conformance on the
-              # newest consumer compiler (the full version matrix stays on main pushes).
-              # 2.4 is now the slowest PR job, so shard it for fast feedback like the jdk21 leg.
-              kotlin_leg 2.4.0 "$SHARDS"
+              # DIAGNOSTIC (do not merge): run the FULL push-equivalent matrix on this PR — jdk17
+              # (conformance) + jdk21 + jdk25 (full) + every kotlin leg — combined with -Dbmc.noCache=true
+              # below, so EVERY cache-masked / leg-specific failure (incl. jdk25 devirt) surfaces at once.
+              # Revert to `jdk_leg 21 "$SHARDS"` + `kotlin_leg 2.4.0 "$SHARDS"` before merging anything real.
+              jdk_leg 17; jdk_leg 21 "$SHARDS"; jdk_leg 25 "$SHARDS"
+              kotlin_leg 2.0.21 "$SHARDS"; kotlin_leg 2.2.21 "$SHARDS"; kotlin_leg 2.3.21 "$SHARDS"; kotlin_leg 2.4.0 "$SHARDS"
               ;;
             *)
               gate="${GATE_INPUT:-true}"; sel_spec="${PLATFORMS:-all}"
@@ -360,7 +360,7 @@ jobs:
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
         run: |
-          ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 \
+          ./gradlew --no-daemon --no-build-cache -Dbmc.noCache=true -Dbmc.timeoutSeconds=300 \
             -Dbmc.shard.count=${{ matrix.shardCount }} -Dbmc.shard.index=${{ matrix.shardIndex }} \
             -Dbmc.summaryDir="$GITHUB_WORKSPACE/bmc-proof-summary" \
             ${{ matrix.flags }} ${{ matrix.tasks }}
