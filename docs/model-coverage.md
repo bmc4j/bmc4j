@@ -520,33 +520,28 @@ Real surface: 33 members — modeled 13, unmodelable 20, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 43, unmodelable 4, not-needed 0, tail 7.
+Real surface: 54 members — modeled 43, unmodelable 11, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead; loud under JBMC (inherited from the HashMap model stub) |
 | `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
+| `headMap(Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg headMap); loud under JBMC |
+| `reversed()` | SequencedMap.reversed would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot. |
+| `sequencedEntrySet()` | SequencedMap.sequencedEntrySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
+| `sequencedKeySet()` | SequencedMap.sequencedKeySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. Use navigableKeySet() for the modeled ascending snapshot. |
+| `sequencedValues()` | SequencedMap.sequencedValues would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
 | `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
+| `subMap(Object, boolean, Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 2-arg subMap); loud under JBMC |
 | `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): the boolean-inclusive NavigableMap range views (subMap/headMap/tailMap with from/to inclusivity) and the comparator-taking constructor — live range views over a bounded unordered store are out of scope; all loud under JBMC. descendingMap/descendingKeySet/navigableKeySet/reversed and the SequencedMap sequenced* views are now MODELED as bounded ascending/descending snapshots (differential axis for the SequencedMap defaults, like LinkedHashMap)</summary>
-
-- `headMap(Object, boolean)`
-- `reversed()`
-- `sequencedEntrySet()`
-- `sequencedKeySet()`
-- `sequencedValues()`
-- `subMap(Object, boolean, Object, boolean)`
-- `tailMap(Object, boolean)`
-
-</details>
+| `tailMap(Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg tailMap); loud under JBMC |
 
 
 ## `java.util.TreeSet`
 
-Real surface: 44 members — modeled 34, unmodelable 5, not-needed 0, tail 5.
+Real surface: 44 members — modeled 34, unmodelable 10, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`, `toArray()`
 
@@ -554,19 +549,14 @@ Real surface: 44 members — modeled 34, unmodelable 5, not-needed 0, tail 5.
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
 | `headSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.headMap); loud under JBMC |
+| `headSet(Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg headSet); loud under JBMC |
+| `spliterator()` | Spliterator (parallel-decomposition) view is out of scope for the sequential bounded model — iterate the model instead; loud under JBMC |
 | `subSet(Object, Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC |
+| `subSet(Object, boolean, Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 2-arg subSet / TreeMap.subMap); loud under JBMC |
 | `tailSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC |
+| `tailSet(Object, boolean)` | boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg tailSet); loud under JBMC |
+| `toArray(IntFunction)` | typed array snapshot via a generator — iterate the model instead; loud under JBMC |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set</summary>
-
-- `headSet(Object, boolean)`
-- `spliterator()`
-- `subSet(Object, boolean, Object, boolean)`
-- `tailSet(Object, boolean)`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.concurrent.ArrayBlockingQueue`
@@ -762,32 +752,27 @@ Real surface: 44 members — modeled 33, unmodelable 11, not-needed 0, tail 0.
 
 ## `java.util.stream.DoubleStream`
 
-Real surface: 48 members — modeled 33, unmodelable 3, not-needed 0, tail 12.
+Real surface: 48 members — modeled 33, unmodelable 15, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `allMatch(DoublePredicate)`, `anyMatch(DoublePredicate)`, `average()`, `boxed()`, `collect(Supplier, ObjDoubleConsumer, BiConsumer)`, `concat(DoubleStream, DoubleStream)`, `count()`, `distinct()`, `dropWhile(DoublePredicate)`, `empty()`, `filter(DoublePredicate)`, `findAny()`, `findFirst()`, `flatMap(DoubleFunction)`, `forEach(DoubleConsumer)`, `forEachOrdered(DoubleConsumer)`, `iterate(double, DoublePredicate, DoubleUnaryOperator)`, `limit(long)`, `map(DoubleUnaryOperator)`, `mapToInt(DoubleToIntFunction)`, `mapToLong(DoubleToLongFunction)`, `mapToObj(DoubleFunction)`, `noneMatch(DoublePredicate)`, `of(double)`, `of(double[])`, `peek(DoubleConsumer)`, `reduce(DoubleBinaryOperator)`, `reduce(double, DoubleBinaryOperator)`, `skip(long)`, `sum()`, `summaryStatistics()`, `takeWhile(DoublePredicate)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `builder()` | lazy DoubleStream.Builder accumulation is out of scope for the eager array-backed model |
+| `close()` | BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached |
+| `generate(DoubleSupplier)` | infinite producer — never terminates; a bounded eager model would diverge from the JDK observable |
+| `isParallel()` | BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached |
+| `iterate(double, DoubleUnaryOperator)` | the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled |
+| `iterator()` | virtual PrimitiveIterator.OfDouble dispatch is out of scope for the eager array model |
+| `mapMulti(DoubleMapMultiConsumer)` | primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model |
 | `max()` | DoubleStream.max is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive > model would diverge from the JDK on NaN/signed zero |
 | `min()` | DoubleStream.min is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive < model would diverge from the JDK on NaN/signed zero |
+| `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
+| `parallel()` | true-parallel execution is out of scope for the sequential eager model |
+| `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
 | `sorted()` | DoubleStream.sorted is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-< sort would diverge from the JDK on NaN/signed zero |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining DoubleStream surface (the infinite generate(supplier)/iterate(seed,next); mapMulti (nested DoubleMapMultiConsumer SAM); builder/iterator/spliterator; sequential/parallel lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
-
-- `builder()`
-- `close()`
-- `generate(DoubleSupplier)`
-- `isParallel()`
-- `iterate(double, DoubleUnaryOperator)`
-- `iterator()`
-- `mapMulti(DoubleMapMultiConsumer)`
-- `onClose(Runnable)`
-- `parallel()`
-- `sequential()`
-- `spliterator()`
-- `unordered()`
-
-</details>
+| `spliterator()` | Spliterator.OfDouble (parallel-decomposition) dispatch is out of scope for the sequential eager model |
+| `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
 
 ## `java.util.stream.IntStream`

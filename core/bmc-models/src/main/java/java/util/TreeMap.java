@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -22,11 +21,14 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@code lastEntry} and the ceiling/floor/higher/lower family return {@code null} when no qualifying
  * key exists. The single-key navigation entry family (ceilingEntry/floorEntry/higherEntry/
  * lowerEntry) and the poll-extreme ops (pollFirstEntry/pollLastEntry) are modeled here too, derived
- * from the same bounded scan. The comparator-taking constructor and the multi-key range/bulk views
- * (sub/head/tail-map, descendingMap/descendingKeySet/navigableKeySet) are out of scope (tail; loud
- * under JBMC).
+ * from the same bounded scan. The bulk descending/ascending snapshots (descendingMap/descendingKeySet/
+ * navigableKeySet) are modeled as bounded sorted snapshots. The multi-key RANGE views (sub/head/tail-map
+ * in both the 1-arg SortedMap and boolean-inclusive NavigableMap overloads) and the SequencedMap defaults
+ * (reversed/sequenced*, which would iterate in the model's hash-backed encounter order rather than key
+ * order) are out of scope — accounted for per-member as method-level loud {@link BmcUnmodelable} stubs
+ * (loud-if-reached), alongside the inherited-HashMap loud re-declarations; there is no
+ * {@code @BmcModelTail} remainder.
  */
-@BmcModelTail(reason = "the boolean-inclusive NavigableMap range views (subMap/headMap/tailMap with from/to inclusivity) and the comparator-taking constructor — live range views over a bounded unordered store are out of scope; all loud under JBMC. descendingMap/descendingKeySet/navigableKeySet/reversed and the SequencedMap sequenced* views are now MODELED as bounded ascending/descending snapshots (differential axis for the SequencedMap defaults, like LinkedHashMap)")
 public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
 
     public TreeMap() {
@@ -296,9 +298,11 @@ public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
     // NOTE: the SequencedMap defaults (reversed/sequencedKeySet/sequencedValues/sequencedEntrySet) are
     // deliberately NOT overridden here. TreeMap implements SortedMap, which on Java 21+ extends
     // SequencedMap with covariant returns (SequencedSet/SequencedCollection/SequencedMap) that the
-    // bounded model's plain Set/Collection/Map types cannot satisfy. JBMC binds the real SequencedMap
-    // default over any override anyway (the documented devirtualization artifact on the LinkedHashMap
-    // sequenced* views), so they stay in the tail (loud) rather than fighting the covariant signature.
+    // bounded model's plain Set/Collection/Map types cannot satisfy. The inherited JDK default iterates
+    // in this model's HashMap-backed encounter order, NOT TreeMap's key order, so it would silently
+    // diverge from the sorted contract. They are accounted for as class-level @BmcUnmodelable
+    // (loud-if-reached) at the top of this class; the modeled descending/ascending snapshots
+    // (descendingMap/navigableKeySet/descendingKeySet) are the supported alternatives.
 
     // --- SortedMap range views (out of scope): loud stubs ------------------------------------------
     // The model implements java.util.SortedMap so a `SortedMap`-typed result (e.g. the value of Kotlin's
@@ -320,6 +324,63 @@ public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
     @BmcUnmodelable(reason = "SortedMap range view over a bounded unordered store — out of scope; loud under JBMC")
     public SortedMap<K, V> tailMap(K fromKey) {
         throw fail("bmc4j: unmodelled member java.util.TreeMap.tailMap(java.lang.Object) — SortedMap range view over a bounded unordered store; out of scope");
+    }
+
+    // --- boolean-inclusive NavigableMap range views (out of scope): loud stubs --------------------
+    // Same wall as the 1-arg SortedMap range views above, with from/to inclusivity flags — a live range
+    // view over a bounded unordered store is not modeled. Loud-if-reached under JBMC.
+
+    @BmcUnmodelable(reason = "boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 2-arg subMap); loud under JBMC")
+    public NavigableMap<K, V> subMap(K fromKey, boolean fromInclusive, K toKey, boolean toInclusive) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.subMap(java.lang.Object,boolean,java.lang.Object,boolean) — boolean-inclusive NavigableMap range view over a bounded unordered store; out of scope");
+    }
+
+    @BmcUnmodelable(reason = "boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg headMap); loud under JBMC")
+    public NavigableMap<K, V> headMap(K toKey, boolean inclusive) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.headMap(java.lang.Object,boolean) — boolean-inclusive NavigableMap range view over a bounded unordered store; out of scope");
+    }
+
+    @BmcUnmodelable(reason = "boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg tailMap); loud under JBMC")
+    public NavigableMap<K, V> tailMap(K fromKey, boolean inclusive) {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.tailMap(java.lang.Object,boolean) — boolean-inclusive NavigableMap range view over a bounded unordered store; out of scope");
+    }
+
+    // --- SequencedMap defaults (out of scope): loud stubs -----------------------------------------
+    // The inherited SequencedMap default would iterate in the model's HashMap-backed encounter order, NOT
+    // TreeMap's key order, so it would silently diverge from the sorted contract — loud-if-reached. Use
+    // descendingMap()/navigableKeySet()/descendingKeySet() for the modeled ordered snapshots.
+
+    @BmcUnmodelable(reason = "SequencedMap.reversed would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot.")
+    @Override
+    public SortedMap<K, V> reversed() {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.reversed() — SequencedMap.reversed would iterate in HashMap encounter order, not TreeMap key order — unsound; use descendingMap()");
+    }
+
+    @BmcUnmodelable(reason = "SequencedMap.sequencedKeySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. Use navigableKeySet() for the modeled ascending snapshot.")
+    public SequencedSet<K> sequencedKeySet() {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.sequencedKeySet() — would iterate in HashMap encounter order, not TreeMap key order — unsound; use navigableKeySet()");
+    }
+
+    @BmcUnmodelable(reason = "SequencedMap.sequencedValues would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC.")
+    public SequencedCollection<V> sequencedValues() {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.sequencedValues() — would iterate in HashMap encounter order, not TreeMap key order — unsound");
+    }
+
+    @BmcUnmodelable(reason = "SequencedMap.sequencedEntrySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC.")
+    public SequencedSet<Map.Entry<K, V>> sequencedEntrySet() {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.sequencedEntrySet() — would iterate in HashMap encounter order, not TreeMap key order — unsound");
+    }
+
+    // --- inherited-HashMap loud stub, re-declared here --------------------------------------------
+    // The gate resolves inherited @BmcModelConforms through the model chain but NOT inherited method-level
+    // stubs, so the HashMap model's clone() stub is re-declared here (same reason) so every real member is
+    // accounted for. putAll/remove(key,value)/replaceAll are MODELED on the HashMap base (not stubs), so
+    // they are inherited as conforming members and need no re-declaration. Loud-if-reached under JBMC.
+
+    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead; loud under JBMC (inherited from the HashMap model stub)")
+    @Override
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.TreeMap.clone() — shallow copy of a bounded model — construct a fresh map from the entries instead");
     }
 
     /** Immutable key/value pair returned by {@link #firstEntry()} / {@link #lastEntry()}. */
