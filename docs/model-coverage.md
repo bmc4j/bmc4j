@@ -220,6 +220,21 @@ Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
 **Modeled** (`@BmcModelConforms`): `checkValidIntValue(long, TemporalField)`, `checkValidValue(long, TemporalField)`, `getLargestMinimum()`, `getMaximum()`, `getMinimum()`, `getSmallestMaximum()`, `isFixed()`, `isIntValue()`, `isValidIntValue(long)`, `isValidValue(long)`, `of(long, long)`, `of(long, long, long)`, `of(long, long, long, long)`
 
 
+## `java.util.ArrayDeque`
+
+Real surface: 43 members — modeled 38, unmodelable 5, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `parallelStream()`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `clone()` | shallow copy of a bounded model — construct a fresh deque from the elements instead |
+| `reversed()` | live reversed Deque view over the bounded array (Java 21+) — iterate descendingIterator()/the model instead; loud under JBMC |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+
 ## `java.util.ArrayList`
 
 Real surface: 42 members — modeled 37, unmodelable 5, not-needed 0, tail 0.
@@ -486,6 +501,19 @@ Real surface: 12 members — modeled 12, unmodelable 0, not-needed 0, tail 0.
 Real surface: 12 members — modeled 12, unmodelable 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `empty()`, `getAsLong()`, `ifPresent(LongConsumer)`, `ifPresentOrElse(LongConsumer, Runnable)`, `isEmpty()`, `isPresent()`, `of(long)`, `orElse(long)`, `orElseGet(LongSupplier)`, `orElseThrow()`, `orElseThrow(Supplier)`, `stream()`
+
+
+## `java.util.PriorityQueue`
+
+Real surface: 25 members — modeled 22, unmodelable 3, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `comparator()`, `contains(Object)`, `containsAll(Collection)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `parallelStream()`, `peek()`, `poll()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
 
 ## `java.util.Random`

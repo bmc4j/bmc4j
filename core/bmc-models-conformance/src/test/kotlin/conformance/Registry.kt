@@ -10,6 +10,7 @@ val COVERED: Set<String> = setOf(
     // Differential (this module) — JVM-runnable JDK models.
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
+    "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
     "java.util.Collections",
@@ -101,6 +102,7 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.SequencedSet" to "interface (Java 21+) — head/tail surface modeled on the concrete sets; type-only here for the Java-17 floor build",
     "java.util.SequencedMap" to "interface (Java 21+) — head/tail surface modeled on the concrete maps; type-only here for the Java-17 floor build",
     "java.util.Queue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",
+    "java.util.Deque" to "interface — via ArrayDeque (and the LinkedList model's deque surface)",
     "java.util.Iterator" to "interface — via collection iteration",
     "java.util.Enumeration" to "interface — via Collections.enumeration's concrete bounded enumeration",
     "java.util.NoSuchElementException" to "exception type (no behavior)",
@@ -175,6 +177,7 @@ val WAIVED: Map<String, String> = mapOf(
 val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
+    "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
     "java.util.Collections",
