@@ -123,6 +123,36 @@ class ArraysObjectBinarySearchConformanceTest : FunSpec({
     }
 })
 
+class ArraysObjectMismatchConformanceTest : FunSpec({
+    val MODEL = bmcref.java.util.Arrays::class.java
+    val OBJARR: Class<*> = Array<Any?>::class.java
+
+    test("mismatch(Object[], Object[]) via element .equals conforms") {
+        checkAll(Arb.list(Arb.int(0..4), 0..7), Arb.list(Arb.int(0..4), 0..7)) { xs, ys ->
+            val a: Array<Any?> = xs.toTypedArray()
+            val b: Array<Any?> = ys.toTypedArray()
+            val r = java.util.Arrays.mismatch(a, b)
+            val m = staticCall(MODEL, "mismatch", arrayOf(OBJARR, OBJARR), a.copyOf(), b.copyOf())
+            m.getOrThrow() shouldBe r
+        }
+    }
+
+    test("mismatch(Object[], int, int, Object[], int, int) conforms (incl. bad range)") {
+        checkAll(
+            Arb.list(Arb.int(0..4), 0..6), Arb.list(Arb.int(0..4), 0..6),
+            Arb.int(-1..6), Arb.int(-1..6), Arb.int(-1..6), Arb.int(-1..6),
+        ) { xs, ys, af, at, bf, bt ->
+            val a: Array<Any?> = xs.toTypedArray()
+            val b: Array<Any?> = ys.toTypedArray()
+            val r = runCatching { java.util.Arrays.mismatch(a, af, at, b, bf, bt) }
+            val m = staticCall(MODEL, "mismatch", arrayOf(OBJARR, INT, INT, OBJARR, INT, INT),
+                a.copyOf(), af, at, b.copyOf(), bf, bt)
+            assertSameException(r, m)
+            if (r.isSuccess) m.getOrThrow() shouldBe r.getOrThrow()
+        }
+    }
+})
+
 class ArraysToStringConformanceTest : FunSpec({
     val MODEL = bmcref.java.util.Arrays::class.java
     val INTARR: Class<*> = IntArray::class.java
