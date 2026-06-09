@@ -24,6 +24,14 @@ object BundledKotlinModels {
             "kotlin/collections/MapsKt.class",
             "kotlin/Pair.class",
             "kotlin/TuplesKt.class",
+            // kotlin.text.StringsKt facade — every String/CharSequence extension a Kotlin call site emits
+            // ("x".trim() -> StringsKt.trim((CharSequence)"x")) binds here. Unextracted, JBMC falls back to
+            // the real stdlib facade and nondet-stubs it; extracted, the bounded char-array transforms
+            // (modeled over the sound java.lang.String primitives) shadow it.
+            "kotlin/text/StringsKt.class",
+            // Concrete CharIterator backing for CharSequence.iterator() — a real nextChar() body walked
+            // by index, so JBMC never nondet-stubs the abstract virtual.
+            "kotlin/text/StringCharIterator.class",
             // Sizing helper the inline associate*/groupBy emit (coerceAtLeast) — stubbed to nondet
             // otherwise, which poisons their LinkedHashMap(int) initial capacity.
             "kotlin/ranges/RangesKt.class",

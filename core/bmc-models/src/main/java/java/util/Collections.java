@@ -1,7 +1,11 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import java.util.random.RandomGenerator;
+
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * BMC model of {@link java.util.Collections}. The bounded, natural-order, single-collection static
@@ -12,19 +16,20 @@ import org.bmc4j.models.audit.BmcModelTail;
  * {@code max}/{@code binarySearch}/{@code sort}. Each iterates by index/iterator over the real backing
  * — no virtual dispatch through the Collections interface, no comparator devirt.
  *
- * <p>The remainder stays in the {@code BmcModelTail} (build-synthesized loud, never a silent stub):
- * the {@code Comparator}-taking {@code sort}/{@code min}/{@code max}/{@code binarySearch}/{@code
- * reverseOrder} (comparator devirt), the {@code shuffle} overloads (seeded-RNG reproducibility, like
- * the {@code Random} wall), the {@code unmodifiable*}/{@code synchronized*}/{@code checked*} wrapper
- * views (need wrapper classes wrapping the backing) and the {@code emptyIterator}/{@code
- * emptyEnumeration}/navigable/sorted/sequenced exotic factories.
+ * <p>The remainder is now per-member LOUD ({@code @BmcUnmodelable}, honest {@code UNKNOWN} under JBMC if
+ * reached — never a silent stub): the {@code Comparator}-taking {@code sort}/{@code min}/{@code max}/
+ * {@code binarySearch}/{@code reverseOrder} (comparator devirt), the {@code shuffle} overloads
+ * (seeded-RNG reproducibility, like the {@code Random} wall), the {@code unmodifiable*}/{@code
+ * synchronized*}/{@code checked*} wrapper views (need a wrapper class over the backing), {@code
+ * asLifoQueue}/{@code newSetFromMap}/{@code newSequencedSetFromMap}, and the {@code emptyIterator}/
+ * {@code emptyEnumeration}/empty-navigable/sorted/sequenced exotic factories. The class-level
+ * {@code @BmcModelTail} is gone: every real member is now an explicit per-member decision.
  *
  * <p>{@code enumeration} snapshots the collection's elements into a fixed-capacity array (bounded by
  * the source's size — keep it within the proof's {@code unwind}) and walks them by index. This is the
  * concrete-backing iteration pattern: no virtual dispatch through the Enumeration interface, the
  * cursor advances over a real array.
  */
-@BmcModelTail(reason = "exotic remainder stays loud under JBMC: the Comparator-taking sort/min/max/binarySearch and reverseOrder (comparator devirt), the shuffle overloads (seeded-RNG reproducibility — the Random wall), the unmodifiable*/synchronized*/checked* wrapper views (need a wrapper class over the backing), asLifoQueue/newSetFromMap/newSequencedSetFromMap, and the emptyIterator/emptyEnumeration/empty{Navigable,Sorted}* exotic factories. The bounded natural-order single-collection utilities (enumeration, empty/singleton/nCopies producers, reverse/swap/fill/rotate/replaceAll/copy, frequency/disjoint/addAll, indexOfSubList/lastIndexOfSubList, list(Enumeration), natural-order min/max/binarySearch/sort) are MODELED")
 public final class Collections {
 
     private Collections() {
@@ -343,6 +348,310 @@ public final class Collections {
             l.add(e.nextElement());
         }
         return l;
+    }
+
+    // --- loud walls (honest UNKNOWN under JBMC if reached) -------------------------------------------
+    // Comparator-driven ops (devirt through the Comparator interface), the seeded shuffle (RNG
+    // reproducibility — the Random wall), the wrapper views (need a wrapper class over the backing),
+    // and the exotic empty-iterator / navigable / sorted / sequenced factories.
+
+    @BmcUnmodelable(reason = "comparator-driven sort — devirt through the Comparator interface")
+    public static <T> void sort(List<T> list, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.sort(java.util.List, java.util.Comparator)"
+                + " — a comparator-driven sort devirts through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven max — Comparator devirt")
+    public static <T> T max(Collection<? extends T> coll, Comparator<? super T> comp) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.max(java.util.Collection, "
+                + "java.util.Comparator) — comparator devirt through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven min — Comparator devirt")
+    public static <T> T min(Collection<? extends T> coll, Comparator<? super T> comp) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.min(java.util.Collection, "
+                + "java.util.Comparator) — comparator devirt through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven binarySearch — Comparator devirt")
+    public static <T> int binarySearch(List<? extends T> list, T key, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.binarySearch(java.util.List, "
+                + "java.lang.Object, java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "reverse-order Comparator — devirt through the Comparator interface")
+    public static <T> Comparator<T> reverseOrder() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.reverseOrder() — a returned Comparator "
+                + "devirts through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "reverse-order Comparator wrapper — Comparator devirt")
+    public static <T> Comparator<T> reverseOrder(Comparator<T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.reverseOrder(java.util.Comparator) — a "
+                + "returned Comparator devirts through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "shuffle permutes via an unseeded RNG — nondet permutation, no sound model")
+    public static void shuffle(List<?> list) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.shuffle(java.util.List) — a nondet "
+                + "permutation over an RNG has no sound bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "seeded shuffle — RNG reproducibility, the Random(long) wall")
+    public static void shuffle(List<?> list, Random rnd) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.shuffle(java.util.List, java.util.Random)"
+                + " — seeded RNG reproducibility, the Random wall; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "seeded shuffle over a RandomGenerator — RNG reproducibility wall")
+    public static void shuffle(List<?> list, RandomGenerator rnd) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.shuffle(java.util.List, "
+                + "java.util.random.RandomGenerator) — seeded RNG reproducibility, the Random wall; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> Collection<T> unmodifiableCollection(Collection<? extends T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableCollection(java.util.Collection)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> List<T> unmodifiableList(List<? extends T> list) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableList(java.util.List) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> Set<T> unmodifiableSet(Set<? extends T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSet(java.util.Set) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <K, V> Map<K, V> unmodifiableMap(Map<? extends K, ? extends V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableMap(java.util.Map) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> SortedSet<T> unmodifiableSortedSet(SortedSet<T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSortedSet(java.util.SortedSet)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <K, V> SortedMap<K, V> unmodifiableSortedMap(SortedMap<K, ? extends V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSortedMap(java.util.SortedMap)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> NavigableSet<T> unmodifiableNavigableSet(NavigableSet<T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableNavigableSet("
+                + "java.util.NavigableSet) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(NavigableMap<K, ? extends V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableNavigableMap("
+                + "java.util.NavigableMap) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> SequencedCollection<T> unmodifiableSequencedCollection(SequencedCollection<? extends T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSequencedCollection("
+                + "java.util.SequencedCollection) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <T> SequencedSet<T> unmodifiableSequencedSet(SequencedSet<? extends T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSequencedSet("
+                + "java.util.SequencedSet) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unmodifiable wrapper view — needs a wrapper class over the backing")
+    public static <K, V> SequencedMap<K, V> unmodifiableSequencedMap(SequencedMap<K, ? extends V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.unmodifiableSequencedMap("
+                + "java.util.SequencedMap) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <T> Collection<T> synchronizedCollection(Collection<T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedCollection(java.util.Collection)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <T> List<T> synchronizedList(List<T> list) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedList(java.util.List) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <T> Set<T> synchronizedSet(Set<T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedSet(java.util.Set) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <K, V> Map<K, V> synchronizedMap(Map<K, V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedMap(java.util.Map) — a "
+                + "wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <T> SortedSet<T> synchronizedSortedSet(SortedSet<T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedSortedSet(java.util.SortedSet)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <K, V> SortedMap<K, V> synchronizedSortedMap(SortedMap<K, V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedSortedMap(java.util.SortedMap)"
+                + " — a wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <T> NavigableSet<T> synchronizedNavigableSet(NavigableSet<T> s) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedNavigableSet("
+                + "java.util.NavigableSet) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "synchronized wrapper view — needs a wrapper class over the backing")
+    public static <K, V> NavigableMap<K, V> synchronizedNavigableMap(NavigableMap<K, V> m) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.synchronizedNavigableMap("
+                + "java.util.NavigableMap) — a wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> Collection<E> checkedCollection(Collection<E> c, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedCollection(java.util.Collection, "
+                + "java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> Queue<E> checkedQueue(Queue<E> queue, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedQueue(java.util.Queue, "
+                + "java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> List<E> checkedList(List<E> list, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedList(java.util.List, "
+                + "java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> Set<E> checkedSet(Set<E> s, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedSet(java.util.Set, java.lang.Class)"
+                + " — a checked wrapper view needs a wrapper class over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <K, V> Map<K, V> checkedMap(Map<K, V> m, Class<K> keyType, Class<V> valueType) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedMap(java.util.Map, java.lang.Class,"
+                + " java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> SortedSet<E> checkedSortedSet(SortedSet<E> s, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedSortedSet(java.util.SortedSet, "
+                + "java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <K, V> SortedMap<K, V> checkedSortedMap(SortedMap<K, V> m, Class<K> keyType, Class<V> valueType) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedSortedMap(java.util.SortedMap, "
+                + "java.lang.Class, java.lang.Class) — a checked wrapper view needs a wrapper class over the "
+                + "backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <E> NavigableSet<E> checkedNavigableSet(NavigableSet<E> s, Class<E> type) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedNavigableSet(java.util.NavigableSet,"
+                + " java.lang.Class) — a checked wrapper view needs a wrapper class over the backing; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "dynamically-typed checked wrapper view — needs a wrapper class over the backing")
+    public static <K, V> NavigableMap<K, V> checkedNavigableMap(NavigableMap<K, V> m, Class<K> keyType, Class<V> valueType) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.checkedNavigableMap(java.util.NavigableMap,"
+                + " java.lang.Class, java.lang.Class) — a checked wrapper view needs a wrapper class over the "
+                + "backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty Iterator factory — exotic empty-iterator device")
+    public static <T> Iterator<T> emptyIterator() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptyIterator() — an exotic empty-iterator"
+                + " device; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty ListIterator factory — exotic empty-iterator device")
+    public static <T> ListIterator<T> emptyListIterator() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptyListIterator() — an exotic "
+                + "empty-iterator device; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty Enumeration factory — exotic empty-enumeration device")
+    public static <T> Enumeration<T> emptyEnumeration() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptyEnumeration() — an exotic "
+                + "empty-enumeration device; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty NavigableSet factory — exotic empty navigable view")
+    public static <E> NavigableSet<E> emptyNavigableSet() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptyNavigableSet() — an exotic empty "
+                + "navigable view; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty SortedSet factory — exotic empty sorted view")
+    public static <E> SortedSet<E> emptySortedSet() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptySortedSet() — an exotic empty sorted "
+                + "view; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty NavigableMap factory — exotic empty navigable view")
+    public static <K, V> NavigableMap<K, V> emptyNavigableMap() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptyNavigableMap() — an exotic empty "
+                + "navigable view; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "empty SortedMap factory — exotic empty sorted view")
+    public static <K, V> SortedMap<K, V> emptySortedMap() {
+        throw fail("bmc4j: unmodelled member java.util.Collections.emptySortedMap() — an exotic empty sorted "
+                + "view; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "Set view backed by a Map — needs a view wrapper over the backing map")
+    public static <E> Set<E> newSetFromMap(Map<E, Boolean> map) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.newSetFromMap(java.util.Map) — a Set view "
+                + "backed by a Map needs a view wrapper over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "SequencedSet view backed by a SequencedMap — needs a view wrapper over the backing")
+    public static <E> SequencedSet<E> newSequencedSetFromMap(SequencedMap<E, Boolean> map) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.newSequencedSetFromMap("
+                + "java.util.SequencedMap) — a SequencedSet view backed by a SequencedMap needs a view "
+                + "wrapper over the backing; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "Deque-as-LIFO-queue view — needs a view wrapper over the backing deque")
+    public static <T> Queue<T> asLifoQueue(Deque<T> deque) {
+        throw fail("bmc4j: unmodelled member java.util.Collections.asLifoQueue(java.util.Deque) — a LIFO "
+                + "queue view over a Deque needs a view wrapper over the backing; honestly UNKNOWN");
     }
 
     /**

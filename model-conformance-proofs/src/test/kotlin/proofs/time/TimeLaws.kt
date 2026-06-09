@@ -545,4 +545,67 @@ class TimeLaws {
         Bmc.check((c < 0) == (a.totalSeconds > b.totalSeconds))
         Bmc.check((c == 0) == (a.totalSeconds == b.totalSeconds))
     }
+
+    // --- ChronoField / ChronoUnit accessor plumbing on the temporal models ---
+    // The (now-modeled) ChronoField/ChronoUnit unblock getLong/get/with/plus/until on the date/time
+    // models. These laws pin the field<->value round-trips that the accessors must satisfy under JBMC.
+
+    // unwind = 32: the ChronoField enum-switch dispatch compiles to a synthetic $SwitchMap init that
+    // clones ChronoField.values() (30 constants); the clone loop exceeds the default unwind of 16, so
+    // the bound is raised to cover it (the law itself is a pure field read — fast once the bound fits).
+    // NOTE: this pins the temporal SIDE of the round-trip — LocalDate.getLong(EPOCH_DAY). The mirror
+    // ChronoField.EPOCH_DAY.getFrom(d) is differential-only (TimeConformanceTest): getFrom's param is
+    // the non-generic TemporalAccessor, so the LocalDate erases to the interface at the call and JBMC
+    // cannot recover the concrete type to back-dispatch getLong — it inserts a dynamic-cast check that
+    // spuriously refutes (the interface-erased-ARGUMENT artifact; contrast ChronoUnit.addTo, whose
+    // <R extends Temporal> generic param KEEPS the concrete type, so it IS @BmcProof-clean above).
+    @BmcProof(unwind = 32)
+    fun localdate_getLong_epochDay_round_trips() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        Bmc.check(d.getLong(java.time.temporal.ChronoField.EPOCH_DAY) == d.toEpochDay())
+    }
+
+    // unwind = 32: with(ChronoField,..) and getLong(ChronoField,..) dispatch via a ChronoField enum
+    // switch, whose synthetic $SwitchMap init clones ChronoField.values() (30 constants); the clone loop
+    // exceeds the default unwind of 16, so the bound is raised to cover it.
+    @BmcProof(unwind = 32)
+    fun localdate_with_then_get_dayOfWeek_round_trips() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        val target = Bmc.anyInt(1, 7).toLong()
+        val moved = d.with(java.time.temporal.ChronoField.DAY_OF_WEEK, target)
+        Bmc.check(moved.getLong(java.time.temporal.ChronoField.DAY_OF_WEEK) == target)
+    }
+
+    // unwind = 32: the ChronoUnit enum-switch dispatch in LocalDate.plus(long, TemporalUnit) compiles to
+    // a synthetic $SwitchMap init that clones ChronoUnit.values() (16 constants); that clone loop hits
+    // the default unwind of 16, so the bound is raised to cover it.
+    @BmcProof(unwind = 32)
+    fun localdate_plus_days_unit_matches_plusDays() {
+        val d = LocalDate.ofEpochDay(anyDay())
+        val n = anyDay()
+        Bmc.check(d.plus(n, java.time.temporal.ChronoUnit.DAYS) == d.plusDays(n))
+    }
+
+    // unwind = 32: the ChronoField enum-switch dispatch clones ChronoField.values() (30 constants) in
+    // its synthetic $SwitchMap init; the clone loop exceeds the default unwind of 16, so raise the bound.
+    @BmcProof(unwind = 32)
+    fun localtime_getLong_nanoOfDay_round_trips() {
+        // Tight nano-of-day so the field decode stays a small circuit; the law holds for any value.
+        val nod = Bmc.anyLong(0, 86_400L * 1_000_000_000L - 1L)
+        val t = LocalTime.ofNanoOfDay(nod)
+        Bmc.check(t.getLong(java.time.temporal.ChronoField.NANO_OF_DAY) == nod)
+        Bmc.check(t.getLong(java.time.temporal.ChronoField.HOUR_OF_DAY).toInt() == t.hour)
+    }
+
+    // unwind = 32: addTo delegates to LocalTime.plus(amount, this), whose ChronoUnit enum-switch dispatch
+    // clones ChronoUnit.values() (16 constants) in its synthetic $SwitchMap init; that clone loop hits the
+    // default unwind of 16, so the bound is raised to cover it (it is a closed-form delegation, not an
+    // unbounded loop — the only loop is the javac-synthesized enum-switch-map array clone).
+    @BmcProof(unwind = 32)
+    fun chronounit_addTo_delegates_to_plus() {
+        val t = LocalTime.ofNanoOfDay(Bmc.anyLong(0, 86_400L * 1_000_000_000L - 1L))
+        val h = Bmc.anyInt(-48, 48).toLong()
+        // ChronoUnit.addTo(temporal, n) is defined as temporal.plus(n, this).
+        Bmc.check(java.time.temporal.ChronoUnit.HOURS.addTo(t, h) == t.plus(h, java.time.temporal.ChronoUnit.HOURS))
+    }
 }
