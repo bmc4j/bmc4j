@@ -1,7 +1,6 @@
 package java.util.function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.function.UnaryOperator}: a {@link Function} whose argument and
@@ -11,7 +10,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  *
  * <p><b>Not relocated</b> (see {@link Function}). Conformance via model proofs (proofs.function).
  */
-@BmcModelTail(reason = "java.util.function.UnaryOperator has no surface beyond the inherited Function members + its own identity() static; nothing else exists to be loud about")
 @FunctionalInterface
 public interface UnaryOperator<T> extends Function<T, T> {
 

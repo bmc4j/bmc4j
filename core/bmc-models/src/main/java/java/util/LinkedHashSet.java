@@ -1,7 +1,6 @@
 package java.util;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.LinkedHashSet} — same array-backed behaviour as {@link HashSet}.
@@ -9,10 +8,11 @@ import org.bmc4j.models.audit.BmcModelTail;
  * modeled soundly here: {@code getFirst}/{@code getLast} read the ends of the insertion order,
  * {@code addFirst}/{@code addLast} (re)position an element at an end exactly like the JDK (a present
  * element is moved), and {@code removeFirst}/{@code removeLast} read-and-remove the ends (throwing
- * {@link NoSuchElementException} when empty). The {@code reversed()} live view and the spliterator
- * parallel-decomposition view stay loud (tail).
+ * {@link NoSuchElementException} when empty). {@code reversed()} and the {@code newLinkedHashSet}
+ * presizing factory are modeled; the parallel-decomposition {@code spliterator()} and the typed-array
+ * snapshots ({@code toArray(T[])}/{@code toArray(IntFunction)}) inherit {@link HashSet}'s per-member
+ * loud {@link org.bmc4j.models.audit.BmcUnmodelable} stubs (resolved up the modeled superclass chain).
  */
-@BmcModelTail(reason = "the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED")
 public class LinkedHashSet<E> extends HashSet<E> {
 
     public LinkedHashSet() {

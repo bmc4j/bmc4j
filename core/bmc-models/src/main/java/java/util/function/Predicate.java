@@ -1,7 +1,6 @@
 package java.util.function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.function.Predicate}. The SAM {@code test} is abstract (a desugared
@@ -15,7 +14,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * defaults {@code Objects.requireNonNull} the other predicate first; that null-guard is elided here
  * (no Objects model) — the modeled result for the non-null predicates a proof composes is identical.
  */
-@BmcModelTail(reason = "java.util.function.Predicate has no surface beyond the SAM + the modeled and/or/negate defaults + the isEqual/not statics; nothing else exists to be loud about")
 @FunctionalInterface
 public interface Predicate<T> {
 
