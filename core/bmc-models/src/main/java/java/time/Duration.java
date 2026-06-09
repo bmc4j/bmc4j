@@ -3,9 +3,11 @@ package java.time;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalUnit;
+import java.util.List;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -25,10 +27,14 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@link #toHours()}/{@link #toDays()} then TRUNCATE the floored seconds toward zero (so
  * {@code ofMillis(-90000).toMinutes() == -1}, not {@code -2}). {@code Math.floorDiv} is unmodeled by
  * JBMC, so the floor is inlined with explicit sign handling.
+ *
+ * <p>The whole real {@code Duration} surface is now accounted per-member: the modeled millis core (now
+ * including the {@code of}/{@code plus}/{@code minus(long, TemporalUnit)} dispatchers over the
+ * now-modeled ChronoUnit) plus a LOUD {@link BmcUnmodelable} stub for every genuinely-unmodelable member
+ * (the sub-millisecond nanos surface, the {@code truncatedTo}/TemporalAmount/TemporalUnit-list plumbing,
+ * and the apply-to-Temporal projection). There is NO class-level {@code @BmcModelTail}: nothing falls
+ * through.
  */
-@BmcModelTail(reason = "the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, "
-    + "of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO "
-    + "formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC")
 public final class Duration {
 
     final long millis;
@@ -75,6 +81,42 @@ public final class Duration {
     @BmcUnmodelable(reason = "sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing")
     public static Duration ofNanos(long nanos) {
         throw fail("bmc4j: unmodelled member java.time.Duration.ofNanos(long) — sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "the seconds + nanoAdjustment factory needs the sub-millisecond nano field the millis backing lacks")
+    public static Duration ofSeconds(long seconds, long nanoAdjustment) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.ofSeconds(long,long) — the seconds + nanoAdjustment factory needs the sub-millisecond nano field the millis backing lacks");
+    }
+
+    /** Milliseconds in one whole unit of {@code unit}, for the (now-modeled) ChronoUnit dispatchers; 0 means unmodelable here. */
+    private static long unitMillis(TemporalUnit unit) {
+        if (!(unit instanceof ChronoUnit)) {
+            return 0L;
+        }
+        switch ((ChronoUnit) unit) {
+            case MILLIS:    return 1L;
+            case SECONDS:   return 1000L;
+            case MINUTES:   return 60_000L;
+            case HOURS:     return 3_600_000L;
+            case HALF_DAYS: return 43_200_000L;
+            case DAYS:      return 86_400_000L;
+            default:        return 0L;   // NANOS/MICROS (sub-milli) and date units past DAYS
+        }
+    }
+
+    /**
+     * {@code amount} units as a Duration, dispatching on the now-modeled ChronoUnit over the millis
+     * backing. The unit→millis scale routes through a checked {@code Math.multiplyExact} so an
+     * out-of-bound amount fails LOUDLY rather than wrapping. Sub-millisecond units (NANOS/MICROS) and
+     * date-estimated units past DAYS can't be carried by the millis backing — declined LOUD.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public static Duration of(long amount, TemporalUnit unit) {
+        long um = unitMillis(unit);
+        if (um == 0L) {
+            throw fail("bmc4j: unmodelled member java.time.Duration.of(long,java.time.temporal.TemporalUnit) — only ChronoUnit MILLIS..DAYS are modeled on the millis backing (sub-milli NANOS/MICROS and date-estimated units are not representable)");
+        }
+        return new Duration(Math.multiplyExact(amount, um));
     }
 
     /**
@@ -293,6 +335,28 @@ public final class Duration {
     }
 
     /**
+     * Add {@code amountToAdd} of {@code unit}, dispatching on the now-modeled ChronoUnit over the millis
+     * backing (the unit→millis scale and the sum route through checked {@code Math.*Exact}, so overflow is
+     * LOUD). Sub-millisecond units and date-estimated units past DAYS are declined LOUD, like the JDK's
+     * own unsupported-unit failure.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Duration plus(long amountToAdd, TemporalUnit unit) {
+        long um = unitMillis(unit);
+        if (um == 0L) {
+            throw fail("bmc4j: unmodelled member java.time.Duration.plus(long,java.time.temporal.TemporalUnit) — only ChronoUnit MILLIS..DAYS are modeled on the millis backing (sub-milli NANOS/MICROS and date-estimated units are not representable)");
+        }
+        return new Duration(Math.addExact(this.millis, Math.multiplyExact(amountToAdd, um)));
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public Duration minus(long amountToSubtract, TemporalUnit unit) {
+        return amountToSubtract == Long.MIN_VALUE
+            ? plus(Long.MAX_VALUE, unit).plus(1, unit)
+            : plus(-amountToSubtract, unit);
+    }
+
+    /**
      * Divide by a scalar, truncating toward zero exactly like the JDK (which divides the total nanos;
      * on the millis backing the truncation is identical for any millis-representable duration). A zero
      * divisor throws {@link ArithmeticException}, like the JDK. Loud, never silent at the bound: the
@@ -360,6 +424,59 @@ public final class Duration {
             return (long) toMillisPart() * 1_000_000L;
         }
         throw fail("bmc4j: unmodelled member java.time.Duration.get(java.time.temporal.TemporalUnit) — only SECONDS and NANOS are supported units (the JDK throws UnsupportedTemporalTypeException for any other)");
+    }
+
+    // --- genuinely-unmodelable surface: the sub-millisecond nanos field, the truncatedTo/TemporalAmount
+    //     plumbing and the apply-to-Temporal projection. Each is a LOUD stub. ---
+
+    @BmcUnmodelable(reason = "sub-millisecond resolution — the nano-of-second field can't be represented on the millis backing")
+    public int getNano() {
+        throw fail("bmc4j: unmodelled member java.time.Duration.getNano() — sub-millisecond resolution — the nano-of-second field can't be represented on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "sub-millisecond resolution — nanos can't be represented on the millis backing")
+    public Duration plusNanos(long nanosToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.plusNanos(long) — sub-millisecond resolution — nanos can't be represented on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "sub-millisecond resolution — nanos can't be represented on the millis backing")
+    public Duration minusNanos(long nanosToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.minusNanos(long) — sub-millisecond resolution — nanos can't be represented on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "sub-millisecond resolution — the nano-of-second part is always 0 on the millis backing and can't be modeled faithfully")
+    public int toNanosPart() {
+        throw fail("bmc4j: unmodelled member java.time.Duration.toNanosPart() — sub-millisecond resolution — the nano-of-second part can't be represented on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "sub-millisecond resolution — replacing the nano-of-second needs a field the millis backing lacks")
+    public Duration withNanos(int nanoOfSecond) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.withNanos(int) — sub-millisecond resolution — replacing the nano-of-second needs a field the millis backing lacks");
+    }
+
+    @BmcUnmodelable(reason = "the supported-units list (getUnits) is the TemporalAmount plumbing; this model exposes typed accessors, not the generic-unit view")
+    public List<TemporalUnit> getUnits() {
+        throw fail("bmc4j: unmodelled member java.time.Duration.getUnits() — the supported-units list is the TemporalAmount plumbing; this model exposes typed accessors, not the generic-unit view");
+    }
+
+    @BmcUnmodelable(reason = "extracting a Duration from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Duration.of*/ofMillis")
+    public static Duration from(TemporalAmount amount) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.from(java.time.temporal.TemporalAmount) — extracting a Duration from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Duration.of*/ofMillis");
+    }
+
+    @BmcUnmodelable(reason = "truncating to an arbitrary TemporalUnit (the JDK rejects units past DAYS and non-divisor units) is out of scope; use the typed conversions on the millis backing")
+    public Duration truncatedTo(TemporalUnit unit) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.truncatedTo(java.time.temporal.TemporalUnit) — truncating to an arbitrary TemporalUnit (the JDK rejects units past DAYS and non-divisor units) is out of scope; use the typed conversions on the millis backing");
+    }
+
+    @BmcUnmodelable(reason = "applying a Duration to a Temporal (addTo) needs that Temporal's unmodeled field/plus surface")
+    public Temporal addTo(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.addTo(java.time.temporal.Temporal) — applying a Duration to a Temporal needs that Temporal's unmodeled field/plus surface");
+    }
+
+    @BmcUnmodelable(reason = "subtracting a Duration from a Temporal (subtractFrom) needs that Temporal's unmodeled field/minus surface")
+    public Temporal subtractFrom(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Duration.subtractFrom(java.time.temporal.Temporal) — subtracting a Duration from a Temporal needs that Temporal's unmodeled field/minus surface");
     }
 
     @Override

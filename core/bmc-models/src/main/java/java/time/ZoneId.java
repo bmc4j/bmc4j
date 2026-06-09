@@ -9,7 +9,6 @@ import java.time.zone.ZoneRules;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -20,8 +19,11 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * region machinery: the abstract {@code getId}/{@code getRules} are supplied by {@link ZoneOffset}, and
  * the named-region factories/accessors are LOUD stubs ({@code now}-free, region-free). Reaching any stub
  * is a NAMED UNKNOWN, never a silent nondet.
+ *
+ * <p>The whole real {@code ZoneId} surface is accounted per-member here (every named-region/DST-rule
+ * factory and accessor is a LOUD {@link BmcUnmodelable} stub), so there is NO class-level
+ * {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "named-region / DST-rule machinery (systemDefault/getAvailableZoneIds/the of(String[,Map]) and ofOffset region factories/normalized/from/getDisplayName) is out of scope for the offset-only zone model; all loud under JBMC")
 public abstract class ZoneId implements Serializable {
 
     ZoneId() {

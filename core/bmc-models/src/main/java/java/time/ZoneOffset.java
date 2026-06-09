@@ -11,7 +11,6 @@ import java.time.temporal.TemporalQuery;
 import java.time.temporal.ValueRange;
 import java.time.zone.ZoneRules;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -30,8 +29,10 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * (the real JDK interfaces) so a ZoneOffset survives the {@code checkcast} the proof bytecode emits on an
  * interface-typed parameter. Those interface abstract methods, {@code getRules}, and the named-region
  * remainder are NOT modeled — each is a LOUD stub, a NAMED UNKNOWN if reached.
+ *
+ * <p>The whole real {@code ZoneOffset} surface is accounted per-member (modeled or LOUD-stubbed), so
+ * there is NO class-level {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC")
 public final class ZoneOffset extends ZoneId implements TemporalAccessor, TemporalAdjuster, Comparable<ZoneOffset> {
 
     /** The JDK's maximum absolute offset: ±18 hours. */
@@ -76,6 +77,34 @@ public final class ZoneOffset extends ZoneId implements TemporalAccessor, Tempor
             throw new DateTimeException("Zone offset minutes and seconds must have the same sign as hours");
         }
         return ofTotalSeconds(hours * 3600 + minutes * 60);
+    }
+
+    /**
+     * Build from hours + minutes + seconds; the JDK requires all parts to have the SAME sign (or be
+     * zero), minutes/seconds in [-59, 59], and the resulting offset within ±18:00 — replicated here as
+     * pure integer comparisons/arithmetic, loud {@link DateTimeException} out of range.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public static ZoneOffset ofHoursMinutesSeconds(int hours, int minutes, int seconds) {
+        if (hours > 18 || hours < -18) {
+            throw new DateTimeException("Zone offset hours not in valid range: value " + hours + " is not in the range -18 to 18");
+        }
+        if (minutes < -59 || minutes > 59) {
+            throw new DateTimeException("Zone offset minutes not in valid range: value " + minutes + " is not in the range -59 to 59");
+        }
+        if (seconds < -59 || seconds > 59) {
+            throw new DateTimeException("Zone offset seconds not in valid range: value " + seconds + " is not in the range -59 to 59");
+        }
+        if ((Math.abs(hours) > 0 && (signMismatch(hours, minutes) || signMismatch(hours, seconds)))
+            || signMismatch(minutes, seconds)) {
+            throw new DateTimeException("Zone offset minutes and seconds must have the same sign as hours");
+        }
+        return ofTotalSeconds(hours * 3600 + minutes * 60 + seconds);
+    }
+
+    /** True if a and b are both non-zero with opposite signs (the JDK's same-sign rule for offset parts). */
+    private static boolean signMismatch(int a, int b) {
+        return (a > 0 && b < 0) || (a < 0 && b > 0);
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
@@ -181,5 +210,11 @@ public final class ZoneOffset extends ZoneId implements TemporalAccessor, Tempor
     @Override
     public Temporal adjustInto(Temporal temporal) {
         throw fail("bmc4j: unmodelled member java.time.ZoneOffset.adjustInto(java.time.temporal.Temporal) — applying a ZoneOffset to a Temporal is out of scope for the total-seconds offset model");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor")
+    @Override
+    public <R> R query(TemporalQuery<R> query) {
+        throw fail("bmc4j: unmodelled member java.time.ZoneOffset.query(java.time.temporal.TemporalQuery) — the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor");
     }
 }
