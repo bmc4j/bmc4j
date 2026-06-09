@@ -906,7 +906,7 @@ Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0.
+Real surface: 253 members — modeled 126, unmodelable 120, not-needed 7, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `addAll(Collection, Object[])`, `addAll(Collection, Sequence)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `binarySearch(List, Comparable, int, int)`, `build(List)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `createListBuilder()`, `createListBuilder(int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `minus(Iterable, Sequence)`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Collection, Sequence)`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `plus(Iterable, Sequence)`, `removeAll(Collection, Iterable)`, `removeAll(Collection, Object[])`, `removeAll(Collection, Sequence)`, `removeAll(Iterable, Function1)`, `removeAll(List, Function1)`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `retainAll(Collection, Iterable)`, `retainAll(Collection, Object[])`, `retainAll(Collection, Sequence)`, `retainAll(Iterable, Function1)`, `retainAll(List, Function1)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `withIndex(Iterator)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
 
@@ -930,16 +930,14 @@ Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0
 | `collectionSizeOrNull(Iterable)` | internal kotlin-stdlib Iterable->Collection size probe (returns the size of a Collection or null) on the conversion fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached |
 | `collectionToArrayCommonImpl(Collection)` | internal kotlin-stdlib Collection.toArray() common implementation — the JVM array-bridge plumbing behind toArray; not reachable from idiomatic user code; loud-if-reached |
 | `collectionToArrayCommonImpl(Collection, Object[])` | internal kotlin-stdlib Collection.toArray(T[]) common implementation — JVM array-bridge plumbing; not reachable from idiomatic user code; loud-if-reached |
-| `contains(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `convertToListIfNotCollection(Iterable)` | internal kotlin-stdlib Iterable->Collection conversion fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached |
 | `copyToArrayOfAny(Object[], boolean)` | internal kotlin-stdlib toArray reflective array-copy helper (copyToArrayOfAny); JVM array-bridge plumbing not reachable from idiomatic user code; loud-if-reached |
 | `count(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `distinctBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `dropLastWhile(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `dropWhile(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-| `elementAt(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `elementAtOrElse(Iterable, int, Function1)` | elementAtOrElse(_,_,defaultValue) is INLINE — the body lands in the caller; the facade JVM method is never called from a Kotlin call site |
-| `elementAtOrNull(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `elementAtOrNull(Iterable, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
 | `filter(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexedTo(Iterable, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -961,14 +959,12 @@ Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0
 | `forEach(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEach(Iterator, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEachIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-| `getOrNull(List, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `getOrNull(List, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
 | `groupBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupBy(Iterable, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupByTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupByTo(Iterable, Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupingBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-| `indexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `indexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `indexOfFirst(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfFirst(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfLast(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -976,11 +972,8 @@ Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0
 | `iterator(Enumeration)` | iterator(Enumeration) bridges a java.util.Enumeration (legacy external iteration protocol) bmc4j does not model; loud-if-reached |
 | `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | joinTo is STRING-HEAVY (Appendable/StringBuilder append is the JBMC string-blowup that OOMs) AND routes through a kotlinc-synthesized joinTo$default bridge bmc4j does not model; a sound model needs a differential (not proof) harness for the string output; loud-if-reached |
 | `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | joinToString is STRING-HEAVY (the JBMC string-blowup that OOMs CI) AND routes through a kotlinc-synthesized joinToString$default bridge bmc4j does not model; loud-if-reached |
-| `last(Iterable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `last(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `last(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-| `lastIndexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `lastIndexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `lastOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `lastOrNull(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `map(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1039,6 +1032,16 @@ Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0
 | `zip(Iterable, Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `contains(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `elementAt(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `indexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `indexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `last(Iterable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `lastIndexOf(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `lastIndexOf(List, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
 
 
 ## `kotlin.collections.IndexedValue`
@@ -1109,45 +1112,48 @@ Real surface: 22 members — modeled 19, unmodelable 3, not-needed 0, tail 0.
 
 ## `kotlin.comparisons.ComparisonsKt`
 
-Real surface: 34 members — modeled 1, unmodelable 33, not-needed 0, tail 0.
+Real surface: 34 members — modeled 1, unmodelable 29, not-needed 4, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `compareValues(Comparable, Comparable)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `compareBy(Function1[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `compareValuesBy(Object, Object, Function1[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Comparable, Comparable[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Object, Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(Object, Object[], Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(byte, byte[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(double, double[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(float, float[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(int, int[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(long, long[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `maxOf(short, short[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Comparable, Comparable[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Object, Object, Object, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(Object, Object[], Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(byte, byte[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(double, double[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(float, float[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(int, int[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(long, long[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `minOf(short, short[])` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `naturalOrder()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `nullsFirst(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `nullsLast(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reverseOrder()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reversed(Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `then(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `thenDescending(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `compareBy(Function1[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `compareValuesBy(Object, Object, Function1[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(Comparable, Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(Object, Object, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(Object, Object, Object, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(Object, Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(byte, byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(double, double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(float, float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(int, int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(long, long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `maxOf(short, short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(Comparable, Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(Object, Object, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(Object, Object, Object, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(Object, Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(byte, byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(double, double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(float, float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(int, int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(long, long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `minOf(short, short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `naturalOrder()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `nullsFirst(Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `nullsLast(Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `reverseOrder()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `reversed(Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `then(Comparator, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `thenDescending(Comparator, Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `maxOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `maxOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `minOf(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `minOf(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
 
 
 ## `kotlin.enums.EnumEntriesKt`
@@ -1165,30 +1171,30 @@ Real surface: 40 members — modeled 16, unmodelable 24, not-needed 0, tail 0.
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `areEqual(Double, Double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `areEqual(Double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `areEqual(Float, Float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `areEqual(Float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `areEqual(double, Double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `areEqual(float, Float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `checkFieldIsNotNull(Object, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `checkHasClass(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `checkHasClass(String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `checkReturnedValueIsNotNull(Object, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `needClassReification()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `needClassReification(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reifiedOperationMarker(int, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reifiedOperationMarker(int, String, String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwAssert()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwAssert(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwIllegalArgument()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwIllegalArgument(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwIllegalState()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwIllegalState(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwJavaNpe(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwUndefinedForReified()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwUndefinedForReified(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `throwUninitializedProperty(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `areEqual(Double, Double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `areEqual(Double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `areEqual(Float, Float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `areEqual(Float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `areEqual(double, Double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `areEqual(float, Float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `checkFieldIsNotNull(Object, String, String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `checkHasClass(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `checkHasClass(String, String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `checkReturnedValueIsNotNull(Object, String, String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `needClassReification()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `needClassReification(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `reifiedOperationMarker(int, String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `reifiedOperationMarker(int, String, String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwAssert()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwAssert(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwIllegalArgument()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwIllegalArgument(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwIllegalState()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwIllegalState(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwJavaNpe(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwUndefinedForReified()` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwUndefinedForReified(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `throwUninitializedProperty(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
 
 
 ## `kotlin.random.Random`
@@ -1228,123 +1234,126 @@ Real surface: 10 members — modeled 2, unmodelable 8, not-needed 0, tail 0.
 
 ## `kotlin.ranges.RangesKt`
 
-Real surface: 131 members — modeled 20, unmodelable 111, not-needed 0, tail 0.
+Real surface: 131 members — modeled 20, unmodelable 61, not-needed 50, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`, `random(IntRange, Random)`, `random(LongRange, Random)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `byteRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `byteRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `byteRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `byteRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `byteRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `byteRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `checkStepIsPositive(boolean, Number)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtLeast(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtLeast(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtLeast(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtLeast(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtLeast(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtMost(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtMost(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtMost(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtMost(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceAtMost(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(Comparable, ClosedFloatingPointRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(Comparable, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(byte, byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(double, double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(float, float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(int, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(long, ClosedRange)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `coerceIn(short, short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `doubleRangeContains(ClosedRange, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `doubleRangeContains(OpenEndRange, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `downTo(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `floatRangeContains(ClosedRange, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `intRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(ClosedRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `longRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `byteRangeContains(ClosedRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `byteRangeContains(ClosedRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `byteRangeContains(ClosedRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `byteRangeContains(OpenEndRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `byteRangeContains(OpenEndRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `byteRangeContains(OpenEndRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `checkStepIsPositive(boolean, Number)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceAtLeast(double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceAtLeast(float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceAtMost(double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceAtMost(float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(Comparable, ClosedFloatingPointRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(Comparable, ClosedRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(double, double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(float, float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(int, ClosedRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `coerceIn(long, ClosedRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `doubleRangeContains(ClosedRange, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `doubleRangeContains(OpenEndRange, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `floatRangeContains(ClosedRange, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(ClosedRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(ClosedRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(ClosedRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(OpenEndRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(OpenEndRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `intRangeContains(OpenEndRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(ClosedRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(ClosedRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(ClosedRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(OpenEndRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(OpenEndRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `longRangeContains(OpenEndRange, short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
 | `random(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
 | `randomOrNull(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
 | `randomOrNull(IntRange, Random)` | ranged Random draw over IntRange — nondeterministic by nature; no sound bounded model |
 | `randomOrNull(LongRange, Random)` | ranged Random draw over LongRange — nondeterministic by nature; no sound bounded model |
-| `rangeTo(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `rangeTo(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `rangeTo(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `rangeUntil(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `rangeUntil(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `rangeUntil(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reversed(CharProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reversed(IntProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `reversed(LongProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(ClosedRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(ClosedRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(ClosedRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `shortRangeContains(OpenEndRange, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `step(CharProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `step(IntProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `step(LongProgression, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toByteExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toByteExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toByteExactOrNull(int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toByteExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toByteExactOrNull(short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toIntExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toIntExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toIntExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toLongExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toLongExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toShortExactOrNull(double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toShortExactOrNull(float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toShortExactOrNull(int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `toShortExactOrNull(long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-| `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `rangeTo(double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `rangeTo(float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `rangeUntil(Comparable, Comparable)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `rangeUntil(double, double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `rangeUntil(float, float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(ClosedRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(ClosedRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(ClosedRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(OpenEndRange, byte)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(OpenEndRange, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `shortRangeContains(OpenEndRange, long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toByteExactOrNull(double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toByteExactOrNull(float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toByteExactOrNull(int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toByteExactOrNull(long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toByteExactOrNull(short)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toIntExactOrNull(double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toIntExactOrNull(float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toIntExactOrNull(long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toLongExactOrNull(double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toLongExactOrNull(float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toShortExactOrNull(double)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toShortExactOrNull(float)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toShortExactOrNull(int)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+| `toShortExactOrNull(long)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
+
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `coerceAtLeast(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceAtLeast(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceAtLeast(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceAtMost(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceAtMost(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceAtMost(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceIn(Comparable, Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceIn(byte, byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `coerceIn(short, short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `downTo(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `rangeTo(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `reversed(CharProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `reversed(IntProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `reversed(LongProgression)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `step(CharProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `step(IntProgression, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `step(LongProgression, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(byte, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(byte, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(byte, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(byte, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(char, char)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(int, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(int, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(int, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(int, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(long, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(long, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(long, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(long, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(short, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(short, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
+| `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade) |
 
 
 ## `kotlin.sequences.SequencesKt`
