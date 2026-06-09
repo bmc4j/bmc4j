@@ -22,7 +22,6 @@ import java.util.function.ToLongBiFunction;
 import java.util.function.ToLongFunction;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Sequential BMC model of {@link java.util.concurrent.ConcurrentHashMap} — functionally a HashMap
@@ -31,8 +30,11 @@ import org.bmc4j.models.audit.BmcModelTail;
  *
  * <p>Unlike HashMap, ConcurrentHashMap rejects null keys and values (NPE) — modeled here so a proof
  * over code that puts/looks up a null in a concurrent map sees the real failure, not a silent pass.
+ *
+ * <p>The own concurrent/bulk surface is modeled per-member below; the rest of the Map surface inherits
+ * {@link HashMap}'s per-member classifications (conforming models + loud {@code @BmcUnmodelable} stubs)
+ * resolved up the modeled superclass chain — nothing falls through to a catch-all.
  */
-@BmcModelTail(reason = "exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC")
 public class ConcurrentHashMap<K, V> extends HashMap<K, V> {
 
     public ConcurrentHashMap() {

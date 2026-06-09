@@ -406,12 +406,6 @@ Real surface: 37 members — modeled 35, unmodelable 2, not-needed 0, tail 0.
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 | `removeEldestEntry(Entry)` | access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.util.LinkedHashSet`
 
@@ -425,12 +419,6 @@ Real surface: 29 members — modeled 25, unmodelable 4, not-needed 0, tail 0.
 | `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
 | `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.LinkedList`
@@ -624,12 +612,6 @@ Real surface: 62 members — modeled 61, unmodelable 1, not-needed 0, tail 0.
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
@@ -666,12 +648,6 @@ Real surface: 24 members — modeled 18, unmodelable 6, not-needed 0, tail 0.
 | `privilegedCallable(Callable)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
 | `privilegedCallableUsingCurrentClassLoader(Callable)` | java.security privileged execution context — only meaningful under a security manager, no sequential semantics |
 | `privilegedThreadFactory()` | manufactures real java.lang.Thread instances under a privileged context — thread creation has no sequential meaning |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the Thread-manufacturing factories (defaultThreadFactory/privilegedThreadFactory) and the java.security privileged adapters (privilegedCallable*, callable(PrivilegedAction)/callable(PrivilegedExceptionAction)) only make sense with real threads / a security context — no sequential meaning; loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.concurrent.LinkedBlockingQueue`
