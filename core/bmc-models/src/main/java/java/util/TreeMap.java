@@ -371,28 +371,11 @@ public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
         throw fail("bmc4j: unmodelled member java.util.TreeMap.sequencedEntrySet() — would iterate in HashMap encounter order, not TreeMap key order — unsound");
     }
 
-    // --- inherited-HashMap loud stubs, re-declared here -------------------------------------------
+    // --- inherited-HashMap loud stub, re-declared here --------------------------------------------
     // The gate resolves inherited @BmcModelConforms through the model chain but NOT inherited method-level
-    // stubs, so the HashMap model's loud stubs are re-declared here (same reasons) so every real member is
-    // accounted for. Loud-if-reached under JBMC.
-
-    @BmcUnmodelable(reason = "bulk put — put entries explicitly over the bounded model; loud under JBMC (inherited from the HashMap model stub)")
-    @Override
-    public void putAll(Map<? extends K, ? extends V> m) {
-        throw fail("bmc4j: unmodelled member java.util.TreeMap.putAll(java.util.Map) — bulk put — put entries explicitly over the bounded model");
-    }
-
-    @BmcUnmodelable(reason = "compare-and-remove — compose get()/remove() explicitly; loud under JBMC (inherited from the HashMap model stub)")
-    @Override
-    public boolean remove(Object key, Object value) {
-        throw fail("bmc4j: unmodelled member java.util.TreeMap.remove(java.lang.Object,java.lang.Object) — compare-and-remove — compose get()/remove() explicitly");
-    }
-
-    @BmcUnmodelable(reason = "functional-arg bulk replace — JBMC stubs the lambda dispatch; loud under JBMC (inherited from the HashMap model stub)")
-    @Override
-    public void replaceAll(java.util.function.BiFunction<? super K, ? super V, ? extends V> function) {
-        throw fail("bmc4j: unmodelled member java.util.TreeMap.replaceAll(java.util.function.BiFunction) — functional-arg bulk replace — JBMC stubs the lambda dispatch");
-    }
+    // stubs, so the HashMap model's clone() stub is re-declared here (same reason) so every real member is
+    // accounted for. putAll/remove(key,value)/replaceAll are MODELED on the HashMap base (not stubs), so
+    // they are inherited as conforming members and need no re-declaration. Loud-if-reached under JBMC.
 
     @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead; loud under JBMC (inherited from the HashMap model stub)")
     @Override
