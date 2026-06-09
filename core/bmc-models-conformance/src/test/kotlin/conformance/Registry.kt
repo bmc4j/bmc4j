@@ -10,6 +10,10 @@ val COVERED: Set<String> = setOf(
     // Differential (this module) — JVM-runnable JDK models.
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
+    // EnumMap/EnumSet: enum-keyed/enum-element bounded array models built over the HashMap/HashSet
+    // models (differential MapConformanceTest/JavaUtilTailConformanceTest + @BmcProof). Objects: the
+    // null-safe / bounds-check static utility (differential JavaUtilTailConformanceTest + @BmcProof).
+    "java.util.EnumMap", "java.util.EnumSet", "java.util.Objects",
     "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
@@ -177,6 +181,7 @@ val WAIVED: Map<String, String> = mapOf(
 val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
+    "java.util.EnumMap", "java.util.EnumSet", "java.util.Objects",
     "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",

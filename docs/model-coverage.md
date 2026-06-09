@@ -374,6 +374,35 @@ Real surface: 8 members — modeled 5, unmodelable 2, not-needed 1, tail 0.
 | `andThen(DoubleConsumer)` | DoubleConsumer.andThen default — composes this accept with a second consumer; sound inline bytecode under JBMC (two accept calls), no model needed |
 
 
+## `java.util.EnumMap`
+
+Real surface: 24 members — modeled 23, unmodelable 1, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `put(Enum, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+
+
+## `java.util.EnumSet`
+
+Real surface: 32 members — modeled 24, unmodelable 8, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `copyOf(Collection)`, `copyOf(EnumSet)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `of(Enum)`, `of(Enum, Enum)`, `of(Enum, Enum, Enum)`, `of(Enum, Enum, Enum, Enum)`, `of(Enum, Enum, Enum, Enum, Enum)`, `of(Enum, Enum[])`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `allOf(Class)` | needs the enum constant universe via reflective Class.getEnumConstants() — JBMC cannot soundly enumerate the constants of a symbolic enum Class |
+| `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
+| `complementOf(EnumSet)` | the complement against the enum's full universe — requires the enum constant universe via reflective Class.getEnumConstants() |
+| `noneOf(Class)` | needs the enum constant universe via reflective Class.getEnumConstants() — JBMC cannot soundly enumerate the constants of a symbolic enum Class |
+| `range(Enum, Enum)` | needs every constant between the two bounds — requires the enum constant universe via reflective Class.getEnumConstants() |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+
 ## `java.util.HashMap`
 
 Real surface: 25 members — modeled 24, unmodelable 1, not-needed 0, tail 0.
@@ -461,6 +490,18 @@ Real surface: 10 members — modeled 8, unmodelable 0, not-needed 2, tail 0.
 |---|---|
 | `andThen(IntConsumer)` | IntConsumer.andThen default (inherited as a LongSummaryStatistics also implements IntConsumer) — composes this accept with a second consumer; sound inline bytecode under JBMC, no model needed |
 | `andThen(LongConsumer)` | LongConsumer.andThen default — composes this accept with a second consumer; sound inline bytecode under JBMC (two accept calls), no model needed |
+
+
+## `java.util.Objects`
+
+Real surface: 21 members — modeled 19, unmodelable 2, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `checkFromIndexSize(int, int, int)`, `checkFromIndexSize(long, long, long)`, `checkFromToIndex(int, int, int)`, `checkFromToIndex(long, long, long)`, `checkIndex(int, int)`, `checkIndex(long, long)`, `compare(Object, Object, Comparator)`, `equals(Object, Object)`, `hash(Object[])`, `hashCode(Object)`, `isNull(Object)`, `nonNull(Object)`, `requireNonNull(Object)`, `requireNonNull(Object, String)`, `requireNonNull(Object, Supplier)`, `requireNonNullElse(Object, Object)`, `requireNonNullElseGet(Object, Supplier)`, `toString(Object)`, `toString(Object, String)`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `deepEquals(Object, Object)` | recursive nested-array deep equality via reflection — compare element-wise instead |
+| `toIdentityString(Object)` | identity string built from System.identityHashCode + getClass().getName() — not soundly representable |
 
 
 ## `java.util.Optional`
