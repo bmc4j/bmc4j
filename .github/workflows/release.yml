@@ -80,6 +80,14 @@ jobs:
 
   verify:
     needs: preflight
+    # ci.yml statically declares pull-requests:write on its pr-proof-comment job (the PR-comment
+    # path). A called workflow's job permissions are capped at parse time by the caller, and the
+    # release token defaults to none for pull-requests, so without this the whole release fails to
+    # START (startup_failure). The job is skipped at run time during a tag release anyway
+    # (event_name is push, not workflow_call), but the cap is validated before any job runs.
+    permissions:
+      contents: read
+      pull-requests: write
     uses: ./.github/workflows/ci.yml
     with:
       gate: true
