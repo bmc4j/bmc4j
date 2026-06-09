@@ -116,6 +116,14 @@ val WAIVED: Map<String, String> = mapOf(
     "java.time.ZoneId" to "abstract base — exercised via the concrete ZoneOffset model (per-member-enforced)",
     "java.util.stream.Collector" to "interface — via Collectors",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
+    // kotlin.coroutines core hierarchy — type-only stand-ins bundled so coroutine casts resolve from a
+    // single source. No analysis surface to differentially test (like the java.util Collection/List/Set
+    // and SequencedCollection/Set/Map structural-interface waivers); exercised via the coroutines example.
+    "kotlin.coroutines.Continuation" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.CoroutineContext" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.ContinuationInterceptor" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.AbstractCoroutineContextElement" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
+    "kotlin.coroutines.EmptyCoroutineContext" to "coroutine context hierarchy — type-only stand-in (no own behavior); coroutines example",
     "kotlin.coroutines.intrinsics.CoroutineSingletons" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.intrinsics.IntrinsicsKt" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.jvm.internal.BaseContinuationImpl" to "coroutine runtime model — coroutines example",
