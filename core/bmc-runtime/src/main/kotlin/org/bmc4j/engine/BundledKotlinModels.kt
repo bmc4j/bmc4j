@@ -91,6 +91,15 @@ object BundledKotlinModels {
             "kotlin/coroutines/jvm/internal/BaseContinuationImpl.class",
             "kotlin/coroutines/jvm/internal/ContinuationImpl.class",
             "kotlin/coroutines/jvm/internal/SuspendLambda.class",
+            // The remaining kotlin.coroutines.jvm.internal.* types a generated state machine references,
+            // bundled so EVERY coroutine type a continuation touches resolves from one classpath source
+            // (the rest of the hierarchy was bundled for the same single-source-cast reason): the
+            // @DebugMetadata method annotation kotlinc stamps on every invokeSuspend, and SpillingKt
+            // (loops/ref-spills emit nullOutSpilledVariable). Left in the stdlib jar, the continuation
+            // straddled two sources and JBMC dropped the subtype->supertype `checkcast Continuation` link
+            // on the older-Kotlin legs (e.g. loop-bodied countTo on kotlin-2.3.21) — a spurious cast REFUTED.
+            "kotlin/coroutines/jvm/internal/DebugMetadata.class",
+            "kotlin/coroutines/jvm/internal/SpillingKt.class",
             // Idiomatic runBlocking { } support.
             "kotlinx/coroutines/BuildersKt.class",
             "kotlinx/coroutines/BuildersKt\$ImmediateScope.class",
