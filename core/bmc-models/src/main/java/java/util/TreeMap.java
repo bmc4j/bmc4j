@@ -350,8 +350,9 @@ public class TreeMap<K, V> extends HashMap<K, V> implements SortedMap<K, V> {
     // TreeMap's key order, so it would silently diverge from the sorted contract — loud-if-reached. Use
     // descendingMap()/navigableKeySet()/descendingKeySet() for the modeled ordered snapshots.
 
+    // No @Override: on the Java-17 floor SortedMap does not yet extend SequencedMap, so reversed() has no
+    // supertype declaration to override (it only gains one on Java 21+). The method stays declared and audited.
     @BmcUnmodelable(reason = "SequencedMap.reversed would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot.")
-    @Override
     public SortedMap<K, V> reversed() {
         throw fail("bmc4j: unmodelled member java.util.TreeMap.reversed() — SequencedMap.reversed would iterate in HashMap encounter order, not TreeMap key order — unsound; use descendingMap()");
     }
