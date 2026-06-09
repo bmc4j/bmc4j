@@ -1384,12 +1384,6 @@ Real surface: 2 members — modeled 2, unmodelable 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `enumEntries(Enum[])`, `enumEntries(Function0)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): EnumEntriesKt has no remainder beyond the two modeled enumEntries overloads; tail present for ratchet completeness, loud under JBMC if any future member is reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `kotlin.jvm.internal.Intrinsics`
 
@@ -1423,12 +1417,6 @@ Real surface: 40 members — modeled 16, unmodelable 24, not-needed 0, tail 0.
 | `throwUndefinedForReified()` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `throwUndefinedForReified(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `throwUninitializedProperty(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `kotlin.random.Random`
