@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -16,11 +15,10 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@code sequencedEntrySet} are the order-preserving snapshots the inherited keySet/values/entrySet
  * already produce.
  *
- * <p>The access-order LRU mode (the {@code accessOrder} constructor + {@code removeEldestEntry}
- * eviction hook) and the {@code reversed()} live view stay loud (tail) — they need a reordering /
- * reversed-view structure this insertion-ordered array doesn't provide.
+ * <p>The access-order/eldest-entry LRU eviction hook ({@code removeEldestEntry}, paired with the
+ * unmodeled {@code accessOrder} constructor) stays loud per-member — the insertion-ordered array has
+ * no eviction policy. {@code reversed()} and the {@code newLinkedHashMap} presizing factory are modeled.
  */
-@BmcModelTail(reason = "the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED")
 public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     public LinkedHashMap() {

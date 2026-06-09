@@ -3,7 +3,6 @@ package java.util.concurrent;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -21,9 +20,8 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@code privilegedThreadFactory}) or to run under a {@code java.security} privileged context
  * ({@code privilegedCallable*}, the {@code PrivilegedAction}/{@code PrivilegedExceptionAction}
  * {@code callable} overloads) — those only make sense with real threads / a security manager and have
- * no sequential meaning.
+ * no sequential meaning, and carry per-member loud {@code @BmcUnmodelable} stubs below.
  */
-@BmcModelTail(reason = "the Thread-manufacturing factories (defaultThreadFactory/privilegedThreadFactory) and the java.security privileged adapters (privilegedCallable*, callable(PrivilegedAction)/callable(PrivilegedExceptionAction)) only make sense with real threads / a security context — no sequential meaning; loud under JBMC")
 public final class Executors {
 
     private Executors() {
