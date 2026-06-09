@@ -279,6 +279,31 @@ final class ArrayListView<E> implements List<E> {
         return new java.util.stream.ListStream<>(snapshot);
     }
 
+    @Override
+    public List<E> subList(int fromIndex, int toIndex) {
+        // A bounded snapshot of this view's [fromIndex, toIndex) window — a fresh independent list in
+        // view order, not a nested live view (the bounded model avoids unbounded view-on-view nesting).
+        if (fromIndex < 0 || toIndex > size() || fromIndex > toIndex) {
+            throw new IndexOutOfBoundsException();
+        }
+        ArrayList<E> snapshot = new ArrayList<>();
+        for (int i = fromIndex; i < toIndex; i++) {
+            snapshot.add(get(i));
+        }
+        return snapshot;
+    }
+
+    @Override
+    public List<E> reversed() {
+        // A bounded snapshot of this view's elements in reverse order — a fresh independent list, not a
+        // nested live view (the bounded model avoids unbounded view-on-view nesting).
+        ArrayList<E> snapshot = new ArrayList<>();
+        for (int i = size() - 1; i >= 0; i--) {
+            snapshot.add(get(i));
+        }
+        return snapshot;
+    }
+
     private final class ViewItr implements Iterator<E> {
         private int cursor;
 

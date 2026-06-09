@@ -339,9 +339,29 @@ public class TreeSet<E> implements Set<E> {
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
 
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
+    /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.treeset)")
     public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.TreeSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+        // Read an ArrayList argument's backing BY INDEX rather than via the interface-typed
+        // c.iterator(): that virtual dispatch on the Collection parameter is devirtualization-fragile
+        // under JBMC (the iterator index can go nondet → a false counterexample, notably on the
+        // "element absent" case). A concrete-typed get(i) resolves soundly; other types fall back.
+        if (c instanceof ArrayList) {
+            ArrayList<?> a = (ArrayList<?>) c;
+            int n = a.size();
+            for (int i = 0; i < n; i++) {
+                if (!contains(a.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @BmcUnmodelable(reason = "NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC")
@@ -359,9 +379,16 @@ public class TreeSet<E> implements Set<E> {
         throw fail("bmc4j: unmodelled member java.util.TreeSet.tailSet(java.lang.Object) — NavigableSet range view over a bounded unordered store; out of scope");
     }
 
-    @BmcUnmodelable(reason = "array snapshot — iterate the model instead")
+    /** A new array holding every element in ASCENDING (natural) order — the sorted snapshot, like the JDK. */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.treeset)")
     public Object[] toArray() {
-        throw fail("bmc4j: unmodelled member java.util.TreeSet.toArray() — array snapshot — iterate the model instead");
+        ArrayList<E> sorted = sortedKeys(false);
+        int n = sorted.size();
+        Object[] out = new Object[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = sorted.get(i);
+        }
+        return out;
     }
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
