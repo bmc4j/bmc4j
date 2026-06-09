@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -35,11 +34,23 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  *       family and {@code pollFirst}/{@code pollLast} return {@code null} when no element qualifies.</li>
  * </ul>
  *
- * <p>The multi-element range views ({@code subSet}/{@code headSet}/{@code tailSet}) are SortedSet/
- * NavigableSet live views over a bounded unordered store — out of scope for the same reason the TreeMap
- * model stubs {@code subMap}/{@code headMap}/{@code tailMap}; they are loud {@link BmcUnmodelable} stubs.
+ * <p>The multi-element range views ({@code subSet}/{@code headSet}/{@code tailSet}, in both the 1-arg
+ * SortedSet and boolean-inclusive NavigableSet overloads) are live views over a bounded unordered store —
+ * out of scope for the same reason the TreeMap model stubs {@code subMap}/{@code headMap}/{@code tailMap}.
+ * Together with {@code spliterator()} and {@code toArray(IntFunction)} they are accounted for per-member
+ * as loud {@link BmcUnmodelable} (method-level stubs for the declared surface, class-level declarations
+ * for the inherited NavigableSet overloads); there is no {@code @BmcModelTail} remainder.
  */
-@BmcModelTail(reason = "exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set")
+// Tail fully enumerated per-member (no @BmcModelTail remainder). The boolean-inclusive NavigableSet
+// range views (subSet/headSet/tailSet with from/to inclusivity) are live range views over a bounded
+// unordered store — out of scope, mirroring the 1-arg SortedSet range views stubbed below. spliterator
+// (parallel-decomposition) and toArray(IntFunction) (typed array snapshot) are out of scope for this
+// sequential bounded model — iterate it instead. All loud-if-reached under JBMC.
+@BmcUnmodelable(member = "subSet(java.lang.Object,boolean,java.lang.Object,boolean)", reason = "boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 2-arg subSet / TreeMap.subMap); loud under JBMC")
+@BmcUnmodelable(member = "headSet(java.lang.Object,boolean)", reason = "boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg headSet); loud under JBMC")
+@BmcUnmodelable(member = "tailSet(java.lang.Object,boolean)", reason = "boolean-inclusive NavigableSet range view over a bounded unordered store — out of scope (mirrors the 1-arg tailSet); loud under JBMC")
+@BmcUnmodelable(member = "spliterator()", reason = "Spliterator (parallel-decomposition) view is out of scope for the sequential bounded model — iterate the model instead; loud under JBMC")
+@BmcUnmodelable(member = "toArray(java.util.function.IntFunction)", reason = "typed array snapshot via a generator — iterate the model instead; loud under JBMC")
 public class TreeSet<E> implements Set<E> {
 
     /** A TreeSet is the key set of a map to a single dummy value, like the JDK's {@code PRESENT}. */

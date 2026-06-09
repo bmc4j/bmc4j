@@ -14,7 +14,6 @@ import java.util.function.ObjDoubleConsumer;
 import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
@@ -32,8 +31,29 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
  * through {@code doubleToLongBits} — one of the only two unsound double ops under JBMC (the other is
  * dtoa / double-to-string). A primitive {@code <} model would silently diverge from the JDK contract on
  * NaN and signed zero, so those three are loud {@link BmcUnmodelable} rather than a quiet fiction.
+ *
+ * <p>The remaining surface — the infinite {@code generate}/2-arg {@code iterate}, {@code mapMulti}, the
+ * lazy {@code builder}/{@code iterator}/{@code spliterator}, and the {@code BaseStream} lifecycle no-ops
+ * — is enumerated per-member as class-level {@link BmcUnmodelable} (loud-if-reached), exactly as in the
+ * {@code IntStream}/{@code LongStream} models. There is no {@code @BmcModelTail} remainder.
  */
-@BmcModelTail(reason = "the remaining DoubleStream surface (the infinite generate(supplier)/iterate(seed,next); mapMulti (nested DoubleMapMultiConsumer SAM); builder/iterator/spliterator; sequential/parallel lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+// The DoubleStream tail is fully enumerated per-member (mirrors IntStream/LongStream). The infinite
+// producers (generate/iterate(seed,next)) never terminate; the primitive mapMulti drives a nested
+// DoubleMapMultiConsumer SAM whose dispatch is out of scope; builder()/iterator()/spliterator() are
+// lazy/virtual; the BaseStream lifecycle members carry no model on this sequential eager interface.
+// Each is loud-if-reached under JBMC.
+@BmcUnmodelable(member = "generate(java.util.function.DoubleSupplier)", reason = "infinite producer — never terminates; a bounded eager model would diverge from the JDK observable")
+@BmcUnmodelable(member = "iterate(double,java.util.function.DoubleUnaryOperator)", reason = "the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled")
+@BmcUnmodelable(member = "mapMulti(java.util.stream.DoubleStream$DoubleMapMultiConsumer)", reason = "primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model")
+@BmcUnmodelable(member = "builder()", reason = "lazy DoubleStream.Builder accumulation is out of scope for the eager array-backed model")
+@BmcUnmodelable(member = "iterator()", reason = "virtual PrimitiveIterator.OfDouble dispatch is out of scope for the eager array model")
+@BmcUnmodelable(member = "spliterator()", reason = "Spliterator.OfDouble (parallel-decomposition) dispatch is out of scope for the sequential eager model")
+@BmcUnmodelable(member = "isParallel()", reason = "BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached")
+@BmcUnmodelable(member = "parallel()", reason = "true-parallel execution is out of scope for the sequential eager model")
+@BmcUnmodelable(member = "sequential()", reason = "BaseStream lifecycle no-op — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "unordered()", reason = "BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "onClose(java.lang.Runnable)", reason = "BaseStream close-handler registration — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "close()", reason = "BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached")
 public interface DoubleStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream DoubleStreamLaws)")
