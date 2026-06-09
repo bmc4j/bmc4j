@@ -71,4 +71,114 @@ class KotlinArraysLaws {
         a.fill(9, 1, 3)
         Bmc.check(a[0] == 0 && a[1] == 9 && a[2] == 9 && a[3] == 0)
     }
+
+    // ---- read / convert / transform surface --------------------------------------------------------
+
+    /** asList returns a concrete list copy with the same length and contents (the vararg-factory path). */
+    @BmcProof
+    fun asList_concrete_copy_contents() {
+        val a = Bmc.anyInt()
+        val src = intArrayOf(a, a + 1, a + 2)
+        val l = src.asList()
+        Bmc.check(l.size == 3 && l[0] == a && l[1] == a + 1 && l[2] == a + 2)
+    }
+
+    /** asList over an Object[] (the reference-element form the persistent-collection factory hits). */
+    @BmcProof
+    fun asList_object_array_copy() {
+        val x = Bmc.anyInt()
+        val src = arrayOf(x, x + 5)
+        val l = src.asList()
+        Bmc.check(l.size == 2 && l[0] == x && l[1] == x + 5)
+    }
+
+    /** toList / toMutableList likewise produce a same-contents copy. */
+    @BmcProof
+    fun toList_and_toMutableList_copy_contents() {
+        val src = intArrayOf(7, 8)
+        val a = src.toList()
+        val b = src.toMutableList()
+        Bmc.check(a.size == 2 && a[0] == 7 && a[1] == 8 && b.size == 2 && b[0] == 7 && b[1] == 8)
+    }
+
+    /** toTypedArray boxes each primitive element into a same-length Array<Int>. */
+    @BmcProof
+    fun toTypedArray_boxes_elements() {
+        val src = intArrayOf(3, 4, 5)
+        val boxed = src.toTypedArray()
+        Bmc.check(boxed.size == 3 && boxed[0] == 3 && boxed[1] == 4 && boxed[2] == 5)
+    }
+
+    /** plus(element) appends one element to a new, one-longer array. */
+    @BmcProof
+    fun plus_element_appends() {
+        val src = intArrayOf(1, 2)
+        val out = src + 9
+        Bmc.check(out.size == 3 && out[0] == 1 && out[1] == 2 && out[2] == 9)
+    }
+
+    /** plus(array) concatenates two arrays. */
+    @BmcProof
+    fun plus_array_concatenates() {
+        val a = intArrayOf(1, 2)
+        val b = intArrayOf(3, 4, 5)
+        val out = a + b
+        Bmc.check(out.size == 5 && out[0] == 1 && out[2] == 3 && out[4] == 5)
+    }
+
+    /** plus(element) over an Object[] preserves element references (the reference-element form the
+     *  kotlinx vararg factory hits). Identity (===) avoids the FP/String content-equality machinery. */
+    @BmcProof
+    fun plus_object_element_appends() {
+        val p = Any()
+        val q = Any()
+        val src = arrayOf(p)
+        val out = src + q
+        Bmc.check(out.size == 2 && out[0] === p && out[1] === q)
+    }
+
+    /** contains is a sound linear membership test (true for a present element, false for an absent one). */
+    @BmcProof
+    fun contains_present_and_absent() {
+        val src = intArrayOf(10, 20, 30)
+        Bmc.check(src.contains(20) && !src.contains(25))
+    }
+
+    /** indexOf returns the first matching index, or -1 when absent. */
+    @BmcProof
+    fun indexOf_first_match_or_minus_one() {
+        val src = intArrayOf(5, 6, 5, 7)
+        Bmc.check(src.indexOf(5) == 0 && src.indexOf(7) == 3 && src.indexOf(99) == -1)
+    }
+
+    /** lastIndexOf returns the highest matching index, or -1 when absent. */
+    @BmcProof
+    fun lastIndexOf_last_match_or_minus_one() {
+        val src = intArrayOf(5, 6, 5, 7)
+        Bmc.check(src.lastIndexOf(5) == 2 && src.lastIndexOf(99) == -1)
+    }
+
+    /** indexOf over an Object[] uses equals (boxed Integer elements: Integer.equals, modeled soundly —
+     *  not the String/CProverString path). A present value matches at its index, an absent one gives -1. */
+    @BmcProof
+    fun indexOf_object_array_uses_equals() {
+        val src = arrayOf(10, 20, 30)
+        Bmc.check(src.indexOf(20) == 1 && src.indexOf(99) == -1)
+    }
+
+    /** first / last read the endpoints of a non-empty array. */
+    @BmcProof
+    fun first_and_last_endpoints() {
+        val a = Bmc.anyInt()
+        val src = intArrayOf(a, a + 1, a + 2)
+        Bmc.check(src.first() == a && src.last() == a + 2)
+    }
+
+    /** getOrNull yields the element in bounds and null out of bounds. */
+    @BmcProof
+    fun getOrNull_in_and_out_of_bounds() {
+        val src = intArrayOf(11, 12)
+        Bmc.check(src.getOrNull(0) == 11 && src.getOrNull(1) == 12 &&
+            src.getOrNull(2) == null && src.getOrNull(-1) == null)
+    }
 }

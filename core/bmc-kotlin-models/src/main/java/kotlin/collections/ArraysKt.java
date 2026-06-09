@@ -1,5 +1,9 @@
 package kotlin.collections;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.NoSuchElementException;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 
@@ -33,11 +37,13 @@ import org.bmc4j.models.audit.BmcModelTail;
  * common inline forms (the lambda-taking {@code map{}}/{@code filter{}}/{@code fold{}} etc.) inline
  * into the caller and never reach this facade at all.
  */
-@BmcModelTail(reason = "the ~1300-member kotlin.collections.ArraysKt array-extension surface "
-        + "(all/any/map/filter/fold/sort/sum/zip/windowed/indexOf/… across nine element types, plus the "
-        + "lambda-taking inline forms that inline into the caller) is the exotic tail; only the high-value "
-        + "copy/fill surface (copyInto/copyOf/copyOfRange/fill) is modeled, the remainder is build-synthesized "
-        + "loud (member-named UNKNOWN if reached, never a silent nondet stub)")
+@BmcModelTail(reason = "the ~1200-member kotlin.collections.ArraysKt array-extension surface "
+        + "(all/any/map/filter/fold/sort/sum/zip/windowed/… across nine element types, plus the "
+        + "lambda-taking inline forms that inline into the caller) is the exotic tail; the high-value "
+        + "copy/fill surface (copyInto/copyOf/copyOfRange/fill) and the hot read/convert surface "
+        + "(asList/plus/contains/indexOf/lastIndexOf/toList/toMutableList/toTypedArray/first/last/single/"
+        + "getOrNull) are modeled, the remainder is build-synthesized loud (member-named UNKNOWN if reached, "
+        + "never a silent nondet stub)")
 public final class ArraysKt {
 
     private ArraysKt() {
@@ -525,5 +531,1062 @@ public final class ArraysKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static void fill(char[] array, char element, int fromIndex, int toIndex) {
         java.util.Arrays.fill(array, fromIndex, toIndex, element);
+    }
+
+    // ============================================================================================
+    // asList: ArraysKt.asList:(<E>[)Ljava/util/List; — the array → List<E> conversion. Kotlin's
+    //   fun <T> Array<out T>.asList(): List<T>
+    // The headline path this unblocks: kotlinx persistent-collection vararg factories
+    // (persistentListOf(a) → ArraysKt.asList(elements) → addAll(thatList)). The consumer's addAll
+    // ITERATES the returned list, so the result MUST be a single CONCRETE java.util.ArrayList copy
+    // (an explicit element-loop into a fresh ArrayList) rather than Arrays.asList / a custom view: a
+    // lone concrete ArrayList iterator devirtualizes cleanly under JBMC (the concrete-backing rule),
+    // whereas an exotic/view return reintroduces the iterator-dispatch fragility this whole model
+    // exists to avoid. The real facade nondet-stubs asList (unlinkable from the giant multifile facade),
+    // havocking every persistent-collection vararg-factory proof to UNKNOWN.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> asList(T[] source) {
+        ArrayList<T> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Byte> asList(byte[] source) {
+        ArrayList<Byte> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Short> asList(short[] source) {
+        ArrayList<Short> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Integer> asList(int[] source) {
+        ArrayList<Integer> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Long> asList(long[] source) {
+        ArrayList<Long> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Float> asList(float[] source) {
+        ArrayList<Float> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Double> asList(double[] source) {
+        ArrayList<Double> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Boolean> asList(boolean[] source) {
+        ArrayList<Boolean> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Character> asList(char[] source) {
+        ArrayList<Character> out = new ArrayList<>();
+        for (int i = 0; i < source.length; i++) {
+            out.add(source[i]);
+        }
+        return out;
+    }
+
+    // ============================================================================================
+    // toList / toMutableList: ArraysKt.toList:(<E>[)Ljava/util/List; — a NEW List<E> copy of the array
+    // (toList is documented read-only, toMutableList mutable, but bmc4j's single concrete ArrayList model
+    // backs both: a copy either way). Same concrete-ArrayList rationale as asList.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> toList(T[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Byte> toList(byte[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Short> toList(short[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Integer> toList(int[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Long> toList(long[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Float> toList(float[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Double> toList(double[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Boolean> toList(boolean[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Character> toList(char[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> List<T> toMutableList(T[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Byte> toMutableList(byte[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Short> toMutableList(short[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Integer> toMutableList(int[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Long> toMutableList(long[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Float> toMutableList(float[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Double> toMutableList(double[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Boolean> toMutableList(boolean[] source) {
+        return asList(source);
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static List<Character> toMutableList(char[] source) {
+        return asList(source);
+    }
+
+    // ============================================================================================
+    // toTypedArray: ArraysKt.toTypedArray:(<prim>[)[Ljava/lang/<Boxed>; — box each primitive element
+    // into a NEW boxed array. Kotlin's `intArrayOf(1,2).toTypedArray(): Array<Int>`. (No Object[] form:
+    // an Array<T> has nothing to box. The Collection form stays in the tail.)
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Byte[] toTypedArray(byte[] source) {
+        Byte[] out = new Byte[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Short[] toTypedArray(short[] source) {
+        Short[] out = new Short[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Integer[] toTypedArray(int[] source) {
+        Integer[] out = new Integer[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Long[] toTypedArray(long[] source) {
+        Long[] out = new Long[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Float[] toTypedArray(float[] source) {
+        Float[] out = new Float[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Double[] toTypedArray(double[] source) {
+        Double[] out = new Double[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Boolean[] toTypedArray(boolean[] source) {
+        Boolean[] out = new Boolean[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Character[] toTypedArray(char[] source) {
+        Character[] out = new Character[source.length];
+        for (int i = 0; i < source.length; i++) {
+            out[i] = source[i];
+        }
+        return out;
+    }
+
+    // ============================================================================================
+    // plus(array, element): ArraysKt.plus:(<E>[<E>)<E>[ — a NEW array one longer, with element appended.
+    // Kotlin's `array + element`. Backed by Arrays.copyOf (preserves the runtime component type for the
+    // Object[] form) + a single tail write, sound under JBMC over the bounded array.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T[] plus(T[] source, T element) {
+        T[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte[] plus(byte[] source, byte element) {
+        byte[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short[] plus(short[] source, short element) {
+        short[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int[] plus(int[] source, int element) {
+        int[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long[] plus(long[] source, long element) {
+        long[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float[] plus(float[] source, float element) {
+        float[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double[] plus(double[] source, double element) {
+        double[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean[] plus(boolean[] source, boolean element) {
+        boolean[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char[] plus(char[] source, char element) {
+        char[] out = java.util.Arrays.copyOf(source, source.length + 1);
+        out[source.length] = element;
+        return out;
+    }
+
+    // plus(array, array): ArraysKt.plus:(<E>[<E>[)<E>[ — a NEW array = source concatenated with the other.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T[] plus(T[] source, T[] elements) {
+        T[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte[] plus(byte[] source, byte[] elements) {
+        byte[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short[] plus(short[] source, short[] elements) {
+        short[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int[] plus(int[] source, int[] elements) {
+        int[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long[] plus(long[] source, long[] elements) {
+        long[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float[] plus(float[] source, float[] elements) {
+        float[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double[] plus(double[] source, double[] elements) {
+        double[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean[] plus(boolean[] source, boolean[] elements) {
+        boolean[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char[] plus(char[] source, char[] elements) {
+        char[] out = java.util.Arrays.copyOf(source, source.length + elements.length);
+        for (int i = 0; i < elements.length; i++) {
+            out[source.length + i] = elements[i];
+        }
+        return out;
+    }
+
+    // plus(array, Collection): ArraysKt.plus:(<E>[Ljava/util/Collection;)<E>[ — a NEW array = source with
+    // the collection's elements appended (iteration order). Object[] form preserves the runtime component
+    // type via Arrays.copyOf; the primitive forms append each unboxed element.
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T[] plus(T[] source, Collection<? extends T> elements) {
+        T[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (T e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte[] plus(byte[] source, Collection<Byte> elements) {
+        byte[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Byte e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short[] plus(short[] source, Collection<Short> elements) {
+        short[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Short e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int[] plus(int[] source, Collection<Integer> elements) {
+        int[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Integer e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long[] plus(long[] source, Collection<Long> elements) {
+        long[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Long e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float[] plus(float[] source, Collection<Float> elements) {
+        float[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Float e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double[] plus(double[] source, Collection<Double> elements) {
+        double[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Double e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean[] plus(boolean[] source, Collection<Boolean> elements) {
+        boolean[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Boolean e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char[] plus(char[] source, Collection<Character> elements) {
+        char[] out = java.util.Arrays.copyOf(source, source.length + elements.size());
+        int i = source.length;
+        for (Character e : elements) {
+            out[i++] = e;
+        }
+        return out;
+    }
+
+    // ============================================================================================
+    // contains(array, element): ArraysKt.contains:(<E>[<E>)Z — linear membership test. Object[] uses
+    // .equals (via indexOf); primitives use ==. (NB the float[]/double[] overloads are @Deprecated(HIDDEN)
+    // synthetic on the real facade — off the audited surface — and IEEE-equality unsound, so they stay in
+    // the tail, like the rest of the FP-equality residue.)
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> boolean contains(T[] source, T element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(byte[] source, byte element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(short[] source, short element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(int[] source, int element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(long[] source, long element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(boolean[] source, boolean element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean contains(char[] source, char element) {
+        return indexOf(source, element) >= 0;
+    }
+
+    // ============================================================================================
+    // indexOf(array, element): ArraysKt.indexOf:(<E>[<E>)I — first index of element, or -1. Object[]
+    // compares with .equals (null-safe: a null element matches the first null slot); primitives with ==.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> int indexOf(T[] source, T element) {
+        if (element == null) {
+            for (int i = 0; i < source.length; i++) {
+                if (source[i] == null) {
+                    return i;
+                }
+            }
+        } else {
+            for (int i = 0; i < source.length; i++) {
+                if (element.equals(source[i])) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(byte[] source, byte element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(short[] source, short element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(int[] source, int element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(long[] source, long element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(boolean[] source, boolean element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int indexOf(char[] source, char element) {
+        for (int i = 0; i < source.length; i++) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // ============================================================================================
+    // lastIndexOf(array, element): ArraysKt.lastIndexOf:(<E>[<E>)I — last index of element, or -1. Same
+    // equality discipline as indexOf, scanning from the high end.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> int lastIndexOf(T[] source, T element) {
+        if (element == null) {
+            for (int i = source.length - 1; i >= 0; i--) {
+                if (source[i] == null) {
+                    return i;
+                }
+            }
+        } else {
+            for (int i = source.length - 1; i >= 0; i--) {
+                if (element.equals(source[i])) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(byte[] source, byte element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(short[] source, short element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(int[] source, int element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(long[] source, long element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(boolean[] source, boolean element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int lastIndexOf(char[] source, char element) {
+        for (int i = source.length - 1; i >= 0; i--) {
+            if (source[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // ============================================================================================
+    // first(array): ArraysKt.first:(<E>[)<E> — element 0, or NoSuchElementException if empty (Kotlin's
+    // contract). The primitive forms return the unboxed element.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T first(T[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte first(byte[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short first(short[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int first(int[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long first(long[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float first(float[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double first(double[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean first(boolean[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char first(char[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[0];
+    }
+
+    // ============================================================================================
+    // last(array): ArraysKt.last:(<E>[)<E> — the final element, or NoSuchElementException if empty.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T last(T[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte last(byte[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short last(short[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int last(int[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long last(long[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float last(float[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double last(double[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean last(boolean[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char last(char[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        return source[source.length - 1];
+    }
+
+    // ============================================================================================
+    // single(array): ArraysKt.single:(<E>[)<E> — the sole element; NoSuchElementException if empty,
+    // IllegalArgumentException if more than one (Kotlin's contract).
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T single(T[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static byte single(byte[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static short single(short[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static int single(int[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static long single(long[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static float single(float[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static double single(double[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static boolean single(boolean[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static char single(char[] source) {
+        if (source.length == 0) {
+            throw new NoSuchElementException("Array is empty.");
+        }
+        if (source.length != 1) {
+            throw new IllegalArgumentException("Array has more than one element.");
+        }
+        return source[0];
+    }
+
+    // ============================================================================================
+    // getOrNull(array, index): ArraysKt.getOrNull:(<E>[I)<E-or-Boxed> — the element at index, or null if
+    // out of bounds. Bounds-safe (no throw). The primitive forms return the BOXED type (Kotlin returns
+    // the nullable T?, so an Int? = java.lang.Integer), null when out of range.
+    // ============================================================================================
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static <T> T getOrNull(T[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Byte getOrNull(byte[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Short getOrNull(short[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Integer getOrNull(int[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Long getOrNull(long[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Float getOrNull(float[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Double getOrNull(double[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Boolean getOrNull(boolean[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
+    }
+
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public static Character getOrNull(char[] source, int index) {
+        if (index >= 0 && index < source.length) {
+            return source[index];
+        }
+        return null;
     }
 }
