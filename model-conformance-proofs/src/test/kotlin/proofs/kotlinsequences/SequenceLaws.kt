@@ -260,6 +260,31 @@ class SequenceLaws {
             xs[2].index == 2 && xs[2].value == 9)
     }
 
+    /** IndexedValue data-class copy: a fresh pair with the chosen index/value; receiver untouched. */
+    @BmcProof
+    fun indexedValue_copy_overrides_chosen_fields() {
+        val a = sequenceOf(11, 22).withIndex().toList()[1]
+        val b = a.copy(index = 5)
+        val c = a.copy(value = 99)
+        Bmc.check(
+            a.index == 1 && a.value == 22 &&
+            b.index == 5 && b.value == 22 &&
+            c.index == 1 && c.value == 99)
+    }
+
+    /** Symbolic IndexedValue copy: overriding one field leaves the other equal to the source. */
+    @BmcProof
+    fun symbolic_indexedValue_copy_preserves_other_field() {
+        val i = Bmc.anyInt(0, 100)
+        val v = Bmc.anyInt(0, 100)
+        val src = sequenceOf(v, 0).withIndex().toList()[0]
+        val ci = src.copy(index = i)
+        val cv = src.copy(value = i)
+        Bmc.check(
+            ci.index == i && ci.value == v &&
+            cv.index == 0 && cv.value == i)
+    }
+
     /** Symbolic mapIndexed law: index*1000 + value separates the two contributions per position. */
     @BmcProof
     fun symbolic_mapIndexed_index_and_value() {

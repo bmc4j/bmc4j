@@ -10,9 +10,11 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Minimal BMC model of {@link java.util.stream.Collectors}. {@code toList}/{@code toSet} are tags;
@@ -29,7 +31,23 @@ import org.bmc4j.models.audit.BmcModelTail;
  * a desugared int-lambda comparator). The {@code summing*}/{@code averaging*}/{@code summarizing*}
  * collectors stay in the tail (no double in the stream models, by convention).
  */
-@BmcModelTail(reason = "the remaining Collectors surface (summing*/averaging*/summarizing* — need double; the map-Supplier-driven groupingBy(Function,Supplier,Collector)/toMap(…,Supplier)/toConcurrentMap(…,Supplier); the concurrent groupingByConcurrent; joining(prefix,suffix)) is out of scope for the minimal eager model; loud under JBMC")
+// The Collectors tail is fully enumerated below. The FP-result collectors (averaging*, summingDouble,
+// summarizingDouble) hit the same Double total-order / FP-arithmetic wall the rest of the stream models
+// avoid by convention. The map-Supplier-driven and concurrent collectors take an arbitrary user-supplied
+// Map factory (groupingBy/toMap/toConcurrentMap with a Supplier) or a ConcurrentMap-typed result whose
+// dynamic dispatch over the unbounded supplied container is out of scope for the bounded eager model — a
+// fiction over a fixed HashMap would diverge from the user's container. Each is loud-if-reached under JBMC.
+@BmcUnmodelable(member = "averagingInt(java.util.function.ToIntFunction)", reason = "averaging yields a double (sum/count as floating point) — the FP wall the stream models avoid by convention")
+@BmcUnmodelable(member = "averagingLong(java.util.function.ToLongFunction)", reason = "averaging yields a double (sum/count as floating point) — the FP wall the stream models avoid by convention")
+@BmcUnmodelable(member = "averagingDouble(java.util.function.ToDoubleFunction)", reason = "double extractor + double average — FP arithmetic the stream models avoid by convention")
+@BmcUnmodelable(member = "summingDouble(java.util.function.ToDoubleFunction)", reason = "double extractor + double (compensated) summation — FP arithmetic the stream models avoid by convention")
+@BmcUnmodelable(member = "summarizingDouble(java.util.function.ToDoubleFunction)", reason = "double extractor + DoubleSummaryStatistics (its getMin/getMax are the FP total-order wall) — FP out of scope")
+@BmcUnmodelable(member = "groupingBy(java.util.function.Function,java.util.function.Supplier,java.util.stream.Collector)", reason = "map-Supplier-driven grouping: collects into an arbitrary user-supplied Map factory; the bounded eager model only targets a fixed HashMap, so a fiction over the supplied container would diverge")
+@BmcUnmodelable(member = "toMap(java.util.function.Function,java.util.function.Function,java.util.function.BinaryOperator,java.util.function.Supplier)", reason = "map-Supplier-driven toMap: collects into an arbitrary user-supplied Map factory; out of scope for the bounded fixed-HashMap model")
+@BmcUnmodelable(member = "toConcurrentMap(java.util.function.Function,java.util.function.Function,java.util.function.BinaryOperator,java.util.function.Supplier)", reason = "map-Supplier-driven toConcurrentMap: arbitrary user-supplied ConcurrentMap factory; out of scope for the bounded fixed-container model")
+@BmcUnmodelable(member = "groupingByConcurrent(java.util.function.Function)", reason = "ConcurrentMap-result grouping: result is typed ConcurrentMap (the model's ConcurrentHashMap does not implement ConcurrentMap; a checkcast would trip JBMC) — out of scope; use groupingBy")
+@BmcUnmodelable(member = "groupingByConcurrent(java.util.function.Function,java.util.stream.Collector)", reason = "ConcurrentMap-result downstream grouping — out of scope for the bounded model; use groupingBy(classifier, downstream)")
+@BmcUnmodelable(member = "groupingByConcurrent(java.util.function.Function,java.util.function.Supplier,java.util.stream.Collector)", reason = "map-Supplier-driven ConcurrentMap grouping — arbitrary supplied container; out of scope for the bounded model")
 public final class Collectors {
 
     private Collectors() {
@@ -325,5 +343,62 @@ public final class Collectors {
     public static <T, C extends java.util.Collection<T>> Collector<T, ?, C> toCollection(
             Supplier<C> collectionFactory) {
         return new Collector<>(Collector.TO_COLLECTION, (Supplier<?>) collectionFactory);
+    }
+
+    // ---- integer-valued summation / summary (sound: integer accumulation, no FP) ----------------
+
+    /**
+     * Sums the {@code int} values produced by {@code mapper}. Mirrors {@link
+     * java.util.stream.Collectors#summingInt(ToIntFunction)}: yields a boxed {@link Integer}, {@code 0}
+     * for the empty stream. Sound under JBMC — pure {@code int} accumulation, no floating point.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsSummingLaws)")
+    public static <T> Collector<T, ?, Integer> summingInt(ToIntFunction<? super T> mapper) {
+        return new Collector<>(Collector.SUMMING_INT, (ToIntFunction<?>) mapper);
+    }
+
+    /**
+     * Sums the {@code long} values produced by {@code mapper}. Mirrors {@link
+     * java.util.stream.Collectors#summingLong(ToLongFunction)}: yields a boxed {@link Long}, {@code 0L}
+     * for the empty stream. Sound under JBMC — pure {@code long} accumulation, no floating point.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsSummingLaws)")
+    public static <T> Collector<T, ?, Long> summingLong(ToLongFunction<? super T> mapper) {
+        return new Collector<>(Collector.SUMMING_LONG, (ToLongFunction<?>) mapper);
+    }
+
+    /**
+     * Accumulates count/sum/min/max of the {@code int} values produced by {@code mapper} into a bounded
+     * {@link java.util.IntSummaryStatistics}. Mirrors {@link
+     * java.util.stream.Collectors#summarizingInt(ToIntFunction)}. Sound — the int summary accumulator is
+     * fully modeled (integer min/max; {@code getAverage}'s {@code sum/count} is the one sound division).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsSummingLaws)")
+    public static <T> Collector<T, ?, java.util.IntSummaryStatistics> summarizingInt(
+            ToIntFunction<? super T> mapper) {
+        return new Collector<>(Collector.SUMMARIZING_INT, (ToIntFunction<?>) mapper);
+    }
+
+    /**
+     * Accumulates count/sum/min/max of the {@code long} values produced by {@code mapper} into a bounded
+     * {@link java.util.LongSummaryStatistics}. Mirrors {@link
+     * java.util.stream.Collectors#summarizingLong(ToLongFunction)}. Sound — integer accumulation.
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsSummingLaws)")
+    public static <T> Collector<T, ?, java.util.LongSummaryStatistics> summarizingLong(
+            ToLongFunction<? super T> mapper) {
+        return new Collector<>(Collector.SUMMARIZING_LONG, (ToLongFunction<?>) mapper);
+    }
+
+    /**
+     * Concatenates the (CharSequence) elements in encounter order with {@code delimiter} between them,
+     * wrapped in {@code prefix} … {@code suffix}. Mirrors {@link
+     * java.util.stream.Collectors#joining(CharSequence, CharSequence, CharSequence)}. Sound under JBMC
+     * via the explicit-StringBuilder path in {@link ListStream#collect} (no invokedynamic concat).
+     */
+    @BmcModelConforms("@BmcProof (proofs.stream CollectorsSummingLaws)")
+    public static Collector<CharSequence, ?, String> joining(
+            CharSequence delimiter, CharSequence prefix, CharSequence suffix) {
+        return new Collector<>(Collector.JOINING_PREFIX_SUFFIX, delimiter, prefix, suffix);
     }
 }

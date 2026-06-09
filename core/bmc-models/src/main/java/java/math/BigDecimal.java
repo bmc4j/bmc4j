@@ -3,7 +3,6 @@ package java.math;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -20,8 +19,13 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@link RoundingMode}. String parsing handles an optional sign, digits and one decimal point (no
  * exponent notation); a numeral whose unscaled digits exceed the {@code long} range fails LOUDLY in
  * the digit-accumulation guard (never a silent wrap), like the rest of the arithmetic.
+ *
+ * <p>The real {@link java.math.BigDecimal} surface is accounted for per-member: every public/protected
+ * method is either modeled ({@link BmcModelConforms}) or carries an explicit per-member
+ * {@link BmcUnmodelable} waiver (the MathContext significant-digit overloads, {@code valueOf(double)},
+ * and the dtoa-class decimal-string formatters). There is no class-level {@code @BmcModelTail}
+ * catch-all — the tail is drained to zero.
  */
-@BmcModelTail(reason = "the bounded long-backed model has no exotic remaining surface beyond the per-member-declared MathContext/formatting/double members; the tail catch-all is retained for JDK drift")
 public class BigDecimal extends Number implements Comparable<BigDecimal> {
 
     public static final BigDecimal ZERO = new BigDecimal(0L, 0);

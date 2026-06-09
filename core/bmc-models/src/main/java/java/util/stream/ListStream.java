@@ -625,6 +625,56 @@ public final class ListStream<T> implements Stream<T> {
             Object r2 = this.collect(d2);
             return (R) merger.apply(r1, r2);
         }
+        if (collector.kind == Collector.SUMMING_INT) {
+            java.util.function.ToIntFunction<? super T> fn =
+                    (java.util.function.ToIntFunction<? super T>) collector.toIntFn;
+            int sum = 0;
+            for (int i = 0; i < data.size(); i++) {
+                sum += fn.applyAsInt(data.get(i));
+            }
+            return (R) Integer.valueOf(sum);
+        }
+        if (collector.kind == Collector.SUMMING_LONG) {
+            java.util.function.ToLongFunction<? super T> fn =
+                    (java.util.function.ToLongFunction<? super T>) collector.toLongFn;
+            long sum = 0L;
+            for (int i = 0; i < data.size(); i++) {
+                sum += fn.applyAsLong(data.get(i));
+            }
+            return (R) Long.valueOf(sum);
+        }
+        if (collector.kind == Collector.SUMMARIZING_INT) {
+            java.util.function.ToIntFunction<? super T> fn =
+                    (java.util.function.ToIntFunction<? super T>) collector.toIntFn;
+            java.util.IntSummaryStatistics stats = new java.util.IntSummaryStatistics();
+            for (int i = 0; i < data.size(); i++) {
+                stats.accept(fn.applyAsInt(data.get(i)));
+            }
+            return (R) stats;
+        }
+        if (collector.kind == Collector.SUMMARIZING_LONG) {
+            java.util.function.ToLongFunction<? super T> fn =
+                    (java.util.function.ToLongFunction<? super T>) collector.toLongFn;
+            java.util.LongSummaryStatistics stats = new java.util.LongSummaryStatistics();
+            for (int i = 0; i < data.size(); i++) {
+                stats.accept(fn.applyAsLong(data.get(i)));
+            }
+            return (R) stats;
+        }
+        if (collector.kind == Collector.JOINING_PREFIX_SUFFIX) {
+            // Explicit StringBuilder (JBMC models append/toString soundly) — no invokedynamic concat.
+            StringBuilder sb = new StringBuilder();
+            sb.append(collector.prefix.toString());
+            String sep = collector.delimiter.toString();
+            for (int i = 0; i < data.size(); i++) {
+                if (i > 0) {
+                    sb.append(sep);
+                }
+                sb.append((CharSequence) data.get(i));
+            }
+            sb.append(collector.suffix.toString());
+            return (R) sb.toString();
+        }
         if (collector.kind == Collector.TO_COLLECTION) {
             java.util.function.Supplier<java.util.Collection<Object>> supplier =
                     (java.util.function.Supplier<java.util.Collection<Object>>) collector.supplier;
