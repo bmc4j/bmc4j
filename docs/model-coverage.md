@@ -58,20 +58,19 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.time.Duration`
 
-Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
+Real surface: 57 members — modeled 41, unmodelable 2, not-needed 0, tail 14.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `get(TemporalUnit)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
 
 - `addTo(Temporal)`
 - `from(TemporalAmount)`
-- `get(TemporalUnit)`
 - `getNano()`
 - `getUnits()`
 - `minus(long, TemporalUnit)`
@@ -90,38 +89,29 @@ Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
 
 ## `java.time.Instant`
 
-Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
+Real surface: 36 members — modeled 20, unmodelable 5, not-needed 0, tail 11.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `getEpochSecond()`, `isAfter(Instant)`, `isBefore(Instant)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plusMillis(long)`, `plusSeconds(long)`, `toEpochMilli()`
+**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `get(TemporalField)`, `getEpochSecond()`, `getLong(TemporalField)`, `isAfter(Instant)`, `isBefore(Instant)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plus(long, TemporalUnit)`, `plusMillis(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toEpochMilli()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the epoch-millis model |
 | `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (which fields an Instant supports) is out of scope for the epoch-millis model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (which units an Instant supports) is out of scope for the epoch-millis model |
 | `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 | `now()` | wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters |
 | `ofEpochSecond(long, long)` | the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope for the epoch-millis model |
 | `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for the epoch-millis model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope for the epoch-millis model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the epoch-millis long carries no nanos, zone/offset, or field-enum, so the tail is genuinely not-modelable: sub-milli precision (nano accessors), zone/offset projection (atZone/atOffset), the TemporalField/Unit/Adjuster/Query plumbing (with/get/getLong/until/query/adjustInto/range/isSupported/plus/minus(TemporalAmount or long,TemporalUnit)), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `atZone(ZoneId)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `parse(CharSequence)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `truncatedTo(TemporalUnit)`
 - `with(TemporalAdjuster)`
 
@@ -130,21 +120,15 @@ Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
 
 ## `java.time.LocalDate`
 
-Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
+Real surface: 65 members — modeled 42, unmodelable 1, not-needed 0, tail 22.
 
-**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `getDayOfMonth()`, `getDayOfYear()`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `lengthOfMonth()`, `lengthOfYear()`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `toEpochDay()`, `until(ChronoLocalDate)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getLong(TemporalField)`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `lengthOfMonth()`, `lengthOfYear()`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochDay()`, `until(ChronoLocalDate)`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `getChronology()` | the Chronology accessor (getChronology) is out of scope for this epoch-day model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this epoch-day model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this epoch-day model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this epoch-day model |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusWeeks/plusMonths/plusYears |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this epoch-day model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withDayOf* |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalField/Adjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/range/query/get(TemporalField)/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 22 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atStartOfDay(ZoneId)`
@@ -153,12 +137,10 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `datesUntil(LocalDate, Period)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getDayOfWeek()`
 - `getEra()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now()`
 - `now(Clock)`
 - `now(ZoneId)`
@@ -168,7 +150,6 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalTime, ZoneOffset)`
 - `with(TemporalAdjuster)`
 
@@ -177,33 +158,25 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 
 ## `java.time.LocalDateTime`
 
-Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
+Real surface: 76 members — modeled 51, unmodelable 2, not-needed 0, tail 23.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `toLocalDate()`, `toLocalTime()`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toLocalDate()`, `toLocalTime()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `atZone(ZoneId)` | time zones (atZone) are out of scope for this local date+time model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this date+time model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this date+time model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this date+time model |
 | `now()` | wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusHours/plusMonths/etc. |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this date+time model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withHour/etc. |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 26 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atZone/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atZone/atOffset/format/query/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getChronology()`
 - `getDayOfWeek()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `of(int, Month, int, int, int)`
@@ -215,7 +188,6 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(ZoneOffset)`
 - `toInstant(ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
@@ -226,40 +198,31 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 
 ## `java.time.LocalTime`
 
-Real surface: 52 members — modeled 27, unmodelable 1, not-needed 0, tail 24.
+Real surface: 52 members — modeled 36, unmodelable 1, not-needed 0, tail 15.
 
-**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
+**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `get(TemporalField)`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plus(long, TemporalUnit)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toNanoOfDay()`, `toSecondOfDay()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atOffset/format/query/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
-- `getLong(TemporalField)`
-- `isSupported(TemporalField)`
-- `isSupported(TemporalUnit)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `ofInstant(Instant, ZoneId)`
 - `parse(CharSequence)`
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
-- `plus(long, TemporalUnit)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalDate, ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
-- `until(Temporal, TemporalUnit)`
 - `with(TemporalAdjuster)`
-- `with(TemporalField, long)`
 
 </details>
 
@@ -290,9 +253,9 @@ Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
 
 ## `java.time.ZoneOffset`
 
-Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
+Real surface: 22 members — modeled 11, unmodelable 9, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `getId()`, `getTotalSeconds()`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `get(TemporalField)`, `getId()`, `getLong(TemporalField)`, `getTotalSeconds()`, `isSupported(TemporalField)`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`, `range(TemporalField)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -300,20 +263,29 @@ Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
 | `from(TemporalAccessor)` | extracting a ZoneId from a TemporalAccessor is out of scope for the offset-only zone model |
 | `getAvailableZoneIds()` | the available-zone-ids set is region machinery — out of scope for the offset-only zone model |
 | `getDisplayName(TextStyle, Locale)` | localized zone display text is out of scope for the offset-only zone model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the total-seconds offset model |
 | `getRules()` | the fixed-offset ZoneRules object is DST-rule machinery out of scope for the total-seconds offset model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for the total-seconds offset model |
 | `of(String)` | named-region parsing is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `of(String, Map)` | named-region parsing with aliases is out of scope for the offset-only zone model |
 | `ofOffset(String, ZoneOffset)` | the prefix+offset region factory is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `systemDefault()` | the system default zone is non-deterministic external state — out of scope for the offset-only zone model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): the TemporalAccessor/TemporalAdjuster query plumbing (get/getLong/isSupported/range/query/adjustInto), getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
 
-- `get(TemporalField)`
 - `ofHoursMinutesSeconds(int, int, int)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
+
+</details>
+
+
+## `java.time.temporal.ValueRange`
+
+Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `checkValidIntValue(long, TemporalField)`, `checkValidValue(long, TemporalField)`, `getLargestMinimum()`, `getMaximum()`, `getMinimum()`, `getSmallestMaximum()`, `isFixed()`, `isIntValue()`, `isValidIntValue(long)`, `isValidValue(long)`, `of(long, long)`, `of(long, long, long)`, `of(long, long, long, long)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the locale/resolver display surface is out of scope for this four-long range model; loud under JBMC</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 

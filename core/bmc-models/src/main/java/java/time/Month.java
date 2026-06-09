@@ -2,6 +2,7 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAdjuster;
@@ -133,16 +134,20 @@ public enum Month implements TemporalAccessor, TemporalAdjuster {
     // --- TemporalAccessor / TemporalAdjuster abstract surface: implemented ONLY to make a Month an
     //     instanceof those interfaces (so the proof-site checkcast passes); each is LOUD, never modeled. ---
 
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (isSupported) is out of scope for this 1-based-value enum model")
+    /** A Month supports exactly the MONTH_OF_YEAR field, like the JDK. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.Month.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this 1-based-value enum model");
+        return field == ChronoField.MONTH_OF_YEAR;
     }
 
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for this 1-based-value enum model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.Month.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this 1-based-value enum model");
+        if (field == ChronoField.MONTH_OF_YEAR) {
+            return getValue();
+        }
+        throw fail("bmc4j: unmodelled member java.time.Month.getLong(java.time.temporal.TemporalField) — only MONTH_OF_YEAR is modeled for this 1-based-value enum");
     }
 
     @BmcUnmodelable(reason = "applying a Month to a Temporal (adjustInto) is out of scope for this 1-based-value enum model")
