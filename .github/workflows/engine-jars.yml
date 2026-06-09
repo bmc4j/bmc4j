@@ -209,6 +209,9 @@ jobs:
       # die on the jars that DID publish. Publishing requires an explicit version -
       # the 0.0.1-local dev default must never reach a registry.
       - name: Publish to GitHub Packages
+        # Best-effort secondary mirror (Maven Central is authoritative): a GHP failure - the
+        # recurring 409 on an already-published version, a flaky upload - must not sink the release.
+        continue-on-error: true
         if: ${{ inputs.publish }}
         shell: bash
         env:
@@ -350,6 +353,9 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to GitHub Packages
+        # Best-effort secondary mirror (Maven Central is authoritative): a GHP failure - the
+        # recurring 409 on an already-published version, a flaky upload - must not sink the release.
+        continue-on-error: true
         if: ${{ inputs.publish }}
         env:
           GITHUB_ACTOR: ${{ github.actor }}
