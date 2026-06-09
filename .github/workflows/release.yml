@@ -80,13 +80,19 @@ jobs:
 
   verify:
     needs: preflight
-    # ci.yml statically declares pull-requests:write on its pr-proof-comment job (the PR-comment
-    # path). A called workflow's job permissions are capped at parse time by the caller, and the
-    # release token defaults to none for pull-requests, so without this the whole release fails to
-    # START (startup_failure). The job is skipped at run time during a tag release anyway
-    # (event_name is push, not workflow_call), but the cap is validated before any job runs.
+    # A called workflow's job permissions are capped at PARSE time by the calling job's grant, so this
+    # must cover the UNION of every permission any ci.yml job declares, or the whole release fails to
+    # START (startup_failure) before a single job runs. ci.yml declares exactly three:
+    #   pull-requests: write  - pr-proof-comment (the PR-comment path)
+    #   packages: write       - snapshot-publish-core / snapshot-publish-engines
+    #   contents: read        - every job's checkout
+    # All of those jobs are SKIPPED at run time during a tag release (snapshot/PR-comment paths gate
+    # on main-push / pull_request, not a tag push), so granting this publishes/comments nothing extra
+    # - it only satisfies the parse-time cap. NOTE: an explicit block REPLACES the inherited top-level
+    # grant, so it must list every permission the call needs (a missing one silently drops to none).
     permissions:
       contents: read
+      packages: write
       pull-requests: write
     uses: ./.github/workflows/ci.yml
     with:
