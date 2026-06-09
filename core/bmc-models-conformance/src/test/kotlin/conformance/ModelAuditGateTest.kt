@@ -142,6 +142,24 @@ class ModelAuditGateTest : FunSpec({
     fun methodLevelStubKeys(node: ClassNode): Set<String> =
         node.methods.filter { stubKind(it) != null }.map { it.name + paramsDesc(it.desc) }.toSet()
 
+    /**
+     * Method-level stub keys resolved UP the modeled superclass chain — the stub-side analogue of
+     * [conformsKeys]. A subclass model (e.g. ZoneOffset) inherits its modeled super's (ZoneId's)
+     * per-member loud stubs, so they account for the inherited real members even though the stub
+     * declaration lives on the super. Mirrors TailSet.stubKeys so the tail ratchet and this completeness
+     * check can't disagree.
+     */
+    fun methodLevelStubKeysChain(realFqn: String): Set<String> {
+        val out = mutableSetOf<String>()
+        var cur: ClassNode? = nodes[realFqn]
+        while (cur != null) {
+            for (m in cur.methods) if (stubKind(m) != null) out.add(m.name + paramsDesc(m.desc))
+            val superReal = cur.superName?.removePrefix("bmcref/")?.replace('/', '.')
+            cur = if (superReal != null && nodes.containsKey(superReal)) nodes[superReal] else null
+        }
+        return out
+    }
+
     // The loud-body recognizer: a stub's body must (a) LDC a string starting with the recognized
     // prefix, and (b) call the BmcUnmodelledReached sentinel (fail/reached). This is exactly what makes
     // a reach demote to UNKNOWN naming the member; checking it here prevents real logic hiding under a
@@ -312,10 +330,13 @@ class ModelAuditGateTest : FunSpec({
             // (d) completeness: every real member must be covered/declared/tailed.
             val covered = conformsKeys(realFqn)
             val declared = decls.mapNotNull { declKey(it.member) }.toSet()
+            // method-level stubs resolved up the modeled superclass chain, so a subclass model inherits
+            // its modeled super's per-member loud stubs (e.g. ZoneOffset inherits ZoneId's region stubs).
+            val stubKeysChain = methodLevelStubKeysChain(realFqn)
             for ((key, m) in realMembers) {
                 if (key in covered) continue
                 if (key in declared) continue
-                if (key in methodStubKeys) continue            // method-level loud stub accounts for it
+                if (key in stubKeysChain) continue             // method-level loud stub (own or inherited) accounts for it
                 if (tail != null) continue
                 failures.add("$realFqn: real member ${render(m)} is neither modeled (@BmcModelConforms), declared (@BmcUnmodelable/@BmcNotNeeded), nor tail-waived (@BmcModelTail)")
             }

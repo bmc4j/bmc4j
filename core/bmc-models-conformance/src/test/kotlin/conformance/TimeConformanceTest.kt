@@ -219,6 +219,73 @@ class TimeConformanceTest : FunSpec({
             ra.lengthOfMonth() shouldBe ma.lengthOfMonth()
             ra.lengthOfYear() shouldBe ma.lengthOfYear()
             ra.isLeapYear shouldBe ma.isLeapYear()
+            // calendar-enum accessors decoded from the epoch-day (modeled DayOfWeek/Month/IsoEra enums)
+            ra.dayOfWeek.value shouldBe ma.getDayOfWeek().value
+            ra.month.value shouldBe ma.getMonth().value
+            ra.era.value shouldBe ma.getEra().value
+        }
+    }
+
+    // --- calendar-enum factories + the offset/epoch-second conversions (all pure int arithmetic) ---------
+
+    test("LocalDate.of(year, Month, day) matches of(year, int, day)") {
+        checkAll(Arb.int(-9999..9999), Arb.int(1..12), Arb.int(1..28)) { y, m, d ->
+            val rm = java.time.LocalDate.of(y, java.time.Month.of(m), d)
+            val mm = bmcref.java.time.LocalDate.of(y, bmcref.java.time.Month.of(m), d)
+            rm.toEpochDay() shouldBe mm.toEpochDay()
+        }
+    }
+
+    test("LocalDate.toEpochSecond(time, offset) conforms") {
+        checkAll(days, Arb.int(0..86_399), Arb.int(-18 * 3600..18 * 3600)) { e, secOfDay, offSec ->
+            val rd = java.time.LocalDate.ofEpochDay(e)
+            val md = bmcref.java.time.LocalDate.ofEpochDay(e)
+            val rt = java.time.LocalTime.ofSecondOfDay(secOfDay.toLong())
+            val mt = bmcref.java.time.LocalTime.ofSecondOfDay(secOfDay.toLong())
+            val ro = java.time.ZoneOffset.ofTotalSeconds(offSec)
+            val mo = bmcref.java.time.ZoneOffset.ofTotalSeconds(offSec)
+            rd.toEpochSecond(rt, ro) shouldBe md.toEpochSecond(mt, mo)
+        }
+    }
+
+    test("LocalTime.toEpochSecond(date, offset) conforms") {
+        checkAll(days, Arb.int(0..86_399), Arb.int(-18 * 3600..18 * 3600)) { e, secOfDay, offSec ->
+            val rd = java.time.LocalDate.ofEpochDay(e)
+            val md = bmcref.java.time.LocalDate.ofEpochDay(e)
+            val rt = java.time.LocalTime.ofSecondOfDay(secOfDay.toLong())
+            val mt = bmcref.java.time.LocalTime.ofSecondOfDay(secOfDay.toLong())
+            val ro = java.time.ZoneOffset.ofTotalSeconds(offSec)
+            val mo = bmcref.java.time.ZoneOffset.ofTotalSeconds(offSec)
+            rt.toEpochSecond(rd, ro) shouldBe mt.toEpochSecond(md, mo)
+        }
+    }
+
+    test("ZoneOffset.ofHoursMinutesSeconds conforms (value + same-sign exception parity)") {
+        checkAll(Arb.int(-18..18), Arb.int(-62..62), Arb.int(-62..62)) { h, m, s ->
+            val real = runCatching { java.time.ZoneOffset.ofHoursMinutesSeconds(h, m, s) }
+            val model = runCatching { bmcref.java.time.ZoneOffset.ofHoursMinutesSeconds(h, m, s) }
+            real.isSuccess shouldBe model.isSuccess
+            if (real.isSuccess) {
+                real.getOrThrow().totalSeconds shouldBe (model.getOrThrow() as bmcref.java.time.ZoneOffset).totalSeconds
+            }
+        }
+    }
+
+    test("Duration.of/plus/minus(long, TemporalUnit) conform for the millis-representable units") {
+        val unitPairs = listOf(
+            java.time.temporal.ChronoUnit.MILLIS to bmcref.java.time.temporal.ChronoUnit.MILLIS,
+            java.time.temporal.ChronoUnit.SECONDS to bmcref.java.time.temporal.ChronoUnit.SECONDS,
+            java.time.temporal.ChronoUnit.MINUTES to bmcref.java.time.temporal.ChronoUnit.MINUTES,
+            java.time.temporal.ChronoUnit.HOURS to bmcref.java.time.temporal.ChronoUnit.HOURS,
+            java.time.temporal.ChronoUnit.DAYS to bmcref.java.time.temporal.ChronoUnit.DAYS,
+        )
+        checkAll(Arb.long(-1_000_000L..1_000_000L), Arb.long(-1_000L..1_000L)) { base, amt ->
+            for ((ru, mu) in unitPairs) {
+                java.time.Duration.of(amt, ru).toMillis() shouldBe bmcref.java.time.Duration.of(amt, mu).toMillis()
+                val rd = java.time.Duration.ofMillis(base); val md = bmcref.java.time.Duration.ofMillis(base)
+                rd.plus(amt, ru).toMillis() shouldBe md.plus(amt, mu).toMillis()
+                rd.minus(amt, ru).toMillis() shouldBe md.minus(amt, mu).toMillis()
+            }
         }
     }
 
@@ -448,7 +515,31 @@ class TimeConformanceTest : FunSpec({
                 r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
                 r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
                 r.dayOfYear shouldBe m.getDayOfYear()
+                // calendar-enum accessors over the date part (modeled DayOfWeek/Month enums)
+                r.dayOfWeek.value shouldBe m.getDayOfWeek().value
+                r.month.value shouldBe m.getMonth().value
             }
+        }
+    }
+
+    test("LocalDateTime.of(year, Month, ...) matches the int factories") {
+        checkAll(Arb.int(-9999..9999), Arb.int(1..12), Arb.int(1..28), Arb.int(0..23), Arb.int(0..59), Arb.int(0..59)) { y, mo, d, h, mi, s ->
+            val rm = java.time.LocalDateTime.of(y, java.time.Month.of(mo), d, h, mi, s)
+            val mm = bmcref.java.time.LocalDateTime.of(y, bmcref.java.time.Month.of(mo), d, h, mi, s)
+            rm.toLocalDate().toEpochDay() shouldBe mm.toLocalDate().toEpochDay()
+            rm.toLocalTime().toNanoOfDay() shouldBe mm.toLocalTime().toNanoOfDay()
+        }
+    }
+
+    test("LocalDateTime.ofEpochSecond / toEpochSecond conform (offset explicit, no zone DB)") {
+        checkAll(Arb.long(-50_000_000_000L..50_000_000_000L), Arb.int(0..999_999_999), Arb.int(-18 * 3600..18 * 3600)) { es, nano, offSec ->
+            val ro = java.time.ZoneOffset.ofTotalSeconds(offSec)
+            val mo = bmcref.java.time.ZoneOffset.ofTotalSeconds(offSec)
+            val r = java.time.LocalDateTime.ofEpochSecond(es, nano, ro)
+            val m = bmcref.java.time.LocalDateTime.ofEpochSecond(es, nano, mo)
+            r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
+            r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
+            r.toEpochSecond(ro) shouldBe m.toEpochSecond(mo)
         }
     }
 

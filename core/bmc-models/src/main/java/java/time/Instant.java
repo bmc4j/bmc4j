@@ -5,11 +5,14 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAdjuster;
+import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalField;
+import java.time.temporal.TemporalQuery;
 import java.time.temporal.TemporalUnit;
 import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -41,8 +44,12 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * abstract methods are NOT modeled — each is a LOUD stub ({@link #fail}) so reaching it is a NAMED
  * UNKNOWN, never a silent nondet: implementing the interface buys only {@code instanceof}, never turns
  * unmodeled temporal plumbing into a fake answer.
+ *
+ * <p>The whole real {@code Instant} surface is now accounted per-member: the modeled epoch-millis core
+ * plus a LOUD {@link BmcUnmodelable} stub for every genuinely-unmodelable member (zone/offset projection,
+ * the TemporalAmount/Adjuster/Query plumbing, sub-precision {@code truncatedTo}, and external-state/text).
+ * There is NO class-level {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced")
 public final class Instant implements Temporal {
 
     final long millis;
@@ -54,6 +61,61 @@ public final class Instant implements Temporal {
     @BmcUnmodelable(reason = "wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters")
     public static Instant now() {
         throw fail("bmc4j: unmodelled member java.time.Instant.now() — wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "a Clock is non-deterministic external state — pass Instants as symbolic proof parameters")
+    public static Instant now(Clock clock) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.now(java.time.Clock) — a Clock is non-deterministic external state — pass Instants as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "ISO-8601 instant text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)")
+    public static Instant parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.parse(java.lang.CharSequence) — ISO-8601 instant text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)");
+    }
+
+    @BmcUnmodelable(reason = "extracting an Instant from an arbitrary TemporalAccessor needs its open-ended field surface; build via ofEpochMilli/ofEpochSecond")
+    public static Instant from(TemporalAccessor temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.from(java.time.temporal.TemporalAccessor) — extracting an Instant from an arbitrary TemporalAccessor needs its open-ended field surface; build via ofEpochMilli/ofEpochSecond");
+    }
+
+    @BmcUnmodelable(reason = "projecting an Instant onto a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits")
+    public ZonedDateTime atZone(ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.atZone(java.time.ZoneId) — projecting an Instant onto a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits");
+    }
+
+    @BmcUnmodelable(reason = "projecting an Instant onto an offset builds an OffsetDateTime (date+time+nanos) the epoch-millis backing can't carry")
+    public OffsetDateTime atOffset(ZoneOffset offset) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.atOffset(java.time.ZoneOffset) — projecting an Instant onto an offset builds an OffsetDateTime (date+time+nanos) the epoch-millis backing can't carry");
+    }
+
+    @BmcUnmodelable(reason = "truncating to a unit below MILLIS (e.g. MICROS/NANOS) needs sub-millisecond resolution the epoch-millis backing lacks; the open-ended TemporalUnit surface is out of scope")
+    public Instant truncatedTo(TemporalUnit unit) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.truncatedTo(java.time.temporal.TemporalUnit) — truncating to a unit below MILLIS needs sub-millisecond resolution the epoch-millis backing lacks; the open-ended TemporalUnit surface is out of scope");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed plus*/minus* on the epoch-millis backing")
+    public Instant with(TemporalAdjuster adjuster) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.with(java.time.temporal.TemporalAdjuster) — the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed plus*/minus* on the epoch-millis backing");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusMillis/plusSeconds or plus(long,TemporalUnit)")
+    public Instant plus(TemporalAmount amountToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.plus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusMillis/plusSeconds or plus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusMillis/minusSeconds or minus(long,TemporalUnit)")
+    public Instant minus(TemporalAmount amountToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.minus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusMillis/minusSeconds or minus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor")
+    public <R> R query(TemporalQuery<R> query) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.query(java.time.temporal.TemporalQuery) — the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor");
+    }
+
+    @BmcUnmodelable(reason = "adjusting an arbitrary Temporal with this Instant's INSTANT_SECONDS/NANO_OF_SECOND fields needs the sub-millisecond field the epoch-millis backing lacks")
+    public Temporal adjustInto(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.Instant.adjustInto(java.time.temporal.Temporal) — adjusting an arbitrary Temporal with this Instant's INSTANT_SECONDS/NANO_OF_SECOND fields needs the sub-millisecond field the epoch-millis backing lacks");
     }
 
     // The epoch-millis backing has no sub-millisecond resolution, so the nanosecond surface

@@ -2,14 +2,18 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAdjuster;
+import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalField;
+import java.time.temporal.TemporalQuery;
 import java.time.temporal.TemporalUnit;
 import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -28,8 +32,13 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@code plus}/{@code minus}/{@code until}) can be modeled by dispatching on the (now-modeled) ChronoField/
  * ChronoUnit over the nano-of-day backing. A non-Chrono field/unit, or a date-based one this time-only
  * model can't carry, is declined LOUD — a NAMED UNKNOWN, never a wrong value.
+ *
+ * <p>The whole real {@code LocalTime} surface is now accounted per-member: the modeled nano-of-day core
+ * plus a LOUD {@link BmcUnmodelable} stub for every genuinely-unmodelable member (zone projection,
+ * text format/parse, external clock, the open-ended TemporalAmount/Adjuster/Query plumbing, and the
+ * sub-precision {@code truncatedTo} surface). There is NO class-level {@code @BmcModelTail}: nothing
+ * falls through.
  */
-@BmcModelTail(reason = "the remaining LocalTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atOffset/format/query/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC")
 public final class LocalTime implements Temporal {
 
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
@@ -55,6 +64,36 @@ public final class LocalTime implements Temporal {
     @BmcUnmodelable(reason = "wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
     public static LocalTime now() {
         throw fail("bmc4j: unmodelled member java.time.LocalTime.now() — wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "a Clock is non-deterministic external state — pass LocalTimes as symbolic proof parameters")
+    public static LocalTime now(Clock clock) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.now(java.time.Clock) — a Clock is non-deterministic external state — pass LocalTimes as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "the current time in a named zone is non-deterministic external state plus zone-rules projection — pass LocalTimes as symbolic proof parameters")
+    public static LocalTime now(ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.now(java.time.ZoneId) — the current time in a named zone is non-deterministic external state plus zone-rules projection — pass LocalTimes as symbolic proof parameters");
+    }
+
+    @BmcUnmodelable(reason = "deriving the local time of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits")
+    public static LocalTime ofInstant(Instant instant, ZoneId zone) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.ofInstant(java.time.Instant,java.time.ZoneId) — deriving the local time of an Instant in a named zone needs the zone-rules/offset DB the offset-only zone model deliberately omits");
+    }
+
+    @BmcUnmodelable(reason = "ISO-8601 time text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)")
+    public static LocalTime parse(CharSequence text) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.parse(java.lang.CharSequence) — ISO-8601 time text parsing routes through DateTimeFormatter — out of scope for a bounded model (no text parsing)");
+    }
+
+    @BmcUnmodelable(reason = "formatter-driven time text parsing — out of scope for a bounded model (no text parsing/locale)")
+    public static LocalTime parse(CharSequence text, DateTimeFormatter formatter) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.parse(java.lang.CharSequence,java.time.format.DateTimeFormatter) — formatter-driven time text parsing — out of scope for a bounded model (no text parsing/locale)");
+    }
+
+    @BmcUnmodelable(reason = "extracting a LocalTime from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalTime.of/ofNanoOfDay")
+    public static LocalTime from(TemporalAccessor temporal) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.from(java.time.temporal.TemporalAccessor) — extracting a LocalTime from an arbitrary TemporalAccessor needs its open-ended field surface; build via LocalTime.of/ofNanoOfDay");
     }
 
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
@@ -235,6 +274,19 @@ public final class LocalTime implements Temporal {
     @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
     public int compareTo(LocalTime other) {
         return this.nanoOfDay < other.nanoOfDay ? -1 : (this.nanoOfDay == other.nanoOfDay ? 0 : 1);
+    }
+
+    /**
+     * Epoch-second of this time on the given date at the given offset — pure integer arithmetic over the
+     * already-modeled pieces (the date's epoch-day, this time's second-of-day, the offset's total
+     * seconds), no zone DB. {@code date.toEpochDay()*86400 + toSecondOfDay() - offset.getTotalSeconds()},
+     * exactly like the JDK; loud {@code Math.*Exact} overflow.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    public long toEpochSecond(LocalDate date, ZoneOffset offset) {
+        long epochDay = date.toEpochDay();
+        long secs = epochDay * 86400L + toSecondOfDay();
+        return Math.subtractExact(secs, offset.getTotalSeconds());
     }
 
     // --- generic TemporalField / TemporalUnit accessors: dispatch on the (now-modeled) ChronoField /
@@ -422,6 +474,49 @@ public final class LocalTime implements Temporal {
             default:
                 throw fail("bmc4j: unmodelled member java.time.LocalTime.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the date-based unit " + unit + " is not supported by the time-only nano-of-day model");
         }
+    }
+
+    // --- genuinely-unmodelable instance surface: zone projection, text format, sub-precision truncation
+    //     and the open-ended TemporalAmount/Adjuster/Query plumbing. Each is a LOUD stub. ---
+
+    @BmcUnmodelable(reason = "pairing a time with an offset builds an OffsetTime; the offset-only zone model deliberately omits the OffsetTime view")
+    public OffsetTime atOffset(ZoneOffset offset) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.atOffset(java.time.ZoneOffset) — pairing a time with an offset builds an OffsetTime; the offset-only zone model deliberately omits the OffsetTime view");
+    }
+
+    @BmcUnmodelable(reason = "formatter-driven time text rendering routes through DateTimeFormatter (dtoa/locale) — out of scope for a bounded model")
+    public String format(DateTimeFormatter formatter) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.format(java.time.format.DateTimeFormatter) — formatter-driven time text rendering routes through DateTimeFormatter (dtoa/locale) — out of scope for a bounded model");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalUnit truncation surface is out of scope; use the typed with*/plus* on the nano-of-day backing")
+    public LocalTime truncatedTo(TemporalUnit unit) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.truncatedTo(java.time.temporal.TemporalUnit) — the open-ended TemporalUnit truncation surface is out of scope; use the typed with*/plus* on the nano-of-day backing");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the nano-of-day backing")
+    public LocalTime with(TemporalAdjuster adjuster) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.with(java.time.temporal.TemporalAdjuster) — the open-ended TemporalAdjuster lambda surface can run arbitrary unmodeled adjustment; use the typed with*/plus* on the nano-of-day backing");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusHours/plusMinutes/plusSeconds/plusNanos or plus(long,TemporalUnit)")
+    public LocalTime plus(TemporalAmount amountToAdd) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.plus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed add needs its open-ended getUnits/get(unit) surface; use the typed plusHours/plusMinutes/plusSeconds/plusNanos or plus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusHours/minusMinutes/minusSeconds/minusNanos or minus(long,TemporalUnit)")
+    public LocalTime minus(TemporalAmount amountToSubtract) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.minus(java.time.temporal.TemporalAmount) — the TemporalAmount-typed subtract needs its open-ended getUnits/get(unit) surface; use the typed minusHours/minusMinutes/minusSeconds/minusNanos or minus(long,TemporalUnit)");
+    }
+
+    @BmcUnmodelable(reason = "the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor")
+    public <R> R query(TemporalQuery<R> query) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.query(java.time.temporal.TemporalQuery) — the open-ended TemporalQuery lambda surface can run arbitrary unmodeled extraction over the accessor");
+    }
+
+    @BmcUnmodelable(reason = "adjusting an arbitrary Temporal with this time's NANO_OF_DAY needs that Temporal's unmodeled field surface")
+    public Temporal adjustInto(Temporal temporal) {
+        throw fail("bmc4j: unmodelled member java.time.LocalTime.adjustInto(java.time.temporal.Temporal) — adjusting an arbitrary Temporal with this time's NANO_OF_DAY needs that Temporal's unmodeled field surface");
     }
 
     @Override

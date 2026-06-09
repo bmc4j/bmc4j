@@ -9,7 +9,6 @@ import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalUnit;
 import java.util.List;
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -31,8 +30,11 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * to {@code ChronoPeriod} the way the real one is, so {@code LocalDate.until} can stay modeled. The
  * {@code ChronoPeriod} abstract methods this model doesn't already implement ({@code multipliedBy(int)}
  * and {@code normalized()} are modeled) are LOUD stubs — instanceof only, never a silent nondet.
+ *
+ * <p>The whole real {@code Period} surface is accounted per-member (modeled, or LOUD-stubbed for the
+ * TemporalAmount/Chrono plumbing and {@code from}/{@code parse}), so there is NO class-level
+ * {@code @BmcModelTail}: nothing falls through.
  */
-@BmcModelTail(reason = "the TemporalAmount/Chrono plumbing (addTo/subtractFrom/get(TemporalUnit)/getUnits/getChronology/from), plus/minus(TemporalAmount) and toString are out of scope; all loud under JBMC")
 public final class Period implements ChronoPeriod {
 
     public static final Period ZERO = new Period(0, 0, 0);
@@ -50,6 +52,11 @@ public final class Period implements ChronoPeriod {
     @BmcUnmodelable(reason = "ISO-8601 text parsing — out of scope for a bounded model (no text parsing)")
     public static Period parse(CharSequence text) {
         throw fail("bmc4j: unmodelled member java.time.Period.parse(java.lang.CharSequence) — ISO-8601 text parsing — out of scope for a bounded model (no text parsing)");
+    }
+
+    @BmcUnmodelable(reason = "extracting a Period from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Period.of/ofYears/ofMonths/ofDays")
+    public static Period from(TemporalAmount amount) {
+        throw fail("bmc4j: unmodelled member java.time.Period.from(java.time.temporal.TemporalAmount) — extracting a Period from an arbitrary TemporalAmount needs its open-ended getUnits/get(unit) surface; build via Period.of/ofYears/ofMonths/ofDays");
     }
 
     private static Period create(int years, int months, int days) {
