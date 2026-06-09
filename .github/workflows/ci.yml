@@ -744,6 +744,32 @@ jobs:
           args: --offline --include-fragments --no-progress README.md CONTRIBUTING.md SECURITY.md THIRD-PARTY-NOTICES.md "docs/**/*.md" "examples/**/*.md"
           fail: true
 
+  # ── Merge-queue gate ──────────────────────────────────────────────────────────
+  # A single STABLE check the main ruleset's merge queue requires: green iff every
+  # gating job (build, proofs, the verdict-cache merge, smokes, links) passed or was
+  # legitimately skipped, RED if any failed or was cancelled. Requiring this one
+  # aggregate — instead of the dynamic, shard-numbered proof check names — keeps the
+  # required-check list stable as the shard count changes. Runs on every event, so it
+  # is also a single green signal on PRs.
+  ci-green:
+    name: ci-green
+    needs: [plan, build, proofs, merge-verdict-cache, smoke, smoke-alpine, links]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Assert no gating job failed or was cancelled
+        run: |
+          results='${{ join(needs.*.result, ",") }}'
+          echo "gating job results: $results"
+          case ",$results," in
+            *,failure,*|*,cancelled,*)
+              echo "::error::A gating job failed or was cancelled — merge blocked."
+              exit 1 ;;
+            *)
+              echo "All gating jobs passed or were skipped." ;;
+          esac
+
   # ── Snapshot publish + consumer test (push-to-main only) ──────────────────────
   #
   # On every push to main (and on a workflow_dispatch with snapshot=true, for
