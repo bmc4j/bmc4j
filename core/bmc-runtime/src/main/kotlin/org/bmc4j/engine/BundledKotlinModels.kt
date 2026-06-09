@@ -46,6 +46,18 @@ object BundledKotlinModels {
             "kotlin/collections/CollectionsKt.class",
             "kotlin/collections/SetsKt.class",
             "kotlin/collections/MapsKt.class",
+            // kotlin.collections.ArraysKt — the array copy/fill surface. The real multifile facade is too
+            // big for JBMC to link a method out of, so copyInto/copyInto$default (the array-copy inside
+            // kotlinx persistent-collection trie nodes) nondet-stubs; this flat model carries copyInto/
+            // copyOf/copyOfRange/fill directly (System.arraycopy-backed) so the call resolves soundly.
+            "kotlin/collections/ArraysKt.class",
+            // kotlin.math.MathKt — the non-inline math residue (Int/Long.sign, roundTo*, truncate, log/log2);
+            // the common abs/min/max/sqrt/pow/ceil/floor are @InlineOnly (inline to java.lang.Math directly).
+            "kotlin/math/MathKt.class",
+            // kotlin.text.CharsKt — the non-inline char residue (digitToInt/digitToChar/isWhitespace/
+            // isSurrogate/equals-ignoreCase); the common isDigit/isLetter/… predicates are @InlineOnly
+            // (inline to java.lang.Character directly).
+            "kotlin/text/CharsKt.class",
             "kotlin/Pair.class",
             "kotlin/TuplesKt.class",
             // kotlin.text.StringsKt facade — every String/CharSequence extension a Kotlin call site emits

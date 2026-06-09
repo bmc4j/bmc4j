@@ -55,6 +55,10 @@ val COVERED: Set<String> = setOf(
     // Model proofs (model-conformance-proofs) — Kotlin facades.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
     "kotlin.text.StringsKt",
+    // kotlin.collections.ArraysKt (copy/fill surface), kotlin.math.MathKt (non-inline math residue),
+    // kotlin.text.CharsKt (non-inline char residue) — facade models (KotlinArraysLaws/KotlinMathLaws/
+    // KotlinCharsLaws); per-member-enforced below.
+    "kotlin.collections.ArraysKt", "kotlin.math.MathKt", "kotlin.text.CharsKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt", "kotlin.ranges.RangesKt",
     "kotlin.comparisons.ComparisonsKt",
     // Enum.entries facade + bounded list wrapper (EnumEntriesLaws).
@@ -216,6 +220,10 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     // facade-dedup and mangled-ABI conventions.
     "kotlin.collections.CollectionsKt", "kotlin.collections.SetsKt", "kotlin.collections.MapsKt",
     "kotlin.text.StringsKt",
+    // ArraysKt absorbs its ~1300-member array-extension surface with a class-level @BmcModelTail; MathKt
+    // and CharsKt enumerate their (small) non-inline JVM residue per member (the common forms are
+    // @InlineOnly → no JVM member, so never on the enumerated surface).
+    "kotlin.collections.ArraysKt", "kotlin.math.MathKt", "kotlin.text.CharsKt",
     "kotlin.collections.IndexedValue",
     "kotlin.sequences.SequencesKt",
     "kotlin.Pair", "kotlin.Triple", "kotlin.TuplesKt",
