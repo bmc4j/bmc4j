@@ -632,16 +632,16 @@ Real surface: 54 members — modeled 40, unmodelable 14, not-needed 0, tail 0.
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead; loud under JBMC (inherited from the HashMap model stub) |
 | `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 | `headMap(Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 1-arg headMap); loud under JBMC |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
-| `reversed()` | SequencedMap.reversed default returns a covariant SequencedMap the bounded plain-Map model can't satisfy, and the inherited default would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot. |
-| `sequencedEntrySet()` | SequencedMap.sequencedEntrySet default would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
-| `sequencedKeySet()` | SequencedMap.sequencedKeySet default would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. Use navigableKeySet() for the modeled ascending snapshot. |
-| `sequencedValues()` | SequencedMap.sequencedValues default would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
+| `putAll(Map)` | bulk put — put entries explicitly over the bounded model; loud under JBMC (inherited from the HashMap model stub) |
+| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly; loud under JBMC (inherited from the HashMap model stub) |
+| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch; loud under JBMC (inherited from the HashMap model stub) |
+| `reversed()` | SequencedMap.reversed would iterate in HashMap encounter order — NOT TreeMap key order; unsound, loud under JBMC. Use descendingMap() for the modeled descending-key snapshot. |
+| `sequencedEntrySet()` | SequencedMap.sequencedEntrySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
+| `sequencedKeySet()` | SequencedMap.sequencedKeySet would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. Use navigableKeySet() for the modeled ascending snapshot. |
+| `sequencedValues()` | SequencedMap.sequencedValues would iterate in HashMap encounter order, not TreeMap key order — unsound; loud under JBMC. |
 | `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 | `subMap(Object, boolean, Object, boolean)` | boolean-inclusive NavigableMap range view over a bounded unordered store — out of scope (mirrors the 2-arg subMap); loud under JBMC |
 | `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
