@@ -682,72 +682,57 @@ Real surface: 44 members — modeled 32, unmodelable 7, not-needed 0, tail 5.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
+Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
-
-- `parallelStream()`
-- `spliterator()`
-- `toArray()`
-- `toArray(IntFunction)`
-- `toArray(Object[])`
-
-</details>
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 42, unmodelable 0, not-needed 0, tail 37.
+Real surface: 79 members — modeled 47, unmodelable 32, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
+**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `copy()`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `failedFuture(Throwable)`, `failedStage(Throwable)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `minimalCompletionStage()`, `newIncompleteFuture()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 37 members, all loud): every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/exceptionallyComposeAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the *Async-with-Executor twins of the either/both combinators, real timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state) which need genuine happens-before, and stage/copy plumbing (failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
-
-- `acceptEitherAsync(CompletionStage, Consumer, Executor)`
-- `applyToEitherAsync(CompletionStage, Function, Executor)`
-- `cancel(boolean)`
-- `completeAsync(Supplier)`
-- `completeAsync(Supplier, Executor)`
-- `completeOnTimeout(Object, long, TimeUnit)`
-- `copy()`
-- `defaultExecutor()`
-- `delayedExecutor(long, TimeUnit)`
-- `delayedExecutor(long, TimeUnit, Executor)`
-- `exceptionNow()`
-- `exceptionallyAsync(Function, Executor)`
-- `exceptionallyComposeAsync(Function, Executor)`
-- `failedFuture(Throwable)`
-- `failedStage(Throwable)`
-- `get(long, TimeUnit)`
-- `getNumberOfDependents()`
-- `handleAsync(BiFunction, Executor)`
-- `isCancelled()`
-- `minimalCompletionStage()`
-- `newIncompleteFuture()`
-- `obtrudeException(Throwable)`
-- `obtrudeValue(Object)`
-- `orTimeout(long, TimeUnit)`
-- `resultNow()`
-- `runAfterBothAsync(CompletionStage, Runnable, Executor)`
-- `runAfterEitherAsync(CompletionStage, Runnable, Executor)`
-- `runAsync(Runnable, Executor)`
-- `state()`
-- `supplyAsync(Supplier, Executor)`
-- `thenAcceptAsync(Consumer, Executor)`
-- `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)`
-- `thenApplyAsync(Function, Executor)`
-- `thenCombineAsync(CompletionStage, BiFunction, Executor)`
-- `thenComposeAsync(Function, Executor)`
-- `thenRunAsync(Runnable, Executor)`
-- `whenCompleteAsync(BiConsumer, Executor)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `acceptEitherAsync(CompletionStage, Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `applyToEitherAsync(CompletionStage, Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `cancel(boolean)` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
+| `completeAsync(Supplier)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `completeAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `completeOnTimeout(Object, long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
+| `defaultExecutor()` | a future's default Executor is real scheduling infrastructure — the concurrency wall in a sequential model |
+| `delayedExecutor(long, TimeUnit)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
+| `delayedExecutor(long, TimeUnit, Executor)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
+| `exceptionNow()` | Future.exceptionNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use isCompletedExceptionally() |
+| `exceptionallyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `exceptionallyComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `get(long, TimeUnit)` | a timed get blocks on a real wall-clock + scheduler — the concurrency wall; use get()/join() on a settled future |
+| `getNumberOfDependents()` | the live dependent count is a racing-scheduler observable — the concurrency wall in a sequential model |
+| `handleAsync(BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `isCancelled()` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
+| `obtrudeException(Throwable)` | obtruding a settled future's failure needs genuine happens-before — the concurrency wall in a sequential model |
+| `obtrudeValue(Object)` | obtruding a settled future's result needs genuine happens-before — the concurrency wall in a sequential model |
+| `orTimeout(long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
+| `resultNow()` | Future.resultNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use join()/getNow() |
+| `runAfterBothAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `runAfterEitherAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `runAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `state()` | Future.state snapshots a racing completion (RUNNING/SUCCESS/FAILED/CANCELLED) — needs genuine happens-before — the concurrency wall |
+| `supplyAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenAcceptAsync(Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenApplyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenCombineAsync(CompletionStage, BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenRunAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `whenCompleteAsync(BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 
 
 ## `java.util.concurrent.ConcurrentHashMap`
@@ -772,9 +757,9 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-Real surface: 43 members — modeled 31, unmodelable 7, not-needed 0, tail 5.
+Real surface: 43 members — modeled 32, unmodelable 11, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -782,19 +767,13 @@ Real surface: 43 members — modeled 31, unmodelable 7, not-needed 0, tail 5.
 | `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `listIterator()` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
+| `listIterator(int)` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
 | `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
 | `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/get()/size() instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): snapshot/array-view extras (getArray/clone/toArray(IntFunction)/parallelStream/spliterator), Deque surface, listIterator/subList — out of scope for this sequential array-backed model; all loud under JBMC</summary>
-
-- `listIterator()`
-- `listIterator(int)`
-- `parallelStream()`
-- `spliterator()`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.concurrent.CountDownLatch`
@@ -828,39 +807,29 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
+Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
-
-- `parallelStream()`
-- `spliterator()`
-- `toArray()`
-- `toArray(IntFunction)`
-- `toArray(Object[])`
-
-</details>
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 
 
 ## `java.util.concurrent.Semaphore`
 
-Real surface: 17 members — modeled 13, unmodelable 0, not-needed 0, tail 4.
+Real surface: 17 members — modeled 13, unmodelable 4, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `acquire()`, `acquire(int)`, `acquireUninterruptibly()`, `acquireUninterruptibly(int)`, `availablePermits()`, `drainPermits()`, `reducePermits(int)`, `release()`, `release(int)`, `tryAcquire()`, `tryAcquire(int)`, `tryAcquire(int, long, TimeUnit)`, `tryAcquire(long, TimeUnit)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) are scheduling/interleaving concerns a sequential model can't represent — the concurrency wall; all loud under JBMC</summary>
-
-- `getQueueLength()`
-- `getQueuedThreads()`
-- `hasQueuedThreads()`
-- `isFair()`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `getQueueLength()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `getQueuedThreads()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `hasQueuedThreads()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `isFair()` | fairness is a scheduling/queueing policy with no observable meaning in a sequential single-threaded model — the concurrency wall |
 
 
 ## `java.util.concurrent.atomic.AtomicBoolean`
@@ -872,30 +841,16 @@ Real surface: 19 members — modeled 19, unmodelable 0, not-needed 0, tail 0.
 
 ## `java.util.concurrent.atomic.AtomicInteger`
 
-Real surface: 35 members — modeled 33, unmodelable 0, not-needed 0, tail 2.
+Real surface: 35 members — modeled 35, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndExchange(int, int)`, `compareAndExchangeAcquire(int, int)`, `compareAndExchangeRelease(int, int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `setOpaque(int)`, `setPlain(int)`, `setRelease(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetAcquire(int, int)`, `weakCompareAndSetPlain(int, int)`, `weakCompareAndSetRelease(int, int)`, `weakCompareAndSetVolatile(int, int)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the int-backed model; loud under JBMC</summary>
-
-- `byteValue()`
-- `shortValue()`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `byteValue()`, `compareAndExchange(int, int)`, `compareAndExchangeAcquire(int, int)`, `compareAndExchangeRelease(int, int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `setOpaque(int)`, `setPlain(int)`, `setRelease(int)`, `shortValue()`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetAcquire(int, int)`, `weakCompareAndSetPlain(int, int)`, `weakCompareAndSetRelease(int, int)`, `weakCompareAndSetVolatile(int, int)`
 
 
 ## `java.util.concurrent.atomic.AtomicLong`
 
-Real surface: 35 members — modeled 33, unmodelable 0, not-needed 0, tail 2.
+Real surface: 35 members — modeled 35, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndExchange(long, long)`, `compareAndExchangeAcquire(long, long)`, `compareAndExchangeRelease(long, long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `setOpaque(long)`, `setPlain(long)`, `setRelease(long)`, `updateAndGet(LongUnaryOperator)`, `weakCompareAndSet(long, long)`, `weakCompareAndSetAcquire(long, long)`, `weakCompareAndSetPlain(long, long)`, `weakCompareAndSetRelease(long, long)`, `weakCompareAndSetVolatile(long, long)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the long-backed model; loud under JBMC</summary>
-
-- `byteValue()`
-- `shortValue()`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `byteValue()`, `compareAndExchange(long, long)`, `compareAndExchangeAcquire(long, long)`, `compareAndExchangeRelease(long, long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `setOpaque(long)`, `setPlain(long)`, `setRelease(long)`, `shortValue()`, `updateAndGet(LongUnaryOperator)`, `weakCompareAndSet(long, long)`, `weakCompareAndSetAcquire(long, long)`, `weakCompareAndSetPlain(long, long)`, `weakCompareAndSetRelease(long, long)`, `weakCompareAndSetVolatile(long, long)`
 
 
 ## `java.util.concurrent.atomic.AtomicReference`

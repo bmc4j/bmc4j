@@ -63,6 +63,9 @@ class ConcurrencyConformanceTest : FunSpec({
             val m = bmcref.java.util.concurrent.atomic.AtomicInteger(0)
             ops.forEachIndexed { i, o -> assertEquivalent("op[$i]=$o", o.on(r), o.on(m)) }
             assertEquivalent("get", call(r, "get", arrayOf()), call(m, "get", arrayOf()))
+            // Number narrowing inherited from Number: byteValue/shortValue truncate the stored int.
+            assertEquivalent("byteValue", call(r, "byteValue", arrayOf()), call(m, "byteValue", arrayOf()))
+            assertEquivalent("shortValue", call(r, "shortValue", arrayOf()), call(m, "shortValue", arrayOf()))
         }
     }
 
@@ -149,6 +152,9 @@ class ConcurrencyConformanceTest : FunSpec({
             val m = bmcref.java.util.concurrent.atomic.AtomicLong(0)
             ops.forEachIndexed { i, o -> assertEquivalent("op[$i]=$o", o.on(r), o.on(m)) }
             assertEquivalent("get", call(r, "get", arrayOf()), call(m, "get", arrayOf()))
+            // Number narrowing inherited from Number: byteValue/shortValue truncate the stored long.
+            assertEquivalent("byteValue", call(r, "byteValue", arrayOf()), call(m, "byteValue", arrayOf()))
+            assertEquivalent("shortValue", call(r, "shortValue", arrayOf()), call(m, "shortValue", arrayOf()))
         }
     }
 
@@ -947,6 +953,86 @@ class ConcurrencyConformanceTest : FunSpec({
             // final contents agree in order.
             val mn = call(m, "size", arrayOf()).getOrThrow() as Int
             (0 until mn).map { call(m, "get", arrayOf(INT), it).getOrThrow() } shouldBe r.toList()
+        }
+    }
+
+    // --- CopyOnWriteArrayList.toArray(IntFunction) snapshot ----------------------------------------
+    // The generator-array snapshot mirrors the JDK in index order. Build both lists identically and
+    // compare the resulting array contents.
+    test("CopyOnWriteArrayList.toArray(IntFunction) snapshots in index order") {
+        checkAll(Arb.list(Arb.int(0..9), 0..8)) { items ->
+            val r = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val m = bmcref.java.util.concurrent.CopyOnWriteArrayList<Int>()
+            for (x in items) { r.add(x); call(m, "add", arrayOf(OBJECT), x) }
+            val gen = java.util.function.IntFunction<Array<Any?>> { arrayOfNulls(it) }
+            val rArr = (call(r, "toArray", arrayOf(refClass("java.util.function.IntFunction")), gen).getOrThrow() as Array<*>).toList()
+            val mArr = (call(m, "toArray", arrayOf(refClass("java.util.function.IntFunction")), gen).getOrThrow() as Array<*>).toList()
+            mArr shouldBe rArr
+        }
+    }
+
+    // --- CompletableFuture ready-value / ready-failure constructions (sequential plumbing) ---------
+    // failedFuture/failedStage build a ready failure; copy mirrors a settled completion;
+    // newIncompleteFuture is a fresh pending future; minimalCompletionStage is the settled stage view.
+    // The real JDK CompletableFuture is the differential oracle on one thread.
+    test("CompletableFuture failedFuture/copy/newIncompleteFuture/minimalCompletionStage conform") {
+        checkAll(Arb.int(0..9)) { v ->
+            // failedFuture: completed-exceptionally; exceptionally recovers to the same value on both.
+            val rf = java.util.concurrent.CompletableFuture.failedFuture<Int>(RuntimeException("x"))
+            val mf = staticCall(CF, "failedFuture", arrayOf(THROWABLE), RuntimeException("x")).getOrThrow()!!
+            rf.isCompletedExceptionally shouldBe call(mf, "isCompletedExceptionally", arrayOf()).getOrThrow()
+            val recover = java.util.function.Function<Throwable, Int> { v + 1 }
+            rf.exceptionally(recover).join() shouldBe modelJoin(call(mf, "exceptionally", arrayOf(FUNCTION), recover))
+
+            // failedStage: realized through toCompletableFuture it is exceptional too.
+            val ms = staticCall(CF, "failedStage", arrayOf(THROWABLE), RuntimeException("x")).getOrThrow()!!
+            (call(call(ms, "toCompletableFuture", arrayOf()).getOrThrow()!!, "isCompletedExceptionally", arrayOf()).getOrThrow()) shouldBe true
+
+            // copy of a completed future carries the value and is not exceptional.
+            val rc = java.util.concurrent.CompletableFuture.completedFuture(v)
+            val mc = bmcref.java.util.concurrent.CompletableFuture.completedFuture(v)
+            rc.copy().join() shouldBe modelJoin(call(mc, "copy", arrayOf()))
+            rc.copy().isCompletedExceptionally shouldBe call(call(mc, "copy", arrayOf()).getOrThrow()!!, "isCompletedExceptionally", arrayOf()).getOrThrow()
+
+            // newIncompleteFuture is fresh + pending, then completes to a value.
+            val rn = rc.newIncompleteFuture<Int>()
+            val mn = call(mc, "newIncompleteFuture", arrayOf()).getOrThrow()!!
+            rn.isDone shouldBe call(mn, "isDone", arrayOf()).getOrThrow()
+            rn.complete(v) shouldBe call(mn, "complete", arrayOf(OBJECT), v).getOrThrow()
+            rn.join() shouldBe call(mn, "join", arrayOf()).getOrThrow()
+
+            // minimalCompletionStage carries the value through a stage combinator.
+            val fn = java.util.function.Function<Int, Int> { it + 2 }
+            rc.minimalCompletionStage().thenApply(fn).toCompletableFuture().join() shouldBe
+                modelJoin(call(call(mc, "minimalCompletionStage", arrayOf()).getOrThrow()!!,
+                    "thenApply", arrayOf(FUNCTION), fn).let { call(it.getOrThrow()!!, "toCompletableFuture", arrayOf()) })
+        }
+    }
+
+    // --- BlockingQueue toArray snapshots (FIFO) ----------------------------------------------------
+    // toArray()/toArray(T[])/toArray(IntFunction) snapshot the queued elements in FIFO order. Driven on
+    // both impls vs the JDK queue.
+    for ((label, makeReal, makeModel) in blockingQueueFactories()) {
+        test("$label toArray()/toArray(T[])/toArray(IntFunction) snapshot in FIFO order") {
+            checkAll(Arb.list(Arb.int(0..9), 0..6)) { items ->
+                val r = makeReal(8)
+                val m = makeModel(8)
+                for (x in items) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+
+                val objArrayClass = arrayOfNulls<Any?>(0).javaClass
+                val rArr = (call(r, "toArray", arrayOf()).getOrThrow() as Array<*>).toList()
+                val mArr = (call(m, "toArray", arrayOf()).getOrThrow() as Array<*>).toList()
+                mArr shouldBe rArr
+
+                val rTyped = (call(r, "toArray", arrayOf(objArrayClass), arrayOfNulls<Any?>(0)).getOrThrow() as Array<*>).toList()
+                val mTyped = (call(m, "toArray", arrayOf(objArrayClass), arrayOfNulls<Any?>(0)).getOrThrow() as Array<*>).toList()
+                mTyped shouldBe rTyped
+
+                val gen = java.util.function.IntFunction<Array<Any?>> { arrayOfNulls(it) }
+                val rGen = (call(r, "toArray", arrayOf(refClass("java.util.function.IntFunction")), gen).getOrThrow() as Array<*>).toList()
+                val mGen = (call(m, "toArray", arrayOf(refClass("java.util.function.IntFunction")), gen).getOrThrow() as Array<*>).toList()
+                mGen shouldBe rGen
+            }
         }
     }
 })

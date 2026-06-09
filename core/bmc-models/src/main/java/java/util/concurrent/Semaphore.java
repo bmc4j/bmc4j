@@ -1,9 +1,13 @@
 package java.util.concurrent;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
+import java.util.Collection;
+
 import org.cprover.CProver;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * Sequential BMC model of {@link java.util.concurrent.Semaphore} — a permit counter. bmc4j proves
@@ -25,7 +29,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * JVM-runnable differential axis. The non-blocking surface ({@code tryAcquire}/{@code release}/
  * {@code availablePermits}/{@code drainPermits}) stays pure Java and is differential-tested.
  */
-@BmcModelTail(reason = "fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) are scheduling/interleaving concerns a sequential model can't represent — the concurrency wall; all loud under JBMC")
 public class Semaphore {
 
     private int permits;
@@ -161,5 +164,34 @@ public class Semaphore {
     @BmcModelConforms("differential (tryAcquire/release/availablePermits/drainPermits) + @BmcProof (acquire assume-prune)")
     public String toString() {
         return super.toString() + "[Permits = " + permits + "]";
+    }
+
+    // --- the concurrency wall: fairness + thread-queue introspection (loud stubs) -----------------
+    // These are scheduling/interleaving concerns a sequential, single-threaded model cannot represent:
+    // there is no waiting-thread queue and fairness has no observable meaning on one thread. Each is a
+    // loud-if-reached waiver so a proof that touches them FAILS named, never proceeds on a fiction.
+
+    /** Fairness is a scheduling policy with no observable meaning on one thread — the concurrency wall. */
+    @BmcUnmodelable(reason = "fairness is a scheduling/queueing policy with no observable meaning in a sequential single-threaded model — the concurrency wall")
+    public boolean isFair() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.Semaphore.isFair() — fairness is a scheduling/queueing policy with no observable meaning in a sequential single-threaded model — the concurrency wall");
+    }
+
+    /** The count of threads waiting to acquire — no waiting-thread queue exists on one thread; the concurrency wall. */
+    @BmcUnmodelable(reason = "thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall")
+    public int getQueueLength() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.Semaphore.getQueueLength() — thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall");
+    }
+
+    /** Whether any thread is waiting to acquire — no waiting-thread queue exists on one thread; the concurrency wall. */
+    @BmcUnmodelable(reason = "thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall")
+    public boolean hasQueuedThreads() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.Semaphore.hasQueuedThreads() — thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall");
+    }
+
+    /** The collection of threads waiting to acquire — no waiting-thread queue exists on one thread; the concurrency wall. */
+    @BmcUnmodelable(reason = "thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall")
+    protected Collection<Thread> getQueuedThreads() {
+        throw fail("bmc4j: unmodelled member java.util.concurrent.Semaphore.getQueuedThreads() — thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall");
     }
 }

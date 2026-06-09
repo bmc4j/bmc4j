@@ -17,4 +17,16 @@ public interface Future<V> {
     boolean isCancelled();
 
     boolean cancel(boolean mayInterruptIfRunning);
+
+    /**
+     * The four completion states a {@link Future} can report (Java 19+). Present so models that return it
+     * (e.g. {@code CompletableFuture.state()}) carry the faithful return type; the live state is a racing-
+     * scheduler observable a sequential model cannot produce, so those accessors are loud-if-reached.
+     */
+    enum State {
+        RUNNING,
+        SUCCESS,
+        FAILED,
+        CANCELLED,
+    }
 }
