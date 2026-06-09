@@ -355,10 +355,15 @@ public final class Collections {
     // reproducibility — the Random wall), the wrapper views (need a wrapper class over the backing),
     // and the exotic empty-iterator / navigable / sorted / sequenced factories.
 
-    @BmcUnmodelable(reason = "comparator-driven sort — devirt through the Comparator interface")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public static <T> void sort(List<T> list, Comparator<? super T> c) {
-        throw fail("bmc4j: unmodelled member java.util.Collections.sort(java.util.List, java.util.Comparator)"
-                + " — a comparator-driven sort devirts through the Comparator interface; honestly UNKNOWN");
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness), in place via get/set: a
+        // bijective permutation of the list's elements that is non-decreasing under the comparator.
+        // Sound for ordering proofs over the bound; equal elements are not guaranteed stable.
+        ArrayList<T> ordered = BmcSortWitness.sorted(list, c);
+        for (int i = 0; i < ordered.size(); i++) {
+            list.set(i, ordered.get(i));
+        }
     }
 
     @BmcUnmodelable(reason = "comparator-driven max — Comparator devirt")

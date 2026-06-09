@@ -2397,16 +2397,19 @@ public class Arrays {
     // Spliterator interface / parallel split. hashCode/toString of float[]/double[] need the unsound
     // Float.floatToIntBits / Float.toString. copyOf/copyOfRange(…, Class) need reflective newInstance.
 
-    @BmcUnmodelable(reason = "comparator-driven sort — devirt through the Comparator interface")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public static <T> void sort(T[] a, Comparator<? super T> c) {
-        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], java.util.Comparator)"
-                + " — a comparator-driven sort devirts through the Comparator interface; honestly UNKNOWN");
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness): in place, a bijective
+        // permutation of a[0..length) that is non-decreasing under the comparator. Sound for ordering
+        // proofs over the bound; equal elements are not guaranteed stable.
+        BmcSortWitness.sortInPlace(a, 0, a.length, c);
     }
 
-    @BmcUnmodelable(reason = "comparator-driven ranged sort — Comparator devirt")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public static <T> void sort(T[] a, int fromIndex, int toIndex, Comparator<? super T> c) {
-        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], int, int, "
-                + "java.util.Comparator) — comparator devirt through the Comparator interface; honestly UNKNOWN");
+        // Ranged form of the nondet sorted-permutation witness: only a[fromIndex..toIndex) is permuted
+        // and ordered; the rest of the array is left untouched.
+        BmcSortWitness.sortInPlace(a, fromIndex, toIndex, c);
     }
 
     @BmcUnmodelable(reason = "comparator-driven binarySearch — Comparator devirt")

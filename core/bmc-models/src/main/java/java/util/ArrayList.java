@@ -470,9 +470,16 @@ public class ArrayList<E> implements List<E> {
         throw fail("bmc4j: unmodelled member java.util.ArrayList.toArray(java.util.function.IntFunction) — array snapshot via a reflective generator — iterate the model instead");
     }
 
-    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it")
+    @BmcModelConforms("@BmcProof (proofs.sort SortWitnessLaws)")
     public void sort(Comparator<? super E> c) {
-        throw fail("bmc4j: unmodelled member java.util.ArrayList.sort(java.util.Comparator) — comparator-driven sort over the bounded array: O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof");
+        // Nondet sorted-permutation witness (java.util.BmcSortWitness): in place, replace the backing
+        // with a bijective permutation of the current elements that is non-decreasing under the
+        // comparator. Sound for ordering proofs over the bound; avoids the O(n^2) data-dependent
+        // comparisons a real insertion sort would emit. Equal elements are not guaranteed stable.
+        ArrayList<E> ordered = BmcSortWitness.sorted(this, c);
+        for (int i = 0; i < size; i++) {
+            elements[i] = ordered.get(i);
+        }
     }
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
