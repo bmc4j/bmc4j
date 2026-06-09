@@ -878,14 +878,15 @@ Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 
 ## `kotlin.collections.CollectionsKt`
 
-Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45.
+Real surface: 253 members — modeled 126, unmodelable 127, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `build(List)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `createListBuilder()`, `createListBuilder(int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Iterable)`, `addAll(Collection, Object[])`, `addAll(Collection, Sequence)`, `any(Iterable)`, `arrayListOf(Object[])`, `asReversed(List)`, `asReversedMutable(List)`, `asSequence(Iterable)`, `averageOfByte(Iterable)`, `averageOfDouble(Iterable)`, `averageOfFloat(Iterable)`, `averageOfInt(Iterable)`, `averageOfLong(Iterable)`, `averageOfShort(Iterable)`, `binarySearch(List, Comparable, int, int)`, `build(List)`, `chunked(Iterable, int)`, `collectionSizeOrDefault(Iterable, int)`, `count(Iterable)`, `createListBuilder()`, `createListBuilder(int)`, `distinct(Iterable)`, `drop(Iterable, int)`, `dropLast(List, int)`, `emptyList()`, `filterNotNull(Iterable)`, `filterNotNullTo(Iterable, Collection)`, `first(Iterable)`, `first(List)`, `firstOrNull(Iterable)`, `firstOrNull(List)`, `flatten(Iterable)`, `getIndices(Collection)`, `getLastIndex(List)`, `intersect(Iterable, Iterable)`, `last(List)`, `lastOrNull(Iterable)`, `lastOrNull(List)`, `listOf(Object)`, `listOf(Object[])`, `listOfNotNull(Object)`, `listOfNotNull(Object[])`, `maxOrNull(Iterable)`, `maxOrThrow(Iterable)`, `maxWithOrNull(Iterable, Comparator)`, `maxWithOrThrow(Iterable, Comparator)`, `minOrNull(Iterable)`, `minOrThrow(Iterable)`, `minWithOrNull(Iterable, Comparator)`, `minWithOrThrow(Iterable, Comparator)`, `minus(Iterable, Iterable)`, `minus(Iterable, Object)`, `minus(Iterable, Object[])`, `minus(Iterable, Sequence)`, `mutableListOf(Object[])`, `none(Iterable)`, `plus(Collection, Iterable)`, `plus(Collection, Object)`, `plus(Collection, Object[])`, `plus(Collection, Sequence)`, `plus(Iterable, Iterable)`, `plus(Iterable, Object)`, `plus(Iterable, Object[])`, `plus(Iterable, Sequence)`, `removeAll(Collection, Iterable)`, `removeAll(Collection, Object[])`, `removeAll(Collection, Sequence)`, `removeAll(Iterable, Function1)`, `removeAll(List, Function1)`, `removeFirst(List)`, `removeFirstOrNull(List)`, `removeLast(List)`, `removeLastOrNull(List)`, `requireNoNulls(Iterable)`, `requireNoNulls(List)`, `retainAll(Collection, Iterable)`, `retainAll(Collection, Object[])`, `retainAll(Collection, Sequence)`, `retainAll(Iterable, Function1)`, `retainAll(List, Function1)`, `reverse(List)`, `reversed(Iterable)`, `single(Iterable)`, `single(List)`, `singleOrNull(Iterable)`, `singleOrNull(List)`, `slice(List, IntRange)`, `slice(List, Iterable)`, `sort(List)`, `sortDescending(List)`, `sortWith(List, Comparator)`, `sorted(Iterable)`, `sortedDescending(Iterable)`, `sortedWith(Iterable, Comparator)`, `subtract(Iterable, Iterable)`, `sumOfByte(Iterable)`, `sumOfDouble(Iterable)`, `sumOfFloat(Iterable)`, `sumOfInt(Iterable)`, `sumOfLong(Iterable)`, `sumOfShort(Iterable)`, `take(Iterable, int)`, `takeLast(List, int)`, `toBooleanArray(Collection)`, `toByteArray(Collection)`, `toCharArray(Collection)`, `toCollection(Iterable, Collection)`, `toDoubleArray(Collection)`, `toFloatArray(Collection)`, `toHashSet(Iterable)`, `toIntArray(Collection)`, `toList(Iterable)`, `toLongArray(Collection)`, `toMutableList(Collection)`, `toMutableList(Iterable)`, `toMutableSet(Iterable)`, `toSet(Iterable)`, `toShortArray(Collection)`, `union(Iterable, Iterable)`, `unzip(Iterable)`, `windowed(Iterable, int, int, boolean)`, `withIndex(Iterable)`, `withIndex(Iterator)`, `zip(Iterable, Iterable)`, `zip(Iterable, Object[])`, `zipWithNext(Iterable)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `all(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `any(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `asCollection(Object[], boolean)` | internal kotlin-stdlib vararg->Collection wrapper (asCollection) behind the vararg factory fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached |
 | `associate(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateBy(Iterable, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -894,17 +895,28 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 | `associateTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWith(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWithTo(Iterable, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `binarySearch(List, Object, Comparator, int, int)` | comparator total-order over unconstrained T — bmc4j does not reason about a Comparator's contract over symbolic elements (the Double.compare/devirt wall family); the natural-order binarySearch(List,Comparable,int,int) above IS modeled. Loud-if-reached |
+| `binarySearch(List, int, int, Function1)` | comparison-function total-order over unconstrained T (Function1<T,Int> sign search) — same total-order-over-T wall as the Comparator overload; loud-if-reached |
 | `binarySearchBy(List, Comparable, int, int, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `chunked(Iterable, int, Function1)` | chunked(_,_,transform) is INLINE — the body lands in the caller; the facade JVM method is never called from a Kotlin call site. The no-transform chunked(Iterable,int) IS modeled |
+| `collectionSizeOrNull(Iterable)` | internal kotlin-stdlib Iterable->Collection size probe (returns the size of a Collection or null) on the conversion fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached |
+| `collectionToArrayCommonImpl(Collection)` | internal kotlin-stdlib Collection.toArray() common implementation — the JVM array-bridge plumbing behind toArray; not reachable from idiomatic user code; loud-if-reached |
+| `collectionToArrayCommonImpl(Collection, Object[])` | internal kotlin-stdlib Collection.toArray(T[]) common implementation — JVM array-bridge plumbing; not reachable from idiomatic user code; loud-if-reached |
 | `contains(Iterable, Object)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `convertToListIfNotCollection(Iterable)` | internal kotlin-stdlib Iterable->Collection conversion fast path; internal plumbing not reachable from idiomatic user code; loud-if-reached |
+| `copyToArrayOfAny(Object[], boolean)` | internal kotlin-stdlib toArray reflective array-copy helper (copyToArrayOfAny); JVM array-bridge plumbing not reachable from idiomatic user code; loud-if-reached |
 | `count(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `distinctBy(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `dropLastWhile(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `dropWhile(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `elementAt(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `elementAtOrElse(Iterable, int, Function1)` | elementAtOrElse(_,_,defaultValue) is INLINE — the body lands in the caller; the facade JVM method is never called from a Kotlin call site |
 | `elementAtOrNull(Iterable, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `filter(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexedTo(Iterable, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIsInstance(Iterable, Class)` | filterIsInstance dispatches on java.lang.Class.isInstance — runtime reflective type introspection bmc4j does not model (kotlin.reflect.* is off the modeled surface); loud-if-reached |
+| `filterIsInstanceTo(Iterable, Collection, Class)` | filterIsInstanceTo dispatches on java.lang.Class.isInstance — reflective type introspection bmc4j does not model; loud-if-reached |
 | `filterNot(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterNotTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterTo(Iterable, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -933,6 +945,9 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 | `indexOfFirst(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfLast(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfLast(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `iterator(Enumeration)` | iterator(Enumeration) bridges a java.util.Enumeration (legacy external iteration protocol) bmc4j does not model; loud-if-reached |
+| `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | joinTo is STRING-HEAVY (Appendable/StringBuilder append is the JBMC string-blowup that OOMs) AND routes through a kotlinc-synthesized joinTo$default bridge bmc4j does not model; a sound model needs a differential (not proof) harness for the string output; loud-if-reached |
+| `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | joinToString is STRING-HEAVY (the JBMC string-blowup that OOMs CI) AND routes through a kotlinc-synthesized joinToString$default bridge bmc4j does not model; loud-if-reached |
 | `last(Iterable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `last(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `last(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -955,7 +970,10 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 | `none(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEach(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEachIndexed(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `optimizeReadOnlyList(List)` | internal kotlin-stdlib read-only-list size-optimizer (singleton/empty specialization) on the list-build path; not reachable from idiomatic user code and its real body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached |
 | `partition(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `random(Collection, Random)` | kotlin.random.Random draw is nondeterministic — there is no sound bounded model for random()/randomOrNull()/shuffle()/shuffled() (matches the RangesKt.random precedent); loud-if-reached |
+| `randomOrNull(Collection, Random)` | kotlin.random.Random draw is nondeterministic — no sound bounded model; loud-if-reached |
 | `reduce(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceIndexed(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceIndexedOrNull(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -970,6 +988,10 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 | `runningReduceIndexed(Iterable, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `scan(Iterable, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `scanIndexed(Iterable, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `shuffle(List, Random)` | kotlin.random.Random-driven in-place shuffle is nondeterministic — no sound bounded model; loud-if-reached |
+| `shuffled(Iterable)` | Random-driven shuffled() is nondeterministic — no sound bounded model; loud-if-reached |
+| `shuffled(Iterable, Random)` | Random-driven shuffled(Random) is nondeterministic — no sound bounded model; loud-if-reached |
+| `shuffled(Iterable, Random)` | Random-driven shuffled(java.util.Random) (the JDK-Random overload) is nondeterministic — no sound bounded model; loud-if-reached |
 | `single(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `singleOrNull(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sortBy(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -980,59 +1002,15 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 | `sumByDouble(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `takeLastWhile(List, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `takeWhile(Iterable, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `terminateCollectionToArray(int, Object[])` | internal kotlin-stdlib toArray terminator helper (terminateCollectionToArray); JVM array-bridge plumbing not reachable from idiomatic user code; loud-if-reached |
+| `throwCountOverflow()` | internal kotlin-stdlib count-overflow throw helper — unconditionally throws ArithmeticException; an internal guard not reachable from idiomatic user code; loud-if-reached |
+| `throwIndexOverflow()` | internal kotlin-stdlib index-overflow throw helper — unconditionally throws ArithmeticException; an internal guard not reachable from idiomatic user code; loud-if-reached |
+| `toSortedSet(Iterable)` | toSortedSet returns a java.util.TreeSet — bmc4j has no bounded TreeSet model (only natural-ordering TreeMap); a HashSet substitute would silently drop the sorted-navigation observable; loud UNKNOWN under JBMC until a TreeSet model lands |
+| `toSortedSet(Iterable, Comparator)` | toSortedSet(Comparator) returns a comparator-ordered java.util.TreeSet — bmc4j has no bounded TreeSet model and the tree models are natural-ordering only; loud-if-reached |
+| `windowed(Iterable, int, int, boolean, Function1)` | windowed(_,_,_,_,transform) is INLINE — the body lands in the caller; the facade JVM method is never called from a Kotlin call site. The no-transform windowed(...) IS modeled |
 | `zip(Iterable, Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zip(Iterable, Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `zipWithNext(Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 45 members, all loud): exotic CollectionsKt facade remainder — the bulk of kotlin-stdlib's Iterable/Collection extension functions (windowing/grouping/aggregation/set-ops/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `addAll(Collection, Object[])`
-- `addAll(Collection, Sequence)`
-- `asCollection(Object[], boolean)`
-- `binarySearch(List, Comparable, int, int)`
-- `binarySearch(List, Object, Comparator, int, int)`
-- `binarySearch(List, int, int, Function1)`
-- `chunked(Iterable, int, Function1)`
-- `collectionSizeOrNull(Iterable)`
-- `collectionToArrayCommonImpl(Collection)`
-- `collectionToArrayCommonImpl(Collection, Object[])`
-- `convertToListIfNotCollection(Iterable)`
-- `copyToArrayOfAny(Object[], boolean)`
-- `elementAtOrElse(Iterable, int, Function1)`
-- `filterIsInstance(Iterable, Class)`
-- `filterIsInstanceTo(Iterable, Collection, Class)`
-- `iterator(Enumeration)`
-- `joinTo(Iterable, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(Iterable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `minus(Iterable, Sequence)`
-- `optimizeReadOnlyList(List)`
-- `plus(Collection, Sequence)`
-- `plus(Iterable, Sequence)`
-- `random(Collection, Random)`
-- `randomOrNull(Collection, Random)`
-- `removeAll(Collection, Iterable)`
-- `removeAll(Collection, Object[])`
-- `removeAll(Collection, Sequence)`
-- `removeAll(Iterable, Function1)`
-- `removeAll(List, Function1)`
-- `retainAll(Collection, Iterable)`
-- `retainAll(Collection, Object[])`
-- `retainAll(Collection, Sequence)`
-- `retainAll(Iterable, Function1)`
-- `retainAll(List, Function1)`
-- `shuffle(List, Random)`
-- `shuffled(Iterable)`
-- `shuffled(Iterable, Random)`
-- `shuffled(Iterable, Random)`
-- `terminateCollectionToArray(int, Object[])`
-- `throwCountOverflow()`
-- `throwIndexOverflow()`
-- `toSortedSet(Iterable)`
-- `toSortedSet(Iterable, Comparator)`
-- `windowed(Iterable, int, int, boolean, Function1)`
-- `withIndex(Iterator)`
-
-</details>
 
 
 ## `kotlin.collections.IndexedValue`
@@ -1044,14 +1022,15 @@ Real surface: 5 members — modeled 5, unmodelable 0, not-needed 0, tail 0.
 
 ## `kotlin.collections.MapsKt`
 
-Real surface: 75 members — modeled 22, unmodelable 29, not-needed 0, tail 24.
+Real surface: 75 members — modeled 39, unmodelable 36, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `build(Map)`, `createMapBuilder()`, `createMapBuilder(int)`, `emptyMap()`, `getValue(Map, Object)`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `mutableMapOf(Pair[])`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Map)`, `toMap(Pair[])`, `toMutableMap(Map)`, `toSortedMap(Map)`
+**Modeled** (`@BmcModelConforms`): `any(Map)`, `asSequence(Map)`, `build(Map)`, `createMapBuilder()`, `createMapBuilder(int)`, `emptyMap()`, `getValue(Map, Object)`, `hashMapOf(Pair[])`, `linkedMapOf(Pair[])`, `mapCapacity(int)`, `mapOf(Pair)`, `mapOf(Pair[])`, `minus(Map, Iterable)`, `minus(Map, Object)`, `minus(Map, Object[])`, `minus(Map, Sequence)`, `mutableMapOf(Pair[])`, `none(Map)`, `plus(Map, Iterable)`, `plus(Map, Map)`, `plus(Map, Pair)`, `plus(Map, Pair[])`, `plus(Map, Sequence)`, `putAll(Map, Iterable)`, `putAll(Map, Pair[])`, `putAll(Map, Sequence)`, `sortedMapOf(Pair[])`, `toList(Map)`, `toMap(Iterable)`, `toMap(Iterable, Map)`, `toMap(Map)`, `toMap(Map, Map)`, `toMap(Pair[])`, `toMap(Pair[], Map)`, `toMap(Sequence)`, `toMap(Sequence, Map)`, `toMutableMap(Map)`, `toSingletonMap(Map)`, `toSortedMap(Map)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `all(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `any(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `copy(Entry)` | copy builds a standalone java.util.AbstractMap.SimpleEntry — bmc4j has no modeled standalone Map.Entry type; loud-if-reached |
 | `count(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filter(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterKeys(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1065,9 +1044,11 @@ Real surface: 75 members — modeled 22, unmodelable 29, not-needed 0, tail 24.
 | `flatMapTo(Map, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `getOrElseNullable(Map, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getOrImplicitDefaultNullable(Map, Object)` | getOrImplicitDefaultNullable is the internal accessor behind a MapWithDefault's default-on-miss lookup; it dispatches on the (unmodeled) MapWithDefault wrapper interface, so no sound bounded body exists; loud-if-reached |
 | `getOrPut(ConcurrentMap, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `getOrPut(Map, Object, Function0)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `map(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapEntryOf(Object, Object)` | mapEntryOf / copy build a java.util.AbstractMap.SimpleEntry — bmc4j has no modeled standalone Map.Entry type (entries exist only inside the bounded map models), so the returned entry would route to an unmodeled JVM type; loud-if-reached |
 | `mapKeys(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `mapKeysTo(Map, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `mapNotNull(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1078,53 +1059,24 @@ Real surface: 75 members — modeled 22, unmodelable 29, not-needed 0, tail 24.
 | `none(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEach(Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `onEachIndexed(Map, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `optimizeReadOnlyMap(Map)` | internal kotlin-stdlib read-only-map size-optimizer (singleton/empty specialization) on the map-build path; not reachable from idiomatic user code and its real body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached |
+| `sortedMapOf(Comparator, Pair[])` | comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only (no comparator constructor; comparator() is null), so a custom-comparator sort cannot be modeled soundly; sibling of toSortedMap(Map,Comparator). Loud UNKNOWN under JBMC |
 | `toSortedMap(Map, Comparator)` | comparator-ordered TreeMap — bmc4j's TreeMap model is natural-ordering only (no comparator constructor; comparator() is null), so a custom-comparator sort cannot be modeled soundly; loud UNKNOWN under JBMC until the TreeMap model grows a comparator backing |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): exotic MapsKt facade remainder — kotlin-stdlib's Map extension functions (getOrPut/mapKeys/filterValues/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `any(Map)`
-- `asSequence(Map)`
-- `copy(Entry)`
-- `getOrImplicitDefaultNullable(Map, Object)`
-- `hashMapOf(Pair[])`
-- `linkedMapOf(Pair[])`
-- `mapEntryOf(Object, Object)`
-- `minus(Map, Sequence)`
-- `none(Map)`
-- `optimizeReadOnlyMap(Map)`
-- `plus(Map, Sequence)`
-- `putAll(Map, Iterable)`
-- `putAll(Map, Pair[])`
-- `putAll(Map, Sequence)`
-- `sortedMapOf(Comparator, Pair[])`
-- `sortedMapOf(Pair[])`
-- `toMap(Iterable, Map)`
-- `toMap(Map, Map)`
-- `toMap(Pair[], Map)`
-- `toMap(Sequence)`
-- `toMap(Sequence, Map)`
-- `toSingletonMap(Map)`
-- `withDefault(Map, Function1)`
-- `withDefaultMutable(Map, Function1)`
-
-</details>
+| `withDefault(Map, Function1)` | withDefault / withDefaultMutable wrap the map in a kotlin-stdlib MapWithDefault delegating wrapper whose default-on-miss behaviour is an internal stdlib type bmc4j does not model; the wrapper would route through stdlib internals JBMC stubs; loud-if-reached |
+| `withDefaultMutable(Map, Function1)` | withDefaultMutable wraps the map in a kotlin-stdlib MutableMapWithDefault delegating wrapper (internal stdlib type bmc4j does not model); loud-if-reached |
 
 
 ## `kotlin.collections.SetsKt`
 
-Real surface: 22 members — modeled 17, unmodelable 0, not-needed 0, tail 5.
+Real surface: 22 members — modeled 19, unmodelable 3, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `build(Set)`, `createSetBuilder()`, `createSetBuilder(int)`, `emptySet()`, `hashSetOf(Object[])`, `linkedSetOf(Object[])`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `setOf(Object)`, `setOf(Object[])`, `setOfNotNull(Object)`, `setOfNotNull(Object[])`
+**Modeled** (`@BmcModelConforms`): `build(Set)`, `createSetBuilder()`, `createSetBuilder(int)`, `emptySet()`, `hashSetOf(Object[])`, `linkedSetOf(Object[])`, `minus(Set, Iterable)`, `minus(Set, Object)`, `minus(Set, Object[])`, `minus(Set, Sequence)`, `mutableSetOf(Object[])`, `plus(Set, Iterable)`, `plus(Set, Object)`, `plus(Set, Object[])`, `plus(Set, Sequence)`, `setOf(Object)`, `setOf(Object[])`, `setOfNotNull(Object)`, `setOfNotNull(Object[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic SetsKt facade remainder — kotlin-stdlib's set-builder / set-operation extensions the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `minus(Set, Sequence)`
-- `optimizeReadOnlySet(Set)`
-- `plus(Set, Sequence)`
-- `sortedSetOf(Comparator, Object[])`
-- `sortedSetOf(Object[])`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `optimizeReadOnlySet(Set)` | internal kotlin-stdlib read-only-set size-optimizer (singleton/empty specialization) on the set-build path; not reachable from idiomatic user code and its real body routes through stdlib singleton-collection internals that JBMC stubs; loud-if-reached |
+| `sortedSetOf(Comparator, Object[])` | returns a comparator-ordered java.util.TreeSet — bmc4j has no bounded TreeSet model, and the tree models are natural-ordering only (no comparator backing); loud UNKNOWN under JBMC until a comparator-ordered TreeSet model lands |
+| `sortedSetOf(Object[])` | returns a java.util.TreeSet — bmc4j has no bounded TreeSet model (only natural-ordering TreeMap); a HashSet substitute would silently drop the sorted-navigation observable; loud UNKNOWN under JBMC until a TreeSet model lands |
 
 
 ## `kotlin.comparisons.ComparisonsKt`
