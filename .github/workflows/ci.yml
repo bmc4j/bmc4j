@@ -23,6 +23,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Merge queue: GitHub runs CI against each queued PR rebased on the latest main
+  # BEFORE it lands, so a red leg (or a cross-PR break) can never reach main. The
+  # merge_group leg runs the SAME full matrix as a push to main (below).
+  merge_group:
   workflow_dispatch:
     inputs:
       gate:
@@ -179,7 +183,7 @@ jobs:
 
           # Per-event defaults; inputs.* are empty on push/PR events.
           case "$EVENT" in
-            push)
+            push|merge_group)
               gate="true"; sel_spec="all"
               # 17 is conformance-only and already fast (~1.5 min); the full 21/25 legs are the
               # slow ones, so fan those out across SHARDS while 17 stays single.
