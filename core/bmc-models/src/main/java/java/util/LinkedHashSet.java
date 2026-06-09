@@ -1,9 +1,7 @@
 package java.util;
 
-import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
-
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcUnmodelable;
+import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.LinkedHashSet} — same array-backed behaviour as {@link HashSet}.
@@ -11,13 +9,10 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * modeled soundly here: {@code getFirst}/{@code getLast} read the ends of the insertion order,
  * {@code addFirst}/{@code addLast} (re)position an element at an end exactly like the JDK (a present
  * element is moved), and {@code removeFirst}/{@code removeLast} read-and-remove the ends (throwing
- * {@link NoSuchElementException} when empty). The presizing {@code newLinkedHashSet} factory is a
- * fresh empty set (the capacity hint is observably irrelevant); the {@code reversed()} live
- * SequencedSet view is a loud {@link BmcUnmodelable} (a write-through reordering view this
- * insertion-ordered array can't represent). The spliterator parallel-decomposition view,
- * {@code toArray(IntFunction)}, and the {@code newHashSet} factory are inherited from the
- * {@link HashSet} model.
+ * {@link NoSuchElementException} when empty). The {@code reversed()} live view and the spliterator
+ * parallel-decomposition view stay loud (tail).
  */
+@BmcModelTail(reason = "the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED")
 public class LinkedHashSet<E> extends HashSet<E> {
 
     public LinkedHashSet() {
@@ -30,6 +25,19 @@ public class LinkedHashSet<E> extends HashSet<E> {
 
     public LinkedHashSet(Collection<? extends E> c) {
         super(c);
+    }
+
+    /**
+     * Presizing factory ({@code LinkedHashSet.newLinkedHashSet(numElements)}, Java 19+) — capacity is a
+     * hint only, so the model returns a fresh empty set. Negative throws IllegalArgumentException, like
+     * the JDK. (The inherited {@code newHashSet} is covered by the HashSet model.)
+     */
+    @BmcModelConforms("differential (SetConformanceTest): newLinkedHashSet(int) presizing factory -> empty set")
+    public static <T> LinkedHashSet<T> newLinkedHashSet(int numElements) {
+        if (numElements < 0) {
+            throw new IllegalArgumentException("Negative number of elements: " + numElements);
+        }
+        return new LinkedHashSet<>();
     }
 
     // --- SequencedSet: ends of the insertion order -------------------------------------------------
@@ -76,47 +84,18 @@ public class LinkedHashSet<E> extends HashSet<E> {
         return removeAtBack();
     }
 
-    // --- presizing factory (Java 19+) ----------------------------------------
-    // newLinkedHashSet(numElements) returns an EMPTY set sized to hold numElements without resizing.
-    // The capacity hint is observably irrelevant to this fixed-capacity bounded model, so it is exactly
-    // a fresh empty set.
-
-    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.linkedhashset)")
-    public static <T> LinkedHashSet<T> newLinkedHashSet(int numElements) {
-        if (numElements < 0) {
-            throw new IllegalArgumentException("Negative number of elements: " + numElements);
+    /**
+     * A bounded snapshot of the elements in reverse insertion order (SequencedSet, Java 21+). The JDK
+     * returns a live view; the model returns an independent {@code LinkedHashSet} populated by reading
+     * the backing in reverse (index {@code size-1} → 0). Sound for read-only / build-then-read proofs;
+     * built by index over the concrete backing, no iterator() virtual dispatch.
+     */
+    @BmcModelConforms("differential (SetConformanceTest): reversed() bounded snapshot in reverse insertion order")
+    public Set<E> reversed() {
+        LinkedHashSet<E> out = new LinkedHashSet<>();
+        for (int i = size() - 1; i >= 0; i--) {
+            out.add(elementAt(i));
         }
-        return new LinkedHashSet<>();
-    }
-
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
-
-    @BmcUnmodelable(reason = "reversed() is a live SequencedSet view whose write-through reorders the insertion order — this insertion-ordered array model has no reversed structure to honor that; loud under JBMC")
-    public java.util.SequencedSet<E> reversed() {
-        throw fail("bmc4j: unmodelled member java.util.LinkedHashSet.reversed() — live SequencedSet reordering view over the insertion-ordered array; out of scope");
-    }
-
-    // The per-member auditing gate accounts a subclass's own real surface against its OWN method-level
-    // stubs, so the loud stubs the HashSet model declares for these members are re-declared here for the
-    // LinkedHashSet surface. Same decisions + reasons as the HashSet model.
-
-    @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
-    public <T> T[] toArray(T[] a) {
-        throw fail("bmc4j: unmodelled member java.util.LinkedHashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
-    }
-
-    @BmcUnmodelable(reason = "array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead")
-    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator) {
-        throw fail("bmc4j: unmodelled member java.util.LinkedHashSet.toArray(java.util.function.IntFunction) — array snapshot via a reflective generator — iterate the model instead");
-    }
-
-    @BmcUnmodelable(reason = "parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead")
-    public java.util.Spliterator<E> spliterator() {
-        throw fail("bmc4j: unmodelled member java.util.LinkedHashSet.spliterator() — parallel-decomposition Spliterator view — iterate the model instead");
-    }
-
-    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")
-    public Object clone() {
-        throw fail("bmc4j: unmodelled member java.util.LinkedHashSet.clone() — shallow copy of a bounded model — construct a fresh set from the elements instead");
+        return out;
     }
 }

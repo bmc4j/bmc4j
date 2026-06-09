@@ -63,6 +63,12 @@ public interface List<E> extends Collection<E> {
     /** A new array holding every element, in index order. */
     Object[] toArray();
 
+    /** A bounded snapshot of the elements in {@code [fromIndex, toIndex)} (see the ArrayList model). */
+    List<E> subList(int fromIndex, int toIndex);
+
+    /** A bounded snapshot of the elements in reverse order (SequencedCollection, Java 21+). */
+    List<E> reversed();
+
     // Immutable factories (java.util.List.of) — javac emits the fixed-arity overload for small
     // counts and the varargs one beyond. We return a (mutable) ArrayList; proofs only read it.
 

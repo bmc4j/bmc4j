@@ -2,9 +2,12 @@ package java.time;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalUnit;
+import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
@@ -39,7 +42,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * UNKNOWN, never a silent nondet: implementing the interface buys only {@code instanceof}, never turns
  * unmodeled temporal plumbing into a fake answer.
  */
-@BmcModelTail(reason = "the epoch-millis long carries no nanos, zone/offset, or field-enum, so the tail is genuinely not-modelable: sub-milli precision (nano accessors), zone/offset projection (atZone/atOffset), the TemporalField/Unit/Adjuster/Query plumbing (with/get/getLong/until/query/adjustInto/range/isSupported/plus/minus(TemporalAmount or long,TemporalUnit)), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced")
+@BmcModelTail(reason = "the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced")
 public final class Instant implements Temporal {
 
     final long millis;
@@ -142,43 +145,157 @@ public final class Instant implements Temporal {
         return new Instant(this.millis - seconds * 1000L);
     }
 
-    // --- Temporal / TemporalAccessor abstract surface: implemented ONLY to make the Instant an
-    //     instanceof Temporal (so the proof-site checkcast passes); each is LOUD, never modeled. ---
+    // --- generic TemporalField / TemporalUnit accessors: dispatch on the (now-modeled) ChronoField /
+    //     ChronoUnit over the epoch-millis backing. The sub-millisecond field/unit surface (NANOS/MICROS
+    //     resolution) is declined LOUD — the millis backing genuinely cannot carry it. The Temporal
+    //     interface makes the Instant an instanceof it (proof-site checkcast). ---
 
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (which fields an Instant supports) is out of scope for the epoch-millis model")
+    /** Milli-of-second, FLOORED so it is non-negative even for negative instants (matches getEpochSecond). */
+    private int milliOfSecond() {
+        return (int) (millis - getEpochSecond() * 1000L);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for the epoch-millis model");
+        if (!(field instanceof ChronoField)) {
+            return false;
+        }
+        switch ((ChronoField) field) {
+            case INSTANT_SECONDS:
+            case MILLI_OF_SECOND:
+            case MICRO_OF_SECOND:
+            case NANO_OF_SECOND:
+                return true;
+            default:
+                return false;
+        }
     }
 
-    @BmcUnmodelable(reason = "the TemporalUnit query plumbing (which units an Instant supports) is out of scope for the epoch-millis model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public boolean isSupported(TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for the epoch-millis model");
+        if (unit instanceof ChronoUnit) {
+            ChronoUnit cu = (ChronoUnit) unit;
+            return cu.isTimeBased() || cu == ChronoUnit.DAYS;
+        }
+        return unit != null && unit.isSupportedBy(this);
     }
 
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for the epoch-millis model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for the epoch-millis model");
+        if (field instanceof ChronoField) {
+            switch ((ChronoField) field) {
+                case INSTANT_SECONDS:
+                    return getEpochSecond();
+                case MILLI_OF_SECOND:
+                    return milliOfSecond();
+                case MICRO_OF_SECOND:
+                    // the millis backing carries no sub-milli, so micro-of-second is exactly milli*1000.
+                    return milliOfSecond() * 1_000L;
+                case NANO_OF_SECOND:
+                    return milliOfSecond() * 1_000_000L;
+                default:
+                    break;
+            }
+        }
+        throw fail("bmc4j: unmodelled member java.time.Instant.getLong(java.time.temporal.TemporalField) — only INSTANT_SECONDS / MILLI|MICRO|NANO_OF_SECOND are modeled on the epoch-millis backing");
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalField setter (with) is out of scope for the epoch-millis model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public int get(TemporalField field) {
+        // INSTANT_SECONDS exceeds int — the JDK throws there; getLong serves those callers.
+        return range(field).checkValidIntValue(getLong(field), field);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public ValueRange range(TemporalField field) {
+        if (field instanceof ChronoField && isSupported(field)) {
+            return ((ChronoField) field).range();
+        }
+        throw fail("bmc4j: unmodelled member java.time.Instant.range(java.time.temporal.TemporalField) — only INSTANT_SECONDS / MILLI|MICRO|NANO_OF_SECOND are modeled on the epoch-millis backing");
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public Temporal with(TemporalField field, long newValue) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope for the epoch-millis model");
+        if (field instanceof ChronoField) {
+            ChronoField cf = (ChronoField) field;
+            switch (cf) {
+                case INSTANT_SECONDS:
+                    cf.checkValidValue(newValue);
+                    return new Instant(Math.addExact(Math.multiplyExact(newValue, 1000L), milliOfSecond()));
+                case MILLI_OF_SECOND:
+                    cf.checkValidValue(newValue);
+                    return new Instant(getEpochSecond() * 1000L + newValue);
+                default:
+                    break;
+            }
+        }
+        throw fail("bmc4j: unmodelled member java.time.Instant.with(java.time.temporal.TemporalField,long) — only INSTANT_SECONDS / MILLI_OF_SECOND are settable on the epoch-millis backing (sub-milli MICRO/NANO not representable)");
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalUnit add (plus) is out of scope for the epoch-millis model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public Temporal plus(long amountToAdd, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope for the epoch-millis model");
+        if (unit instanceof ChronoUnit) {
+            switch ((ChronoUnit) unit) {
+                case MILLIS:
+                    return plusMillis(amountToAdd);
+                case SECONDS:
+                    return plusSeconds(amountToAdd);
+                case MINUTES:
+                    return new Instant(millis + Math.multiplyExact(amountToAdd, 60_000L));
+                case HOURS:
+                    return new Instant(millis + Math.multiplyExact(amountToAdd, 3_600_000L));
+                case HALF_DAYS:
+                    return new Instant(millis + Math.multiplyExact(amountToAdd, 43_200_000L));
+                case DAYS:
+                    return new Instant(millis + Math.multiplyExact(amountToAdd, 86_400_000L));
+                default:
+                    break;
+            }
+        }
+        throw fail("bmc4j: unmodelled member java.time.Instant.plus(long,java.time.temporal.TemporalUnit) — sub-millisecond units (NANOS/MICROS) and date units past DAYS are not modeled on the epoch-millis backing");
     }
 
-    @BmcUnmodelable(reason = "the generic TemporalUnit difference (until) is out of scope for the epoch-millis model")
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public Temporal minus(long amountToSubtract, TemporalUnit unit) {
+        return amountToSubtract == Long.MIN_VALUE
+            ? ((Instant) plus(Long.MAX_VALUE, unit)).plus(1, unit)
+            : plus(-amountToSubtract, unit);
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.Instant.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for the epoch-millis model");
+        if (!(endExclusive instanceof Instant)) {
+            throw fail("bmc4j: unmodelled member java.time.Instant.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — only Instant endpoints are modeled");
+        }
+        long deltaMillis = ((Instant) endExclusive).millis - this.millis;
+        if (unit instanceof ChronoUnit) {
+            switch ((ChronoUnit) unit) {
+                case MILLIS:
+                    return deltaMillis;
+                case SECONDS:
+                    return deltaMillis / 1000L;
+                case MINUTES:
+                    return deltaMillis / 60_000L;
+                case HOURS:
+                    return deltaMillis / 3_600_000L;
+                case HALF_DAYS:
+                    return deltaMillis / 43_200_000L;
+                case DAYS:
+                    return deltaMillis / 86_400_000L;
+                default:
+                    break;
+            }
+        }
+        throw fail("bmc4j: unmodelled member java.time.Instant.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — sub-millisecond units (NANOS/MICROS) are not modeled on the epoch-millis backing");
     }
 
     @Override

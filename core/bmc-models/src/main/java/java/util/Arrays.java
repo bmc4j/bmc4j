@@ -2,16 +2,21 @@ package java.util;
 
 import java.util.function.IntUnaryOperator;
 import java.util.function.IntToLongFunction;
+import java.util.function.IntToDoubleFunction;
 import java.util.function.IntFunction;
 import java.util.function.IntBinaryOperator;
 import java.util.function.LongBinaryOperator;
+import java.util.function.DoubleBinaryOperator;
 import java.util.function.BinaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 import org.bmc4j.models.audit.FpTotalOrder;
 
 /**
@@ -48,17 +53,25 @@ import org.bmc4j.models.audit.FpTotalOrder;
  * {@code hashCode(double[])} stay LOUD because they need {@code Float.floatToIntBits}, which is the
  * unsound intrinsic.
  *
- * <p>The remaining formatting/parsing/spliterator/deep/exotic surface — plus the all-{@code double}
- * copy/fill/store overloads per the no-double convention and the float/double {@code hashCode} — stays
- * in the {@code BmcModelTail}: each gets a build-synthesized loud body, so reaching any of them fails
- * NAMED AND LOUD under JBMC rather than silently havocking to a nondet result.
+ * <p>The remaining formatting/spliterator/deep/exotic surface is now per-member LOUD
+ * ({@code @BmcUnmodelable}, honest {@code UNKNOWN} under JBMC if reached — never a silent havoc):
+ * {@code deepToString}/{@code deepEquals}/{@code deepHashCode} (recursive nested-array reflection),
+ * {@code spliterator} (the {@code Spliterator} interface / parallel split), {@code compareUnsigned}
+ * (compare-family — the jbmc exit-6 engine crash), {@code hashCode(float[])}/{@code hashCode(double[])}
+ * and {@code toString(float[])}/{@code toString(double[])} (need the unsound {@code Float.floatToIntBits}
+ * / {@code Float.toString} FP-to-string), the {@code Comparator}-based {@code sort}/{@code binarySearch}/
+ * {@code parallelSort} and the {@code Object[]}/{@code Comparable[]}/{@code Comparator}
+ * {@code equals}/{@code compare} (comparator-devirt + the engine crash), and
+ * {@code copyOf}/{@code copyOfRange(…, Class)} (reflective {@code Array.newInstance}). The natural-order
+ * {@code mismatch(Object[], Object[])} (full + ranged) IS modeled (element {@code .equals}, no compare
+ * intrinsic). The class-level {@code @BmcModelTail} is gone: every real member is an explicit per-member
+ * decision.
  *
  * <p>Loops are bounded by the (concrete) array length, so JBMC unwinds them deterministically. The
  * {@code sort} models are plain insertion sort over the bound: quadratic but small for the array
  * sizes BMC proofs use. {@code binarySearch} models the JDK contract on an array the caller has
  * sorted (sorted-assume); on an unsorted array the result is unspecified exactly as in the JDK.
  */
-@BmcModelTail(reason = "the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper")
 public class Arrays {
 
     private Arrays() {
@@ -157,6 +170,19 @@ public class Arrays {
     @BmcModelConforms("differential: copyOf(float[], int) (pure copy, no IEEE compare)")
     public static float[] copyOf(float[] original, int newLength) {
         float[] out = new float[newLength];
+        int n = Math.min(original.length, newLength);
+        for (int i = 0; i < n; i++) {
+            out[i] = original[i];
+        }
+        return out;
+    }
+
+    // double copyOf is a pure element copy + zero-pad like float — moving a double value is a plain
+    // store, no IEEE comparison (the NaN/-0.0 quirks only bite equals/hashCode/sort/binarySearch, which
+    // route through FpTotalOrder), so it is sound exactly like the float overload.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): copyOf(double[], int) (pure copy, no IEEE compare)")
+    public static double[] copyOf(double[] original, int newLength) {
+        double[] out = new double[newLength];
         int n = Math.min(original.length, newLength);
         for (int i = 0; i < n; i++) {
             out[i] = original[i];
@@ -317,6 +343,24 @@ public class Arrays {
         return out;
     }
 
+    // double copyOfRange is a pure copy + zero-pad (no IEEE compare) — sound like the float overload.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): copyOfRange(double[], int, int) (pure copy, no IEEE compare)")
+    public static double[] copyOfRange(double[] original, int from, int to) {
+        int len = to - from;
+        if (len < 0) {
+            throw new IllegalArgumentException(from + " > " + to);
+        }
+        double[] out = new double[len];
+        int n = Math.min(len, original.length - from);
+        if (from < 0 || n < 0) {
+            throw new ArrayIndexOutOfBoundsException(from);
+        }
+        for (int i = 0; i < n; i++) {
+            out[i] = original[from + i];
+        }
+        return out;
+    }
+
     // --- fill -----------------------------------------------------------------------------------
 
     @BmcModelConforms("differential + @BmcProof: fill(int[], int)")
@@ -376,9 +420,16 @@ public class Arrays {
         }
     }
 
-    // fill stores its value (no IEEE compare) so the float overload is sound. double stays loud.
+    // fill stores its value (no IEEE compare) so the float overload is sound. double stores identically.
     @BmcModelConforms("differential: fill(float[], float) (pure store, no IEEE compare)")
     public static void fill(float[] a, float val) {
+        for (int i = 0; i < a.length; i++) {
+            a[i] = val;
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): fill(double[], double) (pure store, no IEEE compare)")
+    public static void fill(double[] a, double val) {
         for (int i = 0; i < a.length; i++) {
             a[i] = val;
         }
@@ -434,9 +485,17 @@ public class Arrays {
         }
     }
 
-    // fill stores its value (no IEEE compare) so the float range-fill is sound. double stays loud.
+    // fill stores its value (no IEEE compare) so the float range-fill is sound. double stores identically.
     @BmcModelConforms("differential: fill(float[], int, int, float) (pure store, no IEEE compare)")
     public static void fill(float[] a, int fromIndex, int toIndex, float val) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        for (int i = fromIndex; i < toIndex; i++) {
+            a[i] = val;
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): fill(double[], int, int, double) (pure store, no IEEE compare)")
+    public static void fill(double[] a, int fromIndex, int toIndex, double val) {
         rangeCheck(a.length, fromIndex, toIndex);
         for (int i = fromIndex; i < toIndex; i++) {
             a[i] = val;
@@ -1084,6 +1143,15 @@ public class Arrays {
         return -(low + 1);
     }
 
+    // Object[] natural-order full-array search: elements are Comparable and the array is sorted in
+    // their natural order (the JDK's sorted-assume contract). midVal.compareTo(key) is a plain virtual
+    // call on the concrete element (boxed primitives / String), NOT a Comparator devirt — sound. The
+    // ranged twin already exists below; this is the full-array form delegating to it.
+    @BmcModelConforms("differential (ArraysObjectBinarySearchConformanceTest): binarySearch(Object[], Object) natural-order sorted-assume")
+    public static int binarySearch(Object[] a, Object key) {
+        return binarySearch(a, 0, a.length, key);
+    }
+
     // --- binarySearch (range, sorted-assume) ----------------------------------------------------
     // Same sorted-assume search bounded to [fromIndex, toIndex): low starts at fromIndex, high at
     // toIndex-1, and an absent key returns -(insertion point)-1 with the insertion point in-range.
@@ -1313,6 +1381,40 @@ public class Arrays {
             }
         }
         return a.length == b.length ? -1 : len;
+    }
+
+    // Object[] mismatch uses element .equals (Objects.equals — null-safe), NOT a primitive compare
+    // intrinsic, so it sidesteps the jbmc exit-6 compare-family crash that walls the primitive
+    // compare/compareUnsigned and the Comparator mismatch overloads. Natural-order, full + ranged.
+
+    @BmcModelConforms("differential (ArraysObjectMismatchConformanceTest): mismatch(Object[], Object[]) via element .equals")
+    public static int mismatch(Object[] a, Object[] b) {
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            Object x = a[i];
+            Object y = b[i];
+            if (!(x == null ? y == null : x.equals(y))) {
+                return i;
+            }
+        }
+        return a.length == b.length ? -1 : len;
+    }
+
+    @BmcModelConforms("differential (ArraysObjectMismatchConformanceTest): mismatch(Object[], int, int, Object[], int, int) via element .equals")
+    public static int mismatch(Object[] a, int aFromIndex, int aToIndex, Object[] b, int bFromIndex, int bToIndex) {
+        rangeCheck(a.length, aFromIndex, aToIndex);
+        rangeCheck(b.length, bFromIndex, bToIndex);
+        int aLen = aToIndex - aFromIndex;
+        int bLen = bToIndex - bFromIndex;
+        int len = Math.min(aLen, bLen);
+        for (int i = 0; i < len; i++) {
+            Object x = a[aFromIndex + i];
+            Object y = b[bFromIndex + i];
+            if (!(x == null ? y == null : x.equals(y))) {
+                return i;
+            }
+        }
+        return aLen == bLen ? -1 : len;
     }
 
     // float/double mismatch detect a difference via the IEEE TOTAL ORDER (FpTotalOrder.compare != 0),
@@ -1909,6 +2011,14 @@ public class Arrays {
         return Stream.of(array);
     }
 
+    // double stream: the elements are streamed verbatim (no IEEE comparison) into the bounded
+    // DoubleStream model — sound exactly like the int/long overloads; the FP quirks only bite the
+    // ordering ops, which DoubleStream itself doesn't perform here.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): stream(double[]) -> DoubleStream")
+    public static DoubleStream stream(double[] array) {
+        return DoubleStream.of(array);
+    }
+
     // --- stream (range) -------------------------------------------------------------------------
     // Streams array[startInclusive, endExclusive). The JDK validates via Objects.checkFromToIndex,
     // which throws ArrayIndexOutOfBoundsException (NOT IllegalArgumentException) on start>end as well
@@ -1948,6 +2058,17 @@ public class Arrays {
         return Stream.of(sub);
     }
 
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): stream(double[], int, int) -> DoubleStream (ranged)")
+    public static DoubleStream stream(double[] array, int startInclusive, int endExclusive) {
+        streamRangeCheck(array.length, startInclusive, endExclusive);
+        int len = endExclusive - startInclusive;
+        double[] sub = new double[len];
+        for (int i = 0; i < len; i++) {
+            sub[i] = array[startInclusive + i];
+        }
+        return DoubleStream.of(sub);
+    }
+
     // --- setAll ---------------------------------------------------------------------------------
 
     @BmcModelConforms("@BmcProof (proofs.arrays): setAll(int[], IntUnaryOperator)")
@@ -1968,6 +2089,15 @@ public class Arrays {
     public static <T> void setAll(T[] array, IntFunction<? extends T> generator) {
         for (int i = 0; i < array.length; i++) {
             array[i] = generator.apply(i);
+        }
+    }
+
+    // The generator (IntToDoubleFunction) is a plain SAM call producing each element; the model just
+    // stores the result (no IEEE comparison), so it is sound exactly like setAll(int[], …).
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): setAll(double[], IntToDoubleFunction)")
+    public static void setAll(double[] array, IntToDoubleFunction generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsDouble(i);
         }
     }
 
@@ -1994,6 +2124,13 @@ public class Arrays {
     public static <T> void parallelSetAll(T[] array, IntFunction<? extends T> generator) {
         for (int i = 0; i < array.length; i++) {
             array[i] = generator.apply(i);
+        }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelSetAll(double[], IntToDoubleFunction) (= setAll)")
+    public static void parallelSetAll(double[] array, IntToDoubleFunction generator) {
+        for (int i = 0; i < array.length; i++) {
+            array[i] = generator.applyAsDouble(i);
         }
     }
 
@@ -2099,6 +2236,15 @@ public class Arrays {
         }
     }
 
+    // The op (DoubleBinaryOperator) is a SAM call that does any arithmetic; the model only stores its
+    // result into the bounded array (no IEEE comparison), so the cumulative scan is sound like int/long.
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelPrefix(double[], DoubleBinaryOperator) (cumulative fold)")
+    public static void parallelPrefix(double[] array, DoubleBinaryOperator op) {
+        for (int i = 1; i < array.length; i++) {
+            array[i] = op.applyAsDouble(array[i - 1], array[i]);
+        }
+    }
+
     @BmcModelConforms("differential: parallelPrefix(int[], int, int, IntBinaryOperator) (cumulative fold, ranged)")
     public static void parallelPrefix(int[] array, int fromIndex, int toIndex, IntBinaryOperator op) {
         rangeCheck(array.length, fromIndex, toIndex);
@@ -2121,6 +2267,381 @@ public class Arrays {
         for (int i = fromIndex + 1; i < toIndex; i++) {
             array[i] = op.apply(array[i - 1], array[i]);
         }
+    }
+
+    @BmcModelConforms("differential (ArraysDoubleConformanceTest): parallelPrefix(double[], int, int, DoubleBinaryOperator) (cumulative fold, ranged)")
+    public static void parallelPrefix(double[] array, int fromIndex, int toIndex, DoubleBinaryOperator op) {
+        rangeCheck(array.length, fromIndex, toIndex);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            array[i] = op.applyAsDouble(array[i - 1], array[i]);
+        }
+    }
+
+    // --- toString (bounded textual render of a single-dimension primitive/Object array) ----------
+    // JDK format: "null" for a null array, "[]" for empty, otherwise "[e0, e1, …]" with ", "
+    // separators. Built with a StringBuilder over the bounded array length — bmc4j's string layer
+    // desugars the appends, so the loop unwinds to the (concrete) array length. The Object[] overload
+    // renders each element via String.valueOf (so a null element shows as "null"), like the JDK.
+    // deepToString (recursive, nested-array detection) stays in the tail.
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(int[])")
+    public static String toString(int[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(long[])")
+    public static String toString(long[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(short[])")
+    public static String toString(short[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(byte[])")
+    public static String toString(byte[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(char[])")
+    public static String toString(char[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(boolean[])")
+    public static String toString(boolean[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(a[i]);
+        }
+        return b.append("]").toString();
+    }
+
+    @BmcModelConforms("differential (ArraysToStringConformanceTest): toString(Object[]) (String.valueOf per element)")
+    public static String toString(Object[] a) {
+        if (a == null) {
+            return "null";
+        }
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(String.valueOf(a[i]));
+        }
+        return b.append("]").toString();
+    }
+
+    // --- loud walls (honest UNKNOWN under JBMC if reached) --------------------------------------------
+
+    // Comparator-driven sort/binarySearch/parallelSort/equals/mismatch — devirt through the Comparator
+    // interface. Object[]/Comparable[] compare and primitive compareUnsigned hit the jbmc exit-6
+    // compare-family engine crash. deep* need recursive nested-array reflection. spliterator needs the
+    // Spliterator interface / parallel split. hashCode/toString of float[]/double[] need the unsound
+    // Float.floatToIntBits / Float.toString. copyOf/copyOfRange(…, Class) need reflective newInstance.
+
+    @BmcUnmodelable(reason = "comparator-driven sort — devirt through the Comparator interface")
+    public static <T> void sort(T[] a, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], java.util.Comparator)"
+                + " — a comparator-driven sort devirts through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged sort — Comparator devirt")
+    public static <T> void sort(T[] a, int fromIndex, int toIndex, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.sort(java.lang.Object[], int, int, "
+                + "java.util.Comparator) — comparator devirt through the Comparator interface; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven binarySearch — Comparator devirt")
+    public static <T> int binarySearch(T[] a, T key, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.binarySearch(java.lang.Object[], "
+                + "java.lang.Object, java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged binarySearch — Comparator devirt")
+    public static <T> int binarySearch(T[] a, int fromIndex, int toIndex, T key, Comparator<? super T> c) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.binarySearch(java.lang.Object[], int, int, "
+                + "java.lang.Object, java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven parallelSort — Comparator devirt")
+    public static <T> void parallelSort(T[] a, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.parallelSort(java.lang.Object[], "
+                + "java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged parallelSort — Comparator devirt")
+    public static <T> void parallelSort(T[] a, int fromIndex, int toIndex, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.parallelSort(java.lang.Object[], int, int, "
+                + "java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "natural-order parallelSort of Comparable[] — Object compareTo over the array hits the jbmc compare-family engine crash")
+    public static <T extends Comparable<? super T>> void parallelSort(T[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.parallelSort(java.lang.Comparable[]) — the "
+                + "Object-element ordering hits the jbmc compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "natural-order ranged parallelSort of Comparable[] — same compare-family engine crash")
+    public static <T extends Comparable<? super T>> void parallelSort(T[] a, int fromIndex, int toIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.parallelSort(java.lang.Comparable[], int, int)"
+                + " — the Object-element ordering hits the jbmc compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "Object[] compare — the jbmc exit-6 compare-family engine crash over arrays")
+    public static <T extends Comparable<? super T>> int compare(T[] a, T[] b) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compare(java.lang.Comparable[], "
+                + "java.lang.Comparable[]) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "Object[] ranged compare — the jbmc exit-6 compare-family engine crash")
+    public static <T extends Comparable<? super T>> int compare(T[] a, int aFromIndex, int aToIndex, T[] b, int bFromIndex, int bToIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compare(java.lang.Comparable[], int, int, "
+                + "java.lang.Comparable[], int, int) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven compare — Comparator devirt + the compare-family engine crash")
+    public static <T> int compare(T[] a, T[] b, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compare(java.lang.Object[], java.lang.Object[],"
+                + " java.util.Comparator) — comparator devirt + the compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged compare — Comparator devirt + the compare-family engine crash")
+    public static <T> int compare(T[] a, int aFromIndex, int aToIndex, T[] b, int bFromIndex, int bToIndex, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compare(java.lang.Object[], int, int, "
+                + "java.lang.Object[], int, int, java.util.Comparator) — comparator devirt + the compare-family "
+                + "engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned compare — the jbmc exit-6 compare-family engine crash over arrays")
+    public static int compareUnsigned(int[] a, int[] b) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(int[], int[]) — the jbmc exit-6"
+                + " compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned ranged compare — the jbmc exit-6 compare-family engine crash")
+    public static int compareUnsigned(int[] a, int aFromIndex, int aToIndex, int[] b, int bFromIndex, int bToIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(int[], int, int, int[], int, "
+                + "int) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned compare — the jbmc exit-6 compare-family engine crash over arrays")
+    public static int compareUnsigned(long[] a, long[] b) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(long[], long[]) — the jbmc "
+                + "exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned ranged compare — the jbmc exit-6 compare-family engine crash")
+    public static int compareUnsigned(long[] a, int aFromIndex, int aToIndex, long[] b, int bFromIndex, int bToIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(long[], int, int, long[], int, "
+                + "int) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned compare — the jbmc exit-6 compare-family engine crash over arrays")
+    public static int compareUnsigned(byte[] a, byte[] b) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(byte[], byte[]) — the jbmc "
+                + "exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned ranged compare — the jbmc exit-6 compare-family engine crash")
+    public static int compareUnsigned(byte[] a, int aFromIndex, int aToIndex, byte[] b, int bFromIndex, int bToIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(byte[], int, int, byte[], int, "
+                + "int) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned compare — the jbmc exit-6 compare-family engine crash over arrays")
+    public static int compareUnsigned(short[] a, short[] b) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(short[], short[]) — the jbmc "
+                + "exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "unsigned ranged compare — the jbmc exit-6 compare-family engine crash")
+    public static int compareUnsigned(short[] a, int aFromIndex, int aToIndex, short[] b, int bFromIndex, int bToIndex) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.compareUnsigned(short[], int, int, short[], int,"
+                + " int) — the jbmc exit-6 compare-family engine crash; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven equals — Comparator devirt")
+    public static <T> boolean equals(T[] a, T[] a2, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.equals(java.lang.Object[], java.lang.Object[], "
+                + "java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged equals — Comparator devirt")
+    public static <T> boolean equals(T[] a, int aFromIndex, int aToIndex, T[] b, int bFromIndex, int bToIndex, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.equals(java.lang.Object[], int, int, "
+                + "java.lang.Object[], int, int, java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven mismatch — Comparator devirt")
+    public static <T> int mismatch(T[] a, T[] b, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.mismatch(java.lang.Object[], java.lang.Object[],"
+                + " java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "comparator-driven ranged mismatch — Comparator devirt")
+    public static <T> int mismatch(T[] a, int aFromIndex, int aToIndex, T[] b, int bFromIndex, int bToIndex, Comparator<? super T> cmp) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.mismatch(java.lang.Object[], int, int, "
+                + "java.lang.Object[], int, int, java.util.Comparator) — comparator devirt; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "reflective copyOf — Array.newInstance over a runtime Class")
+    public static <T, U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.copyOf(java.lang.Object[], int, java.lang.Class)"
+                + " — reflective Array.newInstance over a runtime Class; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "reflective copyOfRange — Array.newInstance over a runtime Class")
+    public static <T, U> T[] copyOfRange(U[] original, int from, int to, Class<? extends T[]> newType) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.copyOfRange(java.lang.Object[], int, int, "
+                + "java.lang.Class) — reflective Array.newInstance over a runtime Class; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "deepEquals — recursive nested-array reflection")
+    public static boolean deepEquals(Object[] a1, Object[] a2) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.deepEquals(java.lang.Object[], java.lang.Object[])"
+                + " — recursive nested-array reflection; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "deepHashCode — recursive nested-array reflection")
+    public static int deepHashCode(Object[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.deepHashCode(java.lang.Object[]) — recursive "
+                + "nested-array reflection; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "deepToString — recursive nested-array reflection")
+    public static String deepToString(Object[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.deepToString(java.lang.Object[]) — recursive "
+                + "nested-array reflection; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "hashCode(float[]) needs the unsound Float.floatToIntBits intrinsic")
+    public static int hashCode(float[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.hashCode(float[]) — needs the unsound "
+                + "Float.floatToIntBits intrinsic; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "hashCode(double[]) needs the unsound Double.doubleToLongBits intrinsic")
+    public static int hashCode(double[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.hashCode(double[]) — needs the unsound "
+                + "Double.doubleToLongBits intrinsic; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "toString(float[]) needs the unsound Float.toString FP-to-string")
+    public static String toString(float[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.toString(float[]) — needs the unsound "
+                + "Float.toString FP-to-string; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "toString(double[]) needs the unsound Double.toString FP-to-string")
+    public static String toString(double[] a) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.toString(double[]) — needs the unsound "
+                + "Double.toString FP-to-string; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "spliterator — the Spliterator interface / parallel split")
+    public static <T> Spliterator<T> spliterator(T[] array) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(java.lang.Object[]) — the "
+                + "Spliterator interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "ranged spliterator — the Spliterator interface / parallel split")
+    public static <T> Spliterator<T> spliterator(T[] array, int startInclusive, int endExclusive) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(java.lang.Object[], int, int) — the"
+                + " Spliterator interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "spliterator — the Spliterator.OfInt interface / parallel split")
+    public static Spliterator.OfInt spliterator(int[] array) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(int[]) — the Spliterator.OfInt "
+                + "interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "ranged spliterator — the Spliterator.OfInt interface / parallel split")
+    public static Spliterator.OfInt spliterator(int[] array, int startInclusive, int endExclusive) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(int[], int, int) — the "
+                + "Spliterator.OfInt interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "spliterator — the Spliterator.OfLong interface / parallel split")
+    public static Spliterator.OfLong spliterator(long[] array) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(long[]) — the Spliterator.OfLong "
+                + "interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "ranged spliterator — the Spliterator.OfLong interface / parallel split")
+    public static Spliterator.OfLong spliterator(long[] array, int startInclusive, int endExclusive) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(long[], int, int) — the "
+                + "Spliterator.OfLong interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "spliterator — the Spliterator.OfDouble interface / parallel split")
+    public static Spliterator.OfDouble spliterator(double[] array) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(double[]) — the Spliterator.OfDouble"
+                + " interface / parallel split; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "ranged spliterator — the Spliterator.OfDouble interface / parallel split")
+    public static Spliterator.OfDouble spliterator(double[] array, int startInclusive, int endExclusive) {
+        throw fail("bmc4j: unmodelled member java.util.Arrays.spliterator(double[], int, int) — the "
+                + "Spliterator.OfDouble interface / parallel split; honestly UNKNOWN");
     }
 
     // --- shared range check (mirrors java.util.Arrays.rangeCheck) --------------------------------

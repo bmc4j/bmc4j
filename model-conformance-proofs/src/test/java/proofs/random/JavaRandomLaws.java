@@ -59,6 +59,54 @@ class JavaRandomLaws {
         Bmc.check(b || !b);
     }
 
+    /** {@code nextDouble()} lands in {@code [0, 1)} for EVERY outcome (the keystone double draw). */
+    @BmcProof
+    void nextDouble_always_in_0_to_1() {
+        double d = new Random().nextDouble();
+        Bmc.check(d >= 0.0 && d < 1.0);
+    }
+
+    /** {@code nextDouble(bound)} lands in {@code [0, bound)} for every outcome. */
+    @BmcProof
+    void nextDouble_bound_in_range() {
+        double d = new Random().nextDouble(10.0);
+        Bmc.check(d >= 0.0 && d < 10.0);
+    }
+
+    /** {@code nextDouble(origin, bound)} lands in {@code [origin, bound)} for every outcome. */
+    @BmcProof
+    void nextDouble_origin_bound_in_range() {
+        double d = new Random().nextDouble(-2.5, 7.5);
+        Bmc.check(d >= -2.5 && d < 7.5);
+    }
+
+    /** {@code nextFloat()} lands in {@code [0, 1)} for EVERY outcome. */
+    @BmcProof
+    void nextFloat_always_in_0_to_1() {
+        float f = new Random().nextFloat();
+        Bmc.check(f >= 0.0f && f < 1.0f);
+    }
+
+    /** {@code nextFloat(origin, bound)} lands in {@code [origin, bound)} for every outcome. */
+    @BmcProof
+    void nextFloat_origin_bound_in_range() {
+        float f = new Random().nextFloat(1.0f, 4.0f);
+        Bmc.check(f >= 1.0f && f < 4.0f);
+    }
+
+    /** A non-positive {@code nextDouble(bound)} throws {@link IllegalArgumentException}, like the JDK. */
+    @BmcProof
+    void nextDouble_nonpositive_bound_throws() {
+        Random r = new Random();
+        boolean threw = false;
+        try {
+            r.nextDouble(0.0);
+        } catch (IllegalArgumentException e) {
+            threw = true;
+        }
+        Bmc.check(threw);
+    }
+
     /** {@code nextInt(0)} throws {@link IllegalArgumentException}, exactly like the JDK. */
     @BmcProof
     void nextInt_zero_bound_throws() {

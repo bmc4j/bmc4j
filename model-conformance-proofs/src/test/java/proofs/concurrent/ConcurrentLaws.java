@@ -378,6 +378,101 @@ class ConcurrentLaws {
         Bmc.check(CompletableFuture.allOf(ok, bad).isCompletedExceptionally()); // one failed: propagates
     }
 
+    // --- CompletableFuture ready-value / ready-failure constructions (sequential plumbing) --------
+    // failedFuture/failedStage build a ready FAILURE; copy mirrors a settled completion;
+    // newIncompleteFuture is a fresh pending future; minimalCompletionStage is the settled stage view.
+    // These have an exact sequential meaning (no executor / timing), so JBMC proves them over symbolic
+    // values exactly like the other combinators.
+
+    /** failedFuture is a ready failure: it is completed-exceptionally, and a recovery flows through it. */
+    @BmcProof
+    void completablefuture_failedFuture_is_ready_failure() {
+        int fallback = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.failedFuture(new RuntimeException());
+        Bmc.check(f.isCompletedExceptionally());
+        Bmc.check(f.exceptionally(cause -> fallback).join() == fallback); // recovers like any failed future
+    }
+
+    /** failedStage is a ready-failure stage; realized through toCompletableFuture it is exceptional too. */
+    @BmcProof
+    void completablefuture_failedStage_is_ready_failure_stage() {
+        java.util.concurrent.CompletionStage<Integer> s = CompletableFuture.failedStage(new RuntimeException());
+        Bmc.check(s.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    /** copy mirrors a settled completion: a normal copy carries the value; an exceptional copy stays failed. */
+    @BmcProof
+    void completablefuture_copy_mirrors_completion() {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> ok = CompletableFuture.completedFuture(v);
+        Bmc.check(ok.copy().join() == v && !ok.copy().isCompletedExceptionally());
+
+        CompletableFuture<Integer> bad = new CompletableFuture<>();
+        bad.completeExceptionally(new RuntimeException());
+        Bmc.check(bad.copy().isCompletedExceptionally());
+    }
+
+    /** newIncompleteFuture is a fresh pending future; completing it makes its value reach join. */
+    @BmcProof
+    void completablefuture_newIncompleteFuture_is_pending_then_completes() {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> base = CompletableFuture.completedFuture(0);
+        CompletableFuture<Integer> fresh = base.newIncompleteFuture();
+        Bmc.check(!fresh.isDone());                 // pending
+        Bmc.check(fresh.complete(v));               // first completion wins
+        Bmc.check(fresh.join() == v);
+    }
+
+    /** minimalCompletionStage is backed by the settled future; the stage combinator runs on its value. */
+    @BmcProof
+    void completablefuture_minimalCompletionStage_carries_value() {
+        int v = Bmc.anyInt(-100, 100);
+        java.util.concurrent.CompletionStage<Integer> stage =
+                CompletableFuture.completedFuture(v).minimalCompletionStage();
+        Bmc.check(stage.thenApply(x -> x + 1).toCompletableFuture().join() == v + 1);
+    }
+
+    // --- Atomic Number narrowing (byteValue/shortValue) -------------------------------------------
+
+    /** AtomicInteger's inherited Number narrowing truncates the stored int exactly. */
+    @BmcProof
+    void atomicInteger_number_narrowing_truncates() {
+        int v = Bmc.anyInt(-100000, 100000);
+        AtomicInteger a = new AtomicInteger(v);
+        Bmc.check(a.byteValue() == (byte) v);
+        Bmc.check(a.shortValue() == (short) v);
+    }
+
+    /** AtomicLong's inherited Number narrowing truncates the stored long exactly. */
+    @BmcProof
+    void atomicLong_number_narrowing_truncates() {
+        long v = Bmc.anyLong(-100000, 100000);
+        AtomicLong a = new AtomicLong(v);
+        Bmc.check(a.byteValue() == (byte) v);
+        Bmc.check(a.shortValue() == (short) v);
+    }
+
+    // --- BlockingQueue toArray snapshots (FIFO) ---------------------------------------------------
+
+    /**
+     * toArray() snapshots the queued elements in FIFO order. (The typed {@code toArray(T[])} and
+     * {@code toArray(IntFunction)} variants go through reflective component-type resolution that JBMC
+     * does not reduce here; they are covered on the differential axis vs the JDK, not on this engine
+     * axis — see ConcurrencyConformanceTest.)
+     */
+    @BmcProof
+    void blockingqueue_toArray_snapshots_fifo() {
+        int a = Bmc.anyInt(0, 100);
+        int b = Bmc.anyInt(0, 100);
+        ArrayBlockingQueue<Integer> q = new ArrayBlockingQueue<>(4);
+        q.offer(a);
+        q.offer(b);
+
+        Object[] arr = q.toArray();
+        Bmc.check(arr.length == 2);
+        Bmc.check((Integer) arr[0] == a && (Integer) arr[1] == b);
+    }
+
     // --- CountDownLatch ---------------------------------------------------------------------------
 
     /** Counting down n times from n reaches exactly 0 (and floors there). */

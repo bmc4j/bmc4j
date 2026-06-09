@@ -73,6 +73,35 @@ class KotlinCollectionLaws {
         Bmc.check(a == 6 && b == 7 && c == 8)
     }
 
+    /** Data-class `Pair.copy` builds a new pair from the given components. (Both args passed positionally
+     *  so the call resolves to `Pair.copy(A, B)` directly, not the synthetic `copy$default`.) */
+    @BmcProof
+    fun pair_copy_replaces_component() {
+        val p = (3 to 4).copy(3, 9)
+        Bmc.check(p.first == 3 && p.second == 9)
+    }
+
+    /** Data-class `Triple.copy` builds a new triple from the given components. */
+    @BmcProof
+    fun triple_copy_replaces_component() {
+        val t = Triple(3, 4, 5).copy(3, 4, 9)
+        Bmc.check(t.first == 3 && t.second == 4 && t.third == 9)
+    }
+
+    /** `Pair.toList()` flattens to `[first, second]` in order. */
+    @BmcProof
+    fun pair_toList_in_order() {
+        val l = (3 to 4).toList()
+        Bmc.check(l.size == 2 && l[0] == 3 && l[1] == 4)
+    }
+
+    /** `Triple.toList()` flattens to `[first, second, third]` in order. */
+    @BmcProof
+    fun triple_toList_in_order() {
+        val l = Triple(3, 4, 5).toList()
+        Bmc.check(l.size == 3 && l[0] == 3 && l[1] == 4 && l[2] == 5)
+    }
+
     /** Symbolic law: map-then-sum distributes, for every pair of inputs. */
     @BmcProof
     fun symbolic_map_then_sum() {

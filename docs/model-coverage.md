@@ -29,12 +29,6 @@ Real surface: 60 members — modeled 44, unmodelable 16, not-needed 0, tail 0.
 | `toPlainString()` | decimal string formatting (dtoa-class) — not soundly modelable in the bounded model |
 | `valueOf(double)` | double entry reintroduces binary FP error (discouraged in real code too) — use the String/long constructors for exact values |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the bounded long-backed model has no exotic remaining surface beyond the per-member-declared MathContext/formatting/double members; the tail catch-all is retained for JDK drift</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.math.BigInteger`
 
@@ -49,29 +43,22 @@ Real surface: 50 members — modeled 46, unmodelable 4, not-needed 0, tail 0.
 | `probablePrime(int, Random)` | probabilistic prime generation over a Random source — genuine number-theoretic wall, no sound bounded model |
 | `toString(int)` | radix formatting (dtoa-class) — not soundly modelable in the bounded model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime) and radix formatting (toString(int)) are out of scope for a long-backed bounded model; all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.time.Duration`
 
-Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
+Real surface: 57 members — modeled 41, unmodelable 2, not-needed 0, tail 14.
 
-**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
+**Modeled** (`@BmcModelConforms`): `abs()`, `between(Temporal, Temporal)`, `compareTo(Duration)`, `dividedBy(Duration)`, `dividedBy(long)`, `get(TemporalUnit)`, `getSeconds()`, `isNegative()`, `isPositive()`, `isZero()`, `minus(Duration)`, `minusDays(long)`, `minusHours(long)`, `minusMillis(long)`, `minusMinutes(long)`, `minusSeconds(long)`, `multipliedBy(long)`, `negated()`, `ofDays(long)`, `ofHours(long)`, `ofMillis(long)`, `ofMinutes(long)`, `ofSeconds(long)`, `plus(Duration)`, `plusDays(long)`, `plusHours(long)`, `plusMillis(long)`, `plusMinutes(long)`, `plusSeconds(long)`, `toDays()`, `toDaysPart()`, `toHours()`, `toHoursPart()`, `toMillis()`, `toMillisPart()`, `toMinutes()`, `toMinutesPart()`, `toNanos()`, `toSeconds()`, `toSecondsPart()`, `withSeconds(long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `ofNanos(long)` | sub-millisecond resolution — the seconds+nanos adjustment can't be represented on the millis backing |
 | `parse(CharSequence)` | ISO-8601 text parsing — out of scope for a bounded model (no text parsing) |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the TemporalAmount/TemporalUnit plumbing (addTo/subtractFrom/from/get(TemporalUnit)/getUnits, of/plus/minus(long,TemporalUnit), between(Temporal,Temporal)), and ISO formatting (toString/toMillis-precision variants) are out of scope; all loud under JBMC</summary>
 
 - `addTo(Temporal)`
 - `from(TemporalAmount)`
-- `get(TemporalUnit)`
 - `getNano()`
 - `getUnits()`
 - `minus(long, TemporalUnit)`
@@ -90,38 +77,29 @@ Real surface: 57 members — modeled 40, unmodelable 2, not-needed 0, tail 15.
 
 ## `java.time.Instant`
 
-Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
+Real surface: 36 members — modeled 20, unmodelable 5, not-needed 0, tail 11.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `getEpochSecond()`, `isAfter(Instant)`, `isBefore(Instant)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plusMillis(long)`, `plusSeconds(long)`, `toEpochMilli()`
+**Modeled** (`@BmcModelConforms`): `compareTo(Instant)`, `get(TemporalField)`, `getEpochSecond()`, `getLong(TemporalField)`, `isAfter(Instant)`, `isBefore(Instant)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusMillis(long)`, `minusSeconds(long)`, `ofEpochMilli(long)`, `ofEpochSecond(long)`, `plus(long, TemporalUnit)`, `plusMillis(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toEpochMilli()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the epoch-millis model |
 | `getNano()` | sub-millisecond resolution — the nano-of-second field can't be represented on the epoch-millis backing |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (which fields an Instant supports) is out of scope for the epoch-millis model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (which units an Instant supports) is out of scope for the epoch-millis model |
 | `minusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
 | `now()` | wall-clock read is non-deterministic external state — pass Instants as symbolic proof parameters |
 | `ofEpochSecond(long, long)` | the nanoAdjustment second-overflow normalization needs sub-millisecond resolution the epoch-millis backing lacks |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope for the epoch-millis model |
 | `plusNanos(long)` | sub-millisecond resolution — nanos can't be represented on the epoch-millis backing |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for the epoch-millis model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope for the epoch-millis model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 14 members, all loud): the epoch-millis long carries no nanos, zone/offset, or field-enum, so the tail is genuinely not-modelable: sub-milli precision (nano accessors), zone/offset projection (atZone/atOffset), the TemporalField/Unit/Adjuster/Query plumbing (with/get/getLong/until/query/adjustInto/range/isSupported/plus/minus(TemporalAmount or long,TemporalUnit)), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the epoch-millis long carries no nanos or zone/offset, so this remaining tail is genuinely not-modelable: zone/offset projection (atZone/atOffset), the TemporalAmount/Adjuster/Query plumbing (with/plus/minus(TemporalAmount), with(TemporalAdjuster), query, adjustInto, truncatedTo), and external-state/text (now(Clock)/parse/from) — all loud under JBMC, never forced</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `atZone(ZoneId)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `parse(CharSequence)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `truncatedTo(TemporalUnit)`
 - `with(TemporalAdjuster)`
 
@@ -130,21 +108,15 @@ Real surface: 36 members — modeled 11, unmodelable 11, not-needed 0, tail 14.
 
 ## `java.time.LocalDate`
 
-Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
+Real surface: 65 members — modeled 42, unmodelable 1, not-needed 0, tail 22.
 
-**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `getDayOfMonth()`, `getDayOfYear()`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `lengthOfMonth()`, `lengthOfYear()`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `toEpochDay()`, `until(ChronoLocalDate)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `atStartOfDay()`, `atTime(LocalTime)`, `atTime(int, int)`, `atTime(int, int, int)`, `atTime(int, int, int, int)`, `compareTo(ChronoLocalDate)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getLong(TemporalField)`, `getMonthValue()`, `getYear()`, `isAfter(ChronoLocalDate)`, `isBefore(ChronoLocalDate)`, `isEqual(ChronoLocalDate)`, `isLeapYear()`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `lengthOfMonth()`, `lengthOfYear()`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusMonths(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(int, int, int)`, `ofEpochDay(long)`, `ofYearDay(int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusMonths(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toEpochDay()`, `until(ChronoLocalDate)`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withMonth(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `getChronology()` | the Chronology accessor (getChronology) is out of scope for this epoch-day model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this epoch-day model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this epoch-day model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this epoch-day model |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusWeeks/plusMonths/plusYears |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this epoch-day model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withDayOf* |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalField/Adjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/range/query/get(TemporalField)/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 22 members, all loud): the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atStartOfDay(ZoneId)`
@@ -153,12 +125,10 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `datesUntil(LocalDate, Period)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getDayOfWeek()`
 - `getEra()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now()`
 - `now(Clock)`
 - `now(ZoneId)`
@@ -168,7 +138,6 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalTime, ZoneOffset)`
 - `with(TemporalAdjuster)`
 
@@ -177,33 +146,25 @@ Real surface: 65 members — modeled 33, unmodelable 7, not-needed 0, tail 25.
 
 ## `java.time.LocalDateTime`
 
-Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
+Real surface: 76 members — modeled 51, unmodelable 2, not-needed 0, tail 23.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `toLocalDate()`, `toLocalTime()`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ChronoLocalDateTime)`, `get(TemporalField)`, `getDayOfMonth()`, `getDayOfYear()`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getMonthValue()`, `getNano()`, `getSecond()`, `getYear()`, `isAfter(ChronoLocalDateTime)`, `isBefore(ChronoLocalDateTime)`, `isEqual(ChronoLocalDateTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusDays(long)`, `minusHours(long)`, `minusMinutes(long)`, `minusMonths(long)`, `minusNanos(long)`, `minusSeconds(long)`, `minusWeeks(long)`, `minusYears(long)`, `of(LocalDate, LocalTime)`, `of(int, int, int, int, int)`, `of(int, int, int, int, int, int)`, `of(int, int, int, int, int, int, int)`, `plus(long, TemporalUnit)`, `plusDays(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusMonths(long)`, `plusNanos(long)`, `plusSeconds(long)`, `plusWeeks(long)`, `plusYears(long)`, `range(TemporalField)`, `toLocalDate()`, `toLocalTime()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withDayOfMonth(int)`, `withDayOfYear(int)`, `withHour(int)`, `withMinute(int)`, `withMonth(int)`, `withNano(int)`, `withSecond(int)`, `withYear(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `atZone(ZoneId)` | time zones (atZone) are out of scope for this local date+time model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for this date+time model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for this date+time model |
-| `isSupported(TemporalUnit)` | the TemporalUnit query plumbing (isSupported) is out of scope for this date+time model |
 | `now()` | wall-clock read is non-deterministic external state — pass LocalDateTimes as symbolic proof parameters |
-| `plus(long, TemporalUnit)` | the generic TemporalUnit add (plus) is out of scope; use plusDays/plusHours/plusMonths/etc. |
-| `until(Temporal, TemporalUnit)` | the generic TemporalUnit difference (until) is out of scope for this date+time model |
-| `with(TemporalField, long)` | the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withHour/etc. |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 26 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atZone/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 23 members, all loud): the remaining LocalDateTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atZone/atOffset/format/query/plus(TemporalAmount)/getDayOfWeek/getMonth and the of(...,Month,...)/parse factories) is out of scope for this date+time model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
 - `getChronology()`
 - `getDayOfWeek()`
 - `getMonth()`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `of(int, Month, int, int, int)`
@@ -215,7 +176,6 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(ZoneOffset)`
 - `toInstant(ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
@@ -226,40 +186,31 @@ Real surface: 76 members — modeled 42, unmodelable 8, not-needed 0, tail 26.
 
 ## `java.time.LocalTime`
 
-Real surface: 52 members — modeled 27, unmodelable 1, not-needed 0, tail 24.
+Real surface: 52 members — modeled 36, unmodelable 1, not-needed 0, tail 15.
 
-**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `getHour()`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `toNanoOfDay()`, `toSecondOfDay()`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
+**Modeled** (`@BmcModelConforms`): `atDate(LocalDate)`, `compareTo(LocalTime)`, `get(TemporalField)`, `getHour()`, `getLong(TemporalField)`, `getMinute()`, `getNano()`, `getSecond()`, `isAfter(LocalTime)`, `isBefore(LocalTime)`, `isSupported(TemporalField)`, `isSupported(TemporalUnit)`, `minus(long, TemporalUnit)`, `minusHours(long)`, `minusMinutes(long)`, `minusNanos(long)`, `minusSeconds(long)`, `of(int, int)`, `of(int, int, int)`, `of(int, int, int, int)`, `ofNanoOfDay(long)`, `ofSecondOfDay(long)`, `plus(long, TemporalUnit)`, `plusHours(long)`, `plusMinutes(long)`, `plusNanos(long)`, `plusSeconds(long)`, `range(TemporalField)`, `toNanoOfDay()`, `toSecondOfDay()`, `until(Temporal, TemporalUnit)`, `with(TemporalField, long)`, `withHour(int)`, `withMinute(int)`, `withNano(int)`, `withSecond(int)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `now()` | wall-clock read is non-deterministic external state — pass LocalTimes as symbolic proof parameters |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 24 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalField/Adjuster)/truncatedTo/until/atOffset/format/range/query/get(TemporalField)/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 15 members, all loud): the remaining LocalTime/Temporal surface (with(TemporalAdjuster)/truncatedTo/atOffset/format/query/plus(TemporalAmount)/toEpochSecond/parse) is out of scope for the nano-of-day model; all loud under JBMC</summary>
 
 - `adjustInto(Temporal)`
 - `atOffset(ZoneOffset)`
 - `format(DateTimeFormatter)`
 - `from(TemporalAccessor)`
-- `get(TemporalField)`
-- `getLong(TemporalField)`
-- `isSupported(TemporalField)`
-- `isSupported(TemporalUnit)`
 - `minus(TemporalAmount)`
-- `minus(long, TemporalUnit)`
 - `now(Clock)`
 - `now(ZoneId)`
 - `ofInstant(Instant, ZoneId)`
 - `parse(CharSequence)`
 - `parse(CharSequence, DateTimeFormatter)`
 - `plus(TemporalAmount)`
-- `plus(long, TemporalUnit)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
 - `toEpochSecond(LocalDate, ZoneOffset)`
 - `truncatedTo(TemporalUnit)`
-- `until(Temporal, TemporalUnit)`
 - `with(TemporalAdjuster)`
-- `with(TemporalField, long)`
 
 </details>
 
@@ -290,9 +241,9 @@ Real surface: 33 members — modeled 24, unmodelable 8, not-needed 0, tail 1.
 
 ## `java.time.ZoneOffset`
 
-Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
+Real surface: 22 members — modeled 11, unmodelable 9, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `getId()`, `getTotalSeconds()`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`
+**Modeled** (`@BmcModelConforms`): `compareTo(ZoneOffset)`, `get(TemporalField)`, `getId()`, `getLong(TemporalField)`, `getTotalSeconds()`, `isSupported(TemporalField)`, `normalized()`, `ofHours(int)`, `ofHoursMinutes(int, int)`, `ofTotalSeconds(int)`, `range(TemporalField)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -300,192 +251,169 @@ Real surface: 22 members — modeled 7, unmodelable 11, not-needed 0, tail 4.
 | `from(TemporalAccessor)` | extracting a ZoneId from a TemporalAccessor is out of scope for the offset-only zone model |
 | `getAvailableZoneIds()` | the available-zone-ids set is region machinery — out of scope for the offset-only zone model |
 | `getDisplayName(TextStyle, Locale)` | localized zone display text is out of scope for the offset-only zone model |
-| `getLong(TemporalField)` | the TemporalField accessor (getLong) is out of scope for the total-seconds offset model |
 | `getRules()` | the fixed-offset ZoneRules object is DST-rule machinery out of scope for the total-seconds offset model |
-| `isSupported(TemporalField)` | the TemporalField query plumbing (isSupported) is out of scope for the total-seconds offset model |
 | `of(String)` | named-region parsing is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `of(String, Map)` | named-region parsing with aliases is out of scope for the offset-only zone model |
 | `ofOffset(String, ZoneOffset)` | the prefix+offset region factory is out of scope; build offsets via ZoneOffset.ofTotalSeconds/ofHours |
 | `systemDefault()` | the system default zone is non-deterministic external state — out of scope for the offset-only zone model |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): the TemporalAccessor/TemporalAdjuster query plumbing (get/getLong/isSupported/range/query/adjustInto), getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the TemporalQuery plumbing (query) and adjustInto, getRules (DST-rule machinery), the ofHoursMinutesSeconds factory, the of(String) text parser and the from(TemporalAccessor) factory are out of scope for this total-seconds offset model; all loud under JBMC</summary>
 
-- `get(TemporalField)`
 - `ofHoursMinutesSeconds(int, int, int)`
 - `query(TemporalQuery)`
-- `range(TemporalField)`
+
+</details>
+
+
+## `java.time.temporal.ValueRange`
+
+Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `checkValidIntValue(long, TemporalField)`, `checkValidValue(long, TemporalField)`, `getLargestMinimum()`, `getMaximum()`, `getMinimum()`, `getSmallestMaximum()`, `isFixed()`, `isIntValue()`, `isValidIntValue(long)`, `isValidValue(long)`, `of(long, long)`, `of(long, long, long)`, `of(long, long, long, long)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the locale/resolver display surface is out of scope for this four-long range model; loud under JBMC</summary>
+
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `java.util.ArrayList`
 
-Real surface: 42 members — modeled 37, unmodelable 5, not-needed 0, tail 0.
+Real surface: 42 members — modeled 27, unmodelable 7, not-needed 0, tail 8.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `ensureCapacity(int)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `trimToSize()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
+| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
-| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
-| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
+| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): exotic remainder: listIterator (ListIterator interface), spliterator/parallelStream (parallel split), capacity tuning (ensureCapacity/trimToSize), removeRange, toArray(IntFunction) — out of scope for a bounded array-backed model; all loud under JBMC. subList and reversed are now MODELED as bounded snapshot views</summary>
+
+- `ensureCapacity(int)`
+- `listIterator()`
+- `listIterator(int)`
+- `parallelStream()`
+- `removeRange(int, int)`
+- `spliterator()`
+- `toArray(IntFunction)`
+- `trimToSize()`
+
+</details>
 
 
 ## `java.util.Arrays`
 
-Real surface: 214 members — modeled 153, unmodelable 0, not-needed 0, tail 61.
+Real surface: 214 members — modeled 173, unmodelable 41, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(Object[], int, int, Object)`, `binarySearch(byte[], byte)`, `binarySearch(byte[], int, int, byte)`, `binarySearch(char[], char)`, `binarySearch(char[], int, int, char)`, `binarySearch(double[], double)`, `binarySearch(double[], int, int, double)`, `binarySearch(float[], float)`, `binarySearch(float[], int, int, float)`, `binarySearch(int[], int)`, `binarySearch(int[], int, int, int)`, `binarySearch(long[], int, int, long)`, `binarySearch(long[], long)`, `binarySearch(short[], int, int, short)`, `binarySearch(short[], short)`, `compare(boolean[], boolean[])`, `compare(boolean[], int, int, boolean[], int, int)`, `compare(byte[], byte[])`, `compare(byte[], int, int, byte[], int, int)`, `compare(char[], char[])`, `compare(char[], int, int, char[], int, int)`, `compare(double[], double[])`, `compare(double[], int, int, double[], int, int)`, `compare(float[], float[])`, `compare(float[], int, int, float[], int, int)`, `compare(int[], int, int, int[], int, int)`, `compare(int[], int[])`, `compare(long[], int, int, long[], int, int)`, `compare(long[], long[])`, `compare(short[], int, int, short[], int, int)`, `compare(short[], short[])`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(float[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `equals(Object[], Object[])`, `equals(Object[], int, int, Object[], int, int)`, `equals(boolean[], boolean[])`, `equals(boolean[], int, int, boolean[], int, int)`, `equals(byte[], byte[])`, `equals(byte[], int, int, byte[], int, int)`, `equals(char[], char[])`, `equals(char[], int, int, char[], int, int)`, `equals(double[], double[])`, `equals(double[], int, int, double[], int, int)`, `equals(float[], float[])`, `equals(float[], int, int, float[], int, int)`, `equals(int[], int, int, int[], int, int)`, `equals(int[], int[])`, `equals(long[], int, int, long[], int, int)`, `equals(long[], long[])`, `equals(short[], int, int, short[], int, int)`, `equals(short[], short[])`, `fill(Object[], Object)`, `fill(Object[], int, int, Object)`, `fill(boolean[], boolean)`, `fill(boolean[], int, int, boolean)`, `fill(byte[], byte)`, `fill(byte[], int, int, byte)`, `fill(char[], char)`, `fill(char[], int, int, char)`, `fill(float[], float)`, `fill(float[], int, int, float)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], int, int, long)`, `fill(long[], long)`, `fill(short[], int, int, short)`, `fill(short[], short)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `hashCode(short[])`, `mismatch(boolean[], boolean[])`, `mismatch(boolean[], int, int, boolean[], int, int)`, `mismatch(byte[], byte[])`, `mismatch(byte[], int, int, byte[], int, int)`, `mismatch(char[], char[])`, `mismatch(char[], int, int, char[], int, int)`, `mismatch(double[], double[])`, `mismatch(double[], int, int, double[], int, int)`, `mismatch(float[], float[])`, `mismatch(float[], int, int, float[], int, int)`, `mismatch(int[], int, int, int[], int, int)`, `mismatch(int[], int[])`, `mismatch(long[], int, int, long[], int, int)`, `mismatch(long[], long[])`, `mismatch(short[], int, int, short[], int, int)`, `mismatch(short[], short[])`, `parallelPrefix(Object[], BinaryOperator)`, `parallelPrefix(Object[], int, int, BinaryOperator)`, `parallelPrefix(int[], IntBinaryOperator)`, `parallelPrefix(int[], int, int, IntBinaryOperator)`, `parallelPrefix(long[], LongBinaryOperator)`, `parallelPrefix(long[], int, int, LongBinaryOperator)`, `parallelSetAll(Object[], IntFunction)`, `parallelSetAll(int[], IntUnaryOperator)`, `parallelSetAll(long[], IntToLongFunction)`, `parallelSort(byte[])`, `parallelSort(byte[], int, int)`, `parallelSort(char[])`, `parallelSort(char[], int, int)`, `parallelSort(double[])`, `parallelSort(double[], int, int)`, `parallelSort(float[])`, `parallelSort(float[], int, int)`, `parallelSort(int[])`, `parallelSort(int[], int, int)`, `parallelSort(long[])`, `parallelSort(long[], int, int)`, `parallelSort(short[])`, `parallelSort(short[], int, int)`, `setAll(Object[], IntFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(Object[], int, int)`, `sort(byte[])`, `sort(byte[], int, int)`, `sort(char[])`, `sort(char[], int, int)`, `sort(double[])`, `sort(double[], int, int)`, `sort(float[])`, `sort(float[], int, int)`, `sort(int[])`, `sort(int[], int, int)`, `sort(long[])`, `sort(long[], int, int)`, `sort(short[])`, `sort(short[], int, int)`, `stream(Object[])`, `stream(Object[], int, int)`, `stream(int[])`, `stream(int[], int, int)`, `stream(long[])`, `stream(long[], int, int)`
+**Modeled** (`@BmcModelConforms`): `asList(Object[])`, `binarySearch(Object[], Object)`, `binarySearch(Object[], int, int, Object)`, `binarySearch(byte[], byte)`, `binarySearch(byte[], int, int, byte)`, `binarySearch(char[], char)`, `binarySearch(char[], int, int, char)`, `binarySearch(double[], double)`, `binarySearch(double[], int, int, double)`, `binarySearch(float[], float)`, `binarySearch(float[], int, int, float)`, `binarySearch(int[], int)`, `binarySearch(int[], int, int, int)`, `binarySearch(long[], int, int, long)`, `binarySearch(long[], long)`, `binarySearch(short[], int, int, short)`, `binarySearch(short[], short)`, `compare(boolean[], boolean[])`, `compare(boolean[], int, int, boolean[], int, int)`, `compare(byte[], byte[])`, `compare(byte[], int, int, byte[], int, int)`, `compare(char[], char[])`, `compare(char[], int, int, char[], int, int)`, `compare(double[], double[])`, `compare(double[], int, int, double[], int, int)`, `compare(float[], float[])`, `compare(float[], int, int, float[], int, int)`, `compare(int[], int, int, int[], int, int)`, `compare(int[], int[])`, `compare(long[], int, int, long[], int, int)`, `compare(long[], long[])`, `compare(short[], int, int, short[], int, int)`, `compare(short[], short[])`, `copyOf(Object[], int)`, `copyOf(boolean[], int)`, `copyOf(byte[], int)`, `copyOf(char[], int)`, `copyOf(double[], int)`, `copyOf(float[], int)`, `copyOf(int[], int)`, `copyOf(long[], int)`, `copyOf(short[], int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(double[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `equals(Object[], Object[])`, `equals(Object[], int, int, Object[], int, int)`, `equals(boolean[], boolean[])`, `equals(boolean[], int, int, boolean[], int, int)`, `equals(byte[], byte[])`, `equals(byte[], int, int, byte[], int, int)`, `equals(char[], char[])`, `equals(char[], int, int, char[], int, int)`, `equals(double[], double[])`, `equals(double[], int, int, double[], int, int)`, `equals(float[], float[])`, `equals(float[], int, int, float[], int, int)`, `equals(int[], int, int, int[], int, int)`, `equals(int[], int[])`, `equals(long[], int, int, long[], int, int)`, `equals(long[], long[])`, `equals(short[], int, int, short[], int, int)`, `equals(short[], short[])`, `fill(Object[], Object)`, `fill(Object[], int, int, Object)`, `fill(boolean[], boolean)`, `fill(boolean[], int, int, boolean)`, `fill(byte[], byte)`, `fill(byte[], int, int, byte)`, `fill(char[], char)`, `fill(char[], int, int, char)`, `fill(double[], double)`, `fill(double[], int, int, double)`, `fill(float[], float)`, `fill(float[], int, int, float)`, `fill(int[], int)`, `fill(int[], int, int, int)`, `fill(long[], int, int, long)`, `fill(long[], long)`, `fill(short[], int, int, short)`, `fill(short[], short)`, `hashCode(Object[])`, `hashCode(boolean[])`, `hashCode(byte[])`, `hashCode(char[])`, `hashCode(int[])`, `hashCode(long[])`, `hashCode(short[])`, `mismatch(Object[], Object[])`, `mismatch(Object[], int, int, Object[], int, int)`, `mismatch(boolean[], boolean[])`, `mismatch(boolean[], int, int, boolean[], int, int)`, `mismatch(byte[], byte[])`, `mismatch(byte[], int, int, byte[], int, int)`, `mismatch(char[], char[])`, `mismatch(char[], int, int, char[], int, int)`, `mismatch(double[], double[])`, `mismatch(double[], int, int, double[], int, int)`, `mismatch(float[], float[])`, `mismatch(float[], int, int, float[], int, int)`, `mismatch(int[], int, int, int[], int, int)`, `mismatch(int[], int[])`, `mismatch(long[], int, int, long[], int, int)`, `mismatch(long[], long[])`, `mismatch(short[], int, int, short[], int, int)`, `mismatch(short[], short[])`, `parallelPrefix(Object[], BinaryOperator)`, `parallelPrefix(Object[], int, int, BinaryOperator)`, `parallelPrefix(double[], DoubleBinaryOperator)`, `parallelPrefix(double[], int, int, DoubleBinaryOperator)`, `parallelPrefix(int[], IntBinaryOperator)`, `parallelPrefix(int[], int, int, IntBinaryOperator)`, `parallelPrefix(long[], LongBinaryOperator)`, `parallelPrefix(long[], int, int, LongBinaryOperator)`, `parallelSetAll(Object[], IntFunction)`, `parallelSetAll(double[], IntToDoubleFunction)`, `parallelSetAll(int[], IntUnaryOperator)`, `parallelSetAll(long[], IntToLongFunction)`, `parallelSort(byte[])`, `parallelSort(byte[], int, int)`, `parallelSort(char[])`, `parallelSort(char[], int, int)`, `parallelSort(double[])`, `parallelSort(double[], int, int)`, `parallelSort(float[])`, `parallelSort(float[], int, int)`, `parallelSort(int[])`, `parallelSort(int[], int, int)`, `parallelSort(long[])`, `parallelSort(long[], int, int)`, `parallelSort(short[])`, `parallelSort(short[], int, int)`, `setAll(Object[], IntFunction)`, `setAll(double[], IntToDoubleFunction)`, `setAll(int[], IntUnaryOperator)`, `setAll(long[], IntToLongFunction)`, `sort(Object[])`, `sort(Object[], int, int)`, `sort(byte[])`, `sort(byte[], int, int)`, `sort(char[])`, `sort(char[], int, int)`, `sort(double[])`, `sort(double[], int, int)`, `sort(float[])`, `sort(float[], int, int)`, `sort(int[])`, `sort(int[], int, int)`, `sort(long[])`, `sort(long[], int, int)`, `sort(short[])`, `sort(short[], int, int)`, `stream(Object[])`, `stream(Object[], int, int)`, `stream(double[])`, `stream(double[], int, int)`, `stream(int[])`, `stream(int[], int, int)`, `stream(long[])`, `stream(long[], int, int)`, `toString(Object[])`, `toString(boolean[])`, `toString(byte[])`, `toString(char[])`, `toString(int[])`, `toString(long[])`, `toString(short[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 61 members, all loud): the remaining Arrays surface (toString/deepToString/deepEquals/deepHashCode, spliterator, compareUnsigned, hashCode(float[])/hashCode(double[]) — they need the unsound floatToIntBits — all-double copy/fill/store overloads per no-double, Comparator-based sort/binarySearch/parallelSort, the double parallelPrefix/parallelSetAll/setAll generator lambda, and the remaining long-tail primitive overloads not mechanically cloned) is out of scope for a bounded model. All loud under JBMC. The float/double equals/sort/binarySearch/compare/mismatch overloads are now MODELED via the org.bmc4j.models.audit.FpTotalOrder IEEE total order helper</summary>
-
-- `binarySearch(Object[], Object)`
-- `binarySearch(Object[], Object, Comparator)`
-- `binarySearch(Object[], int, int, Object, Comparator)`
-- `compare(Comparable[], Comparable[])`
-- `compare(Comparable[], int, int, Comparable[], int, int)`
-- `compare(Object[], Object[], Comparator)`
-- `compare(Object[], int, int, Object[], int, int, Comparator)`
-- `compareUnsigned(byte[], byte[])`
-- `compareUnsigned(byte[], int, int, byte[], int, int)`
-- `compareUnsigned(int[], int, int, int[], int, int)`
-- `compareUnsigned(int[], int[])`
-- `compareUnsigned(long[], int, int, long[], int, int)`
-- `compareUnsigned(long[], long[])`
-- `compareUnsigned(short[], int, int, short[], int, int)`
-- `compareUnsigned(short[], short[])`
-- `copyOf(Object[], int, Class)`
-- `copyOf(double[], int)`
-- `copyOfRange(Object[], int, int, Class)`
-- `copyOfRange(double[], int, int)`
-- `deepEquals(Object[], Object[])`
-- `deepHashCode(Object[])`
-- `deepToString(Object[])`
-- `equals(Object[], Object[], Comparator)`
-- `equals(Object[], int, int, Object[], int, int, Comparator)`
-- `fill(double[], double)`
-- `fill(double[], int, int, double)`
-- `hashCode(double[])`
-- `hashCode(float[])`
-- `mismatch(Object[], Object[])`
-- `mismatch(Object[], Object[], Comparator)`
-- `mismatch(Object[], int, int, Object[], int, int)`
-- `mismatch(Object[], int, int, Object[], int, int, Comparator)`
-- `parallelPrefix(double[], DoubleBinaryOperator)`
-- `parallelPrefix(double[], int, int, DoubleBinaryOperator)`
-- `parallelSetAll(double[], IntToDoubleFunction)`
-- `parallelSort(Comparable[])`
-- `parallelSort(Comparable[], int, int)`
-- `parallelSort(Object[], Comparator)`
-- `parallelSort(Object[], int, int, Comparator)`
-- `setAll(double[], IntToDoubleFunction)`
-- `sort(Object[], Comparator)`
-- `sort(Object[], int, int, Comparator)`
-- `spliterator(Object[])`
-- `spliterator(Object[], int, int)`
-- `spliterator(double[])`
-- `spliterator(double[], int, int)`
-- `spliterator(int[])`
-- `spliterator(int[], int, int)`
-- `spliterator(long[])`
-- `spliterator(long[], int, int)`
-- `stream(double[])`
-- `stream(double[], int, int)`
-- `toString(Object[])`
-- `toString(boolean[])`
-- `toString(byte[])`
-- `toString(char[])`
-- `toString(double[])`
-- `toString(float[])`
-- `toString(int[])`
-- `toString(long[])`
-- `toString(short[])`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `binarySearch(Object[], Object, Comparator)` | comparator-driven binarySearch — Comparator devirt |
+| `binarySearch(Object[], int, int, Object, Comparator)` | comparator-driven ranged binarySearch — Comparator devirt |
+| `compare(Comparable[], Comparable[])` | Object[] compare — the jbmc exit-6 compare-family engine crash over arrays |
+| `compare(Comparable[], int, int, Comparable[], int, int)` | Object[] ranged compare — the jbmc exit-6 compare-family engine crash |
+| `compare(Object[], Object[], Comparator)` | comparator-driven compare — Comparator devirt + the compare-family engine crash |
+| `compare(Object[], int, int, Object[], int, int, Comparator)` | comparator-driven ranged compare — Comparator devirt + the compare-family engine crash |
+| `compareUnsigned(byte[], byte[])` | unsigned compare — the jbmc exit-6 compare-family engine crash over arrays |
+| `compareUnsigned(byte[], int, int, byte[], int, int)` | unsigned ranged compare — the jbmc exit-6 compare-family engine crash |
+| `compareUnsigned(int[], int, int, int[], int, int)` | unsigned ranged compare — the jbmc exit-6 compare-family engine crash |
+| `compareUnsigned(int[], int[])` | unsigned compare — the jbmc exit-6 compare-family engine crash over arrays |
+| `compareUnsigned(long[], int, int, long[], int, int)` | unsigned ranged compare — the jbmc exit-6 compare-family engine crash |
+| `compareUnsigned(long[], long[])` | unsigned compare — the jbmc exit-6 compare-family engine crash over arrays |
+| `compareUnsigned(short[], int, int, short[], int, int)` | unsigned ranged compare — the jbmc exit-6 compare-family engine crash |
+| `compareUnsigned(short[], short[])` | unsigned compare — the jbmc exit-6 compare-family engine crash over arrays |
+| `copyOf(Object[], int, Class)` | reflective copyOf — Array.newInstance over a runtime Class |
+| `copyOfRange(Object[], int, int, Class)` | reflective copyOfRange — Array.newInstance over a runtime Class |
+| `deepEquals(Object[], Object[])` | deepEquals — recursive nested-array reflection |
+| `deepHashCode(Object[])` | deepHashCode — recursive nested-array reflection |
+| `deepToString(Object[])` | deepToString — recursive nested-array reflection |
+| `equals(Object[], Object[], Comparator)` | comparator-driven equals — Comparator devirt |
+| `equals(Object[], int, int, Object[], int, int, Comparator)` | comparator-driven ranged equals — Comparator devirt |
+| `hashCode(double[])` | hashCode(double[]) needs the unsound Double.doubleToLongBits intrinsic |
+| `hashCode(float[])` | hashCode(float[]) needs the unsound Float.floatToIntBits intrinsic |
+| `mismatch(Object[], Object[], Comparator)` | comparator-driven mismatch — Comparator devirt |
+| `mismatch(Object[], int, int, Object[], int, int, Comparator)` | comparator-driven ranged mismatch — Comparator devirt |
+| `parallelSort(Comparable[])` | natural-order parallelSort of Comparable[] — Object compareTo over the array hits the jbmc compare-family engine crash |
+| `parallelSort(Comparable[], int, int)` | natural-order ranged parallelSort of Comparable[] — same compare-family engine crash |
+| `parallelSort(Object[], Comparator)` | comparator-driven parallelSort — Comparator devirt |
+| `parallelSort(Object[], int, int, Comparator)` | comparator-driven ranged parallelSort — Comparator devirt |
+| `sort(Object[], Comparator)` | comparator-driven sort — devirt through the Comparator interface |
+| `sort(Object[], int, int, Comparator)` | comparator-driven ranged sort — Comparator devirt |
+| `spliterator(Object[])` | spliterator — the Spliterator interface / parallel split |
+| `spliterator(Object[], int, int)` | ranged spliterator — the Spliterator interface / parallel split |
+| `spliterator(double[])` | spliterator — the Spliterator.OfDouble interface / parallel split |
+| `spliterator(double[], int, int)` | ranged spliterator — the Spliterator.OfDouble interface / parallel split |
+| `spliterator(int[])` | spliterator — the Spliterator.OfInt interface / parallel split |
+| `spliterator(int[], int, int)` | ranged spliterator — the Spliterator.OfInt interface / parallel split |
+| `spliterator(long[])` | spliterator — the Spliterator.OfLong interface / parallel split |
+| `spliterator(long[], int, int)` | ranged spliterator — the Spliterator.OfLong interface / parallel split |
+| `toString(double[])` | toString(double[]) needs the unsound Double.toString FP-to-string |
+| `toString(float[])` | toString(float[]) needs the unsound Float.toString FP-to-string |
 
 
 ## `java.util.Collections`
 
-Real surface: 71 members — modeled 1, unmodelable 0, not-needed 0, tail 70.
+Real surface: 71 members — modeled 24, unmodelable 47, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `enumeration(Collection)`
+**Modeled** (`@BmcModelConforms`): `addAll(Collection, Object[])`, `binarySearch(List, Object)`, `copy(List, List)`, `disjoint(Collection, Collection)`, `emptyList()`, `emptyMap()`, `emptySet()`, `enumeration(Collection)`, `fill(List, Object)`, `frequency(Collection, Object)`, `indexOfSubList(List, List)`, `lastIndexOfSubList(List, List)`, `list(Enumeration)`, `max(Collection)`, `min(Collection)`, `nCopies(int, Object)`, `replaceAll(List, Object, Object)`, `reverse(List)`, `rotate(List, int)`, `singleton(Object)`, `singletonList(Object)`, `singletonMap(Object, Object)`, `sort(List)`, `swap(List, int, int)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 70 members, all loud): exotic remainder: sort/binarySearch/unmodifiable*/synchronized*/singleton*/shuffle/etc. static utilities — out of scope for the bounded model; all loud under JBMC</summary>
-
-- `addAll(Collection, Object[])`
-- `asLifoQueue(Deque)`
-- `binarySearch(List, Object)`
-- `binarySearch(List, Object, Comparator)`
-- `checkedCollection(Collection, Class)`
-- `checkedList(List, Class)`
-- `checkedMap(Map, Class, Class)`
-- `checkedNavigableMap(NavigableMap, Class, Class)`
-- `checkedNavigableSet(NavigableSet, Class)`
-- `checkedQueue(Queue, Class)`
-- `checkedSet(Set, Class)`
-- `checkedSortedMap(SortedMap, Class, Class)`
-- `checkedSortedSet(SortedSet, Class)`
-- `copy(List, List)`
-- `disjoint(Collection, Collection)`
-- `emptyEnumeration()`
-- `emptyIterator()`
-- `emptyList()`
-- `emptyListIterator()`
-- `emptyMap()`
-- `emptyNavigableMap()`
-- `emptyNavigableSet()`
-- `emptySet()`
-- `emptySortedMap()`
-- `emptySortedSet()`
-- `fill(List, Object)`
-- `frequency(Collection, Object)`
-- `indexOfSubList(List, List)`
-- `lastIndexOfSubList(List, List)`
-- `list(Enumeration)`
-- `max(Collection)`
-- `max(Collection, Comparator)`
-- `min(Collection)`
-- `min(Collection, Comparator)`
-- `nCopies(int, Object)`
-- `newSequencedSetFromMap(SequencedMap)`
-- `newSetFromMap(Map)`
-- `replaceAll(List, Object, Object)`
-- `reverse(List)`
-- `reverseOrder()`
-- `reverseOrder(Comparator)`
-- `rotate(List, int)`
-- `shuffle(List)`
-- `shuffle(List, Random)`
-- `shuffle(List, RandomGenerator)`
-- `singleton(Object)`
-- `singletonList(Object)`
-- `singletonMap(Object, Object)`
-- `sort(List)`
-- `sort(List, Comparator)`
-- `swap(List, int, int)`
-- `synchronizedCollection(Collection)`
-- `synchronizedList(List)`
-- `synchronizedMap(Map)`
-- `synchronizedNavigableMap(NavigableMap)`
-- `synchronizedNavigableSet(NavigableSet)`
-- `synchronizedSet(Set)`
-- `synchronizedSortedMap(SortedMap)`
-- `synchronizedSortedSet(SortedSet)`
-- `unmodifiableCollection(Collection)`
-- `unmodifiableList(List)`
-- `unmodifiableMap(Map)`
-- `unmodifiableNavigableMap(NavigableMap)`
-- `unmodifiableNavigableSet(NavigableSet)`
-- `unmodifiableSequencedCollection(SequencedCollection)`
-- `unmodifiableSequencedMap(SequencedMap)`
-- `unmodifiableSequencedSet(SequencedSet)`
-- `unmodifiableSet(Set)`
-- `unmodifiableSortedMap(SortedMap)`
-- `unmodifiableSortedSet(SortedSet)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `asLifoQueue(Deque)` | Deque-as-LIFO-queue view — needs a view wrapper over the backing deque |
+| `binarySearch(List, Object, Comparator)` | comparator-driven binarySearch — Comparator devirt |
+| `checkedCollection(Collection, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedList(List, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedMap(Map, Class, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedNavigableMap(NavigableMap, Class, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedNavigableSet(NavigableSet, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedQueue(Queue, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedSet(Set, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedSortedMap(SortedMap, Class, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `checkedSortedSet(SortedSet, Class)` | dynamically-typed checked wrapper view — needs a wrapper class over the backing |
+| `emptyEnumeration()` | empty Enumeration factory — exotic empty-enumeration device |
+| `emptyIterator()` | empty Iterator factory — exotic empty-iterator device |
+| `emptyListIterator()` | empty ListIterator factory — exotic empty-iterator device |
+| `emptyNavigableMap()` | empty NavigableMap factory — exotic empty navigable view |
+| `emptyNavigableSet()` | empty NavigableSet factory — exotic empty navigable view |
+| `emptySortedMap()` | empty SortedMap factory — exotic empty sorted view |
+| `emptySortedSet()` | empty SortedSet factory — exotic empty sorted view |
+| `max(Collection, Comparator)` | comparator-driven max — Comparator devirt |
+| `min(Collection, Comparator)` | comparator-driven min — Comparator devirt |
+| `newSequencedSetFromMap(SequencedMap)` | SequencedSet view backed by a SequencedMap — needs a view wrapper over the backing |
+| `newSetFromMap(Map)` | Set view backed by a Map — needs a view wrapper over the backing map |
+| `reverseOrder()` | reverse-order Comparator — devirt through the Comparator interface |
+| `reverseOrder(Comparator)` | reverse-order Comparator wrapper — Comparator devirt |
+| `shuffle(List)` | shuffle permutes via an unseeded RNG — nondet permutation, no sound model |
+| `shuffle(List, Random)` | seeded shuffle — RNG reproducibility, the Random(long) wall |
+| `shuffle(List, RandomGenerator)` | seeded shuffle over a RandomGenerator — RNG reproducibility wall |
+| `sort(List, Comparator)` | comparator-driven sort — devirt through the Comparator interface |
+| `synchronizedCollection(Collection)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedList(List)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedMap(Map)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedNavigableMap(NavigableMap)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedNavigableSet(NavigableSet)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedSet(Set)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedSortedMap(SortedMap)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `synchronizedSortedSet(SortedSet)` | synchronized wrapper view — needs a wrapper class over the backing |
+| `unmodifiableCollection(Collection)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableList(List)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableMap(Map)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableNavigableMap(NavigableMap)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableNavigableSet(NavigableSet)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSequencedCollection(SequencedCollection)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSequencedMap(SequencedMap)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSequencedSet(SequencedSet)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSet(Set)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSortedMap(SortedMap)` | unmodifiable wrapper view — needs a wrapper class over the backing |
+| `unmodifiableSortedSet(SortedSet)` | unmodifiable wrapper view — needs a wrapper class over the backing |
 
 
 ## `java.util.DoubleSummaryStatistics`
@@ -506,27 +434,43 @@ Real surface: 8 members — modeled 5, unmodelable 2, not-needed 1, tail 0.
 
 ## `java.util.HashMap`
 
-Real surface: 25 members — modeled 24, unmodelable 1, not-needed 0, tail 0.
+Real surface: 25 members — modeled 21, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
+| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
+| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): no remaining tail members: the full audited surface is modeled or declared. newHashMap(int) presizing factory is now MODELED</summary>
+
+_(none — the real surface is fully modeled/declared)_
+
+</details>
 
 
 ## `java.util.HashSet`
 
-Real surface: 21 members — modeled 17, unmodelable 4, not-needed 0, tail 0.
+Real surface: 21 members — modeled 15, unmodelable 4, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
-| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): exotic remainder: spliterator (parallel-decomposition view) and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope; all loud under JBMC. newHashSet(int) presizing factory is now MODELED</summary>
+
+- `spliterator()`
+- `toArray(IntFunction)`
+
+</details>
 
 
 ## `java.util.IntSummaryStatistics`
@@ -542,45 +486,72 @@ Real surface: 8 members — modeled 7, unmodelable 0, not-needed 1, tail 0.
 
 ## `java.util.LinkedHashMap`
 
-Real surface: 37 members — modeled 34, unmodelable 3, not-needed 0, tail 0.
+Real surface: 37 members — modeled 32, unmodelable 5, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `reversed()`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
+| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 | `removeEldestEntry(Entry)` | access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC |
-| `reversed()` | reversed() is a live SequencedMap view whose write-through reorders the insertion order — this insertion-ordered array model has no reversed structure to honor that; loud under JBMC |
+| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED</summary>
+
+_(none — the real surface is fully modeled/declared)_
+
+</details>
 
 
 ## `java.util.LinkedHashSet`
 
-Real surface: 29 members — modeled 24, unmodelable 5, not-needed 0, tail 0.
+Real surface: 29 members — modeled 23, unmodelable 4, not-needed 0, tail 2.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `reversed()` | reversed() is a live SequencedSet view whose write-through reorders the insertion order — this insertion-ordered array model has no reversed structure to honor that; loud under JBMC |
-| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
-| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
+
+- `spliterator()`
+- `toArray(IntFunction)`
+
+</details>
 
 
 ## `java.util.LinkedList`
 
-Real surface: 56 members — modeled 51, unmodelable 5, not-needed 0, tail 0.
+Real surface: 56 members — modeled 43, unmodelable 7, not-needed 0, tail 6.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `parallelStream()`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
+| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
-| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
-| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
+| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): the remaining Deque/List surface not implemented (listIterator, spliterator, parallelStream, removeRange, clone) is out of scope for this array-backed model; all loud under JBMC. subList/reversed are inherited from the ArrayList model; descendingIterator is implemented here</summary>
+
+- `listIterator()`
+- `listIterator(int)`
+- `parallelStream()`
+- `removeRange(int, int)`
+- `spliterator()`
+- `toArray(IntFunction)`
+
+</details>
 
 
 ## `java.util.LongSummaryStatistics`
@@ -625,64 +596,53 @@ Real surface: 12 members — modeled 12, unmodelable 0, not-needed 0, tail 0.
 
 ## `java.util.Random`
 
-Real surface: 33 members — modeled 7, unmodelable 1, not-needed 0, tail 25.
+Real surface: 33 members — modeled 13, unmodelable 20, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `nextBoolean()`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
+**Modeled** (`@BmcModelConforms`): `nextBoolean()`, `nextDouble()`, `nextDouble(double)`, `nextDouble(double, double)`, `nextFloat()`, `nextFloat(float)`, `nextFloat(float, float)`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `doubles()` | infinite DoubleStream — unbounded element count, can't unwind |
+| `doubles(double, double)` | infinite ranged DoubleStream — unbounded element count |
+| `doubles(long)` | sized DoubleStream — unbounded element count |
+| `doubles(long, double, double)` | sized ranged DoubleStream — unbounded element count |
+| `from(RandomGenerator)` | adapts an arbitrary RandomGenerator — open-universe device, no sound model |
+| `ints()` | infinite IntStream — unbounded element count, can't unwind |
+| `ints(int, int)` | infinite ranged IntStream — unbounded element count |
+| `ints(long)` | sized IntStream — unbounded element count for a bounded model |
+| `ints(long, int, int)` | sized ranged IntStream — unbounded element count |
+| `isDeprecated()` | RandomGenerator deprecation flag — no analysis-relevant behavior to model |
+| `longs()` | infinite LongStream — unbounded element count, can't unwind |
+| `longs(long)` | sized LongStream — unbounded element count |
+| `longs(long, long)` | infinite ranged LongStream — unbounded element count |
+| `longs(long, long, long)` | sized ranged LongStream — unbounded element count |
+| `next(int)` | the protected next(int) bit primitive exposes the LCG — modeling it as nondet would break seeded determinism; the draw methods nondet directly instead |
+| `nextBytes(byte[])` | fills a byte[] from the LCG stream — seeded determinism, no sound nondet model |
+| `nextExponential()` | exponential draw via -log(nextDouble) — transcendental, no sound bounded model |
+| `nextGaussian()` | nextGaussian uses the polar method (Math.log/sqrt + a rejection loop) — no sound bounded nondet model |
+| `nextGaussian(double, double)` | parameterized Gaussian — same polar-method wall as nextGaussian() |
 | `setSeed(long)` | re-seeding restores seeded determinism — same unsoundness as the seeded ctor; the LCG is out of scope |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 25 members, all loud): exotic java.util.Random / RandomGenerator remainder — the double-valued draws (nextDouble/nextFloat/nextGaussian/nextExponential, no-double policy), the ints()/longs()/doubles() nondet streams (unbounded element count), nextBytes, the from(RandomGenerator) adapter, and isDeprecated; loud (UNKNOWN) under JBMC if reached</summary>
-
-- `doubles()`
-- `doubles(double, double)`
-- `doubles(long)`
-- `doubles(long, double, double)`
-- `from(RandomGenerator)`
-- `ints()`
-- `ints(int, int)`
-- `ints(long)`
-- `ints(long, int, int)`
-- `isDeprecated()`
-- `longs()`
-- `longs(long)`
-- `longs(long, long)`
-- `longs(long, long, long)`
-- `next(int)`
-- `nextBytes(byte[])`
-- `nextDouble()`
-- `nextDouble(double)`
-- `nextDouble(double, double)`
-- `nextExponential()`
-- `nextFloat()`
-- `nextFloat(float)`
-- `nextFloat(float, float)`
-- `nextGaussian()`
-- `nextGaussian(double, double)`
-
-</details>
 
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 40, unmodelable 4, not-needed 0, tail 10.
+Real surface: 54 members — modeled 40, unmodelable 7, not-needed 0, tail 7.
 
-**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 | `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
+| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
+| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
+| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 | `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 | `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 10 members, all loud): the NavigableMap bulk-navigation surface beyond the explicitly-stubbed SortedMap range views (descendingMap/descendingKeySet/navigableKeySet/reversed/sequenced*) and the comparator-taking constructor — live views backed by the map are out of scope for this bounded array-backed store; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 7 members, all loud): the boolean-inclusive NavigableMap range views (subMap/headMap/tailMap with from/to inclusivity) and the comparator-taking constructor — live range views over a bounded unordered store are out of scope; all loud under JBMC. descendingMap/descendingKeySet/navigableKeySet/reversed and the SequencedMap sequenced* views are now MODELED as bounded ascending/descending snapshots (differential axis for the SequencedMap defaults, like LinkedHashMap)</summary>
 
-- `descendingKeySet()`
-- `descendingMap()`
 - `headMap(Object, boolean)`
-- `navigableKeySet()`
 - `reversed()`
 - `sequencedEntrySet()`
 - `sequencedKeySet()`
@@ -695,29 +655,23 @@ Real surface: 54 members — modeled 40, unmodelable 4, not-needed 0, tail 10.
 
 ## `java.util.TreeSet`
 
-Real surface: 44 members — modeled 26, unmodelable 5, not-needed 0, tail 13.
+Real surface: 44 members — modeled 32, unmodelable 7, not-needed 0, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `headSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.headMap); loud under JBMC |
 | `subSet(Object, Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC |
 | `tailSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC |
+| `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 13 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the NavigableSet bulk views (descendingSet/reversed), the SequencedCollection positioning ops (addFirst/addLast/getFirst/getLast/removeFirst/removeLast — a sorted set cannot honor an explicit position), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — all live views / out of scope for this bounded backing store; all loud under JBMC</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set</summary>
 
-- `addFirst(Object)`
-- `addLast(Object)`
-- `descendingSet()`
-- `getFirst()`
-- `getLast()`
 - `headSet(Object, boolean)`
-- `removeFirst()`
-- `removeLast()`
-- `reversed()`
 - `spliterator()`
 - `subSet(Object, boolean, Object, boolean)`
 - `tailSet(Object, boolean)`
@@ -728,83 +682,71 @@ Real surface: 44 members — modeled 26, unmodelable 5, not-needed 0, tail 13.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
+Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) — out of scope for the bounded FIFO model; all loud under JBMC</summary>
-
-- `parallelStream()`
-- `spliterator()`
-- `toArray()`
-- `toArray(IntFunction)`
-- `toArray(Object[])`
-
-</details>
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 42, unmodelable 0, not-needed 0, tail 37.
+Real surface: 79 members — modeled 47, unmodelable 32, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
+**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `copy()`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `failedFuture(Throwable)`, `failedStage(Throwable)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `minimalCompletionStage()`, `newIncompleteFuture()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 37 members, all loud): every overload taking an explicit Executor (then*Async(…,Executor)/handleAsync(…,Executor)/whenCompleteAsync(…,Executor)/exceptionallyAsync(…,Executor)/exceptionallyComposeAsync(…,Executor)/supplyAsync(…,Executor)/runAsync(…,Executor)/completeAsync) — a non-immediate executor's true concurrency is the concurrency wall, out of scope; plus the *Async-with-Executor twins of the either/both combinators, real timeouts (orTimeout/completeOnTimeout/get(timeout)/delayedExecutor), cancellation/obtrusion (cancel/isCancelled/obtrude*/exceptionNow/resultNow/state) which need genuine happens-before, and stage/copy plumbing (failedFuture/failedStage/newIncompleteFuture/defaultExecutor/copy/getNumberOfDependents) — out of scope for a sequential ready-value/ready-failure model; all loud under JBMC</summary>
-
-- `acceptEitherAsync(CompletionStage, Consumer, Executor)`
-- `applyToEitherAsync(CompletionStage, Function, Executor)`
-- `cancel(boolean)`
-- `completeAsync(Supplier)`
-- `completeAsync(Supplier, Executor)`
-- `completeOnTimeout(Object, long, TimeUnit)`
-- `copy()`
-- `defaultExecutor()`
-- `delayedExecutor(long, TimeUnit)`
-- `delayedExecutor(long, TimeUnit, Executor)`
-- `exceptionNow()`
-- `exceptionallyAsync(Function, Executor)`
-- `exceptionallyComposeAsync(Function, Executor)`
-- `failedFuture(Throwable)`
-- `failedStage(Throwable)`
-- `get(long, TimeUnit)`
-- `getNumberOfDependents()`
-- `handleAsync(BiFunction, Executor)`
-- `isCancelled()`
-- `minimalCompletionStage()`
-- `newIncompleteFuture()`
-- `obtrudeException(Throwable)`
-- `obtrudeValue(Object)`
-- `orTimeout(long, TimeUnit)`
-- `resultNow()`
-- `runAfterBothAsync(CompletionStage, Runnable, Executor)`
-- `runAfterEitherAsync(CompletionStage, Runnable, Executor)`
-- `runAsync(Runnable, Executor)`
-- `state()`
-- `supplyAsync(Supplier, Executor)`
-- `thenAcceptAsync(Consumer, Executor)`
-- `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)`
-- `thenApplyAsync(Function, Executor)`
-- `thenCombineAsync(CompletionStage, BiFunction, Executor)`
-- `thenComposeAsync(Function, Executor)`
-- `thenRunAsync(Runnable, Executor)`
-- `whenCompleteAsync(BiConsumer, Executor)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `acceptEitherAsync(CompletionStage, Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `applyToEitherAsync(CompletionStage, Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `cancel(boolean)` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
+| `completeAsync(Supplier)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `completeAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `completeOnTimeout(Object, long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
+| `defaultExecutor()` | a future's default Executor is real scheduling infrastructure — the concurrency wall in a sequential model |
+| `delayedExecutor(long, TimeUnit)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
+| `delayedExecutor(long, TimeUnit, Executor)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
+| `exceptionNow()` | Future.exceptionNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use isCompletedExceptionally() |
+| `exceptionallyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `exceptionallyComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `get(long, TimeUnit)` | a timed get blocks on a real wall-clock + scheduler — the concurrency wall; use get()/join() on a settled future |
+| `getNumberOfDependents()` | the live dependent count is a racing-scheduler observable — the concurrency wall in a sequential model |
+| `handleAsync(BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `isCancelled()` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
+| `obtrudeException(Throwable)` | obtruding a settled future's failure needs genuine happens-before — the concurrency wall in a sequential model |
+| `obtrudeValue(Object)` | obtruding a settled future's result needs genuine happens-before — the concurrency wall in a sequential model |
+| `orTimeout(long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
+| `resultNow()` | Future.resultNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use join()/getNow() |
+| `runAfterBothAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `runAfterEitherAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `runAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `state()` | Future.state snapshots a racing completion (RUNNING/SUCCESS/FAILED/CANCELLED) — needs genuine happens-before — the concurrency wall |
+| `supplyAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenAcceptAsync(Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenApplyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenCombineAsync(CompletionStage, BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `thenRunAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
+| `whenCompleteAsync(BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 61, unmodelable 1, not-needed 0, tail 0.
+Real surface: 62 members — modeled 58, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
+| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
+| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
+| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC</summary>
 
@@ -815,23 +757,23 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-Real surface: 43 members — modeled 38, unmodelable 5, not-needed 0, tail 0.
+Real surface: 43 members — modeled 32, unmodelable 11, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
+| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
-| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
-| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
+| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
+| `listIterator()` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
+| `listIterator(int)` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
+| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
+| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/get()/size() instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): snapshot/array-view extras (getArray/clone/toArray(IntFunction)/parallelStream/spliterator), Deque surface, listIterator/subList — out of scope for this sequential array-backed model; all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.concurrent.CountDownLatch`
@@ -865,39 +807,29 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-Real surface: 31 members — modeled 25, unmodelable 1, not-needed 0, tail 5.
+Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): array-snapshot/parallel-stream views (toArray/toArray(IntFunction)/parallelStream/spliterator) inherited from the ArrayBlockingQueue model — out of scope for the FIFO model; all loud under JBMC</summary>
-
-- `parallelStream()`
-- `spliterator()`
-- `toArray()`
-- `toArray(IntFunction)`
-- `toArray(Object[])`
-
-</details>
+| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
+| `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 
 
 ## `java.util.concurrent.Semaphore`
 
-Real surface: 17 members — modeled 13, unmodelable 0, not-needed 0, tail 4.
+Real surface: 17 members — modeled 13, unmodelable 4, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `acquire()`, `acquire(int)`, `acquireUninterruptibly()`, `acquireUninterruptibly(int)`, `availablePermits()`, `drainPermits()`, `reducePermits(int)`, `release()`, `release(int)`, `tryAcquire()`, `tryAcquire(int)`, `tryAcquire(int, long, TimeUnit)`, `tryAcquire(long, TimeUnit)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): fairness (isFair) and the thread-queue introspection (getQueueLength/getQueuedThreads/hasQueuedThreads) are scheduling/interleaving concerns a sequential model can't represent — the concurrency wall; all loud under JBMC</summary>
-
-- `getQueueLength()`
-- `getQueuedThreads()`
-- `hasQueuedThreads()`
-- `isFair()`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `getQueueLength()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `getQueuedThreads()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `hasQueuedThreads()` | thread-queue introspection — no waiting-thread queue exists in a sequential single-threaded model; needs real scheduling — the concurrency wall |
+| `isFair()` | fairness is a scheduling/queueing policy with no observable meaning in a sequential single-threaded model — the concurrency wall |
 
 
 ## `java.util.concurrent.atomic.AtomicBoolean`
@@ -909,30 +841,16 @@ Real surface: 19 members — modeled 19, unmodelable 0, not-needed 0, tail 0.
 
 ## `java.util.concurrent.atomic.AtomicInteger`
 
-Real surface: 35 members — modeled 33, unmodelable 0, not-needed 0, tail 2.
+Real surface: 35 members — modeled 35, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `compareAndExchange(int, int)`, `compareAndExchangeAcquire(int, int)`, `compareAndExchangeRelease(int, int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `setOpaque(int)`, `setPlain(int)`, `setRelease(int)`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetAcquire(int, int)`, `weakCompareAndSetPlain(int, int)`, `weakCompareAndSetRelease(int, int)`, `weakCompareAndSetVolatile(int, int)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the int-backed model; loud under JBMC</summary>
-
-- `byteValue()`
-- `shortValue()`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(int, IntBinaryOperator)`, `addAndGet(int)`, `byteValue()`, `compareAndExchange(int, int)`, `compareAndExchangeAcquire(int, int)`, `compareAndExchangeRelease(int, int)`, `compareAndSet(int, int)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(int, IntBinaryOperator)`, `getAndAdd(int)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(int)`, `getAndUpdate(IntUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(int)`, `longValue()`, `set(int)`, `setOpaque(int)`, `setPlain(int)`, `setRelease(int)`, `shortValue()`, `updateAndGet(IntUnaryOperator)`, `weakCompareAndSet(int, int)`, `weakCompareAndSetAcquire(int, int)`, `weakCompareAndSetPlain(int, int)`, `weakCompareAndSetRelease(int, int)`, `weakCompareAndSetVolatile(int, int)`
 
 
 ## `java.util.concurrent.atomic.AtomicLong`
 
-Real surface: 35 members — modeled 33, unmodelable 0, not-needed 0, tail 2.
+Real surface: 35 members — modeled 35, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `compareAndExchange(long, long)`, `compareAndExchangeAcquire(long, long)`, `compareAndExchangeRelease(long, long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `setOpaque(long)`, `setPlain(long)`, `setRelease(long)`, `updateAndGet(LongUnaryOperator)`, `weakCompareAndSet(long, long)`, `weakCompareAndSetAcquire(long, long)`, `weakCompareAndSetPlain(long, long)`, `weakCompareAndSetRelease(long, long)`, `weakCompareAndSetVolatile(long, long)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): Number's byteValue()/shortValue() narrowing is out of scope for the long-backed model; loud under JBMC</summary>
-
-- `byteValue()`
-- `shortValue()`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `accumulateAndGet(long, LongBinaryOperator)`, `addAndGet(long)`, `byteValue()`, `compareAndExchange(long, long)`, `compareAndExchangeAcquire(long, long)`, `compareAndExchangeRelease(long, long)`, `compareAndSet(long, long)`, `decrementAndGet()`, `doubleValue()`, `floatValue()`, `get()`, `getAcquire()`, `getAndAccumulate(long, LongBinaryOperator)`, `getAndAdd(long)`, `getAndDecrement()`, `getAndIncrement()`, `getAndSet(long)`, `getAndUpdate(LongUnaryOperator)`, `getOpaque()`, `getPlain()`, `incrementAndGet()`, `intValue()`, `lazySet(long)`, `longValue()`, `set(long)`, `setOpaque(long)`, `setPlain(long)`, `setRelease(long)`, `shortValue()`, `updateAndGet(LongUnaryOperator)`, `weakCompareAndSet(long, long)`, `weakCompareAndSetAcquire(long, long)`, `weakCompareAndSetPlain(long, long)`, `weakCompareAndSetRelease(long, long)`, `weakCompareAndSetVolatile(long, long)`
 
 
 ## `java.util.concurrent.atomic.AtomicReference`
@@ -944,30 +862,23 @@ Real surface: 23 members — modeled 23, unmodelable 0, not-needed 0, tail 0.
 
 ## `java.util.stream.Collectors`
 
-Real surface: 44 members — modeled 28, unmodelable 0, not-needed 0, tail 16.
+Real surface: 44 members — modeled 33, unmodelable 11, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `collectingAndThen(Collector, Function)`, `counting()`, `filtering(Predicate, Collector)`, `flatMapping(Function, Collector)`, `groupingBy(Function)`, `groupingBy(Function, Collector)`, `joining()`, `joining(CharSequence)`, `mapping(Function, Collector)`, `maxBy(Comparator)`, `minBy(Comparator)`, `partitioningBy(Predicate)`, `partitioningBy(Predicate, Collector)`, `reducing(BinaryOperator)`, `reducing(Object, BinaryOperator)`, `reducing(Object, Function, BinaryOperator)`, `teeing(Collector, Collector, BiFunction)`, `toCollection(Supplier)`, `toConcurrentMap(Function, Function)`, `toConcurrentMap(Function, Function, BinaryOperator)`, `toList()`, `toMap(Function, Function)`, `toMap(Function, Function, BinaryOperator)`, `toSet()`, `toUnmodifiableList()`, `toUnmodifiableMap(Function, Function)`, `toUnmodifiableMap(Function, Function, BinaryOperator)`, `toUnmodifiableSet()`
+**Modeled** (`@BmcModelConforms`): `collectingAndThen(Collector, Function)`, `counting()`, `filtering(Predicate, Collector)`, `flatMapping(Function, Collector)`, `groupingBy(Function)`, `groupingBy(Function, Collector)`, `joining()`, `joining(CharSequence)`, `joining(CharSequence, CharSequence, CharSequence)`, `mapping(Function, Collector)`, `maxBy(Comparator)`, `minBy(Comparator)`, `partitioningBy(Predicate)`, `partitioningBy(Predicate, Collector)`, `reducing(BinaryOperator)`, `reducing(Object, BinaryOperator)`, `reducing(Object, Function, BinaryOperator)`, `summarizingInt(ToIntFunction)`, `summarizingLong(ToLongFunction)`, `summingInt(ToIntFunction)`, `summingLong(ToLongFunction)`, `teeing(Collector, Collector, BiFunction)`, `toCollection(Supplier)`, `toConcurrentMap(Function, Function)`, `toConcurrentMap(Function, Function, BinaryOperator)`, `toList()`, `toMap(Function, Function)`, `toMap(Function, Function, BinaryOperator)`, `toSet()`, `toUnmodifiableList()`, `toUnmodifiableMap(Function, Function)`, `toUnmodifiableMap(Function, Function, BinaryOperator)`, `toUnmodifiableSet()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 16 members, all loud): the remaining Collectors surface (summing*/averaging*/summarizing* — need double; the map-Supplier-driven groupingBy(Function,Supplier,Collector)/toMap(…,Supplier)/toConcurrentMap(…,Supplier); the concurrent groupingByConcurrent; joining(prefix,suffix)) is out of scope for the minimal eager model; loud under JBMC</summary>
-
-- `averagingDouble(ToDoubleFunction)`
-- `averagingInt(ToIntFunction)`
-- `averagingLong(ToLongFunction)`
-- `groupingBy(Function, Supplier, Collector)`
-- `groupingByConcurrent(Function)`
-- `groupingByConcurrent(Function, Collector)`
-- `groupingByConcurrent(Function, Supplier, Collector)`
-- `joining(CharSequence, CharSequence, CharSequence)`
-- `summarizingDouble(ToDoubleFunction)`
-- `summarizingInt(ToIntFunction)`
-- `summarizingLong(ToLongFunction)`
-- `summingDouble(ToDoubleFunction)`
-- `summingInt(ToIntFunction)`
-- `summingLong(ToLongFunction)`
-- `toConcurrentMap(Function, Function, BinaryOperator, Supplier)`
-- `toMap(Function, Function, BinaryOperator, Supplier)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `averagingDouble(ToDoubleFunction)` | double extractor + double average — FP arithmetic the stream models avoid by convention |
+| `averagingInt(ToIntFunction)` | averaging yields a double (sum/count as floating point) — the FP wall the stream models avoid by convention |
+| `averagingLong(ToLongFunction)` | averaging yields a double (sum/count as floating point) — the FP wall the stream models avoid by convention |
+| `groupingBy(Function, Supplier, Collector)` | map-Supplier-driven grouping: collects into an arbitrary user-supplied Map factory; the bounded eager model only targets a fixed HashMap, so a fiction over the supplied container would diverge |
+| `groupingByConcurrent(Function)` | ConcurrentMap-result grouping: result is typed ConcurrentMap (the model's ConcurrentHashMap does not implement ConcurrentMap; a checkcast would trip JBMC) — out of scope; use groupingBy |
+| `groupingByConcurrent(Function, Collector)` | ConcurrentMap-result downstream grouping — out of scope for the bounded model; use groupingBy(classifier, downstream) |
+| `groupingByConcurrent(Function, Supplier, Collector)` | map-Supplier-driven ConcurrentMap grouping — arbitrary supplied container; out of scope for the bounded model |
+| `summarizingDouble(ToDoubleFunction)` | double extractor + DoubleSummaryStatistics (its getMin/getMax are the FP total-order wall) — FP out of scope |
+| `summingDouble(ToDoubleFunction)` | double extractor + double (compensated) summation — FP arithmetic the stream models avoid by convention |
+| `toConcurrentMap(Function, Function, BinaryOperator, Supplier)` | map-Supplier-driven toConcurrentMap: arbitrary user-supplied ConcurrentMap factory; out of scope for the bounded fixed-container model |
+| `toMap(Function, Function, BinaryOperator, Supplier)` | map-Supplier-driven toMap: collects into an arbitrary user-supplied Map factory; out of scope for the bounded fixed-HashMap model |
 
 
 ## `java.util.stream.DoubleStream`
@@ -1002,133 +913,103 @@ Real surface: 48 members — modeled 33, unmodelable 3, not-needed 0, tail 12.
 
 ## `java.util.stream.IntStream`
 
-Real surface: 52 members — modeled 40, unmodelable 0, not-needed 0, tail 12.
+Real surface: 52 members — modeled 40, unmodelable 12, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `allMatch(IntPredicate)`, `anyMatch(IntPredicate)`, `asDoubleStream()`, `asLongStream()`, `average()`, `boxed()`, `collect(Supplier, ObjIntConsumer, BiConsumer)`, `concat(IntStream, IntStream)`, `count()`, `distinct()`, `dropWhile(IntPredicate)`, `empty()`, `filter(IntPredicate)`, `findAny()`, `findFirst()`, `flatMap(IntFunction)`, `forEach(IntConsumer)`, `forEachOrdered(IntConsumer)`, `iterate(int, IntPredicate, IntUnaryOperator)`, `limit(long)`, `map(IntUnaryOperator)`, `mapToDouble(IntToDoubleFunction)`, `mapToLong(IntToLongFunction)`, `mapToObj(IntFunction)`, `max()`, `min()`, `noneMatch(IntPredicate)`, `of(int)`, `of(int[])`, `peek(IntConsumer)`, `range(int, int)`, `rangeClosed(int, int)`, `reduce(IntBinaryOperator)`, `reduce(int, IntBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `summaryStatistics()`, `takeWhile(IntPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining IntStream surface (the infinite iterate(seed,next)/generate; mapMulti (nested IntMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops onClose/close/isParallel/parallel/sequential/unordered) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
-
-- `builder()`
-- `close()`
-- `generate(IntSupplier)`
-- `isParallel()`
-- `iterate(int, IntUnaryOperator)`
-- `iterator()`
-- `mapMulti(IntMapMultiConsumer)`
-- `onClose(Runnable)`
-- `parallel()`
-- `sequential()`
-- `spliterator()`
-- `unordered()`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `builder()` | lazy IntStream.Builder accumulation is out of scope for the eager array-backed model |
+| `close()` | BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached |
+| `generate(IntSupplier)` | infinite producer — never terminates; a bounded eager model would diverge from the JDK observable |
+| `isParallel()` | BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached |
+| `iterate(int, IntUnaryOperator)` | the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled |
+| `iterator()` | virtual PrimitiveIterator.OfInt dispatch is out of scope for the eager array model |
+| `mapMulti(IntMapMultiConsumer)` | primitive mapMulti drives a nested IntMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model |
+| `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
+| `parallel()` | true-parallel execution is out of scope for the sequential eager model |
+| `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
+| `spliterator()` | Spliterator.OfInt (parallel-decomposition) dispatch is out of scope for the sequential eager model |
+| `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
 
 ## `java.util.stream.LongStream`
 
-Real surface: 51 members — modeled 39, unmodelable 0, not-needed 0, tail 12.
+Real surface: 51 members — modeled 39, unmodelable 12, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `allMatch(LongPredicate)`, `anyMatch(LongPredicate)`, `asDoubleStream()`, `average()`, `boxed()`, `collect(Supplier, ObjLongConsumer, BiConsumer)`, `concat(LongStream, LongStream)`, `count()`, `distinct()`, `dropWhile(LongPredicate)`, `empty()`, `filter(LongPredicate)`, `findAny()`, `findFirst()`, `flatMap(LongFunction)`, `forEach(LongConsumer)`, `forEachOrdered(LongConsumer)`, `iterate(long, LongPredicate, LongUnaryOperator)`, `limit(long)`, `map(LongUnaryOperator)`, `mapToDouble(LongToDoubleFunction)`, `mapToInt(LongToIntFunction)`, `mapToObj(LongFunction)`, `max()`, `min()`, `noneMatch(LongPredicate)`, `of(long)`, `of(long[])`, `peek(LongConsumer)`, `range(long, long)`, `rangeClosed(long, long)`, `reduce(LongBinaryOperator)`, `reduce(long, LongBinaryOperator)`, `skip(long)`, `sorted()`, `sum()`, `summaryStatistics()`, `takeWhile(LongPredicate)`, `toArray()`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 12 members, all loud): the remaining LongStream surface (the infinite iterate(seed,next)/generate; mapMulti (nested LongMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops onClose/close/isParallel/parallel/sequential/unordered) is out of scope for this minimal eager model; loud under JBMC via the concrete impl</summary>
-
-- `builder()`
-- `close()`
-- `generate(LongSupplier)`
-- `isParallel()`
-- `iterate(long, LongUnaryOperator)`
-- `iterator()`
-- `mapMulti(LongMapMultiConsumer)`
-- `onClose(Runnable)`
-- `parallel()`
-- `sequential()`
-- `spliterator()`
-- `unordered()`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `builder()` | lazy LongStream.Builder accumulation is out of scope for the eager array-backed model |
+| `close()` | BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached |
+| `generate(LongSupplier)` | infinite producer — never terminates; a bounded eager model would diverge from the JDK observable |
+| `isParallel()` | BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached |
+| `iterate(long, LongUnaryOperator)` | the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled |
+| `iterator()` | virtual PrimitiveIterator.OfLong dispatch is out of scope for the eager array model |
+| `mapMulti(LongMapMultiConsumer)` | primitive mapMulti drives a nested LongMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model |
+| `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
+| `parallel()` | true-parallel execution is out of scope for the sequential eager model |
+| `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
+| `spliterator()` | Spliterator.OfLong (parallel-decomposition) dispatch is out of scope for the sequential eager model |
+| `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
 
 ## `java.util.stream.Stream`
 
-Real surface: 56 members — modeled 44, unmodelable 1, not-needed 0, tail 11.
+Real surface: 56 members — modeled 44, unmodelable 12, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `allMatch(Predicate)`, `anyMatch(Predicate)`, `collect(Collector)`, `collect(Supplier, BiConsumer, BiConsumer)`, `concat(Stream, Stream)`, `count()`, `distinct()`, `dropWhile(Predicate)`, `empty()`, `filter(Predicate)`, `findAny()`, `findFirst()`, `flatMap(Function)`, `flatMapToDouble(Function)`, `flatMapToInt(Function)`, `flatMapToLong(Function)`, `forEach(Consumer)`, `forEachOrdered(Consumer)`, `iterate(Object, Predicate, UnaryOperator)`, `limit(long)`, `map(Function)`, `mapMulti(BiConsumer)`, `mapMultiToDouble(BiConsumer)`, `mapMultiToInt(BiConsumer)`, `mapMultiToLong(BiConsumer)`, `mapToDouble(ToDoubleFunction)`, `mapToInt(ToIntFunction)`, `mapToLong(ToLongFunction)`, `max(Comparator)`, `min(Comparator)`, `noneMatch(Predicate)`, `of(Object)`, `of(Object[])`, `ofNullable(Object)`, `peek(Consumer)`, `reduce(BinaryOperator)`, `reduce(Object, BiFunction, BinaryOperator)`, `reduce(Object, BinaryOperator)`, `skip(long)`, `sorted(Comparator)`, `takeWhile(Predicate)`, `toArray()`, `toArray(IntFunction)`, `toList()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `builder()` | lazy Stream.Builder accumulation is out of scope for the eager array-backed model |
+| `close()` | BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached |
+| `generate(Supplier)` | infinite producer — never terminates; a bounded eager model would diverge from the JDK observable |
+| `isParallel()` | BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached |
+| `iterate(Object, UnaryOperator)` | the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled |
+| `iterator()` | virtual Iterator dispatch over the stream is out of scope for the eager array model |
+| `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
+| `parallel()` | true-parallel execution is out of scope for the sequential eager model |
+| `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
 | `sorted()` | Stream.sorted() (natural order) dispatches through the elements' Comparable.compareTo on the unconstrained T — a boxed/dynamic comparison JBMC cannot devirtualize soundly (#169 family); a fiction would diverge from the JDK ordering. Use sorted(Comparator), which IS modeled. |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 11 members, all loud): the remaining lazy Stream surface (the infinite iterate(seed,next)/generate, builder()/iterator()/spliterator(), and the lifecycle no-ops onClose/close/isParallel/parallel/sequential/unordered) is out of scope for this minimal eager model; loud under JBMC (via the concrete ListStream impl). The natural-order sorted() (no comparator) is a separate loud @BmcUnmodelable — its boxed Comparable dispatch is unsound under JBMC.</summary>
-
-- `builder()`
-- `close()`
-- `generate(Supplier)`
-- `isParallel()`
-- `iterate(Object, UnaryOperator)`
-- `iterator()`
-- `onClose(Runnable)`
-- `parallel()`
-- `sequential()`
-- `spliterator()`
-- `unordered()`
-
-</details>
+| `spliterator()` | Spliterator (parallel-decomposition) dispatch is out of scope for the sequential eager model |
+| `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
 
 ## `kotlin.Pair`
 
-Real surface: 5 members — modeled 4, unmodelable 0, not-needed 0, tail 1.
+Real surface: 5 members — modeled 5, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getFirst()`, `getSecond()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Pair data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(Object, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `copy(Object, Object)`, `getFirst()`, `getSecond()`
 
 
 ## `kotlin.Result`
 
-Real surface: 8 members — modeled 4, unmodelable 0, not-needed 0, tail 4.
+Real surface: 8 members — modeled 4, unmodelable 4, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `constructor-impl(Object)`, `exceptionOrNull-impl(Object)`, `isFailure-impl(Object)`, `isSuccess-impl(Object)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 4 members, all loud): kotlin.Result value-class boxing/identity remainder under the mangled JVM ABI — toString-impl formatting, equals/hashCode/box/unbox value-class identity, getValue accessor; the getOrNull/fold/map/recover and Companion.success/failure surface is @InlineOnly (no ABI method to model); loud under JBMC if reached</summary>
-
-- `equals-impl(Object, Object)`
-- `equals-impl0(Object, Object)`
-- `hashCode-impl(Object)`
-- `toString-impl(Object)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `equals-impl(Object, Object)` | kotlin.Result value-class identity equals over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own equals); loud if reached |
+| `equals-impl0(Object, Object)` | kotlin.Result value-class structural equals over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own equals); loud if reached |
+| `hashCode-impl(Object)` | kotlin.Result value-class hashCode over the erased Object carrier — no sound bounded model (depends on the arbitrary carrier's own hashCode); loud if reached |
+| `toString-impl(Object)` | kotlin.Result value-class toString formatting (String.valueOf of the carrier) — out of scope for the bounded model, same as the Duration/java.time formatting walls |
 
 
 ## `kotlin.Triple`
 
-Real surface: 7 members — modeled 6, unmodelable 0, not-needed 0, tail 1.
+Real surface: 7 members — modeled 7, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `component3()`, `getFirst()`, `getSecond()`, `getThird()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): Triple data-class auto-generated surface (copy/toString) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(Object, Object, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `component3()`, `copy(Object, Object, Object)`, `getFirst()`, `getSecond()`, `getThird()`
 
 
 ## `kotlin.TuplesKt`
 
-Real surface: 3 members — modeled 1, unmodelable 0, not-needed 0, tail 2.
+Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `to(Object, Object)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): TuplesKt remainder (toList overloads) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `toList(Pair)`
-- `toList(Triple)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `to(Object, Object)`, `toList(Pair)`, `toList(Triple)`
 
 
 ## `kotlin.collections.CollectionsKt`
@@ -1292,15 +1173,9 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 
 ## `kotlin.collections.IndexedValue`
 
-Real surface: 5 members — modeled 4, unmodelable 0, not-needed 0, tail 1.
+Real surface: 5 members — modeled 5, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getIndex()`, `getValue()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): IndexedValue data-class auto-generated surface (copy/toString/equals/hashCode) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(int, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `copy(int, Object)`, `getIndex()`, `getValue()`
 
 
 ## `kotlin.collections.MapsKt`
@@ -1430,24 +1305,12 @@ Real surface: 34 members — modeled 1, unmodelable 33, not-needed 0, tail 0.
 | `then(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `thenDescending(Comparator, Comparator)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic ComparisonsKt facade remainder — compareBy/thenBy builders, nullsFirst/nullsLast, min/maxOf variadics the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `kotlin.enums.EnumEntriesKt`
 
 Real surface: 2 members — modeled 2, unmodelable 0, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `enumEntries(Enum[])`, `enumEntries(Function0)`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): EnumEntriesKt has no remainder beyond the two modeled enumEntries overloads; tail present for ratchet completeness, loud under JBMC if any future member is reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `kotlin.jvm.internal.Intrinsics`
@@ -1483,63 +1346,47 @@ Real surface: 40 members — modeled 16, unmodelable 24, not-needed 0, tail 0.
 | `throwUndefinedForReified(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `throwUninitializedProperty(String)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `kotlin.random.Random`
 
-Real surface: 15 members — modeled 8, unmodelable 1, not-needed 0, tail 6.
+Real surface: 15 members — modeled 8, unmodelable 7, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `nextBits(int)`, `nextBoolean()`, `nextInt()`, `nextInt(int)`, `nextInt(int, int)`, `nextLong()`, `nextLong(long)`, `nextLong(long, long)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
+| `nextBytes(byte[])` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
+| `nextBytes(byte[], int, int)` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
+| `nextBytes(int)` | byte-array fill draw — unbounded array write; out of scope for the bounded model |
 | `nextDouble()` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic kotlin.random.Random remainder — the double-valued draws (nextDouble/nextDouble(bound)/nextDouble(from,until)/nextFloat, no-double policy) and the nextBytes(...) family (byte-array fill); loud (UNKNOWN) under JBMC if reached</summary>
-
-- `nextBytes(byte[])`
-- `nextBytes(byte[], int, int)`
-- `nextBytes(int)`
-- `nextDouble(double)`
-- `nextDouble(double, double)`
-- `nextFloat()`
-
-</details>
+| `nextDouble(double)` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
+| `nextDouble(double, double)` | double draw — no-double policy; the IEEE-754 mapping needs the real bit math |
+| `nextFloat()` | float draw — no-double policy; the IEEE-754 mapping needs the real bit math |
 
 
 ## `kotlin.random.RandomKt`
 
-Real surface: 10 members — modeled 0, unmodelable 2, not-needed 0, tail 8.
+Real surface: 10 members — modeled 2, unmodelable 8, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `nextInt(Random, IntRange)`, `nextLong(Random, LongRange)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `Random(int)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
 | `Random(long)` | seeded XorWowRandom factory — reproducible sequence; nondet would falsely refute Random(seed) reproducibility, and the exact algorithm is out of scope |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): RandomKt remainder — the nextInt(Random,IntRange)/nextLong(Random,LongRange) range-extension draws (use Random.nextInt(from,until) directly) and the stdlib internals fastLog2/takeUpperBits/checkRangeBounds/boundsErrorMessage; loud (UNKNOWN) under JBMC if reached</summary>
-
-- `boundsErrorMessage(Object, Object)`
-- `checkRangeBounds(double, double)`
-- `checkRangeBounds(int, int)`
-- `checkRangeBounds(long, long)`
-- `fastLog2(int)`
-- `nextInt(Random, IntRange)`
-- `nextLong(Random, LongRange)`
-- `takeUpperBits(int, int)`
-
-</details>
+| `boundsErrorMessage(Object, Object)` | stdlib internal (error-message formatting) — out of scope; loud if reached |
+| `checkRangeBounds(double, double)` | stdlib internal range-bounds check over doubles (no-double policy) — loud if reached |
+| `checkRangeBounds(int, int)` | stdlib internal range-bounds check — out of scope; loud if reached |
+| `checkRangeBounds(long, long)` | stdlib internal range-bounds check — out of scope; loud if reached |
+| `fastLog2(int)` | stdlib internal bit helper — out of scope; loud if reached |
+| `takeUpperBits(int, int)` | stdlib internal bit helper — out of scope; loud if reached |
 
 
 ## `kotlin.ranges.RangesKt`
 
-Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
+Real surface: 131 members — modeled 20, unmodelable 111, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`
+**Modeled** (`@BmcModelConforms`): `coerceAtLeast(int, int)`, `coerceAtLeast(long, long)`, `coerceAtMost(int, int)`, `coerceAtMost(long, long)`, `coerceIn(int, int, int)`, `coerceIn(long, long, long)`, `first(CharProgression)`, `first(IntProgression)`, `first(LongProgression)`, `firstOrNull(CharProgression)`, `firstOrNull(IntProgression)`, `firstOrNull(LongProgression)`, `last(CharProgression)`, `last(IntProgression)`, `last(LongProgression)`, `lastOrNull(CharProgression)`, `lastOrNull(IntProgression)`, `lastOrNull(LongProgression)`, `random(IntRange, Random)`, `random(LongRange, Random)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1601,6 +1448,10 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 | `longRangeContains(OpenEndRange, byte)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `longRangeContains(OpenEndRange, int)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `longRangeContains(OpenEndRange, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
+| `random(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
+| `randomOrNull(CharRange, Random)` | ranged Random draw over CharRange — use the modeled Int/Long range draws |
+| `randomOrNull(IntRange, Random)` | ranged Random draw over IntRange — nondeterministic by nature; no sound bounded model |
+| `randomOrNull(LongRange, Random)` | ranged Random draw over LongRange — nondeterministic by nature; no sound bounded model |
 | `rangeTo(Comparable, Comparable)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `rangeTo(double, double)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `rangeTo(float, float)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
@@ -1651,23 +1502,12 @@ Real surface: 131 members — modeled 18, unmodelable 107, not-needed 0, tail 6.
 | `until(short, long)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 | `until(short, short)` | real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): exotic RangesKt facade remainder — the bulk of kotlin-stdlib's range/coerce primitive overloads (double/float/Comparable, until/downTo/step) the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `random(CharRange, Random)`
-- `random(IntRange, Random)`
-- `random(LongRange, Random)`
-- `randomOrNull(CharRange, Random)`
-- `randomOrNull(IntRange, Random)`
-- `randomOrNull(LongRange, Random)`
-
-</details>
-
 
 ## `kotlin.sequences.SequencesKt`
 
-Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
+Real surface: 164 members — modeled 100, unmodelable 64, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `asIterable(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `dropWhile(Sequence, Function1)`, `elementAtOrNull(Sequence, int)`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object[])`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfInt(Sequence)`, `take(Sequence, int)`, `takeWhile(Sequence, Function1)`, `toList(Sequence)`, `toSet(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
+**Modeled** (`@BmcModelConforms`): `any(Sequence)`, `asIterable(Sequence)`, `asSequence(Iterator)`, `averageOfByte(Sequence)`, `averageOfDouble(Sequence)`, `averageOfFloat(Sequence)`, `averageOfInt(Sequence)`, `averageOfLong(Sequence)`, `averageOfShort(Sequence)`, `chunked(Sequence, int)`, `chunked(Sequence, int, Function1)`, `contains(Sequence, Object)`, `count(Sequence)`, `distinct(Sequence)`, `distinctBy(Sequence, Function1)`, `drop(Sequence, int)`, `dropWhile(Sequence, Function1)`, `elementAt(Sequence, int)`, `elementAtOrElse(Sequence, int, Function1)`, `elementAtOrNull(Sequence, int)`, `emptySequence()`, `filter(Sequence, Function1)`, `filterIndexed(Sequence, Function2)`, `filterNot(Sequence, Function1)`, `filterNotNull(Sequence)`, `filterNotNullTo(Sequence, Collection)`, `first(Sequence)`, `firstOrNull(Sequence)`, `flatMap(Sequence, Function1)`, `flatMapIndexedIterable(Sequence, Function2)`, `flatMapIndexedSequence(Sequence, Function2)`, `flatMapIterable(Sequence, Function1)`, `flatten(Sequence)`, `flattenSequenceOfIterable(Sequence)`, `generateSequence(Function0, Function1)`, `generateSequence(Object, Function1)`, `ifEmpty(Sequence, Function0)`, `indexOf(Sequence, Object)`, `last(Sequence)`, `lastIndexOf(Sequence, Object)`, `lastOrNull(Sequence)`, `map(Sequence, Function1)`, `mapIndexed(Sequence, Function2)`, `mapIndexedNotNull(Sequence, Function2)`, `mapNotNull(Sequence, Function1)`, `maxOrNull(Sequence)`, `maxOrThrow(Sequence)`, `maxWithOrNull(Sequence, Comparator)`, `maxWithOrThrow(Sequence, Comparator)`, `minOrNull(Sequence)`, `minOrThrow(Sequence)`, `minWithOrNull(Sequence, Comparator)`, `minWithOrThrow(Sequence, Comparator)`, `minus(Sequence, Iterable)`, `minus(Sequence, Object)`, `minus(Sequence, Object[])`, `minus(Sequence, Sequence)`, `none(Sequence)`, `onEach(Sequence, Function1)`, `onEachIndexed(Sequence, Function2)`, `plus(Sequence, Iterable)`, `plus(Sequence, Object)`, `plus(Sequence, Object[])`, `plus(Sequence, Sequence)`, `requireNoNulls(Sequence)`, `runningFold(Sequence, Object, Function2)`, `runningFoldIndexed(Sequence, Object, Function3)`, `runningReduce(Sequence, Function2)`, `runningReduceIndexed(Sequence, Function3)`, `scan(Sequence, Object, Function2)`, `scanIndexed(Sequence, Object, Function3)`, `sequenceOf(Object)`, `sequenceOf(Object[])`, `single(Sequence)`, `singleOrNull(Sequence)`, `sorted(Sequence)`, `sortedDescending(Sequence)`, `sortedWith(Sequence, Comparator)`, `sumOfByte(Sequence)`, `sumOfDouble(Sequence)`, `sumOfFloat(Sequence)`, `sumOfInt(Sequence)`, `sumOfLong(Sequence)`, `sumOfShort(Sequence)`, `take(Sequence, int)`, `takeWhile(Sequence, Function1)`, `toCollection(Sequence, Collection)`, `toHashSet(Sequence)`, `toList(Sequence)`, `toMutableList(Sequence)`, `toMutableSet(Sequence)`, `toSet(Sequence)`, `unzip(Sequence)`, `windowed(Sequence, int, int, boolean)`, `windowed(Sequence, int, int, boolean, Function1)`, `withIndex(Sequence)`, `zip(Sequence, Sequence)`, `zip(Sequence, Sequence, Function2)`, `zipWithNext(Sequence)`, `zipWithNext(Sequence, Function2)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -1681,18 +1521,23 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `associateTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWith(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `associateWithTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `constrainOnce(Sequence)` | once-iteration-observable: constrainOnce wraps a sequence so a SECOND iteration throws — a stateful laziness property an eager bounded snapshot cannot represent |
 | `count(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterIndexedTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIsInstance(Sequence, Class)` | reflective type check: filterIsInstance routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound model) — same out-of-scope boundary as CollectionsKt |
+| `filterIsInstanceTo(Sequence, Collection, Class)` | reflective type check: filterIsInstanceTo routes through Class.isInstance -> CProver.classIdentifier, a JBMC reflective hook that nondet-stubs unsoundly (UNKNOWN, not a sound model) |
 | `filterNotTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `filterTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `first(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `firstOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapIndexed(Sequence, Function2, Function1)` | private shared iterator-extractor helper (flatMapIndexed(Sequence,Function2,Function1)) — never a Kotlin call site; the public flatMapIndexedIterable/flatMapIndexedSequence twins are modeled |
 | `flatMapIterableTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `flatMapTo(Sequence, Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `fold(Sequence, Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `foldIndexed(Sequence, Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEach(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `forEachIndexed(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `generateSequence(Function0)` | laziness-only: an infinite pure-supplier generator whose finite prefix is observable only via a downstream take(n) — cannot be drained eagerly without truncating to a wrong sequence |
 | `groupBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupBy(Sequence, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `groupByTo(Sequence, Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1700,6 +1545,9 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `groupingBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfFirst(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `indexOfLast(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `iterator(Function2)` | coroutine iterator builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model |
+| `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | string-heavy + `$default` bridge: joinTo's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinTo$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness |
+| `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | string-heavy + `$default` bridge: joinToString's StringBuilder/append reasoning is the JBMC string blowup, and the call site routes through a kotlinc-synthesized joinToString$default the engine nondet-stubs — verdict is UNKNOWN regardless of body correctness |
 | `last(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `lastOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `mapIndexedNotNullTo(Sequence, Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
@@ -1716,392 +1564,178 @@ Real surface: 164 members — modeled 56, unmodelable 51, not-needed 0, tail 57.
 | `reduceIndexed(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceIndexedOrNull(Sequence, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `reduceOrNull(Sequence, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sequence(Function2)` | coroutine sequence builder: the Function2 is a restricted suspend lambda over SequenceScope (yield/yieldAll) compiled to a state machine bmc4j does not model |
+| `shuffled(Sequence)` | nondeterministic: shuffled draws a random permutation from Random — there is no single sound value an eager model can return |
+| `shuffled(Sequence, Random)` | nondeterministic: shuffled draws a random permutation from the supplied Random — there is no single sound value an eager model can return |
 | `single(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `singleOrNull(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sortedBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sortedByDescending(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumBy(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 57 members, all loud): exotic SequencesKt facade remainder — the bulk of kotlin-stdlib's lazy-sequence operators/generators the bounded proofs do not exercise; loud under JBMC if reached</summary>
-
-- `any(Sequence)`
-- `asSequence(Iterator)`
-- `averageOfByte(Sequence)`
-- `averageOfDouble(Sequence)`
-- `averageOfFloat(Sequence)`
-- `averageOfInt(Sequence)`
-- `averageOfLong(Sequence)`
-- `averageOfShort(Sequence)`
-- `constrainOnce(Sequence)`
-- `contains(Sequence, Object)`
-- `elementAt(Sequence, int)`
-- `elementAtOrElse(Sequence, int, Function1)`
-- `emptySequence()`
-- `filterIsInstance(Sequence, Class)`
-- `filterIsInstanceTo(Sequence, Collection, Class)`
-- `filterNotNullTo(Sequence, Collection)`
-- `first(Sequence)`
-- `flatMapIndexed(Sequence, Function2, Function1)`
-- `flatMapIterable(Sequence, Function1)`
-- `flatten(Sequence)`
-- `flattenSequenceOfIterable(Sequence)`
-- `generateSequence(Function0)`
-- `indexOf(Sequence, Object)`
-- `iterator(Function2)`
-- `joinTo(Sequence, Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(Sequence, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `last(Sequence)`
-- `lastIndexOf(Sequence, Object)`
-- `maxOrNull(Sequence)`
-- `maxOrThrow(Sequence)`
-- `maxWithOrNull(Sequence, Comparator)`
-- `maxWithOrThrow(Sequence, Comparator)`
-- `minOrNull(Sequence)`
-- `minOrThrow(Sequence)`
-- `minWithOrNull(Sequence, Comparator)`
-- `minWithOrThrow(Sequence, Comparator)`
-- `none(Sequence)`
-- `runningReduce(Sequence, Function2)`
-- `runningReduceIndexed(Sequence, Function3)`
-- `sequence(Function2)`
-- `sequenceOf(Object)`
-- `shuffled(Sequence)`
-- `shuffled(Sequence, Random)`
-- `single(Sequence)`
-- `singleOrNull(Sequence)`
-- `sumOfByte(Sequence)`
-- `sumOfDouble(Sequence)`
-- `sumOfFloat(Sequence)`
-- `sumOfLong(Sequence)`
-- `sumOfShort(Sequence)`
-- `toCollection(Sequence, Collection)`
-- `toHashSet(Sequence)`
-- `toMutableList(Sequence)`
-- `toMutableSet(Sequence)`
-- `toSortedSet(Sequence)`
-- `toSortedSet(Sequence, Comparator)`
-- `unzip(Sequence)`
-
-</details>
+| `toSortedSet(Sequence)` | TreeSet natural-order total-order over unconstrained Comparable T: the JDK TreeSet model's internal comparison cast refutes under JBMC (Dynamic cast check) — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
+| `toSortedSet(Sequence, Comparator)` | TreeSet comparator total-order: shares the JDK TreeSet model's internal comparison-cast fragility under JBMC — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
 
 
 ## `kotlin.text.StringsKt`
 
-Real surface: 276 members — modeled 0, unmodelable 0, not-needed 0, tail 276.
+Real surface: 276 members — modeled 156, unmodelable 17, not-needed 103, tail 0.
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 276 members, all loud): exotic StringsKt facade remainder — the bulk of kotlin-stdlib's CharSequence/String extension functions (split/replace/trim/regex/case/parsing/etc.) the bounded proofs do not exercise; loud under JBMC if reached</summary>
+**Modeled** (`@BmcModelConforms`): `any(CharSequence)`, `append(Appendable, CharSequence[])`, `append(StringBuilder, Object[])`, `append(StringBuilder, String[])`, `asIterable(CharSequence)`, `asSequence(CharSequence)`, `chunked(CharSequence, int)`, `chunkedSequence(CharSequence, int)`, `clear(StringBuilder)`, `commonPrefixWith(CharSequence, CharSequence, boolean)`, `commonSuffixWith(CharSequence, CharSequence, boolean)`, `compareTo(String, String, boolean)`, `concatToString(char[])`, `concatToString(char[], int, int)`, `contains(CharSequence, CharSequence, boolean)`, `contains(CharSequence, char, boolean)`, `contentEquals(CharSequence, CharSequence)`, `contentEquals(CharSequence, CharSequence, boolean)`, `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`, `contentEqualsImpl(CharSequence, CharSequence)`, `drop(CharSequence, int)`, `drop(String, int)`, `dropLast(CharSequence, int)`, `dropLast(String, int)`, `endsWith(CharSequence, CharSequence, boolean)`, `endsWith(CharSequence, char, boolean)`, `endsWith(String, String, boolean)`, `equals(String, String, boolean)`, `findAnyOf(CharSequence, Collection, int, boolean)`, `findLastAnyOf(CharSequence, Collection, int, boolean)`, `first(CharSequence)`, `firstOrNull(CharSequence)`, `getIndices(CharSequence)`, `getLastIndex(CharSequence)`, `getOrNull(CharSequence, int)`, `hasSurrogatePairAt(CharSequence, int)`, `indexOf(CharSequence, String, int, boolean)`, `indexOf(CharSequence, char, int, boolean)`, `indexOfAny(CharSequence, Collection, int, boolean)`, `indexOfAny(CharSequence, char[], int, boolean)`, `isBlank(CharSequence)`, `iterator(CharSequence)`, `last(CharSequence)`, `lastIndexOf(CharSequence, String, int, boolean)`, `lastIndexOf(CharSequence, char, int, boolean)`, `lastIndexOfAny(CharSequence, Collection, int, boolean)`, `lastIndexOfAny(CharSequence, char[], int, boolean)`, `lastOrNull(CharSequence)`, `lineSequence(CharSequence)`, `lines(CharSequence)`, `maxOrNull(CharSequence)`, `maxWithOrNull(CharSequence, Comparator)`, `minOrNull(CharSequence)`, `minWithOrNull(CharSequence, Comparator)`, `none(CharSequence)`, `padEnd(CharSequence, int, char)`, `padEnd(String, int, char)`, `padStart(CharSequence, int, char)`, `padStart(String, int, char)`, `prependIndent(String, String)`, `random(CharSequence, Random)`, `randomOrNull(CharSequence, Random)`, `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`, `regionMatches(String, int, String, int, int, boolean)`, `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`, `removePrefix(CharSequence, CharSequence)`, `removePrefix(String, CharSequence)`, `removeRange(CharSequence, IntRange)`, `removeRange(CharSequence, int, int)`, `removeSuffix(CharSequence, CharSequence)`, `removeSuffix(String, CharSequence)`, `removeSurrounding(CharSequence, CharSequence)`, `removeSurrounding(CharSequence, CharSequence, CharSequence)`, `removeSurrounding(String, CharSequence)`, `removeSurrounding(String, CharSequence, CharSequence)`, `repeat(CharSequence, int)`, `replace(String, String, String, boolean)`, `replace(String, char, char, boolean)`, `replaceAfter(String, String, String, String)`, `replaceAfter(String, char, String, String)`, `replaceAfterLast(String, String, String, String)`, `replaceAfterLast(String, char, String, String)`, `replaceBefore(String, String, String, String)`, `replaceBefore(String, char, String, String)`, `replaceBeforeLast(String, String, String, String)`, `replaceBeforeLast(String, char, String, String)`, `replaceFirst(String, String, String, boolean)`, `replaceFirst(String, char, char, boolean)`, `replaceIndent(String, String)`, `replaceIndentByMargin(String, String, String)`, `replaceRange(CharSequence, IntRange, CharSequence)`, `replaceRange(CharSequence, int, int, CharSequence)`, `requireNonNegativeLimit(int)`, `reversed(CharSequence)`, `single(CharSequence)`, `singleOrNull(CharSequence)`, `slice(CharSequence, IntRange)`, `slice(CharSequence, Iterable)`, `slice(String, IntRange)`, `split(CharSequence, String[], boolean, int)`, `split(CharSequence, char[], boolean, int)`, `splitToSequence(CharSequence, String[], boolean, int)`, `splitToSequence(CharSequence, char[], boolean, int)`, `startsWith(CharSequence, CharSequence, boolean)`, `startsWith(CharSequence, CharSequence, int, boolean)`, `startsWith(CharSequence, char, boolean)`, `startsWith(String, String, boolean)`, `startsWith(String, String, int, boolean)`, `subSequence(CharSequence, IntRange)`, `substring(CharSequence, IntRange)`, `substring(String, IntRange)`, `substringAfter(String, String, String)`, `substringAfter(String, char, String)`, `substringAfterLast(String, String, String)`, `substringAfterLast(String, char, String)`, `substringBefore(String, String, String)`, `substringBefore(String, char, String)`, `substringBeforeLast(String, String, String)`, `substringBeforeLast(String, char, String)`, `take(CharSequence, int)`, `take(String, int)`, `takeLast(CharSequence, int)`, `takeLast(String, int)`, `toBooleanStrict(String)`, `toBooleanStrictOrNull(String)`, `toByteOrNull(String)`, `toByteOrNull(String, int)`, `toCharArray(String, int, int)`, `toCollection(CharSequence, Collection)`, `toHashSet(CharSequence)`, `toIntOrNull(String)`, `toIntOrNull(String, int)`, `toList(CharSequence)`, `toLongOrNull(String)`, `toLongOrNull(String, int)`, `toMutableList(CharSequence)`, `toSet(CharSequence)`, `toShortOrNull(String)`, `toShortOrNull(String, int)`, `toSortedSet(CharSequence)`, `trim(CharSequence)`, `trim(CharSequence, char[])`, `trim(String, char[])`, `trimEnd(CharSequence)`, `trimEnd(CharSequence, char[])`, `trimEnd(String, char[])`, `trimIndent(String)`, `trimMargin(String, String)`, `trimStart(CharSequence)`, `trimStart(CharSequence, char[])`, `trimStart(String, char[])`, `windowed(CharSequence, int, int, boolean)`, `windowedSequence(CharSequence, int, int, boolean)`, `withIndex(CharSequence)`, `zip(CharSequence, CharSequence)`, `zipWithNext(CharSequence)`
 
-- `all(CharSequence, Function1)`
-- `any(CharSequence)`
-- `any(CharSequence, Function1)`
-- `append(Appendable, CharSequence[])`
-- `append(StringBuilder, Object[])`
-- `append(StringBuilder, String[])`
-- `appendElement(Appendable, Object, Function1)`
-- `appendRange(Appendable, CharSequence, int, int)`
-- `appendln(Appendable)`
-- `appendln(StringBuilder)`
-- `asIterable(CharSequence)`
-- `asSequence(CharSequence)`
-- `associate(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1)`
-- `associateBy(CharSequence, Function1, Function1)`
-- `associateByTo(CharSequence, Map, Function1)`
-- `associateByTo(CharSequence, Map, Function1, Function1)`
-- `associateTo(CharSequence, Map, Function1)`
-- `associateWith(CharSequence, Function1)`
-- `associateWithTo(CharSequence, Map, Function1)`
-- `capitalize(String)`
-- `capitalize(String, Locale)`
-- `chunked(CharSequence, int)`
-- `chunked(CharSequence, int, Function1)`
-- `chunkedSequence(CharSequence, int)`
-- `chunkedSequence(CharSequence, int, Function1)`
-- `clear(StringBuilder)`
-- `commonPrefixWith(CharSequence, CharSequence, boolean)`
-- `commonSuffixWith(CharSequence, CharSequence, boolean)`
-- `compareTo(String, String, boolean)`
-- `concatToString(char[])`
-- `concatToString(char[], int, int)`
-- `contains(CharSequence, CharSequence, boolean)`
-- `contains(CharSequence, char, boolean)`
-- `contentEquals(CharSequence, CharSequence)`
-- `contentEquals(CharSequence, CharSequence, boolean)`
-- `contentEqualsIgnoreCaseImpl(CharSequence, CharSequence)`
-- `contentEqualsImpl(CharSequence, CharSequence)`
-- `count(CharSequence, Function1)`
-- `decapitalize(String)`
-- `decapitalize(String, Locale)`
-- `decodeToString(byte[])`
-- `decodeToString(byte[], int, int, boolean)`
-- `drop(CharSequence, int)`
-- `drop(String, int)`
-- `dropLast(CharSequence, int)`
-- `dropLast(String, int)`
-- `dropLastWhile(CharSequence, Function1)`
-- `dropLastWhile(String, Function1)`
-- `dropWhile(CharSequence, Function1)`
-- `dropWhile(String, Function1)`
-- `encodeToByteArray(String)`
-- `encodeToByteArray(String, int, int, boolean)`
-- `endsWith(CharSequence, CharSequence, boolean)`
-- `endsWith(CharSequence, char, boolean)`
-- `endsWith(String, String, boolean)`
-- `equals(String, String, boolean)`
-- `filter(CharSequence, Function1)`
-- `filter(String, Function1)`
-- `filterIndexed(CharSequence, Function2)`
-- `filterIndexed(String, Function2)`
-- `filterIndexedTo(CharSequence, Appendable, Function2)`
-- `filterNot(CharSequence, Function1)`
-- `filterNot(String, Function1)`
-- `filterNotTo(CharSequence, Appendable, Function1)`
-- `filterTo(CharSequence, Appendable, Function1)`
-- `findAnyOf(CharSequence, Collection, int, boolean)`
-- `findLastAnyOf(CharSequence, Collection, int, boolean)`
-- `first(CharSequence)`
-- `first(CharSequence, Function1)`
-- `firstOrNull(CharSequence)`
-- `firstOrNull(CharSequence, Function1)`
-- `flatMap(CharSequence, Function1)`
-- `flatMapTo(CharSequence, Collection, Function1)`
-- `fold(CharSequence, Object, Function2)`
-- `foldIndexed(CharSequence, Object, Function3)`
-- `foldRight(CharSequence, Object, Function2)`
-- `foldRightIndexed(CharSequence, Object, Function3)`
-- `forEach(CharSequence, Function1)`
-- `forEachIndexed(CharSequence, Function2)`
-- `getCASE_INSENSITIVE_ORDER(StringCompanionObject)`
-- `getIndices(CharSequence)`
-- `getLastIndex(CharSequence)`
-- `getOrNull(CharSequence, int)`
-- `groupBy(CharSequence, Function1)`
-- `groupBy(CharSequence, Function1, Function1)`
-- `groupByTo(CharSequence, Map, Function1)`
-- `groupByTo(CharSequence, Map, Function1, Function1)`
-- `groupingBy(CharSequence, Function1)`
-- `hasSurrogatePairAt(CharSequence, int)`
-- `indexOf(CharSequence, String, int, boolean)`
-- `indexOf(CharSequence, char, int, boolean)`
-- `indexOfAny(CharSequence, Collection, int, boolean)`
-- `indexOfAny(CharSequence, char[], int, boolean)`
-- `indexOfFirst(CharSequence, Function1)`
-- `indexOfLast(CharSequence, Function1)`
-- `isBlank(CharSequence)`
-- `iterator(CharSequence)`
-- `last(CharSequence)`
-- `last(CharSequence, Function1)`
-- `lastIndexOf(CharSequence, String, int, boolean)`
-- `lastIndexOf(CharSequence, char, int, boolean)`
-- `lastIndexOfAny(CharSequence, Collection, int, boolean)`
-- `lastIndexOfAny(CharSequence, char[], int, boolean)`
-- `lastOrNull(CharSequence)`
-- `lastOrNull(CharSequence, Function1)`
-- `lineSequence(CharSequence)`
-- `lines(CharSequence)`
-- `map(CharSequence, Function1)`
-- `mapIndexed(CharSequence, Function2)`
-- `mapIndexedNotNull(CharSequence, Function2)`
-- `mapIndexedNotNullTo(CharSequence, Collection, Function2)`
-- `mapIndexedTo(CharSequence, Collection, Function2)`
-- `mapNotNull(CharSequence, Function1)`
-- `mapNotNullTo(CharSequence, Collection, Function1)`
-- `mapTo(CharSequence, Collection, Function1)`
-- `maxByOrNull(CharSequence, Function1)`
-- `maxByOrThrow(CharSequence, Function1)`
-- `maxOrNull(CharSequence)`
-- `maxOrThrow(CharSequence)`
-- `maxWithOrNull(CharSequence, Comparator)`
-- `maxWithOrThrow(CharSequence, Comparator)`
-- `minByOrNull(CharSequence, Function1)`
-- `minByOrThrow(CharSequence, Function1)`
-- `minOrNull(CharSequence)`
-- `minOrThrow(CharSequence)`
-- `minWithOrNull(CharSequence, Comparator)`
-- `minWithOrThrow(CharSequence, Comparator)`
-- `none(CharSequence)`
-- `none(CharSequence, Function1)`
-- `numberFormatError(String)`
-- `onEach(CharSequence, Function1)`
-- `onEachIndexed(CharSequence, Function2)`
-- `padEnd(CharSequence, int, char)`
-- `padEnd(String, int, char)`
-- `padStart(CharSequence, int, char)`
-- `padStart(String, int, char)`
-- `partition(CharSequence, Function1)`
-- `partition(String, Function1)`
-- `prependIndent(String, String)`
-- `random(CharSequence, Random)`
-- `randomOrNull(CharSequence, Random)`
-- `reduce(CharSequence, Function2)`
-- `reduceIndexed(CharSequence, Function3)`
-- `reduceIndexedOrNull(CharSequence, Function3)`
-- `reduceOrNull(CharSequence, Function2)`
-- `reduceRight(CharSequence, Function2)`
-- `reduceRightIndexed(CharSequence, Function3)`
-- `reduceRightIndexedOrNull(CharSequence, Function3)`
-- `reduceRightOrNull(CharSequence, Function2)`
-- `regionMatches(CharSequence, int, CharSequence, int, int, boolean)`
-- `regionMatches(String, int, String, int, int, boolean)`
-- `regionMatchesImpl(CharSequence, int, CharSequence, int, int, boolean)`
-- `removePrefix(CharSequence, CharSequence)`
-- `removePrefix(String, CharSequence)`
-- `removeRange(CharSequence, IntRange)`
-- `removeRange(CharSequence, int, int)`
-- `removeSuffix(CharSequence, CharSequence)`
-- `removeSuffix(String, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence)`
-- `removeSurrounding(CharSequence, CharSequence, CharSequence)`
-- `removeSurrounding(String, CharSequence)`
-- `removeSurrounding(String, CharSequence, CharSequence)`
-- `repeat(CharSequence, int)`
-- `replace(String, String, String, boolean)`
-- `replace(String, char, char, boolean)`
-- `replaceAfter(String, String, String, String)`
-- `replaceAfter(String, char, String, String)`
-- `replaceAfterLast(String, String, String, String)`
-- `replaceAfterLast(String, char, String, String)`
-- `replaceBefore(String, String, String, String)`
-- `replaceBefore(String, char, String, String)`
-- `replaceBeforeLast(String, String, String, String)`
-- `replaceBeforeLast(String, char, String, String)`
-- `replaceFirst(String, String, String, boolean)`
-- `replaceFirst(String, char, char, boolean)`
-- `replaceIndent(String, String)`
-- `replaceIndentByMargin(String, String, String)`
-- `replaceRange(CharSequence, IntRange, CharSequence)`
-- `replaceRange(CharSequence, int, int, CharSequence)`
-- `requireNonNegativeLimit(int)`
-- `reversed(CharSequence)`
-- `runningFold(CharSequence, Object, Function2)`
-- `runningFoldIndexed(CharSequence, Object, Function3)`
-- `runningReduce(CharSequence, Function2)`
-- `runningReduceIndexed(CharSequence, Function3)`
-- `scan(CharSequence, Object, Function2)`
-- `scanIndexed(CharSequence, Object, Function3)`
-- `single(CharSequence)`
-- `single(CharSequence, Function1)`
-- `singleOrNull(CharSequence)`
-- `singleOrNull(CharSequence, Function1)`
-- `skipWhile(String, int, Function1)`
-- `slice(CharSequence, IntRange)`
-- `slice(CharSequence, Iterable)`
-- `slice(String, IntRange)`
-- `split(CharSequence, Pattern, int)`
-- `split(CharSequence, String[], boolean, int)`
-- `split(CharSequence, char[], boolean, int)`
-- `splitToSequence(CharSequence, String[], boolean, int)`
-- `splitToSequence(CharSequence, char[], boolean, int)`
-- `startsWith(CharSequence, CharSequence, boolean)`
-- `startsWith(CharSequence, CharSequence, int, boolean)`
-- `startsWith(CharSequence, char, boolean)`
-- `startsWith(String, String, boolean)`
-- `startsWith(String, String, int, boolean)`
-- `subSequence(CharSequence, IntRange)`
-- `substring(CharSequence, IntRange)`
-- `substring(String, IntRange)`
-- `substringAfter(String, String, String)`
-- `substringAfter(String, char, String)`
-- `substringAfterLast(String, String, String)`
-- `substringAfterLast(String, char, String)`
-- `substringBefore(String, String, String)`
-- `substringBefore(String, char, String)`
-- `substringBeforeLast(String, String, String)`
-- `substringBeforeLast(String, char, String)`
-- `sumBy(CharSequence, Function1)`
-- `sumByDouble(CharSequence, Function1)`
-- `take(CharSequence, int)`
-- `take(String, int)`
-- `takeLast(CharSequence, int)`
-- `takeLast(String, int)`
-- `takeLastWhile(CharSequence, Function1)`
-- `takeLastWhile(String, Function1)`
-- `takeWhile(CharSequence, Function1)`
-- `takeWhile(String, Function1)`
-- `toBigDecimalOrNull(String)`
-- `toBigDecimalOrNull(String, MathContext)`
-- `toBigIntegerOrNull(String)`
-- `toBigIntegerOrNull(String, int)`
-- `toBooleanStrict(String)`
-- `toBooleanStrictOrNull(String)`
-- `toByteOrNull(String)`
-- `toByteOrNull(String, int)`
-- `toCharArray(String, int, int)`
-- `toCollection(CharSequence, Collection)`
-- `toDoubleOrNull(String)`
-- `toFloatOrNull(String)`
-- `toHashSet(CharSequence)`
-- `toIntOrNull(String)`
-- `toIntOrNull(String, int)`
-- `toList(CharSequence)`
-- `toLongOrNull(String)`
-- `toLongOrNull(String, int)`
-- `toMutableList(CharSequence)`
-- `toSet(CharSequence)`
-- `toShortOrNull(String)`
-- `toShortOrNull(String, int)`
-- `toSortedSet(CharSequence)`
-- `trim(CharSequence)`
-- `trim(CharSequence, Function1)`
-- `trim(CharSequence, char[])`
-- `trim(String, Function1)`
-- `trim(String, char[])`
-- `trimEnd(CharSequence)`
-- `trimEnd(CharSequence, Function1)`
-- `trimEnd(CharSequence, char[])`
-- `trimEnd(String, Function1)`
-- `trimEnd(String, char[])`
-- `trimIndent(String)`
-- `trimMargin(String, String)`
-- `trimStart(CharSequence)`
-- `trimStart(CharSequence, Function1)`
-- `trimStart(CharSequence, char[])`
-- `trimStart(String, Function1)`
-- `trimStart(String, char[])`
-- `windowed(CharSequence, int, int, boolean)`
-- `windowed(CharSequence, int, int, boolean, Function1)`
-- `windowedSequence(CharSequence, int, int, boolean)`
-- `windowedSequence(CharSequence, int, int, boolean, Function1)`
-- `withIndex(CharSequence)`
-- `zip(CharSequence, CharSequence)`
-- `zip(CharSequence, CharSequence, Function2)`
-- `zipWithNext(CharSequence)`
-- `zipWithNext(CharSequence, Function2)`
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `capitalize(String)` | full-Unicode title-case mapping of the first char — needs the Unicode case tables |
+| `capitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decapitalize(String)` | full-Unicode case mapping — needs the Unicode case tables |
+| `decapitalize(String, Locale)` | locale-dependent case mapping — needs the locale case tables |
+| `decodeToString(byte[])` | charset decode — UTF-8 byte decoding |
+| `decodeToString(byte[], int, int, boolean)` | charset decode — UTF-8 byte decoding |
+| `encodeToByteArray(String)` | charset encode — UTF-8 byte encoding |
+| `encodeToByteArray(String, int, int, boolean)` | charset encode — UTF-8 byte encoding |
+| `getCASE_INSENSITIVE_ORDER(StringCompanionObject)` | case-insensitive ordering comparator — full-Unicode/locale case fold over an open comparator |
+| `numberFormatError(String)` | number-format error helper — throws a NumberFormatException constructed from locale-formatted text |
+| `split(CharSequence, Pattern, int)` | regex engine — split over a java.util.regex.Pattern |
+| `toBigDecimalOrNull(String)` | BigDecimal parse — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigDecimalOrNull(String, MathContext)` | BigDecimal parse with MathContext — needs dtoa / arbitrary-precision decimal parsing |
+| `toBigIntegerOrNull(String)` | BigInteger parse — arbitrary-precision radix parsing |
+| `toBigIntegerOrNull(String, int)` | BigInteger parse with radix — arbitrary-precision radix parsing |
+| `toDoubleOrNull(String)` | floating-point parse — needs dtoa |
+| `toFloatOrNull(String)` | floating-point parse — needs dtoa |
 
-</details>
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `all(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `any(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendElement(Appendable, Object, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendRange(Appendable, CharSequence, int, int)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(Appendable)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `appendln(StringBuilder)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associate(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunked(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `chunkedSequence(CharSequence, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `count(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filter(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(String, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(CharSequence, Appendable, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(CharSequence, Appendable, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `first(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `fold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(CharSequence, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(CharSequence, Map, Function1, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `last(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `map(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(CharSequence, Collection, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(CharSequence, Collection, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `maxWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minOrThrow(CharSequence)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `minWithOrThrow(CharSequence, Comparator)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `none(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEach(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `onEachIndexed(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `partition(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFold(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningFoldIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduce(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `runningReduceIndexed(CharSequence, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scan(CharSequence, Object, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `scanIndexed(CharSequence, Object, Function3)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `single(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `skipWhile(String, int, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trim(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimEnd(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(CharSequence, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `trimStart(String, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowed(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `windowedSequence(CharSequence, int, int, boolean, Function1)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zip(CharSequence, CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
+| `zipWithNext(CharSequence, Function2)` | inline — kotlinc inlines the body into the caller, where JBMC analyzes it directly; the facade JVM method is never called from a Kotlin call site |
 
 
 ## `kotlin.time.Duration`
 
-Real surface: 41 members — modeled 32, unmodelable 0, not-needed 0, tail 9.
+Real surface: 41 members — modeled 32, unmodelable 9, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `compareTo-LRDsOJo(long, long)`, `constructor-impl(long)`, `div-UwyO8pc(long, int)`, `equals-impl0(long, long)`, `getAbsoluteValue-UwyO8pc(long)`, `getHoursComponent-impl(long)`, `getInWholeDays-impl(long)`, `getInWholeHours-impl(long)`, `getInWholeMicroseconds-impl(long)`, `getInWholeMilliseconds-impl(long)`, `getInWholeMinutes-impl(long)`, `getInWholeNanoseconds-impl(long)`, `getInWholeSeconds-impl(long)`, `getMinutesComponent-impl(long)`, `getNanosecondsComponent-impl(long)`, `getSecondsComponent-impl(long)`, `hashCode-impl(long)`, `isFinite-impl(long)`, `isInfinite-impl(long)`, `isNegative-impl(long)`, `isPositive-impl(long)`, `minus-LRDsOJo(long, long)`, `plus-LRDsOJo(long, long)`, `times-UwyO8pc(long, int)`, `toComponents-impl(long, Function2)`, `toComponents-impl(long, Function3)`, `toComponents-impl(long, Function4)`, `toComponents-impl(long, Function5)`, `toInt-impl(long, DurationUnit)`, `toLong-impl(long, DurationUnit)`, `truncateTo-UwyO8pc$kotlin_stdlib(long, DurationUnit)`, `unaryMinus-UwyO8pc(long)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 9 members, all loud): exotic kotlin.time.Duration value-class remainder under the mangled JVM ABI — toString/toIsoString/parse formatting, Double times/div/ratio overloads (no-double policy), TimeSource/TimeMark wall-clock; loud under JBMC if reached</summary>
-
-- `compareTo-LRDsOJo(long)`
-- `div-LRDsOJo(long, long)`
-- `div-UwyO8pc(long, double)`
-- `equals-impl(long, Object)`
-- `times-UwyO8pc(long, double)`
-- `toDouble-impl(long, DurationUnit)`
-- `toIsoString-impl(long)`
-- `toString-impl(long)`
-- `toString-impl(long, DurationUnit, int)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `compareTo-LRDsOJo(long)` | boxed-receiver Comparable.compareTo — the sound primitive compare is the modeled static compareTo(long, long); loud if reached |
+| `div-LRDsOJo(long, long)` | Duration / Duration -> Double ratio — no-double policy; use the Int-scalar div |
+| `div-UwyO8pc(long, double)` | Duration / Double scalar — no-double policy; use the Int-scalar div |
+| `equals-impl(long, Object)` | value-class identity equals against an arbitrary Object — the sound structural compare is the modeled equals-impl0(long, long); loud if reached |
+| `times-UwyO8pc(long, double)` | Duration * Double scalar — no-double policy; use the Int-scalar times |
+| `toDouble-impl(long, DurationUnit)` | Duration -> Double in a unit — no-double policy; use toLong/inWhole* conversions |
+| `toIsoString-impl(long)` | Duration ISO-8601 string formatting (dtoa) — out of scope |
+| `toString-impl(long)` | Duration decimal formatting (dtoa) — out of scope, same as the java.time formatting walls |
+| `toString-impl(long, DurationUnit, int)` | Duration decimal formatting with unit+decimals (dtoa) — out of scope |
 
 
 ## `kotlin.time.DurationKt`
 
-Real surface: 3 members — modeled 2, unmodelable 0, not-needed 0, tail 1.
+Real surface: 3 members — modeled 2, unmodelable 1, not-needed 0, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `toDuration(int, DurationUnit)`, `toDuration(long, DurationUnit)`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): DurationKt Double-valued toDuration overload (no-double policy) plus the mangled extension-property getters; loud under JBMC if reached</summary>
-
-- `toDuration(double, DurationUnit)`
-
-</details>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `toDuration(double, DurationUnit)` | double-valued duration construction — no-double policy; the fractional nanos/millis packing needs the real FP math |
 

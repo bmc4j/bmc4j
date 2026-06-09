@@ -15,10 +15,25 @@ import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /** Minimal BMC model of {@link java.util.stream.LongStream}, eager over a bounded {@code long[]}. */
-@BmcModelTail(reason = "the remaining LongStream surface (the infinite iterate(seed,next)/generate; mapMulti (nested LongMapMultiConsumer SAM); builder/iterator/spliterator; lifecycle no-ops onClose/close/isParallel/parallel/sequential/unordered) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
+// The LongStream tail is fully enumerated. The infinite producers (generate/iterate(seed,next)) never
+// terminate; the primitive mapMulti drives a nested LongMapMultiConsumer SAM whose dispatch is out of
+// scope; builder()/iterator()/spliterator() are lazy/virtual; the BaseStream lifecycle members carry no
+// model on this sequential eager interface. Each is loud-if-reached under JBMC.
+@BmcUnmodelable(member = "generate(java.util.function.LongSupplier)", reason = "infinite producer — never terminates; a bounded eager model would diverge from the JDK observable")
+@BmcUnmodelable(member = "iterate(long,java.util.function.LongUnaryOperator)", reason = "the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled")
+@BmcUnmodelable(member = "mapMulti(java.util.stream.LongStream$LongMapMultiConsumer)", reason = "primitive mapMulti drives a nested LongMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model")
+@BmcUnmodelable(member = "builder()", reason = "lazy LongStream.Builder accumulation is out of scope for the eager array-backed model")
+@BmcUnmodelable(member = "iterator()", reason = "virtual PrimitiveIterator.OfLong dispatch is out of scope for the eager array model")
+@BmcUnmodelable(member = "spliterator()", reason = "Spliterator.OfLong (parallel-decomposition) dispatch is out of scope for the sequential eager model")
+@BmcUnmodelable(member = "isParallel()", reason = "BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached")
+@BmcUnmodelable(member = "parallel()", reason = "true-parallel execution is out of scope for the sequential eager model")
+@BmcUnmodelable(member = "sequential()", reason = "BaseStream lifecycle no-op — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "unordered()", reason = "BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "onClose(java.lang.Runnable)", reason = "BaseStream close-handler registration — no model on the eager interface; loud if reached")
+@BmcUnmodelable(member = "close()", reason = "BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached")
 public interface LongStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream)")

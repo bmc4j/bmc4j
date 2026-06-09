@@ -4,7 +4,6 @@ import java.util.function.LongBinaryOperator;
 import java.util.function.LongUnaryOperator;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Sequential BMC model of {@link java.util.concurrent.atomic.AtomicLong} — a mutable long holder.
@@ -15,7 +14,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * there is no other thread to observe a relaxed ordering, so each is observably identical to its
  * plain/strong counterpart and is modeled by delegating to it (documented per method).
  */
-@BmcModelTail(reason = "Number's byteValue()/shortValue() narrowing is out of scope for the long-backed model; loud under JBMC")
 public class AtomicLong extends Number {
 
     private long value;
@@ -231,5 +229,19 @@ public class AtomicLong extends Number {
     @BmcModelConforms("differential (ConcurrencyConformanceTest) + @BmcProof (proofs.concurrent)")
     public double doubleValue() {
         return value;
+    }
+
+    /** Narrowing read inherited from {@link Number}; the long value truncated to a byte (sequential, exact). */
+    @Override
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); Number narrowing == (byte) get() on one thread")
+    public byte byteValue() {
+        return (byte) value;
+    }
+
+    /** Narrowing read inherited from {@link Number}; the long value truncated to a short (sequential, exact). */
+    @Override
+    @BmcModelConforms("differential (ConcurrencyConformanceTest); Number narrowing == (short) get() on one thread")
+    public short shortValue() {
+        return (short) value;
     }
 }

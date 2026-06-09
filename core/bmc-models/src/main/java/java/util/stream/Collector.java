@@ -6,6 +6,8 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 /**
  * Minimal BMC model of {@link java.util.stream.Collector}. The real interface is a
@@ -43,6 +45,11 @@ public final class Collector<T, A, R> {
     static final int MAX_BY = 18;               // comparator
     static final int TEEING = 19;               // downstream, downstream2, merger
     static final int TO_COLLECTION = 20;        // supplier
+    static final int SUMMING_INT = 21;          // toIntFn
+    static final int SUMMING_LONG = 22;         // toLongFn
+    static final int SUMMARIZING_INT = 23;      // toIntFn
+    static final int SUMMARIZING_LONG = 24;     // toLongFn
+    static final int JOINING_PREFIX_SUFFIX = 25; // delimiter + prefix + suffix
 
     final int kind;
 
@@ -85,10 +92,23 @@ public final class Collector<T, A, R> {
     /** TEEING: the second downstream collector. */
     final Collector<?, ?, ?> downstream2;
 
+    /** SUMMING_INT/SUMMARIZING_INT: the int-valued extractor. */
+    final ToIntFunction<?> toIntFn;
+
+    /** SUMMING_LONG/SUMMARIZING_LONG: the long-valued extractor. */
+    final ToLongFunction<?> toLongFn;
+
+    /** JOINING_PREFIX_SUFFIX: the prefix prepended to the result. */
+    final CharSequence prefix;
+
+    /** JOINING_PREFIX_SUFFIX: the suffix appended to the result. */
+    final CharSequence suffix;
+
     private Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn, BinaryOperator<?> mergeFn,
             boolean identityPresent, Object identity, CharSequence delimiter, Predicate<?> predicate,
             Comparator<?> comparator, Supplier<?> supplier, Function<?, ?> finisher,
-            BiFunction<?, ?, ?> merger, Collector<?, ?, ?> downstream, Collector<?, ?, ?> downstream2) {
+            BiFunction<?, ?, ?> merger, Collector<?, ?, ?> downstream, Collector<?, ?, ?> downstream2,
+            ToIntFunction<?> toIntFn, ToLongFunction<?> toLongFn, CharSequence prefix, CharSequence suffix) {
         this.kind = kind;
         this.keyFn = keyFn;
         this.valueFn = valueFn;
@@ -103,22 +123,41 @@ public final class Collector<T, A, R> {
         this.merger = merger;
         this.downstream = downstream;
         this.downstream2 = downstream2;
+        this.toIntFn = toIntFn;
+        this.toLongFn = toLongFn;
+        this.prefix = prefix;
+        this.suffix = suffix;
     }
 
     Collector(int kind) {
-        this(kind, null, null, null, false, null, "", null, null, null, null, null, null, null);
+        this(kind, null, null, null, false, null, "", null, null, null, null, null, null, null, null, null, "", "");
+    }
+
+    /** SUMMING_INT / SUMMARIZING_INT: an int-valued extractor. */
+    Collector(int kind, ToIntFunction<?> toIntFn) {
+        this(kind, null, null, null, false, null, "", null, null, null, null, null, null, null, toIntFn, null, "", "");
+    }
+
+    /** SUMMING_LONG / SUMMARIZING_LONG: a long-valued extractor. */
+    Collector(int kind, ToLongFunction<?> toLongFn) {
+        this(kind, null, null, null, false, null, "", null, null, null, null, null, null, null, null, toLongFn, "", "");
+    }
+
+    /** JOINING_PREFIX_SUFFIX: delimiter + prefix + suffix. */
+    Collector(int kind, CharSequence delimiter, CharSequence prefix, CharSequence suffix) {
+        this(kind, null, null, null, false, null, delimiter, null, null, null, null, null, null, null, null, null, prefix, suffix);
     }
 
     Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn) {
-        this(kind, keyFn, valueFn, null, false, null, "", null, null, null, null, null, null, null);
+        this(kind, keyFn, valueFn, null, false, null, "", null, null, null, null, null, null, null, null, null, "", "");
     }
 
     Collector(int kind, CharSequence delimiter) {
-        this(kind, null, null, null, false, null, delimiter, null, null, null, null, null, null, null);
+        this(kind, null, null, null, false, null, delimiter, null, null, null, null, null, null, null, null, null, "", "");
     }
 
     Collector(int kind, Predicate<?> predicate) {
-        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, null, null);
+        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, null, null, null, null, "", "");
     }
 
     /**
@@ -126,53 +165,53 @@ public final class Collector<T, A, R> {
      * Function)} TO_MAP/GROUPING_BY constructor under {@code null} args.
      */
     Collector(int kind, Collector<?, ?, ?> downstream, Function<?, ?> mapper) {
-        this(kind, mapper, null, null, false, null, "", null, null, null, null, null, downstream, null);
+        this(kind, mapper, null, null, false, null, "", null, null, null, null, null, downstream, null, null, null, "", "");
     }
 
     // ---- tail-2 shape constructors --------------------------------------------------------------
 
     /** TO_MAP_MERGE / TO_CONCURRENT_MAP_MERGE: key + value + merge function. */
     Collector(int kind, Function<?, ?> keyFn, Function<?, ?> valueFn, BinaryOperator<?> mergeFn) {
-        this(kind, keyFn, valueFn, mergeFn, false, null, "", null, null, null, null, null, null, null);
+        this(kind, keyFn, valueFn, mergeFn, false, null, "", null, null, null, null, null, null, null, null, null, "", "");
     }
 
     /** GROUPING_BY_DOWNSTREAM / FILTERING / FLAT_MAPPING: a classifier/mapper or predicate + downstream. */
     Collector(int kind, Function<?, ?> classifierOrMapper, Collector<?, ?, ?> downstream) {
-        this(kind, classifierOrMapper, null, null, false, null, "", null, null, null, null, null, downstream, null);
+        this(kind, classifierOrMapper, null, null, false, null, "", null, null, null, null, null, downstream, null, null, null, "", "");
     }
 
     /** PARTITIONING_BY_DOWNSTREAM / FILTERING: predicate + downstream. */
     Collector(int kind, Predicate<?> predicate, Collector<?, ?, ?> downstream) {
-        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, downstream, null);
+        this(kind, null, null, null, false, null, "", predicate, null, null, null, null, downstream, null, null, null, "", "");
     }
 
     /** REDUCING(op) — no identity; Optional-returning. */
     Collector(int kind, BinaryOperator<?> op) {
-        this(kind, null, null, op, false, null, "", null, null, null, null, null, null, null);
+        this(kind, null, null, op, false, null, "", null, null, null, null, null, null, null, null, null, "", "");
     }
 
     /** REDUCING(identity, op) and REDUCING(identity, mapper, op). */
     Collector(int kind, Object identity, Function<?, ?> mapper, BinaryOperator<?> op) {
-        this(kind, mapper, null, op, true, identity, "", null, null, null, null, null, null, null);
+        this(kind, mapper, null, op, true, identity, "", null, null, null, null, null, null, null, null, null, "", "");
     }
 
     /** COLLECTING_AND_THEN: downstream + finisher. */
     Collector(int kind, Collector<?, ?, ?> downstream, Function<?, ?> finisher, boolean isFinisher) {
-        this(kind, null, null, null, false, null, "", null, null, null, finisher, null, downstream, null);
+        this(kind, null, null, null, false, null, "", null, null, null, finisher, null, downstream, null, null, null, "", "");
     }
 
     /** MIN_BY / MAX_BY: comparator. */
     Collector(int kind, Comparator<?> comparator) {
-        this(kind, null, null, null, false, null, "", null, comparator, null, null, null, null, null);
+        this(kind, null, null, null, false, null, "", null, comparator, null, null, null, null, null, null, null, "", "");
     }
 
     /** TO_COLLECTION: container supplier. */
     Collector(int kind, Supplier<?> supplier) {
-        this(kind, null, null, null, false, null, "", null, null, supplier, null, null, null, null);
+        this(kind, null, null, null, false, null, "", null, null, supplier, null, null, null, null, null, null, "", "");
     }
 
     /** TEEING: two downstreams + merger. */
     Collector(int kind, Collector<?, ?, ?> downstream, Collector<?, ?, ?> downstream2, BiFunction<?, ?, ?> merger) {
-        this(kind, null, null, null, false, null, "", null, null, null, null, merger, downstream, downstream2);
+        this(kind, null, null, null, false, null, "", null, null, null, null, merger, downstream, downstream2, null, null, "", "");
     }
 }

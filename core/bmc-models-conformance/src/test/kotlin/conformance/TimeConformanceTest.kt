@@ -705,4 +705,243 @@ class TimeConformanceTest : FunSpec({
             }
         }
     }
+
+    // --- ChronoField / ChronoUnit / ValueRange metadata + the TemporalField/Unit accessor plumbing -----
+    //
+    // The whole point of modeling ChronoField/ChronoUnit was to unblock the temporal accessors
+    // (getLong/get/isSupported/range/with/plus/minus/until) on the date/time models. Drive every modeled
+    // field/unit on every temporal and compare the relocated model bit-for-bit against the real JDK,
+    // including exception parity (an unsupported field/unit must throw on BOTH sides).
+
+    // The field/unit constants, paired real<->model so dispatch lands on the SAME constant on each side.
+    val dateFields = listOf(
+        java.time.temporal.ChronoField.DAY_OF_WEEK to bmcref.java.time.temporal.ChronoField.DAY_OF_WEEK,
+        java.time.temporal.ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH to bmcref.java.time.temporal.ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH,
+        java.time.temporal.ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR to bmcref.java.time.temporal.ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR,
+        java.time.temporal.ChronoField.DAY_OF_MONTH to bmcref.java.time.temporal.ChronoField.DAY_OF_MONTH,
+        java.time.temporal.ChronoField.DAY_OF_YEAR to bmcref.java.time.temporal.ChronoField.DAY_OF_YEAR,
+        java.time.temporal.ChronoField.EPOCH_DAY to bmcref.java.time.temporal.ChronoField.EPOCH_DAY,
+        java.time.temporal.ChronoField.ALIGNED_WEEK_OF_MONTH to bmcref.java.time.temporal.ChronoField.ALIGNED_WEEK_OF_MONTH,
+        java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR to bmcref.java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR,
+        java.time.temporal.ChronoField.MONTH_OF_YEAR to bmcref.java.time.temporal.ChronoField.MONTH_OF_YEAR,
+        java.time.temporal.ChronoField.PROLEPTIC_MONTH to bmcref.java.time.temporal.ChronoField.PROLEPTIC_MONTH,
+        java.time.temporal.ChronoField.YEAR_OF_ERA to bmcref.java.time.temporal.ChronoField.YEAR_OF_ERA,
+        java.time.temporal.ChronoField.YEAR to bmcref.java.time.temporal.ChronoField.YEAR,
+        java.time.temporal.ChronoField.ERA to bmcref.java.time.temporal.ChronoField.ERA,
+    )
+    val timeFields = listOf(
+        java.time.temporal.ChronoField.NANO_OF_SECOND to bmcref.java.time.temporal.ChronoField.NANO_OF_SECOND,
+        java.time.temporal.ChronoField.NANO_OF_DAY to bmcref.java.time.temporal.ChronoField.NANO_OF_DAY,
+        java.time.temporal.ChronoField.MICRO_OF_SECOND to bmcref.java.time.temporal.ChronoField.MICRO_OF_SECOND,
+        java.time.temporal.ChronoField.MICRO_OF_DAY to bmcref.java.time.temporal.ChronoField.MICRO_OF_DAY,
+        java.time.temporal.ChronoField.MILLI_OF_SECOND to bmcref.java.time.temporal.ChronoField.MILLI_OF_SECOND,
+        java.time.temporal.ChronoField.MILLI_OF_DAY to bmcref.java.time.temporal.ChronoField.MILLI_OF_DAY,
+        java.time.temporal.ChronoField.SECOND_OF_MINUTE to bmcref.java.time.temporal.ChronoField.SECOND_OF_MINUTE,
+        java.time.temporal.ChronoField.SECOND_OF_DAY to bmcref.java.time.temporal.ChronoField.SECOND_OF_DAY,
+        java.time.temporal.ChronoField.MINUTE_OF_HOUR to bmcref.java.time.temporal.ChronoField.MINUTE_OF_HOUR,
+        java.time.temporal.ChronoField.MINUTE_OF_DAY to bmcref.java.time.temporal.ChronoField.MINUTE_OF_DAY,
+        java.time.temporal.ChronoField.HOUR_OF_AMPM to bmcref.java.time.temporal.ChronoField.HOUR_OF_AMPM,
+        java.time.temporal.ChronoField.CLOCK_HOUR_OF_AMPM to bmcref.java.time.temporal.ChronoField.CLOCK_HOUR_OF_AMPM,
+        java.time.temporal.ChronoField.HOUR_OF_DAY to bmcref.java.time.temporal.ChronoField.HOUR_OF_DAY,
+        java.time.temporal.ChronoField.CLOCK_HOUR_OF_DAY to bmcref.java.time.temporal.ChronoField.CLOCK_HOUR_OF_DAY,
+        java.time.temporal.ChronoField.AMPM_OF_DAY to bmcref.java.time.temporal.ChronoField.AMPM_OF_DAY,
+    )
+
+    test("ChronoField / ChronoUnit metadata conforms (range/units/classification)") {
+        for ((rf, mf) in dateFields + timeFields) {
+            rf.isDateBased shouldBe mf.isDateBased
+            rf.isTimeBased shouldBe mf.isTimeBased
+            rf.range().minimum shouldBe mf.range().minimum
+            rf.range().maximum shouldBe mf.range().maximum
+            rf.range().isFixed shouldBe mf.range().isFixed
+            rf.range().isIntValue shouldBe mf.range().isIntValue
+        }
+        for (ru in java.time.temporal.ChronoUnit.values()) {
+            val mu = bmcref.java.time.temporal.ChronoUnit.valueOf(ru.name)
+            ru.isDateBased shouldBe mu.isDateBased()
+            ru.isTimeBased shouldBe mu.isTimeBased()
+            ru.isDurationEstimated shouldBe mu.isDurationEstimated()
+        }
+    }
+
+    test("ValueRange validation conforms (isValidValue / checkValidValue exception parity)") {
+        checkAll(Arb.long(-10L..400L), Arb.long(-10L..400L)) { lo, hi ->
+            if (lo <= hi) {
+                val rr = java.time.temporal.ValueRange.of(lo, hi)
+                val mr = bmcref.java.time.temporal.ValueRange.of(lo, hi)
+                rr.minimum shouldBe mr.minimum
+                rr.maximum shouldBe mr.maximum
+                rr.isFixed shouldBe mr.isFixed
+                rr.isIntValue shouldBe mr.isIntValue
+                rr.toString() shouldBe mr.toString()
+                for (v in listOf(lo - 1, lo, (lo + hi) / 2, hi, hi + 1)) {
+                    rr.isValidValue(v) shouldBe mr.isValidValue(v)
+                    assertEquivalent("checkValidValue($v)",
+                        runCatching { rr.checkValidValue(v, null) },
+                        runCatching { mr.checkValidValue(v, null) })
+                }
+            }
+        }
+    }
+
+    test("LocalDate TemporalField/Unit accessors conform (getLong/get/isSupported/range/with/plus/until)") {
+        val ld = Arb.long(-1_000_000L..1_000_000L)
+        checkAll(ld, ld) { e1, e2 ->
+            val ra = java.time.LocalDate.ofEpochDay(e1); val rb = java.time.LocalDate.ofEpochDay(e2)
+            val ma = bmcref.java.time.LocalDate.ofEpochDay(e1); val mb = bmcref.java.time.LocalDate.ofEpochDay(e2)
+            for ((rf, mf) in dateFields) {
+                ra.isSupported(rf) shouldBe ma.isSupported(mf)
+                ra.getLong(rf) shouldBe ma.getLong(mf)
+                ra.range(rf).maximum shouldBe ma.range(mf).getMaximum()
+            }
+            // a time-based field is unsupported -> the REAL side throws UnsupportedTemporalTypeException;
+            // the model throws its loud sentinel (verified by the audit gate's loud-body check — the
+            // sentinel class isn't on this differential JVM's classpath, so we only assert the real throws).
+            runCatching { ra.getLong(java.time.temporal.ChronoField.HOUR_OF_DAY) }.isFailure shouldBe true
+            // with: set a few date fields (value derived from e2 to stay symbolic)
+            for ((cf, vmax) in listOf(
+                java.time.temporal.ChronoField.DAY_OF_WEEK to 7L,
+                java.time.temporal.ChronoField.MONTH_OF_YEAR to 12L,
+            )) {
+                val mcf = if (cf == java.time.temporal.ChronoField.DAY_OF_WEEK)
+                    bmcref.java.time.temporal.ChronoField.DAY_OF_WEEK else bmcref.java.time.temporal.ChronoField.MONTH_OF_YEAR
+                val v = Math.floorMod(e2, vmax) + 1
+                (ra.with(cf, v) as java.time.LocalDate).toEpochDay() shouldBe
+                    (ma.with(mcf, v) as bmcref.java.time.LocalDate).toEpochDay()
+            }
+            // plus / until across the date units
+            for ((ru, mu) in listOf(
+                java.time.temporal.ChronoUnit.DAYS to bmcref.java.time.temporal.ChronoUnit.DAYS,
+                java.time.temporal.ChronoUnit.WEEKS to bmcref.java.time.temporal.ChronoUnit.WEEKS,
+                java.time.temporal.ChronoUnit.MONTHS to bmcref.java.time.temporal.ChronoUnit.MONTHS,
+                java.time.temporal.ChronoUnit.YEARS to bmcref.java.time.temporal.ChronoUnit.YEARS,
+            )) {
+                val n = e2 % 1000
+                (ra.plus(n, ru) as java.time.LocalDate).toEpochDay() shouldBe
+                    (ma.plus(n, mu) as bmcref.java.time.LocalDate).toEpochDay()
+                ra.until(rb, ru) shouldBe ma.until(mb, mu)
+            }
+        }
+    }
+
+    test("LocalTime TemporalField/Unit accessors conform (getLong/isSupported/with/plus/until)") {
+        val nod = Arb.long(0L..(86_400L * 1_000_000_000L - 1L))
+        checkAll(nod, nod) { n1, n2 ->
+            val ra = java.time.LocalTime.ofNanoOfDay(n1); val rb = java.time.LocalTime.ofNanoOfDay(n2)
+            val ma = bmcref.java.time.LocalTime.ofNanoOfDay(n1); val mb = bmcref.java.time.LocalTime.ofNanoOfDay(n2)
+            for ((rf, mf) in timeFields) {
+                ra.isSupported(rf) shouldBe ma.isSupported(mf)
+                ra.getLong(rf) shouldBe ma.getLong(mf)
+            }
+            // a date field is unsupported -> the real side throws (model throws its loud sentinel, off-classpath)
+            runCatching { ra.getLong(java.time.temporal.ChronoField.DAY_OF_MONTH) }.isFailure shouldBe true
+            // with HOUR_OF_DAY/MINUTE_OF_HOUR/SECOND_OF_MINUTE (values derived to stay in-range)
+            ra.with(java.time.temporal.ChronoField.HOUR_OF_DAY, n2 % 24).toNanoOfDay() shouldBe
+                ma.with(bmcref.java.time.temporal.ChronoField.HOUR_OF_DAY, n2 % 24).toNanoOfDay()
+            ra.with(java.time.temporal.ChronoField.NANO_OF_DAY, n2).toNanoOfDay() shouldBe
+                ma.with(bmcref.java.time.temporal.ChronoField.NANO_OF_DAY, n2).toNanoOfDay()
+            // plus / until across the clock units
+            for ((ru, mu) in listOf(
+                java.time.temporal.ChronoUnit.HOURS to bmcref.java.time.temporal.ChronoUnit.HOURS,
+                java.time.temporal.ChronoUnit.MINUTES to bmcref.java.time.temporal.ChronoUnit.MINUTES,
+                java.time.temporal.ChronoUnit.SECONDS to bmcref.java.time.temporal.ChronoUnit.SECONDS,
+                java.time.temporal.ChronoUnit.NANOS to bmcref.java.time.temporal.ChronoUnit.NANOS,
+            )) {
+                val k = n2 % 100_000
+                ra.plus(k, ru).toNanoOfDay() shouldBe ma.plus(k, mu).toNanoOfDay()
+                ra.until(rb, ru) shouldBe ma.until(mb, mu)
+            }
+        }
+    }
+
+    test("Instant TemporalField/Unit accessors conform (getLong/isSupported/with/plus/until)") {
+        checkAll(ms, ms) { a, b ->
+            val ra = java.time.Instant.ofEpochMilli(a); val rb = java.time.Instant.ofEpochMilli(b)
+            val ma = bmcref.java.time.Instant.ofEpochMilli(a); val mb = bmcref.java.time.Instant.ofEpochMilli(b)
+            for ((rf, mf) in listOf(
+                java.time.temporal.ChronoField.INSTANT_SECONDS to bmcref.java.time.temporal.ChronoField.INSTANT_SECONDS,
+                java.time.temporal.ChronoField.MILLI_OF_SECOND to bmcref.java.time.temporal.ChronoField.MILLI_OF_SECOND,
+                java.time.temporal.ChronoField.MICRO_OF_SECOND to bmcref.java.time.temporal.ChronoField.MICRO_OF_SECOND,
+                java.time.temporal.ChronoField.NANO_OF_SECOND to bmcref.java.time.temporal.ChronoField.NANO_OF_SECOND,
+            )) {
+                ra.isSupported(rf) shouldBe ma.isSupported(mf)
+                ra.getLong(rf) shouldBe ma.getLong(mf)
+            }
+            val milliVal = Math.floorMod(b, 1000L)   // in-range [0,999] so with() succeeds on both sides
+            ra.with(java.time.temporal.ChronoField.MILLI_OF_SECOND, milliVal).let { it as java.time.Instant }.toEpochMilli() shouldBe
+                (ma.with(bmcref.java.time.temporal.ChronoField.MILLI_OF_SECOND, milliVal) as bmcref.java.time.Instant).toEpochMilli()
+            for ((ru, mu) in listOf(
+                java.time.temporal.ChronoUnit.SECONDS to bmcref.java.time.temporal.ChronoUnit.SECONDS,
+                java.time.temporal.ChronoUnit.MINUTES to bmcref.java.time.temporal.ChronoUnit.MINUTES,
+                java.time.temporal.ChronoUnit.HOURS to bmcref.java.time.temporal.ChronoUnit.HOURS,
+                java.time.temporal.ChronoUnit.DAYS to bmcref.java.time.temporal.ChronoUnit.DAYS,
+                java.time.temporal.ChronoUnit.MILLIS to bmcref.java.time.temporal.ChronoUnit.MILLIS,
+            )) {
+                val n = b / 1000
+                (ra.plus(n, ru) as java.time.Instant).toEpochMilli() shouldBe
+                    (ma.plus(n, mu) as bmcref.java.time.Instant).toEpochMilli()
+                ra.until(rb, ru) shouldBe ma.until(mb, mu)
+            }
+        }
+    }
+
+    test("LocalDateTime TemporalField/Unit accessors conform (split date/time onto the part-models)") {
+        val ld = Arb.long(-300_000L..300_000L)
+        val nod = Arb.long(0L..(86_400L * 1_000_000_000L - 1L))
+        checkAll(ld, nod, nod) { e, n1, n2 ->
+            val ra = java.time.LocalDate.ofEpochDay(e).atTime(java.time.LocalTime.ofNanoOfDay(n1))
+            val ma = bmcref.java.time.LocalDate.ofEpochDay(e).atTime(bmcref.java.time.LocalTime.ofNanoOfDay(n1))
+            // one date field + one time field
+            ra.getLong(java.time.temporal.ChronoField.DAY_OF_WEEK) shouldBe ma.getLong(bmcref.java.time.temporal.ChronoField.DAY_OF_WEEK)
+            ra.getLong(java.time.temporal.ChronoField.HOUR_OF_DAY) shouldBe ma.getLong(bmcref.java.time.temporal.ChronoField.HOUR_OF_DAY)
+            ra.isSupported(java.time.temporal.ChronoField.NANO_OF_DAY) shouldBe ma.isSupported(bmcref.java.time.temporal.ChronoField.NANO_OF_DAY)
+            // with a time field then a date field
+            (ra.with(java.time.temporal.ChronoField.HOUR_OF_DAY, n2 % 24) as java.time.LocalDateTime).toLocalTime().toNanoOfDay() shouldBe
+                (ma.with(bmcref.java.time.temporal.ChronoField.HOUR_OF_DAY, n2 % 24) as bmcref.java.time.LocalDateTime).toLocalTime().toNanoOfDay()
+            // plus an hour count (carries into the date) + a month count + until across both axes
+            val rEnd = java.time.LocalDate.ofEpochDay(e + (n2 % 5000)).atTime(java.time.LocalTime.ofNanoOfDay(n2))
+            val mEnd = bmcref.java.time.LocalDate.ofEpochDay(e + (n2 % 5000)).atTime(bmcref.java.time.LocalTime.ofNanoOfDay(n2))
+            val k = n2 % 100_000
+            (ra.plus(k, java.time.temporal.ChronoUnit.HOURS) as java.time.LocalDateTime).let { r ->
+                (ma.plus(k, bmcref.java.time.temporal.ChronoUnit.HOURS) as bmcref.java.time.LocalDateTime).let { m ->
+                    r.toLocalDate().toEpochDay() shouldBe m.toLocalDate().toEpochDay()
+                    r.toLocalTime().toNanoOfDay() shouldBe m.toLocalTime().toNanoOfDay()
+                }
+            }
+            ra.until(rEnd, java.time.temporal.ChronoUnit.HOURS) shouldBe ma.until(mEnd, bmcref.java.time.temporal.ChronoUnit.HOURS)
+            ra.until(rEnd, java.time.temporal.ChronoUnit.DAYS) shouldBe ma.until(mEnd, bmcref.java.time.temporal.ChronoUnit.DAYS)
+            ra.until(rEnd, java.time.temporal.ChronoUnit.MONTHS) shouldBe ma.until(mEnd, bmcref.java.time.temporal.ChronoUnit.MONTHS)
+        }
+    }
+
+    test("ZoneOffset / enum TemporalField accessors conform (getLong/isSupported)") {
+        checkAll(Arb.int(-64800..64800)) { s ->
+            val rz = java.time.ZoneOffset.ofTotalSeconds(s); val mz = bmcref.java.time.ZoneOffset.ofTotalSeconds(s)
+            rz.getLong(java.time.temporal.ChronoField.OFFSET_SECONDS) shouldBe mz.getLong(bmcref.java.time.temporal.ChronoField.OFFSET_SECONDS)
+            rz.isSupported(java.time.temporal.ChronoField.OFFSET_SECONDS) shouldBe mz.isSupported(bmcref.java.time.temporal.ChronoField.OFFSET_SECONDS)
+            rz.isSupported(java.time.temporal.ChronoField.INSTANT_SECONDS) shouldBe mz.isSupported(bmcref.java.time.temporal.ChronoField.INSTANT_SECONDS)
+        }
+        checkAll(Arb.int(1..7)) { v ->
+            java.time.DayOfWeek.of(v).getLong(java.time.temporal.ChronoField.DAY_OF_WEEK) shouldBe
+                bmcref.java.time.DayOfWeek.of(v).getLong(bmcref.java.time.temporal.ChronoField.DAY_OF_WEEK)
+        }
+        checkAll(Arb.int(1..12)) { v ->
+            java.time.Month.of(v).getLong(java.time.temporal.ChronoField.MONTH_OF_YEAR) shouldBe
+                bmcref.java.time.Month.of(v).getLong(bmcref.java.time.temporal.ChronoField.MONTH_OF_YEAR)
+        }
+        checkAll(Arb.int(0..1)) { v ->
+            java.time.chrono.IsoEra.of(v).getLong(java.time.temporal.ChronoField.ERA) shouldBe
+                bmcref.java.time.chrono.IsoEra.of(v).getLong(bmcref.java.time.temporal.ChronoField.ERA)
+        }
+    }
+
+    test("Duration.get(TemporalUnit) conforms (SECONDS / NANOS, exception parity)") {
+        checkAll(ms) { a ->
+            val rd = java.time.Duration.ofMillis(a); val md = bmcref.java.time.Duration.ofMillis(a)
+            rd.get(java.time.temporal.ChronoUnit.SECONDS) shouldBe md.get(bmcref.java.time.temporal.ChronoUnit.SECONDS)
+            rd.get(java.time.temporal.ChronoUnit.NANOS) shouldBe md.get(bmcref.java.time.temporal.ChronoUnit.NANOS)
+            // an unsupported unit -> the real side throws (model throws its loud sentinel, off-classpath)
+            runCatching { rd.get(java.time.temporal.ChronoUnit.MINUTES) }.isFailure shouldBe true
+        }
+    }
 })
