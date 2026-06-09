@@ -132,6 +132,25 @@ class TimeLaws {
         Bmc.check(Duration.ofMinutes(-3).toMillis() == -180_000L)
     }
 
+    // of/plus/minus(long, TemporalUnit) dispatch on the now-modeled ChronoUnit over the millis backing.
+    // unwind = 32: the ChronoUnit enum-switch dispatch clones ChronoUnit.values() (16 constants) in its
+    // synthetic $SwitchMap init; that clone loop hits the default unwind of 16, so raise the bound.
+    @BmcProof(unwind = 32)
+    fun duration_of_unit_matches_typed_factories() {
+        val n = anySec()
+        Bmc.check(Duration.of(n, java.time.temporal.ChronoUnit.SECONDS) == Duration.ofSeconds(n))
+        Bmc.check(Duration.of(n, java.time.temporal.ChronoUnit.MILLIS) == Duration.ofMillis(n))
+    }
+
+    @BmcProof(unwind = 32)
+    fun duration_plus_unit_matches_plusSeconds_and_minus_round_trips() {
+        val d = Duration.ofMillis(anySec())
+        val n = anySec()
+        Bmc.check(d.plus(n, java.time.temporal.ChronoUnit.SECONDS) == d.plusSeconds(n))
+        Bmc.check(d.plus(n, java.time.temporal.ChronoUnit.MILLIS)
+            .minus(n, java.time.temporal.ChronoUnit.MILLIS) == d)
+    }
+
     @BmcProof
     fun duration_toNanos_scales_millis() {
         // toNanos == millis * 1_000_000 (loud past the bound). Pin the scale concretely under JBMC; the
@@ -310,6 +329,38 @@ class TimeLaws {
         Bmc.check(feb29.plusYears(1).dayOfMonth == 28)   // 2025-02-28 (non-leap)
     }
 
+    // getMonth (modeled Month enum) / getEra (modeled IsoEra) decode the date part; driven from a CONCRETE
+    // date (dateOf) so the wide-divisor ymd() decode stays a tracked circuit, like the clamp laws above.
+    @BmcProof
+    fun localdate_getMonth_getEra_match_fields() {
+        val ce = dateOf(2024, 6, 15)
+        Bmc.check(ce.month == Month.JUNE)
+        Bmc.check(ce.month.value == ce.monthValue)
+        Bmc.check(ce.era == IsoEra.CE)               // year 2024 >= 1 → CE
+        val bce = dateOf(0, 3, 1)                     // proleptic year 0 < 1 → BCE
+        Bmc.check(bce.era == IsoEra.BCE)
+    }
+
+    // of(int, Month, int) is the Month-enum factory; it must agree with the int of(y, m, d) factory.
+    @BmcProof
+    fun localdate_of_month_enum_matches_int_factory() {
+        val y = Bmc.anyInt(2000, 2050)
+        val d = Bmc.anyInt(1, 28)               // <= 28 so no month-length clamp/reject branch is hit
+        Bmc.check(LocalDate.of(y, Month.MARCH, d) == LocalDate.of(y, 3, d))
+    }
+
+    // toEpochSecond(time, offset) is pure int arithmetic over the modeled epoch-day / second-of-day /
+    // offset-total-seconds — no zone DB. Pin its decomposition from a concrete date+time+offset.
+    @BmcProof
+    fun localdate_toEpochSecond_decomposes() {
+        val d = dateOf(2024, 6, 15)
+        val secOfDay = Bmc.anyInt(0, 86_399)
+        val t = LocalTime.ofSecondOfDay(secOfDay.toLong())
+        val offSec = Bmc.anyInt(-18 * 3600, 18 * 3600)
+        val off = ZoneOffset.ofTotalSeconds(offSec)
+        Bmc.check(d.toEpochSecond(t, off) == d.toEpochDay() * 86_400L + secOfDay - offSec)
+    }
+
     // --- LocalTime ---
     // Field generators kept tight: of()/getters divide/mod by NANOS_PER_*, so small magnitudes keep
     // those divider circuits small. The laws hold for any in-bounds value.
@@ -370,6 +421,26 @@ class TimeLaws {
         Bmc.check(r.monthValue == 2)
         Bmc.check(r.dayOfMonth == 29)
         Bmc.check(r.hour == 8)
+    }
+
+    // getMonth (modeled Month enum) of the date part; getDayOfWeek round-trips through the LocalDate model.
+    @BmcProof
+    fun localdatetime_getMonth_matches_value() {
+        val dt = LocalDateTime.of(2024, 6, 15, 10, 30, 0)
+        Bmc.check(dt.month == Month.JUNE)
+        Bmc.check(dt.month.value == dt.monthValue)
+    }
+
+    // ofEpochSecond(epochSecond, nano, offset) and toEpochSecond(offset) are inverse over the second grid
+    // (whole seconds, nano part 0): build a date-time at second resolution and round-trip the epoch-second.
+    // Pure int arithmetic over the (epoch-day, nano-of-day) backing and the explicit offset — no zone DB.
+    @BmcProof
+    fun localdatetime_ofEpochSecond_toEpochSecond_round_trips() {
+        val es = Bmc.anyInt(-1_000_000, 1_000_000).toLong()
+        val offSec = Bmc.anyInt(-18 * 3600, 18 * 3600)
+        val off = ZoneOffset.ofTotalSeconds(offSec)
+        val dt = LocalDateTime.ofEpochSecond(es, 0, off)
+        Bmc.check(dt.toEpochSecond(off) == es)
     }
 
     // isBefore/isAfter/compareTo — now @BmcProof-able. Their real signatures take ChronoLocalDateTime<?>,
@@ -544,6 +615,17 @@ class TimeLaws {
         // east-of-UTC (larger total-seconds) sorts FIRST → compareTo negative when a > b
         Bmc.check((c < 0) == (a.totalSeconds > b.totalSeconds))
         Bmc.check((c == 0) == (a.totalSeconds == b.totalSeconds))
+    }
+
+    // ofHoursMinutesSeconds composes the three same-sign parts into total-seconds — pure int arithmetic.
+    @BmcProof
+    fun zoneoffset_ofHoursMinutesSeconds_sums_total_seconds() {
+        val h = Bmc.anyInt(0, 17)
+        val m = Bmc.anyInt(0, 59)
+        val s = Bmc.anyInt(0, 59)
+        Bmc.check(ZoneOffset.ofHoursMinutesSeconds(h, m, s).totalSeconds == h * 3600 + m * 60 + s)
+        // the all-negative variant mirrors it
+        Bmc.check(ZoneOffset.ofHoursMinutesSeconds(-h, -m, -s).totalSeconds == -(h * 3600 + m * 60 + s))
     }
 
     // --- ChronoField / ChronoUnit accessor plumbing on the temporal models ---

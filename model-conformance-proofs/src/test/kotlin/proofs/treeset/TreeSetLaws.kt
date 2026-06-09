@@ -118,6 +118,17 @@ class TreeSetLaws {
     }
 
     @BmcProof
+    fun containsAll_true_iff_every_element_present() {
+        val s = TreeSet<Int>()
+        s.add(2); s.add(4); s.add(6)
+        val sub = ArrayList<Int>()
+        sub.add(2); sub.add(6)
+        val other = ArrayList<Int>()
+        other.add(2); other.add(5)      // 5 absent
+        Bmc.check(s.containsAll(sub) && !s.containsAll(other))
+    }
+
+    @BmcProof
     fun poll_on_empty_set_is_null() {
         val s = TreeSet<Int>()
         Bmc.check(s.pollFirst() == null && s.pollLast() == null)
