@@ -95,6 +95,10 @@ jobs:
     if: ${{ inputs.githubPackages && needs.plan.outputs.modules != '[]' && needs.plan.outputs.modules != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # GitHub Packages is a best-effort secondary mirror (Maven Central is the authoritative
+    # publish). A GHP failure - the recurring 409 on an already-published version, a flaky upload -
+    # must NOT sink the release. Tolerate it: the job can fail without failing the workflow.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:

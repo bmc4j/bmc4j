@@ -97,6 +97,9 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       gate: true
+      # Skip the proof matrix for release for now: the release gate is a green build + unit tests +
+      # every-platform smoke. (Proofs run continuously on main; re-enable here by dropping this.)
+      proofs: false
       platforms: all
       jdks: '21'
 

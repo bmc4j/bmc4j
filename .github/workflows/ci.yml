@@ -55,6 +55,12 @@ on:
       gate:
         type: boolean
         default: true
+      # Skip the proof legs while keeping the build + unit tests + platform smokes (the release
+      # uses this for now: publish on a green build + smoke, without waiting on the full proof
+      # matrix). Only honoured from a workflow_call caller; empty on a real push/PR event.
+      proofs:
+        type: boolean
+        default: true
       platforms:
         type: string
         default: all
@@ -99,6 +105,7 @@ jobs:
           JDKS: ${{ inputs.jdks }}
           KOTLINS: ${{ inputs.kotlins }}
           GATE_INPUT: ${{ inputs.gate }}
+          PROOFS_INPUT: ${{ inputs.proofs }}
           SHARDS_INPUT: ${{ inputs.shards }}
         run: |
           set -euo pipefail
@@ -210,6 +217,15 @@ jobs:
               for k in $(echo "${KOTLINS:-}" | tr ',' ' '); do [ -n "$k" ] && kotlin_leg "$k" "$SHARDS"; done
               ;;
           esac
+          # A workflow_call caller can skip the proof legs (the release does, for now) while keeping
+          # gate=true so the build + unit tests still run. Dropping legs to [] is enough: the proofs,
+          # merge-verdict-cache, and proof-comment jobs all gate on legs != '[]'. PROOFS_INPUT is
+          # 'false' ONLY when a caller passes it; it's empty on a real push/PR event (inputs don't
+          # apply), so this never affects normal CI.
+          if [ "${PROOFS_INPUT:-}" = "false" ]; then
+            echo "Proofs skipped (caller passed proofs=false): build + smokes only."
+            legs='[]'
+          fi
           echo "gate=$gate" >> "$GITHUB_OUTPUT"
           echo "legs=$legs" >> "$GITHUB_OUTPUT"
           # Distinct leg names (one merged verdict-cache snapshot per leg, regardless of shard count).
