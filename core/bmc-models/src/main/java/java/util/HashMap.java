@@ -37,6 +37,27 @@ public class HashMap<K, V> implements Map<K, V> {
      * Bounded by capacity {@value #CAPACITY}.
      */
     public HashMap(Map<? extends K, ? extends V> m) {
+        copyFrom(m);
+    }
+
+    /**
+     * Copy every mapping of {@code m} into this map. When {@code m} is itself a bmc4j {@code HashMap}
+     * model, read its backing BY INDEX rather than through {@code m.entrySet()} + the entry-set's
+     * interface-typed iterator: that virtual dispatch is devirtualization-fragile under JBMC (the
+     * iterator cursor can go nondet, notably on the EMPTY source where the zero-iteration loop must be
+     * proven to add nothing), yielding a false UNKNOWN. Reading {@code keyAt(i)}/{@code valueAt(i)} over
+     * the concrete {@code size()} resolves soundly. A non-model source falls back to the entry-set copy.
+     */
+    @SuppressWarnings("unchecked")
+    private void copyFrom(Map<? extends K, ? extends V> m) {
+        if (m instanceof HashMap) {
+            HashMap<? extends K, ? extends V> hm = (HashMap<? extends K, ? extends V>) m;
+            int n = hm.size();
+            for (int i = 0; i < n; i++) {
+                put((K) hm.keyAt(i), (V) hm.valueAt(i));
+            }
+            return;
+        }
         for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
             put(e.getKey(), e.getValue());
         }
@@ -370,9 +391,7 @@ public class HashMap<K, V> implements Map<K, V> {
     /** Bulk put: insert every mapping of {@code m} (loud out-of-bounds past CAPACITY), like the JDK. */
     @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
     public void putAll(Map<? extends K, ? extends V> m) {
-        for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-            put(e.getKey(), e.getValue());
-        }
+        copyFrom(m);
     }
 
     // --- presizing factory (Java 19+) ----------------------------------------

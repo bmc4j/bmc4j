@@ -294,11 +294,11 @@ public final class MapsKt {
     // It stays a loud UNKNOWN until/unless the TreeMap model grows a real comparator backing.
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <K, V> SortedMap<K, V> toSortedMap(Map<? extends K, ? extends V> map) {
-        TreeMap<K, V> out = new TreeMap<>();
-        for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
-            out.put(e.getKey(), e.getValue());
-        }
-        return out;
+        // Build through the TreeMap copy-constructor: it concrete-backs the source map's iteration (reads
+        // the bmc4j HashMap model's backing by index) instead of going through the source's entry-set
+        // iterator, whose interface-typed virtual dispatch is devirtualization-fragile under JBMC — the
+        // empty source's zero-iteration copy could not be proven to add nothing and fell to a false UNKNOWN.
+        return new TreeMap<>(map);
     }
 
     // ---- sortedMapOf(pairs[]): MapsKt.sortedMapOf:([Lkotlin/Pair;)Ljava/util/SortedMap; — a NEW
