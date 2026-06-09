@@ -519,6 +519,23 @@ class ConcurrencyConformanceTest : FunSpec({
             }
         }
 
+        // containsAll: bulk membership is a bounded loop of contains() over the FIFO backing. Build both
+        // queues identically, then compare containsAll against several probe collections (empty, a present
+        // subset, a set with an absent element).
+        test("$label containsAll conforms (bulk membership)") {
+            checkAll(Arb.list(Arb.int(0..6), 0..5)) { items ->
+                val r = makeReal(8); val m = makeModel(8)
+                for (x in items) { call(r, "offer", arrayOf(OBJECT), x); call(m, "offer", arrayOf(OBJECT), x) }
+                for (probe in listOf(emptyList(), items, items + 99, listOf(0, 99))) {
+                    val rSub = java.util.ArrayList<Any?>(probe)
+                    val mSub = bmcref.java.util.ArrayList<Any?>().also { for (x in probe) it.add(x) }
+                    assertEquivalent("containsAll($probe)",
+                        call(r, "containsAll", arrayOf(java.util.Collection::class.java), rSub),
+                        call(m, "containsAll", arrayOf(bmcref.java.util.Collection::class.java), mSub))
+                }
+            }
+        }
+
         test("$label add/remove/element throwing surface conforms") {
             // add throws when full (IllegalStateException), remove/element throw when empty
             // (NoSuchElementException). Exercise a bounded queue of capacity 3.
@@ -971,6 +988,80 @@ class ConcurrencyConformanceTest : FunSpec({
         }
     }
 
+    // --- CopyOnWriteArrayList.containsAll (bulk membership over the array backing) ------------------
+    // A bounded loop of contains(); compared against the real COW list over present/absent/empty probes.
+    test("CopyOnWriteArrayList.containsAll conforms (bulk membership)") {
+        checkAll(Arb.list(Arb.int(0..6), 0..8)) { items ->
+            val r = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val m = bmcref.java.util.concurrent.CopyOnWriteArrayList<Int>()
+            for (x in items) { r.add(x); call(m, "add", arrayOf(OBJECT), x) }
+            for (probe in listOf(emptyList(), items, items + 99, listOf(0, 99))) {
+                val rSub = java.util.ArrayList<Any?>(probe)
+                val mSub = bmcref.java.util.ArrayList<Any?>().also { for (x in probe) it.add(x) }
+                assertEquivalent("containsAll($probe)",
+                    call(r, "containsAll", arrayOf(java.util.Collection::class.java), rSub),
+                    call(m, "containsAll", arrayOf(bmcref.java.util.Collection::class.java), mSub))
+            }
+        }
+    }
+
+    // --- CompletableFuture explicit-Executor *Async twins (reduce to synchronous form) -------------
+    // On one thread a user-supplied Executor yields the same value as the synchronous combinator. Drive
+    // the explicit-Executor twins with an immediate same-thread executor and compare against the real JDK
+    // future (which also runs them, observably identically on one thread).
+    test("CompletableFuture explicit-Executor *Async twins conform (reduce to sync)") {
+        checkAll(Arb.int(0..9)) { v ->
+            val realEx = java.util.concurrent.Executor { it.run() }
+            val modelEx = makeRefImmediateExecutor()
+            val r = java.util.concurrent.CompletableFuture.completedFuture(v)
+            val m = bmcref.java.util.concurrent.CompletableFuture.completedFuture(v)
+
+            val fn = java.util.function.Function<Int, Int> { it + 5 }
+            r.thenApplyAsync(fn, realEx).join() shouldBe
+                modelJoin(call(m, "thenApplyAsync", arrayOf(FUNCTION, MODEL_EXECUTOR), fn, modelEx))
+
+            val accept = java.util.function.Consumer<Int> { }
+            r.thenAcceptAsync(accept, realEx).join() shouldBe
+                modelJoin(call(m, "thenAcceptAsync", arrayOf(CONSUMER, MODEL_EXECUTOR), accept, modelEx))
+
+            val run = Runnable { }
+            r.thenRunAsync(run, realEx).join() shouldBe
+                modelJoin(call(m, "thenRunAsync", arrayOf(RUNNABLE, MODEL_EXECUTOR), run, modelEx))
+
+            val handler = java.util.function.BiFunction<Int?, Throwable?, Int> { value, _ -> (value ?: -1) + 2 }
+            r.handleAsync(handler, realEx).join() shouldBe
+                modelJoin(call(m, "handleAsync", arrayOf(BIFUNCTION, MODEL_EXECUTOR), handler, modelEx))
+
+            // static supplyAsync(supplier, executor) and runAsync(runnable, executor)
+            java.util.concurrent.CompletableFuture.supplyAsync({ v + 1 }, realEx).join() shouldBe
+                modelJoin(staticCall(CF, "supplyAsync", arrayOf(SUPPLIER, MODEL_EXECUTOR),
+                    java.util.function.Supplier<Int> { v + 1 }, modelEx))
+            java.util.concurrent.CompletableFuture.runAsync({ }, realEx).join() shouldBe
+                modelJoin(staticCall(CF, "runAsync", arrayOf(RUNNABLE, MODEL_EXECUTOR), Runnable { }, modelEx))
+        }
+    }
+
+    // --- CompletableFuture get(timeout) as a two-outcome state machine -----------------------------
+    // Settled -> returns the value (success outcome). Unsettled -> throws TimeoutException (timeout
+    // outcome). Both reachable; compared against the real JDK future with a 0ms timeout (its settled get
+    // returns immediately, its unsettled get times out).
+    test("CompletableFuture get(timeout): settled returns value, unsettled times out") {
+        checkAll(Arb.int(0..9)) { v ->
+            // settled -> value on both
+            val rOk = java.util.concurrent.CompletableFuture.completedFuture(v)
+            val mOk = bmcref.java.util.concurrent.CompletableFuture.completedFuture(v)
+            rOk.get(0, java.util.concurrent.TimeUnit.MILLISECONDS) shouldBe
+                call(mOk, "get", arrayOf(LONG, MODEL_TIMEUNIT), 0L, MODEL_MILLIS).getOrThrow()
+
+            // unsettled -> TimeoutException on both
+            val rPending = java.util.concurrent.CompletableFuture<Int>()
+            val mPending = bmcref.java.util.concurrent.CompletableFuture<Int>()
+            assertSameException(
+                runCatching { rPending.get(0, java.util.concurrent.TimeUnit.MILLISECONDS) },
+                call(mPending, "get", arrayOf(LONG, MODEL_TIMEUNIT), 0L, MODEL_MILLIS))
+        }
+    }
+
     // --- CompletableFuture ready-value / ready-failure constructions (sequential plumbing) ---------
     // failedFuture/failedStage build a ready failure; copy mirrors a settled completion;
     // newIncompleteFuture is a fresh pending future; minimalCompletionStage is the settled stage view.
@@ -1060,8 +1151,13 @@ private val FUNCTION: Class<*> = java.util.function.Function::class.java
 private val BIFUNCTION: Class<*> = java.util.function.BiFunction::class.java
 private val BICONSUMER: Class<*> = java.util.function.BiConsumer::class.java
 private val CONSUMER: Class<*> = java.util.function.Consumer::class.java
+private val SUPPLIER: Class<*> = java.util.function.Supplier::class.java
 private val RUNNABLE: Class<*> = java.lang.Runnable::class.java
 private val THROWABLE: Class<*> = java.lang.Throwable::class.java
+// Executor IS relocated (bmcref.java.util.concurrent.Executor): the model's explicit-Executor *Async
+// twins take the relocated interface (its execute(Runnable) takes a real, un-relocated Runnable). The
+// executor is dropped either way; we just need a model-typed instance for the reflective lookup.
+private val MODEL_EXECUTOR: Class<*> = bmcref.java.util.concurrent.Executor::class.java
 // TimeUnit IS relocated (bmcref.java.util.concurrent.TimeUnit): the model's timed-op overloads take the
 // relocated enum, the JDK's take the real one. The duration is dropped either way; we just need each
 // side's matching enum type + constant for the reflective lookup to resolve.
@@ -1114,4 +1210,17 @@ private fun makeRefCallable(value: Int): Any {
 private fun makeRefRunnable(): Any {
     val runnable = refClass("java.lang.Runnable")
     return java.lang.reflect.Proxy.newProxyInstance(runnable.classLoader, arrayOf(runnable)) { _, _, _ -> null }
+}
+
+/**
+ * A relocated-model Executor that runs the submitted Runnable immediately (same-thread). The model's
+ * explicit-Executor *Async twins drop it, but a real instance is needed for the reflective lookup; this
+ * immediate executor also keeps the proxy a faithful "run it now" stand-in.
+ */
+private fun makeRefImmediateExecutor(): Any {
+    val executor = MODEL_EXECUTOR
+    return java.lang.reflect.Proxy.newProxyInstance(executor.classLoader, arrayOf(executor)) { _, method, args ->
+        if (method.name == "execute" && args != null && args.isNotEmpty()) (args[0] as Runnable).run()
+        null
+    }
 }

@@ -589,57 +589,37 @@ Real surface: 44 members — modeled 34, unmodelable 10, not-needed 0, tail 0.
 
 ## `java.util.concurrent.ArrayBlockingQueue`
 
-Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
+Real surface: 31 members — modeled 29, unmodelable 2, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
 | `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 
 
 ## `java.util.concurrent.CompletableFuture`
 
-Real surface: 79 members — modeled 47, unmodelable 32, not-needed 0, tail 0.
+Real surface: 79 members — modeled 66, unmodelable 13, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `complete(Object)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `copy()`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `failedFuture(Throwable)`, `failedStage(Throwable)`, `get()`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `minimalCompletionStage()`, `newIncompleteFuture()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAsync(Runnable)`, `supplyAsync(Supplier)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`
+**Modeled** (`@BmcModelConforms`): `acceptEither(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer)`, `acceptEitherAsync(CompletionStage, Consumer, Executor)`, `allOf(CompletableFuture[])`, `anyOf(CompletableFuture[])`, `applyToEither(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function)`, `applyToEitherAsync(CompletionStage, Function, Executor)`, `complete(Object)`, `completeAsync(Supplier)`, `completeAsync(Supplier, Executor)`, `completeExceptionally(Throwable)`, `completedFuture(Object)`, `completedStage(Object)`, `copy()`, `exceptionally(Function)`, `exceptionallyAsync(Function)`, `exceptionallyAsync(Function, Executor)`, `exceptionallyCompose(Function)`, `exceptionallyComposeAsync(Function)`, `exceptionallyComposeAsync(Function, Executor)`, `failedFuture(Throwable)`, `failedStage(Throwable)`, `get()`, `get(long, TimeUnit)`, `getNow(Object)`, `handle(BiFunction)`, `handleAsync(BiFunction)`, `handleAsync(BiFunction, Executor)`, `isCompletedExceptionally()`, `isDone()`, `join()`, `minimalCompletionStage()`, `newIncompleteFuture()`, `runAfterBoth(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable)`, `runAfterBothAsync(CompletionStage, Runnable, Executor)`, `runAfterEither(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable)`, `runAfterEitherAsync(CompletionStage, Runnable, Executor)`, `runAsync(Runnable)`, `runAsync(Runnable, Executor)`, `supplyAsync(Supplier)`, `supplyAsync(Supplier, Executor)`, `thenAccept(Consumer)`, `thenAcceptAsync(Consumer)`, `thenAcceptAsync(Consumer, Executor)`, `thenAcceptBoth(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer)`, `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)`, `thenApply(Function)`, `thenApplyAsync(Function)`, `thenApplyAsync(Function, Executor)`, `thenCombine(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction)`, `thenCombineAsync(CompletionStage, BiFunction, Executor)`, `thenCompose(Function)`, `thenComposeAsync(Function)`, `thenComposeAsync(Function, Executor)`, `thenRun(Runnable)`, `thenRunAsync(Runnable)`, `thenRunAsync(Runnable, Executor)`, `toCompletableFuture()`, `whenComplete(BiConsumer)`, `whenCompleteAsync(BiConsumer)`, `whenCompleteAsync(BiConsumer, Executor)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `acceptEitherAsync(CompletionStage, Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `applyToEitherAsync(CompletionStage, Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 | `cancel(boolean)` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
-| `completeAsync(Supplier)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `completeAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 | `completeOnTimeout(Object, long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
 | `defaultExecutor()` | a future's default Executor is real scheduling infrastructure — the concurrency wall in a sequential model |
 | `delayedExecutor(long, TimeUnit)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
 | `delayedExecutor(long, TimeUnit, Executor)` | a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model |
 | `exceptionNow()` | Future.exceptionNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use isCompletedExceptionally() |
-| `exceptionallyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `exceptionallyComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `get(long, TimeUnit)` | a timed get blocks on a real wall-clock + scheduler — the concurrency wall; use get()/join() on a settled future |
 | `getNumberOfDependents()` | the live dependent count is a racing-scheduler observable — the concurrency wall in a sequential model |
-| `handleAsync(BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 | `isCancelled()` | cancellation needs genuine happens-before between threads — the concurrency wall in a sequential model |
 | `obtrudeException(Throwable)` | obtruding a settled future's failure needs genuine happens-before — the concurrency wall in a sequential model |
 | `obtrudeValue(Object)` | obtruding a settled future's result needs genuine happens-before — the concurrency wall in a sequential model |
 | `orTimeout(long, TimeUnit)` | a real wall-clock timeout is the concurrency wall in a sequential model |
 | `resultNow()` | Future.resultNow snapshots a racing completion — needs genuine happens-before — the concurrency wall; use join()/getNow() |
-| `runAfterBothAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `runAfterEitherAsync(CompletionStage, Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `runAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 | `state()` | Future.state snapshots a racing completion (RUNNING/SUCCESS/FAILED/CANCELLED) — needs genuine happens-before — the concurrency wall |
-| `supplyAsync(Supplier, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenAcceptAsync(Consumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenAcceptBothAsync(CompletionStage, BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenApplyAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenCombineAsync(CompletionStage, BiFunction, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenComposeAsync(Function, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `thenRunAsync(Runnable, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
-| `whenCompleteAsync(BiConsumer, Executor)` | an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator |
 
 
 ## `java.util.concurrent.ConcurrentHashMap`
@@ -704,13 +684,12 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.LinkedBlockingQueue`
 
-Real surface: 31 members — modeled 28, unmodelable 3, not-needed 0, tail 0.
+Real surface: 31 members — modeled 29, unmodelable 2, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `drainTo(Collection)`, `drainTo(Collection, int)`, `element()`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `offer(Object)`, `offer(Object, long, TimeUnit)`, `peek()`, `poll()`, `poll(long, TimeUnit)`, `put(Object)`, `remainingCapacity()`, `remove()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `take()`, `toArray()`, `toArray(IntFunction)`, `toArray(Object[])`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
 | `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead |
 

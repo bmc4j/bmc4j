@@ -44,16 +44,22 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * executor, so the immediate-executor {@code *Async} twin is observably identical to the plain
  * combinator on one thread.
  *
- * <p><b>The concurrency wall (per-member loud waivers).</b> Three groups cannot be modeled and are each
- * a loud-if-reached {@link BmcUnmodelable}: every overload taking an explicit {@link Executor} (the
- * {@code *Async(..., Executor)} twins, {@code supplyAsync/runAsync(..., Executor)}, {@code completeAsync},
- * {@code defaultExecutor}, {@code delayedExecutor}) — a non-immediate executor's true concurrency is the
- * wall; the real wall-clock timeouts ({@code orTimeout}/{@code completeOnTimeout}/{@code get(timeout)});
- * and the cancellation/obtrusion/racing-introspection surface ({@code cancel}/{@code isCancelled}/
- * {@code obtrude*}/{@code exceptionNow}/{@code resultNow}/{@code state}/{@code getNumberOfDependents})
- * which needs genuine happens-before. The stage/copy plumbing that DOES have a sequential meaning
- * ({@code failedFuture}/{@code failedStage}/{@code newIncompleteFuture}/{@code copy}/
- * {@code minimalCompletionStage}) is modeled.
+ * <p><b>Explicit-Executor {@code *Async} twins.</b> Every overload taking an explicit {@link Executor}
+ * ({@code *Async(..., Executor)}, {@code supplyAsync/runAsync(..., Executor)}, {@code completeAsync}) is
+ * modeled as its synchronous twin with the executor dropped: on the single thread BMC analyzes a
+ * user-supplied executor produces no observable difference (the no-arg {@code *Async} twins reduce the
+ * same way, and {@link Executors}' pool factories ignore the {@code ThreadFactory} for the same reason).
+ * {@code get(long, TimeUnit)} is a finite two-outcome state machine — a settled future returns its value
+ * (or surfaces the failure), an unsettled one can only time out ({@link TimeoutException}), both reachable.
+ *
+ * <p><b>The concurrency wall (per-member loud waivers).</b> What cannot be modeled is each a
+ * loud-if-reached {@link BmcUnmodelable}: real scheduling infrastructure ({@code defaultExecutor}/
+ * {@code delayedExecutor}); the asynchronously-firing wall-clock timeouts ({@code orTimeout}/
+ * {@code completeOnTimeout}); and the cancellation/obtrusion/racing-introspection surface
+ * ({@code cancel}/{@code isCancelled}/{@code obtrude*}/{@code exceptionNow}/{@code resultNow}/
+ * {@code state}/{@code getNumberOfDependents}) which needs genuine happens-before. The stage/copy
+ * plumbing that DOES have a sequential meaning ({@code failedFuture}/{@code failedStage}/
+ * {@code newIncompleteFuture}/{@code copy}/{@code minimalCompletionStage}) is modeled.
  */
 public class CompletableFuture<T> implements CompletionStage<T> {
 
@@ -505,107 +511,132 @@ public class CompletableFuture<T> implements CompletionStage<T> {
         return copy();
     }
 
-    // --- the concurrency wall: executors, real timeouts, cancellation / obtrusion (loud stubs) -----
-    // Every member below needs something a sequential, single-threaded ready-value model cannot supply:
-    // a real Executor's true concurrency, a wall-clock timeout, or the happens-before of cancellation /
-    // obtrusion / async introspection. Each is a loud-if-reached waiver so a proof that touches it FAILS
-    // named, rather than proceeding on a fiction. The no-arg *Async twins (which reduce to their
-    // synchronous combinator under the immediate executor) ARE modeled above; only the explicit-Executor
-    // overloads are walled here.
+    // --- explicit-Executor *Async twins: reduce to the synchronous combinator (immediate executor) -----
+    // On ONE thread a user-supplied Executor produces no observable difference: it runs the task and the
+    // value/failure is the same as the synchronous combinator (the no-arg *Async twins above already
+    // reduce this way, and Executors' pool factories ignore the ThreadFactory for the same reason). So the
+    // explicit-Executor overloads are modeled as their synchronous twin with the executor argument dropped
+    // — sound on the single thread BMC analyzes. The GENUINE wall is below: defaultExecutor/delayedExecutor
+    // (real scheduling infrastructure), the real wall-clock timeouts orTimeout/completeOnTimeout, and the
+    // cancellation/obtrusion/racing-introspection surface (genuine happens-before).
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public static CompletableFuture<Void> runAsync(Runnable runnable, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.runAsync(java.lang.Runnable, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use runAsync(Runnable)");
+        return runAsync(runnable);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public static <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.supplyAsync(java.util.function.Supplier, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use supplyAsync(Supplier)");
+        return supplyAsync(supplier);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    /** Async completion: run the supplier now and complete with its value (no executor on one thread). */
+    @BmcModelConforms("immediate executor: completeAsync runs the supplier now and completes — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> completeAsync(Supplier<? extends T> supplier) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.completeAsync(java.util.function.Supplier) — async completion on an executor is the concurrency wall; use complete(value)");
+        complete(supplier.get());
+        return this;
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: completeAsync runs the supplier now and completes (executor dropped) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> completeAsync(Supplier<? extends T> supplier, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.completeAsync(java.util.function.Supplier, java.util.concurrent.Executor) — async completion on an executor is the concurrency wall; use complete(value)");
+        return completeAsync(supplier);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U> CompletableFuture<U> thenApplyAsync(Function<? super T, ? extends U> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenApplyAsync(java.util.function.Function, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenApply/thenApplyAsync(Function)");
+        return thenApply(fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<Void> thenAcceptAsync(Consumer<? super T> action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenAcceptAsync(java.util.function.Consumer, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenAccept/thenAcceptAsync(Consumer)");
+        return thenAccept(action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<Void> thenRunAsync(Runnable action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenRunAsync(java.lang.Runnable, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenRun/thenRunAsync(Runnable)");
+        return thenRun(action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U> CompletableFuture<U> thenComposeAsync(Function<? super T, ? extends CompletionStage<U>> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenComposeAsync(java.util.function.Function, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenCompose/thenComposeAsync(Function)");
+        return thenCompose(fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U, V> CompletableFuture<V> thenCombineAsync(
             CompletionStage<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenCombineAsync(java.util.concurrent.CompletionStage, java.util.function.BiFunction, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenCombine/thenCombineAsync(CompletionStage, BiFunction)");
+        return thenCombine(other, fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U> CompletableFuture<Void> thenAcceptBothAsync(
             CompletionStage<? extends U> other, BiConsumer<? super T, ? super U> action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.thenAcceptBothAsync(java.util.concurrent.CompletionStage, java.util.function.BiConsumer, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use thenAcceptBoth(CompletionStage, BiConsumer)");
+        return thenAcceptBoth(other, action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<Void> runAfterBothAsync(CompletionStage<?> other, Runnable action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.runAfterBothAsync(java.util.concurrent.CompletionStage, java.lang.Runnable, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use runAfterBoth(CompletionStage, Runnable)");
+        return runAfterBoth(other, action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U> CompletableFuture<U> applyToEitherAsync(
             CompletionStage<? extends T> other, Function<? super T, U> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.applyToEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Function, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use applyToEither(CompletionStage, Function)");
+        return applyToEither(other, fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<Void> acceptEitherAsync(
             CompletionStage<? extends T> other, Consumer<? super T> action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.acceptEitherAsync(java.util.concurrent.CompletionStage, java.util.function.Consumer, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use acceptEither(CompletionStage, Consumer)");
+        return acceptEither(other, action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<Void> runAfterEitherAsync(CompletionStage<?> other, Runnable action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.runAfterEitherAsync(java.util.concurrent.CompletionStage, java.lang.Runnable, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use runAfterEither(CompletionStage, Runnable)");
+        return runAfterEither(other, action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public <U> CompletableFuture<U> handleAsync(BiFunction<? super T, Throwable, ? extends U> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.handleAsync(java.util.function.BiFunction, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use handle/handleAsync(BiFunction)");
+        return handle(fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> whenCompleteAsync(BiConsumer<? super T, ? super Throwable> action, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.whenCompleteAsync(java.util.function.BiConsumer, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use whenComplete/whenCompleteAsync(BiConsumer)");
+        return whenComplete(action);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> exceptionallyAsync(Function<Throwable, ? extends T> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.exceptionallyAsync(java.util.function.Function, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use exceptionally/exceptionallyAsync(Function)");
+        return exceptionally(fn);
     }
 
-    @BmcUnmodelable(reason = "an explicit Executor's true concurrency is the concurrency wall — a sequential model has no executor; use the synchronous combinator")
+    @BmcModelConforms("immediate executor: the explicit-Executor *Async twin reduces to its synchronous form (one thread sees the same value) — differential (ConcurrencyConformanceTest)")
     public CompletableFuture<T> exceptionallyComposeAsync(Function<Throwable, ? extends CompletionStage<T>> fn, Executor executor) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.exceptionallyComposeAsync(java.util.function.Function, java.util.concurrent.Executor) — an explicit Executor's true concurrency is the concurrency wall; use exceptionallyCompose/exceptionallyComposeAsync(Function)");
+        return exceptionallyCompose(fn);
     }
+
+    /**
+     * Timed get, modeled as a finite TWO-OUTCOME state machine (BMC has no wall-clock, so the timeout
+     * duration is dropped): if the future is already SETTLED, this is exactly {@link #get()} — return the
+     * value, or throw {@link ExecutionException} for an exceptional completion; if it is NOT settled, no
+     * thread can complete it on the single thread BMC analyzes, so the timed wait can only expire — a real
+     * timed get that times out throws {@link TimeoutException}, which is the only sound outcome here. Both
+     * outcomes are reachable (driven by {@code done}); neither is hard-coded.
+     */
+    @BmcModelConforms("differential (ConcurrencyConformanceTest): timed get is a two-outcome state machine — settled -> get(); unsettled -> TimeoutException")
+    public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        if (!done) {
+            throw new TimeoutException();
+        }
+        return get();
+    }
+
+    // --- the concurrency wall: real scheduling, real timeouts, cancellation / obtrusion (loud stubs) ----
+    // Every member below needs something a sequential, single-threaded ready-value model cannot supply:
+    // a real Executor/scheduler, a wall-clock timeout that fires asynchronously, or the happens-before of
+    // cancellation / obtrusion / racing introspection. Each is a loud-if-reached waiver so a proof that
+    // touches it FAILS named, rather than proceeding on a fiction.
 
     @BmcUnmodelable(reason = "a future's default Executor is real scheduling infrastructure — the concurrency wall in a sequential model")
     public Executor defaultExecutor() {
@@ -620,11 +651,6 @@ public class CompletableFuture<T> implements CompletionStage<T> {
     @BmcUnmodelable(reason = "a delayed Executor needs a real wall-clock + scheduler — the concurrency wall in a sequential model")
     public static Executor delayedExecutor(long delay, TimeUnit unit, Executor executor) {
         throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.delayedExecutor(long, java.util.concurrent.TimeUnit, java.util.concurrent.Executor) — a delayed Executor needs a real wall-clock + scheduler — the concurrency wall");
-    }
-
-    @BmcUnmodelable(reason = "a timed get blocks on a real wall-clock + scheduler — the concurrency wall; use get()/join() on a settled future")
-    public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.CompletableFuture.get(long, java.util.concurrent.TimeUnit) — a timed get blocks on a real wall-clock + scheduler — the concurrency wall; use get()/join()");
     }
 
     @BmcUnmodelable(reason = "a real wall-clock timeout is the concurrency wall in a sequential model")
