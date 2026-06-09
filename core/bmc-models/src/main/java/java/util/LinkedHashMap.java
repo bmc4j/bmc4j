@@ -17,10 +17,12 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * already produce.
  *
  * <p>The access-order LRU mode (the {@code accessOrder} constructor + {@code removeEldestEntry}
- * eviction hook) and the {@code reversed()} live view stay loud (tail) — they need a reordering /
- * reversed-view structure this insertion-ordered array doesn't provide.
+ * eviction hook) and the {@code reversed()} live SequencedMap view stay loud (a per-member
+ * {@link BmcUnmodelable}) — they need a reordering / reversed-view structure this insertion-ordered
+ * array doesn't provide. The presizing {@code newLinkedHashMap} factory is a fresh empty map (the
+ * capacity hint is observably irrelevant); the {@code newHashMap} factory is inherited from the
+ * {@link HashMap} model.
  */
-@BmcModelTail(reason = "the reversed() live view, the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor), and the newHashMap/newLinkedHashMap presizing factories — out of scope for this insertion-ordered array-backed model; all loud under JBMC")
 public class LinkedHashMap<K, V> extends HashMap<K, V> {
 
     public LinkedHashMap() {
@@ -119,11 +121,36 @@ public class LinkedHashMap<K, V> extends HashMap<K, V> {
         return entrySet();
     }
 
+    // --- presizing factory (Java 19+) ----------------------------------------
+    // newLinkedHashMap(numMappings) returns an EMPTY map sized to hold numMappings without resizing.
+    // The capacity hint is observably irrelevant to this fixed-capacity bounded model, so it is exactly
+    // a fresh empty map.
+
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.linkedhashmap)")
+    public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int numMappings) {
+        if (numMappings < 0) {
+            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
+        }
+        return new LinkedHashMap<>();
+    }
+
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ------------------
 
     @BmcUnmodelable(reason = "access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC")
     protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
         throw fail("bmc4j: unmodelled member java.util.LinkedHashMap.removeEldestEntry(java.util.Map$Entry) — access-order LRU eviction hook — the insertion-ordered array model has no eviction policy");
+    }
+
+    @BmcUnmodelable(reason = "reversed() is a live SequencedMap view whose write-through reorders the insertion order — this insertion-ordered array model has no reversed structure to honor that; loud under JBMC")
+    public java.util.SequencedMap<K, V> reversed() {
+        throw fail("bmc4j: unmodelled member java.util.LinkedHashMap.reversed() — live SequencedMap reordering view over the insertion-ordered array; out of scope");
+    }
+
+    // The per-member auditing gate accounts a subclass's own real surface against its OWN method-level
+    // stubs, so the HashMap model's clone() loud stub is re-declared here for the LinkedHashMap surface.
+    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh map from the entries instead")
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.LinkedHashMap.clone() — shallow copy of a bounded model — construct a fresh map from the entries instead");
     }
 
     /** Insertion-ordered key/value pair returned by {@link #firstEntry()} / {@link #lastEntry()}. */

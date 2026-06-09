@@ -7,7 +7,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -16,7 +15,6 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * proof's {@code unwind} bound. Key equality uses {@code equals} (sound for boxed primitives).
  * Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: newHashMap(int) factory — out of scope; loud under JBMC")
 public class HashMap<K, V> implements Map<K, V> {
 
     private static final int CAPACITY = 64;
@@ -375,6 +373,19 @@ public class HashMap<K, V> implements Map<K, V> {
         for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
             put(e.getKey(), e.getValue());
         }
+    }
+
+    // --- presizing factory (Java 19+) ----------------------------------------
+    // newHashMap(numMappings) returns an EMPTY map sized to hold numMappings without resizing. The
+    // capacity hint is observably irrelevant to this fixed-capacity bounded model (lookups/iteration
+    // are over the live size, not the requested capacity), so it is exactly a fresh empty map.
+
+    @BmcModelConforms("differential (MapConformanceTest) + @BmcProof (proofs.hashmap)")
+    public static <K, V> HashMap<K, V> newHashMap(int numMappings) {
+        if (numMappings < 0) {
+            throw new IllegalArgumentException("Negative number of mappings: " + numMappings);
+        }
+        return new HashMap<>();
     }
 
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------

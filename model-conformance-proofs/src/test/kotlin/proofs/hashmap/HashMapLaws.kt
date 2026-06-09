@@ -226,4 +226,18 @@ class HashMapLaws {
         m.forEach { _, v -> sum[0] += v }           // lambda through the model's forEach
         Bmc.check(sum[0] == 30)
     }
+
+    // --- presizing factory (Java 19+) ---------------------------------------------------------------
+
+    @BmcProof
+    fun newHashMap_returns_an_empty_usable_map() {
+        // The presizing hint is observably irrelevant to the bounded model: a fresh empty map that
+        // behaves exactly like new HashMap().
+        val m = java.util.HashMap.newHashMap<Int, Int>(8)
+        val k = Bmc.anyInt()
+        val v = Bmc.anyInt()
+        Bmc.check(m.size == 0 && m.isEmpty())
+        m[k] = v
+        Bmc.check(m[k] == v && m.size == 1)
+    }
 }

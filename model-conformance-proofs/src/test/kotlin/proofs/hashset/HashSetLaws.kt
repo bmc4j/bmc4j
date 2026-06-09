@@ -143,4 +143,17 @@ class HashSetLaws {
         val changed = s.retainAll(keepSet)
         Bmc.check(changed && s.size == 1 && s.contains(keep) && !s.contains(drop))
     }
+
+    // --- presizing factory (Java 19+) ---------------------------------------------------------------
+
+    @BmcProof
+    fun newHashSet_returns_an_empty_usable_set() {
+        // The presizing hint is observably irrelevant to the bounded model: a fresh empty set that
+        // behaves exactly like new HashSet().
+        val s = java.util.HashSet.newHashSet<Int>(8)
+        val x = Bmc.anyInt()
+        Bmc.check(s.size == 0 && s.isEmpty())
+        s.add(x)
+        Bmc.check(s.contains(x) && s.size == 1)
+    }
 }

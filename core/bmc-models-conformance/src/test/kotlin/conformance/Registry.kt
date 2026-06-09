@@ -89,6 +89,7 @@ val WAIVED: Map<String, String> = mapOf(
     "java.lang.Iterable" to "interface — exercised via concrete impls",
     "java.util.Collection" to "interface — via impls",
     "java.util.List" to "interface — via ArrayList/LinkedList",
+    "java.util.ArrayListView" to "internal model helper (no JDK twin) — the live subList/reversed view over the ArrayList model; exercised via ArrayList's subList/reversed conformance + @BmcProof",
     "java.util.Map" to "interface — via HashMap/TreeMap/ConcurrentHashMap",
     "java.util.Set" to "interface — via HashSet/LinkedHashSet",
     "java.util.Queue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",

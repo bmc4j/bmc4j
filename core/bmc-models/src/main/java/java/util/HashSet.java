@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -11,7 +10,6 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: newHashSet(int) presizing factory, spliterator (parallel-decomposition view), toArray(IntFunction) — out of scope; all loud under JBMC")
 public class HashSet<E> implements Set<E> {
 
     private static final int CAPACITY = 64;
@@ -287,11 +285,34 @@ public class HashSet<E> implements Set<E> {
         return out;
     }
 
+    // --- presizing factory (Java 19+) ----------------------------------------
+    // newHashSet(numElements) returns an EMPTY set sized to hold numElements without resizing. The
+    // capacity hint is observably irrelevant to this fixed-capacity bounded model, so it is exactly a
+    // fresh empty set.
+
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
+    public static <T> HashSet<T> newHashSet(int numElements) {
+        if (numElements < 0) {
+            throw new IllegalArgumentException("Negative number of elements: " + numElements);
+        }
+        return new HashSet<>();
+    }
+
     // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead")
+    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.util.function.IntFunction) — array snapshot via a reflective generator — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead")
+    public java.util.Spliterator<E> spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.spliterator() — parallel-decomposition Spliterator view — iterate the model instead");
     }
 
     @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")

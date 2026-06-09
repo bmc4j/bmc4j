@@ -1,7 +1,9 @@
 package java.util;
 
+import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
+
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
+import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
  * BMC model of {@link java.util.LinkedList} as an array-backed list — behaviourally equivalent for
@@ -24,9 +26,10 @@ import org.bmc4j.models.audit.BmcModelTail;
  */
 // The List/Collection surface is inherited from the ArrayList model; the Deque/Queue surface
 // (addFirst/addLast/getFirst/getLast/removeFirst/removeLast/offer*/poll*/peek*/push/pop, plus the
-// Queue offer/poll/peek/remove/element) is implemented here. Blanket-conforms covers both; the tail
-// is the remaining Deque/List surface still unmodeled.
-@BmcModelTail(reason = "the remaining Deque/List surface not implemented (descendingIterator, listIterator/subList/spliterator, reversed, clone) is out of scope for this array-backed model; all loud under JBMC")
+// Queue offer/poll/peek/remove/element) is implemented here. The List view ops (listIterator/subList/
+// reversed/parallelStream/removeRange), the spliterator + toArray(IntFunction) walls, and the
+// clone/sort/toArray(T[]) stubs are all inherited from the ArrayList model; descendingIterator is the
+// only Deque-specific surface modeled here.
 public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
 
     public LinkedList() {
@@ -140,5 +143,61 @@ public class LinkedList<E> extends ArrayList<E> implements Queue<E> {
         }
         remove(i);
         return true;
+    }
+
+    // --- Deque: descending iteration -----------------------------------------
+    // An iterator over the elements from tail to head (the reverse of the inherited iterator()), by
+    // index over the inherited bounded backing array — never a virtual dispatch, so it resolves soundly.
+
+    @BmcModelConforms("inherits the ArrayList model surface (incl. the SequencedCollection head/tail ops) + an implemented Deque/Queue surface")
+    public Iterator<E> descendingIterator() {
+        return new DescItr();
+    }
+
+    private final class DescItr implements Iterator<E> {
+        private int cursor = size() - 1;
+
+        @Override
+        public boolean hasNext() {
+            return cursor >= 0;
+        }
+
+        @Override
+        public E next() {
+            if (cursor < 0) {
+                throw new NoSuchElementException();
+            }
+            return get(cursor--);
+        }
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs) -----------------------------------------------
+    // The per-member auditing gate accounts a subclass's own real surface against its OWN method-level
+    // stubs, so the loud stubs the ArrayList model declares for these members are re-declared here for
+    // the (covariantly-typed) LinkedList surface. Same decisions + reasons as the ArrayList model.
+
+    @BmcUnmodelable(reason = "comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it")
+    public void sort(Comparator<? super E> c) {
+        throw fail("bmc4j: unmodelled member java.util.LinkedList.sort(java.util.Comparator) — comparator-driven sort over the bounded array: O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof");
+    }
+
+    @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
+    public <T> T[] toArray(T[] a) {
+        throw fail("bmc4j: unmodelled member java.util.LinkedList.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead")
+    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator) {
+        throw fail("bmc4j: unmodelled member java.util.LinkedList.toArray(java.util.function.IntFunction) — array snapshot via a reflective generator — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead")
+    public Spliterator<E> spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.LinkedList.spliterator() — parallel-decomposition Spliterator view — iterate the model or use stream() instead");
+    }
+
+    @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh list from the elements instead")
+    public Object clone() {
+        throw fail("bmc4j: unmodelled member java.util.LinkedList.clone() — shallow copy of a bounded model — construct a fresh list from the elements instead");
     }
 }

@@ -298,6 +298,87 @@ class ArrayListConformanceTest : FunSpec({
         }
     }
 
+    // --- view ops (subList / reversed / listIterator) + capacity ops + parallelStream --------------
+    // The live views (subList window, reversed view, listIterator cursor) write through to the backing
+    // list exactly like the JDK's AbstractList views; the capacity ops are observable no-ops; and
+    // parallelStream is the sequential stream. Compared element-by-element vs the JDK ArrayList on a
+    // real JVM (this is the differential axis the @BmcModelConforms reasons reference — under JBMC the
+    // returned-view mutation is a devirtualization artifact, so it is pinned HERE rather than as a proof).
+    test("ArrayList view ops (subList/reversed/listIterator) + capacity ops conform") {
+        checkAll(Arb.list(Arb.int(-3..5), 0..20)) { seed ->
+            // The model's view/iterator objects implement the RELOCATED interfaces (bmcref.java.util.*),
+            // not the JDK ones, so they're driven reflectively via call(...) — never cast to a JDK type.
+            // READS are compared element-by-element vs the JDK view; WRITE-THROUGH is validated on the
+            // model alone (mutate the view, observe it in the parent) — the JDK's own view-mutability is
+            // path/version-dependent (reversed() can return an unmodifiable view) and not the property
+            // under test here.
+
+            // subList: a live forward window — reads match the JDK window; set writes through to parent.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                if (r.size >= 2) {
+                    val rSub = r.subList(1, r.size)
+                    val mSub = call(m, "subList", arrayOf(INT, INT), 1, r.size).getOrThrow()!!
+                    assertEquivalent("subList.size", call(rSub, "size", arrayOf()), call(mSub, "size", arrayOf()))
+                    for (i in 0 until (r.size - 1)) {
+                        assertEquivalent("subList.get[$i]", call(rSub, "get", arrayOf(INT), i), call(mSub, "get", arrayOf(INT), i))
+                    }
+                    // write-through: model subList index 0 == parent index 1.
+                    call(mSub, "set", arrayOf(INT, OBJECT), 0, 99).getOrThrow()
+                    (call(m, "get", arrayOf(INT), 1).getOrThrow()) shouldBe 99
+                }
+            }
+            // reversed(): a live reverse view — reads are the JDK reverse order; set writes through.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                val rRev = r.reversed()
+                val mRev = call(m, "reversed", arrayOf()).getOrThrow()!!
+                assertEquivalent("reversed.size", call(rRev, "size", arrayOf()), call(mRev, "size", arrayOf()))
+                for (i in 0 until r.size) {
+                    assertEquivalent("reversed.get[$i]", call(rRev, "get", arrayOf(INT), i), call(mRev, "get", arrayOf(INT), i))
+                }
+                if (r.size >= 1) {
+                    // write-through: model reversed index 0 == parent LAST index.
+                    call(mRev, "set", arrayOf(INT, OBJECT), 0, 77).getOrThrow()
+                    (call(m, "get", arrayOf(INT), r.size - 1).getOrThrow()) shouldBe 77
+                }
+            }
+            // listIterator(): bidirectional by-index cursor — next() reads match the JDK; set writes through.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                val rIt = r.listIterator()
+                val mIt = call(m, "listIterator", arrayOf()).getOrThrow()!!
+                var i = 0
+                while (rIt.hasNext()) {
+                    assertEquivalent("listIterator.next", call(rIt, "next", arrayOf()), call(mIt, "next", arrayOf()))
+                    // write-through: set replaces the element just returned (index i).
+                    call(mIt, "set", arrayOf(OBJECT), 42).getOrThrow()
+                    (call(m, "get", arrayOf(INT), i).getOrThrow()) shouldBe 42
+                    i++
+                }
+                assertEquivalent("listIterator.hasPrevious", call(rIt, "hasPrevious", arrayOf()), call(mIt, "hasPrevious", arrayOf()))
+            }
+            // ensureCapacity / trimToSize: observable no-ops.
+            run {
+                val r = java.util.ArrayList<Int>(seed)
+                val m = modelList(seed)
+                r.ensureCapacity(128); call(m, "ensureCapacity", arrayOf(INT), 128)
+                r.trimToSize(); call(m, "trimToSize", arrayOf())
+                assertSameElements(r, m)
+            }
+            // parallelStream(): the sequential stream — same element count.
+            run {
+                val m = modelList(seed)
+                val mStream = call(m, "parallelStream", arrayOf()).getOrThrow()!!
+                val mCount = mStream.javaClass.getMethod("count").invoke(mStream) as Long
+                mCount shouldBe seed.size.toLong()
+            }
+        }
+    }
+
     // Divergence ledger — "everything else is a bug": ArrayList(int) must reject a negative capacity
     // like the JDK (IllegalArgumentException), not silently succeed.
     test("ArrayList(negative capacity) throws like the JDK") {
