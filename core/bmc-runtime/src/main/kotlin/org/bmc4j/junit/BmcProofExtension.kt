@@ -184,7 +184,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return
         }
 
-        val result: JbmcResult
+        var result: JbmcResult
         try {
             result = backend.verify(request)
         } catch (e: org.bmc4j.engine.ContractPurityError) {
@@ -229,7 +229,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return
         }
 
-        val actual = actualVerdict(result)
+        var actual = actualVerdict(result)
         outcome.verdict = actual
 
         // Out-of-scope (DECLARED package) demotion (verdict HONESTY + the package-waiver loudness
@@ -301,8 +301,33 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             // built for — a refutation surfacing where none was expected, which must self-clear to a
             // re-runnable UNKNOWN rather than turn a clean proof red on a transient link failure.
             run {
-                val linkFailures = linkFailuresToDemote(expected, result, request.classpath)
+                var linkFailures = linkFailuresToDemote(expected, result, request.classpath)
                 if (linkFailures.isNotEmpty()) {
+                    // A link failure is a TRANSIENT engine flake (JBMC havoc'd a body it had), so —
+                    // exactly as the engine's own retry contract promises for it ("self-clears on a
+                    // re-run") — re-run the backend ONCE before surfacing UNKNOWN. The engine-level
+                    // retry in Jbmc.exec can't catch this case: at that layer the run is a plain
+                    // REFUTED (a real verdict, not a retryable UnknownKind), and the link-failure
+                    // classification only happens HERE, after the trace + classpath are inspected. So
+                    // the documented self-clear must be driven from here. Bounded to EXACTLY one extra
+                    // verify — never a loop. Sound: a recovered run REPLACES the flake's result and
+                    // flows through the normal verdict path (a real REFUTED still refutes, a real
+                    // VERIFIED still verifies); a re-run that link-fails AGAIN keeps the UNKNOWN, so it
+                    // can never mask a genuine hole. expect = REFUTED demos are already excluded by
+                    // linkFailuresToDemote, so this never steals an intended refutation.
+                    println("  bmc4j: $entryFunction ran through a link-failure stub" +
+                            " (${linkFailures.joinToString(", ")}) — re-running the engine once")
+                    val retry = backend.verify(request)
+                    val retryLinkFailures = linkFailuresToDemote(expected, retry, request.classpath)
+                    if (retryLinkFailures.isEmpty()) {
+                        // The link cleared on the re-run: adopt the fresh result and re-decide from it.
+                        result = retry
+                        actual = actualVerdict(result)
+                        outcome.verdict = actual
+                        return@run
+                    }
+                    // The link failure recurred: stays UNKNOWN, named, annotated as persisted.
+                    linkFailures = retryLinkFailures
                     outcome.verdict = Verdict.UNKNOWN
                     val err = linkFailureUndecided(backend.id(), entryFunction, linkFailures)
                     outcome.unknownKind = err.kind
