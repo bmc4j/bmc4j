@@ -893,6 +893,1304 @@ Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 **Modeled** (`@BmcModelConforms`): `to(Object, Object)`, `toList(Pair)`, `toList(Triple)`
 
 
+## `kotlin.collections.ArraysKt`
+
+Real surface: 1313 members — modeled 27, unmodelable 0, not-needed 0, tail 1286.
+
+**Modeled** (`@BmcModelConforms`): `copyInto(Object[], Object[], int, int, int)`, `copyInto(boolean[], boolean[], int, int, int)`, `copyInto(byte[], byte[], int, int, int)`, `copyInto(char[], char[], int, int, int)`, `copyInto(double[], double[], int, int, int)`, `copyInto(float[], float[], int, int, int)`, `copyInto(int[], int[], int, int, int)`, `copyInto(long[], long[], int, int, int)`, `copyInto(short[], short[], int, int, int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(double[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `fill(Object[], Object, int, int)`, `fill(boolean[], boolean, int, int)`, `fill(byte[], byte, int, int)`, `fill(char[], char, int, int)`, `fill(double[], double, int, int)`, `fill(float[], float, int, int)`, `fill(int[], int, int, int)`, `fill(long[], long, int, int)`, `fill(short[], short, int, int)`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1286 members, all loud): the ~1300-member kotlin.collections.ArraysKt array-extension surface (all/any/map/filter/fold/sort/sum/zip/windowed/indexOf/… across nine element types, plus the lambda-taking inline forms that inline into the caller) is the exotic tail; only the high-value copy/fill surface (copyInto/copyOf/copyOfRange/fill) is modeled, the remainder is build-synthesized loud (member-named UNKNOWN if reached, never a silent nondet stub)</summary>
+
+- `all(Object[], Function1)`
+- `all(boolean[], Function1)`
+- `all(byte[], Function1)`
+- `all(char[], Function1)`
+- `all(double[], Function1)`
+- `all(float[], Function1)`
+- `all(int[], Function1)`
+- `all(long[], Function1)`
+- `all(short[], Function1)`
+- `any(Object[])`
+- `any(Object[], Function1)`
+- `any(boolean[])`
+- `any(boolean[], Function1)`
+- `any(byte[])`
+- `any(byte[], Function1)`
+- `any(char[])`
+- `any(char[], Function1)`
+- `any(double[])`
+- `any(double[], Function1)`
+- `any(float[])`
+- `any(float[], Function1)`
+- `any(int[])`
+- `any(int[], Function1)`
+- `any(long[])`
+- `any(long[], Function1)`
+- `any(short[])`
+- `any(short[], Function1)`
+- `arrayOfNulls(Object[], int)`
+- `asIterable(Object[])`
+- `asIterable(boolean[])`
+- `asIterable(byte[])`
+- `asIterable(char[])`
+- `asIterable(double[])`
+- `asIterable(float[])`
+- `asIterable(int[])`
+- `asIterable(long[])`
+- `asIterable(short[])`
+- `asList(Object[])`
+- `asList(boolean[])`
+- `asList(byte[])`
+- `asList(char[])`
+- `asList(double[])`
+- `asList(float[])`
+- `asList(int[])`
+- `asList(long[])`
+- `asList(short[])`
+- `asSequence(Object[])`
+- `asSequence(boolean[])`
+- `asSequence(byte[])`
+- `asSequence(char[])`
+- `asSequence(double[])`
+- `asSequence(float[])`
+- `asSequence(int[])`
+- `asSequence(long[])`
+- `asSequence(short[])`
+- `associate(Object[], Function1)`
+- `associate(boolean[], Function1)`
+- `associate(byte[], Function1)`
+- `associate(char[], Function1)`
+- `associate(double[], Function1)`
+- `associate(float[], Function1)`
+- `associate(int[], Function1)`
+- `associate(long[], Function1)`
+- `associate(short[], Function1)`
+- `associateBy(Object[], Function1)`
+- `associateBy(Object[], Function1, Function1)`
+- `associateBy(boolean[], Function1)`
+- `associateBy(boolean[], Function1, Function1)`
+- `associateBy(byte[], Function1)`
+- `associateBy(byte[], Function1, Function1)`
+- `associateBy(char[], Function1)`
+- `associateBy(char[], Function1, Function1)`
+- `associateBy(double[], Function1)`
+- `associateBy(double[], Function1, Function1)`
+- `associateBy(float[], Function1)`
+- `associateBy(float[], Function1, Function1)`
+- `associateBy(int[], Function1)`
+- `associateBy(int[], Function1, Function1)`
+- `associateBy(long[], Function1)`
+- `associateBy(long[], Function1, Function1)`
+- `associateBy(short[], Function1)`
+- `associateBy(short[], Function1, Function1)`
+- `associateByTo(Object[], Map, Function1)`
+- `associateByTo(Object[], Map, Function1, Function1)`
+- `associateByTo(boolean[], Map, Function1)`
+- `associateByTo(boolean[], Map, Function1, Function1)`
+- `associateByTo(byte[], Map, Function1)`
+- `associateByTo(byte[], Map, Function1, Function1)`
+- `associateByTo(char[], Map, Function1)`
+- `associateByTo(char[], Map, Function1, Function1)`
+- `associateByTo(double[], Map, Function1)`
+- `associateByTo(double[], Map, Function1, Function1)`
+- `associateByTo(float[], Map, Function1)`
+- `associateByTo(float[], Map, Function1, Function1)`
+- `associateByTo(int[], Map, Function1)`
+- `associateByTo(int[], Map, Function1, Function1)`
+- `associateByTo(long[], Map, Function1)`
+- `associateByTo(long[], Map, Function1, Function1)`
+- `associateByTo(short[], Map, Function1)`
+- `associateByTo(short[], Map, Function1, Function1)`
+- `associateTo(Object[], Map, Function1)`
+- `associateTo(boolean[], Map, Function1)`
+- `associateTo(byte[], Map, Function1)`
+- `associateTo(char[], Map, Function1)`
+- `associateTo(double[], Map, Function1)`
+- `associateTo(float[], Map, Function1)`
+- `associateTo(int[], Map, Function1)`
+- `associateTo(long[], Map, Function1)`
+- `associateTo(short[], Map, Function1)`
+- `associateWith(Object[], Function1)`
+- `associateWithTo(Object[], Map, Function1)`
+- `average(byte[])`
+- `average(double[])`
+- `average(float[])`
+- `average(int[])`
+- `average(long[])`
+- `average(short[])`
+- `averageOfByte(Byte[])`
+- `averageOfDouble(Double[])`
+- `averageOfFloat(Float[])`
+- `averageOfInt(Integer[])`
+- `averageOfLong(Long[])`
+- `averageOfShort(Short[])`
+- `binarySearch(Object[], Object, Comparator, int, int)`
+- `binarySearch(Object[], Object, int, int)`
+- `binarySearch(byte[], byte, int, int)`
+- `binarySearch(char[], char, int, int)`
+- `binarySearch(double[], double, int, int)`
+- `binarySearch(float[], float, int, int)`
+- `binarySearch(int[], int, int, int)`
+- `binarySearch(long[], long, int, int)`
+- `binarySearch(short[], short, int, int)`
+- `contains(Object[], Object)`
+- `contains(boolean[], boolean)`
+- `contains(byte[], byte)`
+- `contains(char[], char)`
+- `contains(int[], int)`
+- `contains(long[], long)`
+- `contains(short[], short)`
+- `contentDeepEquals(Object[], Object[])`
+- `contentDeepHashCode(Object[])`
+- `contentDeepToString(Object[])`
+- `copyOfRangeToIndexCheck(int, int)`
+- `count(Object[], Function1)`
+- `count(boolean[], Function1)`
+- `count(byte[], Function1)`
+- `count(char[], Function1)`
+- `count(double[], Function1)`
+- `count(float[], Function1)`
+- `count(int[], Function1)`
+- `count(long[], Function1)`
+- `count(short[], Function1)`
+- `distinct(Object[])`
+- `distinct(boolean[])`
+- `distinct(byte[])`
+- `distinct(char[])`
+- `distinct(double[])`
+- `distinct(float[])`
+- `distinct(int[])`
+- `distinct(long[])`
+- `distinct(short[])`
+- `distinctBy(Object[], Function1)`
+- `distinctBy(boolean[], Function1)`
+- `distinctBy(byte[], Function1)`
+- `distinctBy(char[], Function1)`
+- `distinctBy(double[], Function1)`
+- `distinctBy(float[], Function1)`
+- `distinctBy(int[], Function1)`
+- `distinctBy(long[], Function1)`
+- `distinctBy(short[], Function1)`
+- `drop(Object[], int)`
+- `drop(boolean[], int)`
+- `drop(byte[], int)`
+- `drop(char[], int)`
+- `drop(double[], int)`
+- `drop(float[], int)`
+- `drop(int[], int)`
+- `drop(long[], int)`
+- `drop(short[], int)`
+- `dropLast(Object[], int)`
+- `dropLast(boolean[], int)`
+- `dropLast(byte[], int)`
+- `dropLast(char[], int)`
+- `dropLast(double[], int)`
+- `dropLast(float[], int)`
+- `dropLast(int[], int)`
+- `dropLast(long[], int)`
+- `dropLast(short[], int)`
+- `dropLastWhile(Object[], Function1)`
+- `dropLastWhile(boolean[], Function1)`
+- `dropLastWhile(byte[], Function1)`
+- `dropLastWhile(char[], Function1)`
+- `dropLastWhile(double[], Function1)`
+- `dropLastWhile(float[], Function1)`
+- `dropLastWhile(int[], Function1)`
+- `dropLastWhile(long[], Function1)`
+- `dropLastWhile(short[], Function1)`
+- `dropWhile(Object[], Function1)`
+- `dropWhile(boolean[], Function1)`
+- `dropWhile(byte[], Function1)`
+- `dropWhile(char[], Function1)`
+- `dropWhile(double[], Function1)`
+- `dropWhile(float[], Function1)`
+- `dropWhile(int[], Function1)`
+- `dropWhile(long[], Function1)`
+- `dropWhile(short[], Function1)`
+- `filter(Object[], Function1)`
+- `filter(boolean[], Function1)`
+- `filter(byte[], Function1)`
+- `filter(char[], Function1)`
+- `filter(double[], Function1)`
+- `filter(float[], Function1)`
+- `filter(int[], Function1)`
+- `filter(long[], Function1)`
+- `filter(short[], Function1)`
+- `filterIndexed(Object[], Function2)`
+- `filterIndexed(boolean[], Function2)`
+- `filterIndexed(byte[], Function2)`
+- `filterIndexed(char[], Function2)`
+- `filterIndexed(double[], Function2)`
+- `filterIndexed(float[], Function2)`
+- `filterIndexed(int[], Function2)`
+- `filterIndexed(long[], Function2)`
+- `filterIndexed(short[], Function2)`
+- `filterIndexedTo(Object[], Collection, Function2)`
+- `filterIndexedTo(boolean[], Collection, Function2)`
+- `filterIndexedTo(byte[], Collection, Function2)`
+- `filterIndexedTo(char[], Collection, Function2)`
+- `filterIndexedTo(double[], Collection, Function2)`
+- `filterIndexedTo(float[], Collection, Function2)`
+- `filterIndexedTo(int[], Collection, Function2)`
+- `filterIndexedTo(long[], Collection, Function2)`
+- `filterIndexedTo(short[], Collection, Function2)`
+- `filterIsInstance(Object[], Class)`
+- `filterIsInstanceTo(Object[], Collection, Class)`
+- `filterNot(Object[], Function1)`
+- `filterNot(boolean[], Function1)`
+- `filterNot(byte[], Function1)`
+- `filterNot(char[], Function1)`
+- `filterNot(double[], Function1)`
+- `filterNot(float[], Function1)`
+- `filterNot(int[], Function1)`
+- `filterNot(long[], Function1)`
+- `filterNot(short[], Function1)`
+- `filterNotNull(Object[])`
+- `filterNotNullTo(Object[], Collection)`
+- `filterNotTo(Object[], Collection, Function1)`
+- `filterNotTo(boolean[], Collection, Function1)`
+- `filterNotTo(byte[], Collection, Function1)`
+- `filterNotTo(char[], Collection, Function1)`
+- `filterNotTo(double[], Collection, Function1)`
+- `filterNotTo(float[], Collection, Function1)`
+- `filterNotTo(int[], Collection, Function1)`
+- `filterNotTo(long[], Collection, Function1)`
+- `filterNotTo(short[], Collection, Function1)`
+- `filterTo(Object[], Collection, Function1)`
+- `filterTo(boolean[], Collection, Function1)`
+- `filterTo(byte[], Collection, Function1)`
+- `filterTo(char[], Collection, Function1)`
+- `filterTo(double[], Collection, Function1)`
+- `filterTo(float[], Collection, Function1)`
+- `filterTo(int[], Collection, Function1)`
+- `filterTo(long[], Collection, Function1)`
+- `filterTo(short[], Collection, Function1)`
+- `first(Object[])`
+- `first(Object[], Function1)`
+- `first(boolean[])`
+- `first(boolean[], Function1)`
+- `first(byte[])`
+- `first(byte[], Function1)`
+- `first(char[])`
+- `first(char[], Function1)`
+- `first(double[])`
+- `first(double[], Function1)`
+- `first(float[])`
+- `first(float[], Function1)`
+- `first(int[])`
+- `first(int[], Function1)`
+- `first(long[])`
+- `first(long[], Function1)`
+- `first(short[])`
+- `first(short[], Function1)`
+- `firstOrNull(Object[])`
+- `firstOrNull(Object[], Function1)`
+- `firstOrNull(boolean[])`
+- `firstOrNull(boolean[], Function1)`
+- `firstOrNull(byte[])`
+- `firstOrNull(byte[], Function1)`
+- `firstOrNull(char[])`
+- `firstOrNull(char[], Function1)`
+- `firstOrNull(double[])`
+- `firstOrNull(double[], Function1)`
+- `firstOrNull(float[])`
+- `firstOrNull(float[], Function1)`
+- `firstOrNull(int[])`
+- `firstOrNull(int[], Function1)`
+- `firstOrNull(long[])`
+- `firstOrNull(long[], Function1)`
+- `firstOrNull(short[])`
+- `firstOrNull(short[], Function1)`
+- `flatMap(Object[], Function1)`
+- `flatMap(boolean[], Function1)`
+- `flatMap(byte[], Function1)`
+- `flatMap(char[], Function1)`
+- `flatMap(double[], Function1)`
+- `flatMap(float[], Function1)`
+- `flatMap(int[], Function1)`
+- `flatMap(long[], Function1)`
+- `flatMap(short[], Function1)`
+- `flatMapSequence(Object[], Function1)`
+- `flatMapSequenceTo(Object[], Collection, Function1)`
+- `flatMapTo(Object[], Collection, Function1)`
+- `flatMapTo(boolean[], Collection, Function1)`
+- `flatMapTo(byte[], Collection, Function1)`
+- `flatMapTo(char[], Collection, Function1)`
+- `flatMapTo(double[], Collection, Function1)`
+- `flatMapTo(float[], Collection, Function1)`
+- `flatMapTo(int[], Collection, Function1)`
+- `flatMapTo(long[], Collection, Function1)`
+- `flatMapTo(short[], Collection, Function1)`
+- `flatten(Object[][])`
+- `fold(Object[], Object, Function2)`
+- `fold(boolean[], Object, Function2)`
+- `fold(byte[], Object, Function2)`
+- `fold(char[], Object, Function2)`
+- `fold(double[], Object, Function2)`
+- `fold(float[], Object, Function2)`
+- `fold(int[], Object, Function2)`
+- `fold(long[], Object, Function2)`
+- `fold(short[], Object, Function2)`
+- `foldIndexed(Object[], Object, Function3)`
+- `foldIndexed(boolean[], Object, Function3)`
+- `foldIndexed(byte[], Object, Function3)`
+- `foldIndexed(char[], Object, Function3)`
+- `foldIndexed(double[], Object, Function3)`
+- `foldIndexed(float[], Object, Function3)`
+- `foldIndexed(int[], Object, Function3)`
+- `foldIndexed(long[], Object, Function3)`
+- `foldIndexed(short[], Object, Function3)`
+- `foldRight(Object[], Object, Function2)`
+- `foldRight(boolean[], Object, Function2)`
+- `foldRight(byte[], Object, Function2)`
+- `foldRight(char[], Object, Function2)`
+- `foldRight(double[], Object, Function2)`
+- `foldRight(float[], Object, Function2)`
+- `foldRight(int[], Object, Function2)`
+- `foldRight(long[], Object, Function2)`
+- `foldRight(short[], Object, Function2)`
+- `foldRightIndexed(Object[], Object, Function3)`
+- `foldRightIndexed(boolean[], Object, Function3)`
+- `foldRightIndexed(byte[], Object, Function3)`
+- `foldRightIndexed(char[], Object, Function3)`
+- `foldRightIndexed(double[], Object, Function3)`
+- `foldRightIndexed(float[], Object, Function3)`
+- `foldRightIndexed(int[], Object, Function3)`
+- `foldRightIndexed(long[], Object, Function3)`
+- `foldRightIndexed(short[], Object, Function3)`
+- `forEach(Object[], Function1)`
+- `forEach(boolean[], Function1)`
+- `forEach(byte[], Function1)`
+- `forEach(char[], Function1)`
+- `forEach(double[], Function1)`
+- `forEach(float[], Function1)`
+- `forEach(int[], Function1)`
+- `forEach(long[], Function1)`
+- `forEach(short[], Function1)`
+- `forEachIndexed(Object[], Function2)`
+- `forEachIndexed(boolean[], Function2)`
+- `forEachIndexed(byte[], Function2)`
+- `forEachIndexed(char[], Function2)`
+- `forEachIndexed(double[], Function2)`
+- `forEachIndexed(float[], Function2)`
+- `forEachIndexed(int[], Function2)`
+- `forEachIndexed(long[], Function2)`
+- `forEachIndexed(short[], Function2)`
+- `getIndices(Object[])`
+- `getIndices(boolean[])`
+- `getIndices(byte[])`
+- `getIndices(char[])`
+- `getIndices(double[])`
+- `getIndices(float[])`
+- `getIndices(int[])`
+- `getIndices(long[])`
+- `getIndices(short[])`
+- `getLastIndex(Object[])`
+- `getLastIndex(boolean[])`
+- `getLastIndex(byte[])`
+- `getLastIndex(char[])`
+- `getLastIndex(double[])`
+- `getLastIndex(float[])`
+- `getLastIndex(int[])`
+- `getLastIndex(long[])`
+- `getLastIndex(short[])`
+- `getOrNull(Object[], int)`
+- `getOrNull(boolean[], int)`
+- `getOrNull(byte[], int)`
+- `getOrNull(char[], int)`
+- `getOrNull(double[], int)`
+- `getOrNull(float[], int)`
+- `getOrNull(int[], int)`
+- `getOrNull(long[], int)`
+- `getOrNull(short[], int)`
+- `groupBy(Object[], Function1)`
+- `groupBy(Object[], Function1, Function1)`
+- `groupBy(boolean[], Function1)`
+- `groupBy(boolean[], Function1, Function1)`
+- `groupBy(byte[], Function1)`
+- `groupBy(byte[], Function1, Function1)`
+- `groupBy(char[], Function1)`
+- `groupBy(char[], Function1, Function1)`
+- `groupBy(double[], Function1)`
+- `groupBy(double[], Function1, Function1)`
+- `groupBy(float[], Function1)`
+- `groupBy(float[], Function1, Function1)`
+- `groupBy(int[], Function1)`
+- `groupBy(int[], Function1, Function1)`
+- `groupBy(long[], Function1)`
+- `groupBy(long[], Function1, Function1)`
+- `groupBy(short[], Function1)`
+- `groupBy(short[], Function1, Function1)`
+- `groupByTo(Object[], Map, Function1)`
+- `groupByTo(Object[], Map, Function1, Function1)`
+- `groupByTo(boolean[], Map, Function1)`
+- `groupByTo(boolean[], Map, Function1, Function1)`
+- `groupByTo(byte[], Map, Function1)`
+- `groupByTo(byte[], Map, Function1, Function1)`
+- `groupByTo(char[], Map, Function1)`
+- `groupByTo(char[], Map, Function1, Function1)`
+- `groupByTo(double[], Map, Function1)`
+- `groupByTo(double[], Map, Function1, Function1)`
+- `groupByTo(float[], Map, Function1)`
+- `groupByTo(float[], Map, Function1, Function1)`
+- `groupByTo(int[], Map, Function1)`
+- `groupByTo(int[], Map, Function1, Function1)`
+- `groupByTo(long[], Map, Function1)`
+- `groupByTo(long[], Map, Function1, Function1)`
+- `groupByTo(short[], Map, Function1)`
+- `groupByTo(short[], Map, Function1, Function1)`
+- `groupingBy(Object[], Function1)`
+- `indexOf(Object[], Object)`
+- `indexOf(boolean[], boolean)`
+- `indexOf(byte[], byte)`
+- `indexOf(char[], char)`
+- `indexOf(int[], int)`
+- `indexOf(long[], long)`
+- `indexOf(short[], short)`
+- `indexOfFirst(Object[], Function1)`
+- `indexOfFirst(boolean[], Function1)`
+- `indexOfFirst(byte[], Function1)`
+- `indexOfFirst(char[], Function1)`
+- `indexOfFirst(double[], Function1)`
+- `indexOfFirst(float[], Function1)`
+- `indexOfFirst(int[], Function1)`
+- `indexOfFirst(long[], Function1)`
+- `indexOfFirst(short[], Function1)`
+- `indexOfLast(Object[], Function1)`
+- `indexOfLast(boolean[], Function1)`
+- `indexOfLast(byte[], Function1)`
+- `indexOfLast(char[], Function1)`
+- `indexOfLast(double[], Function1)`
+- `indexOfLast(float[], Function1)`
+- `indexOfLast(int[], Function1)`
+- `indexOfLast(long[], Function1)`
+- `indexOfLast(short[], Function1)`
+- `intersect(Object[], Iterable)`
+- `intersect(boolean[], Iterable)`
+- `intersect(byte[], Iterable)`
+- `intersect(char[], Iterable)`
+- `intersect(double[], Iterable)`
+- `intersect(float[], Iterable)`
+- `intersect(int[], Iterable)`
+- `intersect(long[], Iterable)`
+- `intersect(short[], Iterable)`
+- `joinTo(Object[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(boolean[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(byte[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(char[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(double[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(float[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(int[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(long[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinTo(short[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(Object[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(boolean[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(byte[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(char[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(double[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(float[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(int[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(long[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `joinToString(short[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
+- `last(Object[])`
+- `last(Object[], Function1)`
+- `last(boolean[])`
+- `last(boolean[], Function1)`
+- `last(byte[])`
+- `last(byte[], Function1)`
+- `last(char[])`
+- `last(char[], Function1)`
+- `last(double[])`
+- `last(double[], Function1)`
+- `last(float[])`
+- `last(float[], Function1)`
+- `last(int[])`
+- `last(int[], Function1)`
+- `last(long[])`
+- `last(long[], Function1)`
+- `last(short[])`
+- `last(short[], Function1)`
+- `lastIndexOf(Object[], Object)`
+- `lastIndexOf(boolean[], boolean)`
+- `lastIndexOf(byte[], byte)`
+- `lastIndexOf(char[], char)`
+- `lastIndexOf(int[], int)`
+- `lastIndexOf(long[], long)`
+- `lastIndexOf(short[], short)`
+- `lastOrNull(Object[])`
+- `lastOrNull(Object[], Function1)`
+- `lastOrNull(boolean[])`
+- `lastOrNull(boolean[], Function1)`
+- `lastOrNull(byte[])`
+- `lastOrNull(byte[], Function1)`
+- `lastOrNull(char[])`
+- `lastOrNull(char[], Function1)`
+- `lastOrNull(double[])`
+- `lastOrNull(double[], Function1)`
+- `lastOrNull(float[])`
+- `lastOrNull(float[], Function1)`
+- `lastOrNull(int[])`
+- `lastOrNull(int[], Function1)`
+- `lastOrNull(long[])`
+- `lastOrNull(long[], Function1)`
+- `lastOrNull(short[])`
+- `lastOrNull(short[], Function1)`
+- `map(Object[], Function1)`
+- `map(boolean[], Function1)`
+- `map(byte[], Function1)`
+- `map(char[], Function1)`
+- `map(double[], Function1)`
+- `map(float[], Function1)`
+- `map(int[], Function1)`
+- `map(long[], Function1)`
+- `map(short[], Function1)`
+- `mapIndexed(Object[], Function2)`
+- `mapIndexed(boolean[], Function2)`
+- `mapIndexed(byte[], Function2)`
+- `mapIndexed(char[], Function2)`
+- `mapIndexed(double[], Function2)`
+- `mapIndexed(float[], Function2)`
+- `mapIndexed(int[], Function2)`
+- `mapIndexed(long[], Function2)`
+- `mapIndexed(short[], Function2)`
+- `mapIndexedNotNull(Object[], Function2)`
+- `mapIndexedNotNullTo(Object[], Collection, Function2)`
+- `mapIndexedTo(Object[], Collection, Function2)`
+- `mapIndexedTo(boolean[], Collection, Function2)`
+- `mapIndexedTo(byte[], Collection, Function2)`
+- `mapIndexedTo(char[], Collection, Function2)`
+- `mapIndexedTo(double[], Collection, Function2)`
+- `mapIndexedTo(float[], Collection, Function2)`
+- `mapIndexedTo(int[], Collection, Function2)`
+- `mapIndexedTo(long[], Collection, Function2)`
+- `mapIndexedTo(short[], Collection, Function2)`
+- `mapNotNull(Object[], Function1)`
+- `mapNotNullTo(Object[], Collection, Function1)`
+- `mapTo(Object[], Collection, Function1)`
+- `mapTo(boolean[], Collection, Function1)`
+- `mapTo(byte[], Collection, Function1)`
+- `mapTo(char[], Collection, Function1)`
+- `mapTo(double[], Collection, Function1)`
+- `mapTo(float[], Collection, Function1)`
+- `mapTo(int[], Collection, Function1)`
+- `mapTo(long[], Collection, Function1)`
+- `mapTo(short[], Collection, Function1)`
+- `maxByOrNull(Object[], Function1)`
+- `maxByOrNull(boolean[], Function1)`
+- `maxByOrNull(byte[], Function1)`
+- `maxByOrNull(char[], Function1)`
+- `maxByOrNull(double[], Function1)`
+- `maxByOrNull(float[], Function1)`
+- `maxByOrNull(int[], Function1)`
+- `maxByOrNull(long[], Function1)`
+- `maxByOrNull(short[], Function1)`
+- `maxByOrThrow(Object[], Function1)`
+- `maxByOrThrow(boolean[], Function1)`
+- `maxByOrThrow(byte[], Function1)`
+- `maxByOrThrow(char[], Function1)`
+- `maxByOrThrow(double[], Function1)`
+- `maxByOrThrow(float[], Function1)`
+- `maxByOrThrow(int[], Function1)`
+- `maxByOrThrow(long[], Function1)`
+- `maxByOrThrow(short[], Function1)`
+- `maxOrNull(Comparable[])`
+- `maxOrNull(Double[])`
+- `maxOrNull(Float[])`
+- `maxOrNull(byte[])`
+- `maxOrNull(char[])`
+- `maxOrNull(double[])`
+- `maxOrNull(float[])`
+- `maxOrNull(int[])`
+- `maxOrNull(long[])`
+- `maxOrNull(short[])`
+- `maxOrThrow(Comparable[])`
+- `maxOrThrow(Double[])`
+- `maxOrThrow(Float[])`
+- `maxOrThrow(byte[])`
+- `maxOrThrow(char[])`
+- `maxOrThrow(double[])`
+- `maxOrThrow(float[])`
+- `maxOrThrow(int[])`
+- `maxOrThrow(long[])`
+- `maxOrThrow(short[])`
+- `maxWithOrNull(Object[], Comparator)`
+- `maxWithOrNull(boolean[], Comparator)`
+- `maxWithOrNull(byte[], Comparator)`
+- `maxWithOrNull(char[], Comparator)`
+- `maxWithOrNull(double[], Comparator)`
+- `maxWithOrNull(float[], Comparator)`
+- `maxWithOrNull(int[], Comparator)`
+- `maxWithOrNull(long[], Comparator)`
+- `maxWithOrNull(short[], Comparator)`
+- `maxWithOrThrow(Object[], Comparator)`
+- `maxWithOrThrow(boolean[], Comparator)`
+- `maxWithOrThrow(byte[], Comparator)`
+- `maxWithOrThrow(char[], Comparator)`
+- `maxWithOrThrow(double[], Comparator)`
+- `maxWithOrThrow(float[], Comparator)`
+- `maxWithOrThrow(int[], Comparator)`
+- `maxWithOrThrow(long[], Comparator)`
+- `maxWithOrThrow(short[], Comparator)`
+- `minByOrNull(Object[], Function1)`
+- `minByOrNull(boolean[], Function1)`
+- `minByOrNull(byte[], Function1)`
+- `minByOrNull(char[], Function1)`
+- `minByOrNull(double[], Function1)`
+- `minByOrNull(float[], Function1)`
+- `minByOrNull(int[], Function1)`
+- `minByOrNull(long[], Function1)`
+- `minByOrNull(short[], Function1)`
+- `minByOrThrow(Object[], Function1)`
+- `minByOrThrow(boolean[], Function1)`
+- `minByOrThrow(byte[], Function1)`
+- `minByOrThrow(char[], Function1)`
+- `minByOrThrow(double[], Function1)`
+- `minByOrThrow(float[], Function1)`
+- `minByOrThrow(int[], Function1)`
+- `minByOrThrow(long[], Function1)`
+- `minByOrThrow(short[], Function1)`
+- `minOrNull(Comparable[])`
+- `minOrNull(Double[])`
+- `minOrNull(Float[])`
+- `minOrNull(byte[])`
+- `minOrNull(char[])`
+- `minOrNull(double[])`
+- `minOrNull(float[])`
+- `minOrNull(int[])`
+- `minOrNull(long[])`
+- `minOrNull(short[])`
+- `minOrThrow(Comparable[])`
+- `minOrThrow(Double[])`
+- `minOrThrow(Float[])`
+- `minOrThrow(byte[])`
+- `minOrThrow(char[])`
+- `minOrThrow(double[])`
+- `minOrThrow(float[])`
+- `minOrThrow(int[])`
+- `minOrThrow(long[])`
+- `minOrThrow(short[])`
+- `minWithOrNull(Object[], Comparator)`
+- `minWithOrNull(boolean[], Comparator)`
+- `minWithOrNull(byte[], Comparator)`
+- `minWithOrNull(char[], Comparator)`
+- `minWithOrNull(double[], Comparator)`
+- `minWithOrNull(float[], Comparator)`
+- `minWithOrNull(int[], Comparator)`
+- `minWithOrNull(long[], Comparator)`
+- `minWithOrNull(short[], Comparator)`
+- `minWithOrThrow(Object[], Comparator)`
+- `minWithOrThrow(boolean[], Comparator)`
+- `minWithOrThrow(byte[], Comparator)`
+- `minWithOrThrow(char[], Comparator)`
+- `minWithOrThrow(double[], Comparator)`
+- `minWithOrThrow(float[], Comparator)`
+- `minWithOrThrow(int[], Comparator)`
+- `minWithOrThrow(long[], Comparator)`
+- `minWithOrThrow(short[], Comparator)`
+- `none(Object[])`
+- `none(Object[], Function1)`
+- `none(boolean[])`
+- `none(boolean[], Function1)`
+- `none(byte[])`
+- `none(byte[], Function1)`
+- `none(char[])`
+- `none(char[], Function1)`
+- `none(double[])`
+- `none(double[], Function1)`
+- `none(float[])`
+- `none(float[], Function1)`
+- `none(int[])`
+- `none(int[], Function1)`
+- `none(long[])`
+- `none(long[], Function1)`
+- `none(short[])`
+- `none(short[], Function1)`
+- `partition(Object[], Function1)`
+- `partition(boolean[], Function1)`
+- `partition(byte[], Function1)`
+- `partition(char[], Function1)`
+- `partition(double[], Function1)`
+- `partition(float[], Function1)`
+- `partition(int[], Function1)`
+- `partition(long[], Function1)`
+- `partition(short[], Function1)`
+- `plus(Object[], Collection)`
+- `plus(Object[], Object)`
+- `plus(Object[], Object[])`
+- `plus(boolean[], Collection)`
+- `plus(boolean[], boolean)`
+- `plus(boolean[], boolean[])`
+- `plus(byte[], Collection)`
+- `plus(byte[], byte)`
+- `plus(byte[], byte[])`
+- `plus(char[], Collection)`
+- `plus(char[], char)`
+- `plus(char[], char[])`
+- `plus(double[], Collection)`
+- `plus(double[], double)`
+- `plus(double[], double[])`
+- `plus(float[], Collection)`
+- `plus(float[], float)`
+- `plus(float[], float[])`
+- `plus(int[], Collection)`
+- `plus(int[], int)`
+- `plus(int[], int[])`
+- `plus(long[], Collection)`
+- `plus(long[], long)`
+- `plus(long[], long[])`
+- `plus(short[], Collection)`
+- `plus(short[], short)`
+- `plus(short[], short[])`
+- `random(Object[], Random)`
+- `random(boolean[], Random)`
+- `random(byte[], Random)`
+- `random(char[], Random)`
+- `random(double[], Random)`
+- `random(float[], Random)`
+- `random(int[], Random)`
+- `random(long[], Random)`
+- `random(short[], Random)`
+- `randomOrNull(Object[], Random)`
+- `randomOrNull(boolean[], Random)`
+- `randomOrNull(byte[], Random)`
+- `randomOrNull(char[], Random)`
+- `randomOrNull(double[], Random)`
+- `randomOrNull(float[], Random)`
+- `randomOrNull(int[], Random)`
+- `randomOrNull(long[], Random)`
+- `randomOrNull(short[], Random)`
+- `reduce(Object[], Function2)`
+- `reduce(boolean[], Function2)`
+- `reduce(byte[], Function2)`
+- `reduce(char[], Function2)`
+- `reduce(double[], Function2)`
+- `reduce(float[], Function2)`
+- `reduce(int[], Function2)`
+- `reduce(long[], Function2)`
+- `reduce(short[], Function2)`
+- `reduceIndexed(Object[], Function3)`
+- `reduceIndexed(boolean[], Function3)`
+- `reduceIndexed(byte[], Function3)`
+- `reduceIndexed(char[], Function3)`
+- `reduceIndexed(double[], Function3)`
+- `reduceIndexed(float[], Function3)`
+- `reduceIndexed(int[], Function3)`
+- `reduceIndexed(long[], Function3)`
+- `reduceIndexed(short[], Function3)`
+- `reduceIndexedOrNull(Object[], Function3)`
+- `reduceIndexedOrNull(boolean[], Function3)`
+- `reduceIndexedOrNull(byte[], Function3)`
+- `reduceIndexedOrNull(char[], Function3)`
+- `reduceIndexedOrNull(double[], Function3)`
+- `reduceIndexedOrNull(float[], Function3)`
+- `reduceIndexedOrNull(int[], Function3)`
+- `reduceIndexedOrNull(long[], Function3)`
+- `reduceIndexedOrNull(short[], Function3)`
+- `reduceOrNull(Object[], Function2)`
+- `reduceOrNull(boolean[], Function2)`
+- `reduceOrNull(byte[], Function2)`
+- `reduceOrNull(char[], Function2)`
+- `reduceOrNull(double[], Function2)`
+- `reduceOrNull(float[], Function2)`
+- `reduceOrNull(int[], Function2)`
+- `reduceOrNull(long[], Function2)`
+- `reduceOrNull(short[], Function2)`
+- `reduceRight(Object[], Function2)`
+- `reduceRight(boolean[], Function2)`
+- `reduceRight(byte[], Function2)`
+- `reduceRight(char[], Function2)`
+- `reduceRight(double[], Function2)`
+- `reduceRight(float[], Function2)`
+- `reduceRight(int[], Function2)`
+- `reduceRight(long[], Function2)`
+- `reduceRight(short[], Function2)`
+- `reduceRightIndexed(Object[], Function3)`
+- `reduceRightIndexed(boolean[], Function3)`
+- `reduceRightIndexed(byte[], Function3)`
+- `reduceRightIndexed(char[], Function3)`
+- `reduceRightIndexed(double[], Function3)`
+- `reduceRightIndexed(float[], Function3)`
+- `reduceRightIndexed(int[], Function3)`
+- `reduceRightIndexed(long[], Function3)`
+- `reduceRightIndexed(short[], Function3)`
+- `reduceRightIndexedOrNull(Object[], Function3)`
+- `reduceRightIndexedOrNull(boolean[], Function3)`
+- `reduceRightIndexedOrNull(byte[], Function3)`
+- `reduceRightIndexedOrNull(char[], Function3)`
+- `reduceRightIndexedOrNull(double[], Function3)`
+- `reduceRightIndexedOrNull(float[], Function3)`
+- `reduceRightIndexedOrNull(int[], Function3)`
+- `reduceRightIndexedOrNull(long[], Function3)`
+- `reduceRightIndexedOrNull(short[], Function3)`
+- `reduceRightOrNull(Object[], Function2)`
+- `reduceRightOrNull(boolean[], Function2)`
+- `reduceRightOrNull(byte[], Function2)`
+- `reduceRightOrNull(char[], Function2)`
+- `reduceRightOrNull(double[], Function2)`
+- `reduceRightOrNull(float[], Function2)`
+- `reduceRightOrNull(int[], Function2)`
+- `reduceRightOrNull(long[], Function2)`
+- `reduceRightOrNull(short[], Function2)`
+- `requireNoNulls(Object[])`
+- `reverse(Object[])`
+- `reverse(Object[], int, int)`
+- `reverse(boolean[])`
+- `reverse(boolean[], int, int)`
+- `reverse(byte[])`
+- `reverse(byte[], int, int)`
+- `reverse(char[])`
+- `reverse(char[], int, int)`
+- `reverse(double[])`
+- `reverse(double[], int, int)`
+- `reverse(float[])`
+- `reverse(float[], int, int)`
+- `reverse(int[])`
+- `reverse(int[], int, int)`
+- `reverse(long[])`
+- `reverse(long[], int, int)`
+- `reverse(short[])`
+- `reverse(short[], int, int)`
+- `reversed(Object[])`
+- `reversed(boolean[])`
+- `reversed(byte[])`
+- `reversed(char[])`
+- `reversed(double[])`
+- `reversed(float[])`
+- `reversed(int[])`
+- `reversed(long[])`
+- `reversed(short[])`
+- `reversedArray(Object[])`
+- `reversedArray(boolean[])`
+- `reversedArray(byte[])`
+- `reversedArray(char[])`
+- `reversedArray(double[])`
+- `reversedArray(float[])`
+- `reversedArray(int[])`
+- `reversedArray(long[])`
+- `reversedArray(short[])`
+- `runningFold(Object[], Object, Function2)`
+- `runningFoldIndexed(Object[], Object, Function3)`
+- `runningReduce(Object[], Function2)`
+- `runningReduceIndexed(Object[], Function3)`
+- `scan(Object[], Object, Function2)`
+- `scanIndexed(Object[], Object, Function3)`
+- `shuffle(Object[])`
+- `shuffle(Object[], Random)`
+- `shuffle(boolean[])`
+- `shuffle(boolean[], Random)`
+- `shuffle(byte[])`
+- `shuffle(byte[], Random)`
+- `shuffle(char[])`
+- `shuffle(char[], Random)`
+- `shuffle(double[])`
+- `shuffle(double[], Random)`
+- `shuffle(float[])`
+- `shuffle(float[], Random)`
+- `shuffle(int[])`
+- `shuffle(int[], Random)`
+- `shuffle(long[])`
+- `shuffle(long[], Random)`
+- `shuffle(short[])`
+- `shuffle(short[], Random)`
+- `single(Object[])`
+- `single(Object[], Function1)`
+- `single(boolean[])`
+- `single(boolean[], Function1)`
+- `single(byte[])`
+- `single(byte[], Function1)`
+- `single(char[])`
+- `single(char[], Function1)`
+- `single(double[])`
+- `single(double[], Function1)`
+- `single(float[])`
+- `single(float[], Function1)`
+- `single(int[])`
+- `single(int[], Function1)`
+- `single(long[])`
+- `single(long[], Function1)`
+- `single(short[])`
+- `single(short[], Function1)`
+- `singleOrNull(Object[])`
+- `singleOrNull(Object[], Function1)`
+- `singleOrNull(boolean[])`
+- `singleOrNull(boolean[], Function1)`
+- `singleOrNull(byte[])`
+- `singleOrNull(byte[], Function1)`
+- `singleOrNull(char[])`
+- `singleOrNull(char[], Function1)`
+- `singleOrNull(double[])`
+- `singleOrNull(double[], Function1)`
+- `singleOrNull(float[])`
+- `singleOrNull(float[], Function1)`
+- `singleOrNull(int[])`
+- `singleOrNull(int[], Function1)`
+- `singleOrNull(long[])`
+- `singleOrNull(long[], Function1)`
+- `singleOrNull(short[])`
+- `singleOrNull(short[], Function1)`
+- `slice(Object[], IntRange)`
+- `slice(Object[], Iterable)`
+- `slice(boolean[], IntRange)`
+- `slice(boolean[], Iterable)`
+- `slice(byte[], IntRange)`
+- `slice(byte[], Iterable)`
+- `slice(char[], IntRange)`
+- `slice(char[], Iterable)`
+- `slice(double[], IntRange)`
+- `slice(double[], Iterable)`
+- `slice(float[], IntRange)`
+- `slice(float[], Iterable)`
+- `slice(int[], IntRange)`
+- `slice(int[], Iterable)`
+- `slice(long[], IntRange)`
+- `slice(long[], Iterable)`
+- `slice(short[], IntRange)`
+- `slice(short[], Iterable)`
+- `sliceArray(Object[], Collection)`
+- `sliceArray(Object[], IntRange)`
+- `sliceArray(boolean[], Collection)`
+- `sliceArray(boolean[], IntRange)`
+- `sliceArray(byte[], Collection)`
+- `sliceArray(byte[], IntRange)`
+- `sliceArray(char[], Collection)`
+- `sliceArray(char[], IntRange)`
+- `sliceArray(double[], Collection)`
+- `sliceArray(double[], IntRange)`
+- `sliceArray(float[], Collection)`
+- `sliceArray(float[], IntRange)`
+- `sliceArray(int[], Collection)`
+- `sliceArray(int[], IntRange)`
+- `sliceArray(long[], Collection)`
+- `sliceArray(long[], IntRange)`
+- `sliceArray(short[], Collection)`
+- `sliceArray(short[], IntRange)`
+- `sort(Comparable[], int, int)`
+- `sort(Object[])`
+- `sort(Object[], int, int)`
+- `sort(byte[])`
+- `sort(byte[], int, int)`
+- `sort(char[])`
+- `sort(char[], int, int)`
+- `sort(double[])`
+- `sort(double[], int, int)`
+- `sort(float[])`
+- `sort(float[], int, int)`
+- `sort(int[])`
+- `sort(int[], int, int)`
+- `sort(long[])`
+- `sort(long[], int, int)`
+- `sort(short[])`
+- `sort(short[], int, int)`
+- `sortBy(Object[], Function1)`
+- `sortByDescending(Object[], Function1)`
+- `sortDescending(Comparable[])`
+- `sortDescending(Comparable[], int, int)`
+- `sortDescending(byte[])`
+- `sortDescending(byte[], int, int)`
+- `sortDescending(char[])`
+- `sortDescending(char[], int, int)`
+- `sortDescending(double[])`
+- `sortDescending(double[], int, int)`
+- `sortDescending(float[])`
+- `sortDescending(float[], int, int)`
+- `sortDescending(int[])`
+- `sortDescending(int[], int, int)`
+- `sortDescending(long[])`
+- `sortDescending(long[], int, int)`
+- `sortDescending(short[])`
+- `sortDescending(short[], int, int)`
+- `sortWith(Object[], Comparator)`
+- `sortWith(Object[], Comparator, int, int)`
+- `sorted(Comparable[])`
+- `sorted(byte[])`
+- `sorted(char[])`
+- `sorted(double[])`
+- `sorted(float[])`
+- `sorted(int[])`
+- `sorted(long[])`
+- `sorted(short[])`
+- `sortedArray(Comparable[])`
+- `sortedArray(byte[])`
+- `sortedArray(char[])`
+- `sortedArray(double[])`
+- `sortedArray(float[])`
+- `sortedArray(int[])`
+- `sortedArray(long[])`
+- `sortedArray(short[])`
+- `sortedArrayDescending(Comparable[])`
+- `sortedArrayDescending(byte[])`
+- `sortedArrayDescending(char[])`
+- `sortedArrayDescending(double[])`
+- `sortedArrayDescending(float[])`
+- `sortedArrayDescending(int[])`
+- `sortedArrayDescending(long[])`
+- `sortedArrayDescending(short[])`
+- `sortedArrayWith(Object[], Comparator)`
+- `sortedBy(Object[], Function1)`
+- `sortedBy(boolean[], Function1)`
+- `sortedBy(byte[], Function1)`
+- `sortedBy(char[], Function1)`
+- `sortedBy(double[], Function1)`
+- `sortedBy(float[], Function1)`
+- `sortedBy(int[], Function1)`
+- `sortedBy(long[], Function1)`
+- `sortedBy(short[], Function1)`
+- `sortedByDescending(Object[], Function1)`
+- `sortedByDescending(boolean[], Function1)`
+- `sortedByDescending(byte[], Function1)`
+- `sortedByDescending(char[], Function1)`
+- `sortedByDescending(double[], Function1)`
+- `sortedByDescending(float[], Function1)`
+- `sortedByDescending(int[], Function1)`
+- `sortedByDescending(long[], Function1)`
+- `sortedByDescending(short[], Function1)`
+- `sortedDescending(Comparable[])`
+- `sortedDescending(byte[])`
+- `sortedDescending(char[])`
+- `sortedDescending(double[])`
+- `sortedDescending(float[])`
+- `sortedDescending(int[])`
+- `sortedDescending(long[])`
+- `sortedDescending(short[])`
+- `sortedWith(Object[], Comparator)`
+- `sortedWith(boolean[], Comparator)`
+- `sortedWith(byte[], Comparator)`
+- `sortedWith(char[], Comparator)`
+- `sortedWith(double[], Comparator)`
+- `sortedWith(float[], Comparator)`
+- `sortedWith(int[], Comparator)`
+- `sortedWith(long[], Comparator)`
+- `sortedWith(short[], Comparator)`
+- `subtract(Object[], Iterable)`
+- `subtract(boolean[], Iterable)`
+- `subtract(byte[], Iterable)`
+- `subtract(char[], Iterable)`
+- `subtract(double[], Iterable)`
+- `subtract(float[], Iterable)`
+- `subtract(int[], Iterable)`
+- `subtract(long[], Iterable)`
+- `subtract(short[], Iterable)`
+- `sum(byte[])`
+- `sum(double[])`
+- `sum(float[])`
+- `sum(int[])`
+- `sum(long[])`
+- `sum(short[])`
+- `sumBy(Object[], Function1)`
+- `sumBy(boolean[], Function1)`
+- `sumBy(byte[], Function1)`
+- `sumBy(char[], Function1)`
+- `sumBy(double[], Function1)`
+- `sumBy(float[], Function1)`
+- `sumBy(int[], Function1)`
+- `sumBy(long[], Function1)`
+- `sumBy(short[], Function1)`
+- `sumByDouble(Object[], Function1)`
+- `sumByDouble(boolean[], Function1)`
+- `sumByDouble(byte[], Function1)`
+- `sumByDouble(char[], Function1)`
+- `sumByDouble(double[], Function1)`
+- `sumByDouble(float[], Function1)`
+- `sumByDouble(int[], Function1)`
+- `sumByDouble(long[], Function1)`
+- `sumByDouble(short[], Function1)`
+- `sumOfByte(Byte[])`
+- `sumOfDouble(Double[])`
+- `sumOfFloat(Float[])`
+- `sumOfInt(Integer[])`
+- `sumOfLong(Long[])`
+- `sumOfShort(Short[])`
+- `take(Object[], int)`
+- `take(boolean[], int)`
+- `take(byte[], int)`
+- `take(char[], int)`
+- `take(double[], int)`
+- `take(float[], int)`
+- `take(int[], int)`
+- `take(long[], int)`
+- `take(short[], int)`
+- `takeLast(Object[], int)`
+- `takeLast(boolean[], int)`
+- `takeLast(byte[], int)`
+- `takeLast(char[], int)`
+- `takeLast(double[], int)`
+- `takeLast(float[], int)`
+- `takeLast(int[], int)`
+- `takeLast(long[], int)`
+- `takeLast(short[], int)`
+- `takeLastWhile(Object[], Function1)`
+- `takeLastWhile(boolean[], Function1)`
+- `takeLastWhile(byte[], Function1)`
+- `takeLastWhile(char[], Function1)`
+- `takeLastWhile(double[], Function1)`
+- `takeLastWhile(float[], Function1)`
+- `takeLastWhile(int[], Function1)`
+- `takeLastWhile(long[], Function1)`
+- `takeLastWhile(short[], Function1)`
+- `takeWhile(Object[], Function1)`
+- `takeWhile(boolean[], Function1)`
+- `takeWhile(byte[], Function1)`
+- `takeWhile(char[], Function1)`
+- `takeWhile(double[], Function1)`
+- `takeWhile(float[], Function1)`
+- `takeWhile(int[], Function1)`
+- `takeWhile(long[], Function1)`
+- `takeWhile(short[], Function1)`
+- `toBooleanArray(Boolean[])`
+- `toByteArray(Byte[])`
+- `toCharArray(Character[])`
+- `toCollection(Object[], Collection)`
+- `toCollection(boolean[], Collection)`
+- `toCollection(byte[], Collection)`
+- `toCollection(char[], Collection)`
+- `toCollection(double[], Collection)`
+- `toCollection(float[], Collection)`
+- `toCollection(int[], Collection)`
+- `toCollection(long[], Collection)`
+- `toCollection(short[], Collection)`
+- `toDoubleArray(Double[])`
+- `toFloatArray(Float[])`
+- `toHashSet(Object[])`
+- `toHashSet(boolean[])`
+- `toHashSet(byte[])`
+- `toHashSet(char[])`
+- `toHashSet(double[])`
+- `toHashSet(float[])`
+- `toHashSet(int[])`
+- `toHashSet(long[])`
+- `toHashSet(short[])`
+- `toIntArray(Integer[])`
+- `toList(Object[])`
+- `toList(boolean[])`
+- `toList(byte[])`
+- `toList(char[])`
+- `toList(double[])`
+- `toList(float[])`
+- `toList(int[])`
+- `toList(long[])`
+- `toList(short[])`
+- `toLongArray(Long[])`
+- `toMutableList(Object[])`
+- `toMutableList(boolean[])`
+- `toMutableList(byte[])`
+- `toMutableList(char[])`
+- `toMutableList(double[])`
+- `toMutableList(float[])`
+- `toMutableList(int[])`
+- `toMutableList(long[])`
+- `toMutableList(short[])`
+- `toMutableSet(Object[])`
+- `toMutableSet(boolean[])`
+- `toMutableSet(byte[])`
+- `toMutableSet(char[])`
+- `toMutableSet(double[])`
+- `toMutableSet(float[])`
+- `toMutableSet(int[])`
+- `toMutableSet(long[])`
+- `toMutableSet(short[])`
+- `toSet(Object[])`
+- `toSet(boolean[])`
+- `toSet(byte[])`
+- `toSet(char[])`
+- `toSet(double[])`
+- `toSet(float[])`
+- `toSet(int[])`
+- `toSet(long[])`
+- `toSet(short[])`
+- `toShortArray(Short[])`
+- `toSortedSet(Comparable[])`
+- `toSortedSet(Object[], Comparator)`
+- `toSortedSet(boolean[])`
+- `toSortedSet(byte[])`
+- `toSortedSet(char[])`
+- `toSortedSet(double[])`
+- `toSortedSet(float[])`
+- `toSortedSet(int[])`
+- `toSortedSet(long[])`
+- `toSortedSet(short[])`
+- `toTypedArray(boolean[])`
+- `toTypedArray(byte[])`
+- `toTypedArray(char[])`
+- `toTypedArray(double[])`
+- `toTypedArray(float[])`
+- `toTypedArray(int[])`
+- `toTypedArray(long[])`
+- `toTypedArray(short[])`
+- `union(Object[], Iterable)`
+- `union(boolean[], Iterable)`
+- `union(byte[], Iterable)`
+- `union(char[], Iterable)`
+- `union(double[], Iterable)`
+- `union(float[], Iterable)`
+- `union(int[], Iterable)`
+- `union(long[], Iterable)`
+- `union(short[], Iterable)`
+- `unzip(Pair[])`
+- `withIndex(Object[])`
+- `withIndex(boolean[])`
+- `withIndex(byte[])`
+- `withIndex(char[])`
+- `withIndex(double[])`
+- `withIndex(float[])`
+- `withIndex(int[])`
+- `withIndex(long[])`
+- `withIndex(short[])`
+- `zip(Object[], Iterable)`
+- `zip(Object[], Iterable, Function2)`
+- `zip(Object[], Object[])`
+- `zip(Object[], Object[], Function2)`
+- `zip(boolean[], Iterable)`
+- `zip(boolean[], Iterable, Function2)`
+- `zip(boolean[], Object[])`
+- `zip(boolean[], Object[], Function2)`
+- `zip(boolean[], boolean[])`
+- `zip(boolean[], boolean[], Function2)`
+- `zip(byte[], Iterable)`
+- `zip(byte[], Iterable, Function2)`
+- `zip(byte[], Object[])`
+- `zip(byte[], Object[], Function2)`
+- `zip(byte[], byte[])`
+- `zip(byte[], byte[], Function2)`
+- `zip(char[], Iterable)`
+- `zip(char[], Iterable, Function2)`
+- `zip(char[], Object[])`
+- `zip(char[], Object[], Function2)`
+- `zip(char[], char[])`
+- `zip(char[], char[], Function2)`
+- `zip(double[], Iterable)`
+- `zip(double[], Iterable, Function2)`
+- `zip(double[], Object[])`
+- `zip(double[], Object[], Function2)`
+- `zip(double[], double[])`
+- `zip(double[], double[], Function2)`
+- `zip(float[], Iterable)`
+- `zip(float[], Iterable, Function2)`
+- `zip(float[], Object[])`
+- `zip(float[], Object[], Function2)`
+- `zip(float[], float[])`
+- `zip(float[], float[], Function2)`
+- `zip(int[], Iterable)`
+- `zip(int[], Iterable, Function2)`
+- `zip(int[], Object[])`
+- `zip(int[], Object[], Function2)`
+- `zip(int[], int[])`
+- `zip(int[], int[], Function2)`
+- `zip(long[], Iterable)`
+- `zip(long[], Iterable, Function2)`
+- `zip(long[], Object[])`
+- `zip(long[], Object[], Function2)`
+- `zip(long[], long[])`
+- `zip(long[], long[], Function2)`
+- `zip(short[], Iterable)`
+- `zip(short[], Iterable, Function2)`
+- `zip(short[], Object[])`
+- `zip(short[], Object[], Function2)`
+- `zip(short[], short[])`
+- `zip(short[], short[], Function2)`
+
+</details>
+
+
 ## `kotlin.collections.CollectionsKt`
 
 Real surface: 253 members — modeled 126, unmodelable 120, not-needed 7, tail 0.
@@ -1186,6 +2484,19 @@ Real surface: 40 members — modeled 16, unmodelable 24, not-needed 0, tail 0.
 | `throwUninitializedProperty(String)` | real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached |
 
 
+## `kotlin.math.MathKt`
+
+Real surface: 15 members — modeled 12, unmodelable 3, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `getSign(int)`, `getSign(long)`, `log(double, double)`, `log(float, float)`, `log2(double)`, `log2(float)`, `roundToInt(double)`, `roundToInt(float)`, `roundToLong(double)`, `roundToLong(float)`, `truncate(double)`, `truncate(float)`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `acosh(double)` | inverse hyperbolic acosh has no java.lang.Math primitive (the stdlib computes it from a ln/sqrt closed form); concrete-only double transcendental under the no-symbolic-double policy — a bounded model earns nothing; loud-if-reached |
+| `asinh(double)` | inverse hyperbolic asinh has no java.lang.Math primitive (the stdlib computes it from a ln/sqrt closed form); concrete-only double transcendental under the no-symbolic-double policy — a bounded model earns nothing; loud-if-reached |
+| `atanh(double)` | inverse hyperbolic atanh has no java.lang.Math primitive (the stdlib computes it from a ln closed form); concrete-only double transcendental under the no-symbolic-double policy — a bounded model earns nothing; loud-if-reached |
+
+
 ## `kotlin.random.Random`
 
 Real surface: 15 members — modeled 8, unmodelable 7, not-needed 0, tail 0.
@@ -1417,6 +2728,22 @@ Real surface: 164 members — modeled 100, unmodelable 64, not-needed 0, tail 0.
 | `sumByDouble(Sequence, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 | `toSortedSet(Sequence)` | TreeSet natural-order total-order over unconstrained Comparable T: the JDK TreeSet model's internal comparison cast refutes under JBMC (Dynamic cast check) — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
 | `toSortedSet(Sequence, Comparator)` | TreeSet comparator total-order: shares the JDK TreeSet model's internal comparison-cast fragility under JBMC — no sound bounded model, matching the CollectionsKt.toSortedSet out-of-scope boundary |
+
+
+## `kotlin.text.CharsKt`
+
+Real surface: 17 members — modeled 11, unmodelable 6, not-needed 0, tail 0.
+
+**Modeled** (`@BmcModelConforms`): `checkRadix(int)`, `digitOf(char, int)`, `digitToChar(int)`, `digitToChar(int, int)`, `digitToInt(char)`, `digitToInt(char, int)`, `digitToIntOrNull(char)`, `digitToIntOrNull(char, int)`, `equals(char, char, boolean)`, `isSurrogate(char)`, `isWhitespace(char)`
+
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `getCategory(char)` | Char.category returns the Unicode CharCategory classification over Character.getType's Unicode tables — a rich Unicode-property enum whose faithful bounded model earns nothing for a BMC proof; loud-if-reached |
+| `getDirectionality(char)` | Char.directionality returns the Unicode bidi CharDirectionality over Character.getDirectionality's Unicode tables — a rich Unicode-property enum whose faithful bounded model earns nothing for a BMC proof; loud-if-reached |
+| `lowercase(char, Locale)` | Char.lowercase(Locale) is locale-sensitive case mapping the stdlib routes through String.toLowerCase(Locale) (a char may map to multiple chars) — a String-returning, locale/ICU-backed transform out of scope for a bounded char model; loud-if-reached |
+| `titlecase(char)` | Char.titlecase() (default-locale) is Unicode titlecase mapping over the Unicode titlecase tables (a char may map to multiple chars) — a String-returning transform out of scope for a bounded char model; loud-if-reached |
+| `titlecase(char, Locale)` | Char.titlecase(Locale) is locale-sensitive titlecase mapping over the Unicode titlecase tables (a char may map to multiple chars) — a String-returning, locale/ICU-backed transform out of scope for a bounded char model; loud-if-reached |
+| `uppercase(char, Locale)` | Char.uppercase(Locale) is locale-sensitive case mapping the stdlib routes through String.toUpperCase(Locale) (a char may map to multiple chars) — a String-returning, locale/ICU-backed transform out of scope for a bounded char model; loud-if-reached |
 
 
 ## `kotlin.text.StringsKt`
