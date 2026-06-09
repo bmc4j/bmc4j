@@ -38,5 +38,17 @@ public @interface DebugMetadata {
 
     String[] s() default {};
 
-    int[] v() default {};
+    // The metadata format version — a scalar `int` (default 1), NOT an array. The real
+    // kotlin.coroutines.jvm.internal.DebugMetadata.v returns `int`, and kotlinc stamps every
+    // invokeSuspend with a scalar `@DebugMetadata(... v=2)`. Declaring it `int[]` here (as the
+    // first bundling did) makes the stamped scalar value type-incompatible with the bundled
+    // annotation, so the annotation type cannot bind to this bundled declaration and falls back
+    // to resolving against the real kotlin-stdlib jar — re-straddling the continuation across two
+    // classpath sources, which is exactly the cross-source split the bundling exists to remove.
+    // The drop of the bundled continuation's subtype->supertype `checkcast Continuation` link is
+    // order/depth-dependent, so a single-suspension state machine can survive it while a
+    // multi-suspension one (e.g. computeTwice's 0/1/2 tableswitch) trips it and havocs the cast
+    // (a spurious "Dynamic cast check" REFUTED). Matching the real scalar `int` makes the bundled
+    // annotation bind single-source for every continuation shape.
+    int v() default 1;
 }
