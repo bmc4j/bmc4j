@@ -1,9 +1,13 @@
 package org.bmc4j.engine
 
 import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 
 /**
  * Extracts the clean Kotlin runtime models bundled (as resources under
@@ -11,6 +15,26 @@ import java.nio.file.StandardCopyOption
  * pointed at them. They are resources — never on a runtime classpath — so they don't
  * shadow the real Kotlin classes when tests execute; only JBMC's analysis classpath
  * gets them (prepended), where they replace kotlin-stdlib's `Intrinsics`.
+ *
+ * ## Atomic, content-keyed extraction (no shared-dir overwrite race)
+ * [extractRoot] is called once per proof, on whatever JUnit pool thread runs it, so under
+ * parallelism MANY threads extract concurrently - and several agents on one machine share the
+ * `~/.cache/bmc4j/` tree. An earlier version copied every model class into ONE fixed directory
+ * (`kotlin-models`) with a non-atomic `Files.copy(REPLACE_EXISTING)` on every call. That made the
+ * model classes a SHARED MUTABLE FILE that a concurrent reader (the rewrite-chain mirror computing a
+ * content hash, [ModelSlice], or JBMC itself) could observe MID-OVERWRITE - a truncated/partial
+ * `SequencesKt.class` parses to a bodiless class, which JBMC links to an unconstrained nondet stub
+ * (a havoc) even though the class IS on the classpath. That is the non-determinism behind proofs that
+ * flip between green and UNKNOWN run-to-run with no code change: a transient torn read of a present
+ * model body.
+ *
+ * The fix applies the SAME discipline [ClasspathMirror] / [ModelSlice] already use for their dir
+ * mirrors: extract into a fresh unique temp dir, then ATOMICALLY publish it to a directory whose name
+ * is the SHA-256 of the extracted content, marked complete with a `.done` file written last. A
+ * completed (`.done`-marked) content dir is IMMUTABLE - no call ever re-opens it for writing - so a
+ * reader either sees a complete dir or, on a cache miss, the publisher builds off to the side and moves
+ * it into place in one atomic step. The returned path therefore changes only when the bundled
+ * resources change (a fresh build), making every downstream content hash over it stable too.
  */
 object BundledKotlinModels {
 
@@ -122,26 +146,139 @@ object BundledKotlinModels {
             "kotlinx/coroutines/Drive\$ImmediateScope.class",
             "kotlinx/coroutines/Drive\$Completion.class")
 
-    /** Extract the models and return the classpath root dir, or null if none bundled. */
+    /**
+     * Extract the models and return the classpath root dir, or null if none bundled.
+     *
+     * Extraction is ATOMIC and content-keyed (see the class doc): the models are read into memory,
+     * hashed, and published once into a `<sha256>` directory marked complete with a `.done` file. A
+     * completed content dir is immutable, so concurrent callers (proofs on the JUnit pool, or other
+     * agents sharing `~/.cache/bmc4j/`) never observe a partial/mid-overwrite model class — the torn
+     * read that intermittently made JBMC nondet-stub a present-on-classpath model body (e.g.
+     * `SequencesKt`), flipping a clean proof to UNKNOWN with no code change.
+     */
     @JvmStatic
     fun extractRoot(): String? {
-        val dir = Path.of(System.getProperty("user.home"), ".cache", "bmc4j", "kotlin-models")
-        var any = false
+        // Read every bundled model resource into memory first (no filesystem writes yet), so the
+        // content hash and the published dir see one consistent snapshot.
+        val contents = LinkedHashMap<String, ByteArray>()
         for (rel in FILES) {
             try {
                 BundledKotlinModels::class.java.classLoader
                         .getResourceAsStream("$ROOT/$rel").use { input ->
                             if (input != null) {
-                                val target = dir.resolve(rel)
-                                Files.createDirectories(target.parent)
-                                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
-                                any = true
+                                contents[rel] = input.readAllBytes()
                             }
                         }
             } catch (e: IOException) {
-                // Best effort: if a model can't be extracted, JBMC falls back to the real class.
+                // Best effort: if a model can't be read, JBMC falls back to the real class.
             }
         }
-        return if (any) dir.toString() else null
+        if (contents.isEmpty()) {
+            return null
+        }
+
+        val root = cacheRoot()
+        val hash = contentHash(contents)
+        val dest = root.resolve(hash)
+        val done = root.resolve(hash + DONE_SUFFIX)
+
+        // Cache hit: a completed extraction for this exact content already exists and is immutable.
+        if (Files.isDirectory(dest) && Files.isRegularFile(done)) {
+            return dest.toString()
+        }
+
+        try {
+            Files.createDirectories(root)
+            // Build into a fresh unique temp dir, then atomically publish it (the marker last). A fresh
+            // dir guarantees no stale class survives; building off to the side keeps a concurrent reader
+            // from ever seeing a partial extraction as complete.
+            val tmp = Files.createTempDirectory(root, "$hash-")
+            try {
+                for ((rel, bytes) in contents) {
+                    val target = tmp.resolve(rel)
+                    Files.createDirectories(target.parent)
+                    Files.write(target, bytes)
+                }
+                // Publish: a racing writer may have already published the same content-hash dest; that's
+                // fine (identical content), so only move if dest is absent, and tolerate a lost race.
+                if (!Files.isDirectory(dest)) {
+                    try {
+                        Files.move(tmp, dest, StandardCopyOption.ATOMIC_MOVE)
+                    } catch (raced: FileAlreadyExistsException) {
+                        // another run published first — its content equals ours, so reuse it
+                    } catch (atomicUnsupported: IOException) {
+                        if (!Files.isDirectory(dest)) {
+                            Files.move(tmp, dest)
+                        }
+                    }
+                }
+                if (!Files.isRegularFile(done)) {
+                    Files.write(done, ByteArray(0)) // completion marker last
+                }
+            } finally {
+                deleteRecursivelyIfExists(tmp) // no-op if the move consumed it
+            }
+        } catch (e: IOException) {
+            // Publishing failed (IO/permissions). Fall back to the just-built (or pre-existing) dest if
+            // it is complete; otherwise signal "none extracted" so JBMC uses the real classes — never
+            // return a half-written dir.
+            if (Files.isDirectory(dest) && Files.isRegularFile(done)) {
+                return dest.toString()
+            }
+            return null
+        }
+        return if (Files.isDirectory(dest)) dest.toString() else null
+    }
+
+    private const val DONE_SUFFIX = ".done"
+
+    private fun cacheRoot(): Path =
+            Path.of(System.getProperty("user.home"), ".cache", "bmc4j", "kotlin-models")
+
+    /** SHA-256 over the extracted content: each entry's relative path then its bytes, length-framed so
+     *  two different splits can't hash the same. Keys the published dir so distinct content gets a
+     *  distinct dest — the analogue of [ClasspathMirror]'s `dirContentHash`. */
+    private fun contentHash(contents: Map<String, ByteArray>): String {
+        val md = try {
+            MessageDigest.getInstance("SHA-256")
+        } catch (e: NoSuchAlgorithmException) {
+            throw IllegalStateException("SHA-256 unavailable", e)
+        }
+        for (rel in contents.keys.sorted()) {
+            val relBytes = rel.replace('\\', '/').toByteArray(StandardCharsets.UTF_8)
+            md.update(intToBytes(relBytes.size))
+            md.update(relBytes)
+            val bytes = contents.getValue(rel)
+            md.update(intToBytes(bytes.size))
+            md.update(bytes)
+        }
+        return toHex(md.digest())
+    }
+
+    private fun intToBytes(v: Int): ByteArray = byteArrayOf(
+            (v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+
+    private fun deleteRecursivelyIfExists(dir: Path) {
+        if (!Files.exists(dir)) {
+            return
+        }
+        Files.walk(dir).use { walk ->
+            walk.sorted(Comparator.reverseOrder()).forEach { p ->
+                try {
+                    Files.deleteIfExists(p)
+                } catch (ignored: IOException) {
+                    // best-effort temp cleanup; a leftover temp dir never affects correctness
+                }
+            }
+        }
+    }
+
+    private fun toHex(d: ByteArray): String {
+        val sb = StringBuilder(d.size * 2)
+        for (b in d) {
+            sb.append(Character.forDigit((b.toInt() shr 4) and 0xf, 16))
+                    .append(Character.forDigit(b.toInt() and 0xf, 16))
+        }
+        return sb.toString()
     }
 }
