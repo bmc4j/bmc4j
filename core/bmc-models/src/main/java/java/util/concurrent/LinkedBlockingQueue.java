@@ -2,6 +2,9 @@ package java.util.concurrent;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.util.Collection;
+
+import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -17,13 +20,12 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * {@code remove}/{@code element}/{@code size}) is sound; {@code put}/{@code take} carry the same
  * assume-prune blocking idealization as {@link ArrayBlockingQueue} — see its javadoc.
  *
- * <p>The FIFO-snapshot {@code toArray}/{@code toArray(T[])}/{@code toArray(IntFunction)} are inherited,
- * modeled by the {@link ArrayBlockingQueue} backing. The parallel-decomposition surface
- * ({@code spliterator}/{@code parallelStream}) is the concurrency wall — re-declared here as loud
- * waivers because a class-level decision on the superclass does not propagate to the subclass surface.
- * The inherited {@code containsAll} loud stub is re-declared class-level here for the same reason.
+ * <p>The FIFO-snapshot {@code toArray}/{@code toArray(T[])}/{@code toArray(IntFunction)} and the bulk
+ * {@code containsAll} are inherited, modeled by the {@link ArrayBlockingQueue} backing. The
+ * parallel-decomposition surface ({@code spliterator}/{@code parallelStream}) is the concurrency wall —
+ * re-declared here as loud waivers because a class-level decision on the superclass does not propagate
+ * to the subclass surface.
  */
-@BmcUnmodelable(member = "containsAll(java.util.Collection)", reason = "bulk membership — inherited ArrayBlockingQueue-model loud stub; compose contains() explicitly")
 public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     /**
@@ -37,6 +39,17 @@ public class LinkedBlockingQueue<E> extends ArrayBlockingQueue<E> {
 
     public LinkedBlockingQueue(int capacity) {
         super(capacity, false, true);
+    }
+
+    /**
+     * Bulk membership — the inherited {@link ArrayBlockingQueue} model (a bounded loop of
+     * {@link #contains(Object)}). Overridden only to make the inherited-model decision explicit on this
+     * subclass surface (its semantics are exactly {@code super.containsAll(c)}).
+     */
+    @Override
+    @BmcModelConforms("differential (non-blocking surface): bulk membership via the inherited ArrayBlockingQueue model")
+    public boolean containsAll(Collection<?> c) {
+        return super.containsAll(c);
     }
 
     /** Parallel-decomposition primitive — true-parallel split is the concurrency wall; use iterator()/stream(). */

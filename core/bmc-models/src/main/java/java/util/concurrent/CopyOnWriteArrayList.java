@@ -17,21 +17,22 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  *
  * <p>The remaining inherited surface is classified per member here (the {@link ArrayList} model leaves
  * it in its own tail, and a superclass tail decision does not cover the subclass surface):
- * {@code toArray(IntFunction)} is a sequential snapshot and is modeled; {@code listIterator()}/
- * {@code listIterator(int)} are the bidirectional {@code ListIterator} surface, out of scope for the
- * bounded array-backed model; {@code spliterator}/{@code parallelStream} are the parallel-decomposition
- * concurrency wall — all three are loud-if-reached waivers.
+ * {@code toArray(IntFunction)} is a sequential snapshot and is modeled; {@code containsAll} is a bounded
+ * sequential loop of {@code contains()}, modeled here directly (the {@link ArrayList} model leaves its
+ * own {@code containsAll} loud, so it is overridden on this subclass rather than inherited);
+ * {@code listIterator()}/{@code listIterator(int)} are the bidirectional {@code ListIterator} surface,
+ * out of scope for the bounded array-backed model; {@code spliterator}/{@code parallelStream} are the
+ * parallel-decomposition concurrency wall — those three stay loud-if-reached waivers.
  *
- * <p>The seven {@link ArrayList}-model loud stubs ({@code add(int, …)}/{@code addAll(int, …)}/
- * {@code clone}/{@code containsAll}/{@code replaceAll}/{@code sort}/{@code toArray(Object[])}) are
- * inherited unchanged (their loud bodies live on the ArrayList model); they are re-declared here as
- * class-level {@link BmcUnmodelable}(member=…) so the per-member gate accounts for them on this
- * subclass too (a superclass member-level waiver does not propagate to the subclass surface).
+ * <p>The six {@link ArrayList}-model loud stubs ({@code add(int, …)}/{@code addAll(int, …)}/
+ * {@code clone}/{@code replaceAll}/{@code sort}/{@code toArray(Object[])}) are inherited unchanged
+ * (their loud bodies live on the ArrayList model); they are re-declared here as class-level
+ * {@link BmcUnmodelable}(member=…) so the per-member gate accounts for them on this subclass too
+ * (a superclass member-level waiver does not propagate to the subclass surface).
  */
 @BmcUnmodelable(member = "add(int, java.lang.Object)", reason = "positional insert — inherited ArrayList-model loud stub; append + shift not modeled")
 @BmcUnmodelable(member = "addAll(int, java.util.Collection)", reason = "positional bulk add — inherited ArrayList-model loud stub; add elements explicitly")
 @BmcUnmodelable(member = "clone()", reason = "shallow copy of a bounded model — inherited ArrayList-model loud stub; construct a fresh list instead")
-@BmcUnmodelable(member = "containsAll(java.util.Collection)", reason = "bulk membership — inherited ArrayList-model loud stub; compose contains() explicitly")
 @BmcUnmodelable(member = "replaceAll(java.util.function.UnaryOperator)", reason = "functional-arg map — inherited ArrayList-model loud stub; JBMC stubs the operator dispatch")
 @BmcUnmodelable(member = "sort(java.util.Comparator)", reason = "comparator-driven sort over the bounded array — inherited ArrayList-model loud stub; not modeled")
 @BmcUnmodelable(member = "toArray(java.lang.Object[])", reason = "typed array snapshot — inherited ArrayList-model loud stub; use toArray()/toArray(IntFunction) or iterate")
@@ -61,6 +62,23 @@ public class CopyOnWriteArrayList<E> extends ArrayList<E> {
             }
         }
         return added;
+    }
+
+    /**
+     * Bulk membership — true iff every element of {@code c} is present (by {@code equals}). A bounded
+     * sequential loop of {@link #contains(Object)} over the backing; an empty {@code c} is vacuously true
+     * (JDK semantics). Overridden here because the {@link ArrayList} model leaves its own {@code containsAll}
+     * loud; single-thread observable: bulk membership is just a loop of point membership.
+     */
+    @Override
+    @BmcModelConforms("differential (CopyOnWriteArrayList bulk membership over the array backing)")
+    public boolean containsAll(Collection<?> c) {
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** First index of {@code e} at or after {@code index} (by {@code equals}), or -1. */

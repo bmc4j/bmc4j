@@ -1,8 +1,7 @@
 package kotlin.comparisons;
 
-import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
-
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcNotNeeded;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -15,11 +14,50 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * nulls ordered first (a null is "less than" any non-null, two nulls are equal). Sound for boxed
  * primitives and Strings' lexicographic compareTo.
  *
- * <p>The whole real surface is now enumerated per-member: {@code compareValues} is modeled and every
- * other facade member (compareBy/thenBy builders, nullsFirst/nullsLast, the min/maxOf variadics over
- * doubles whose total order is unsound) is a loud {@link BmcUnmodelable} stub — so the class no longer
- * needs a {@code @BmcModelTail} catch-all.
+ * <p>The whole real surface is enumerated per-member: {@code compareValues} is modeled; the scalar
+ * {@code maxOf}/{@code minOf} over {@code Comparable} (2- and 3-arg) are class-level {@code @BmcNotNeeded}
+ * (green-if-reached — their real stdlib bytecode analyzes soundly, JBMC falls through to the real
+ * facade); and the comparator builders (compareBy/compareValuesBy/naturalOrder/reverseOrder/reversed/
+ * nullsFirst/nullsLast/then/thenDescending), the vararg {@code maxOf}/{@code minOf} array forms, and the
+ * explicit-{@code Comparator} overloads stay loud class-level {@code @BmcUnmodelable} walls — each was
+ * probed and found to NOT analyze soundly when reached (it routes through unmodeled kotlin-stdlib
+ * comparator/array internals JBMC nondet-stubs, so it must demote loudly rather than verify on a
+ * fiction). So the whole real surface is per-member accounted and no {@code @BmcModelTail} catch-all is
+ * needed.
  */
+@BmcUnmodelable(member = "compareBy(kotlin.jvm.functions.Function1[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "compareValuesBy(java.lang.Object, java.lang.Object, kotlin.jvm.functions.Function1[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(byte, byte[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(double, double[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(float, float[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(int, int[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcNotNeeded(member = "maxOf(java.lang.Comparable, java.lang.Comparable)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "maxOf(java.lang.Comparable, java.lang.Comparable, java.lang.Comparable)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcUnmodelable(member = "maxOf(java.lang.Comparable, java.lang.Comparable[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(java.lang.Object, java.lang.Object, java.lang.Object, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(java.lang.Object, java.lang.Object, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(java.lang.Object, java.lang.Object[], java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(long, long[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "maxOf(short, short[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(byte, byte[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(double, double[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(float, float[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(int, int[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcNotNeeded(member = "minOf(java.lang.Comparable, java.lang.Comparable)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "minOf(java.lang.Comparable, java.lang.Comparable, java.lang.Comparable)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcUnmodelable(member = "minOf(java.lang.Comparable, java.lang.Comparable[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(java.lang.Object, java.lang.Object, java.lang.Object, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(java.lang.Object, java.lang.Object, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(java.lang.Object, java.lang.Object[], java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(long, long[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "minOf(short, short[])", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "naturalOrder()", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "nullsFirst(java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "nullsLast(java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "reverseOrder()", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "reversed(java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "then(java.util.Comparator, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "thenDescending(java.util.Comparator, java.util.Comparator)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
 public final class ComparisonsKt {
 
     private ComparisonsKt() {
@@ -40,170 +78,7 @@ public final class ComparisonsKt {
         return a.compareTo(b);
     }
 
-    // --- not-needed members (loud stubs; reaching one demotes to a member-named UNKNOWN) ---
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void compareBy(kotlin.jvm.functions.Function1[] a0) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.compareBy(kotlin.jvm.functions.Function1[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void compareValuesBy(java.lang.Object a0, java.lang.Object a1, kotlin.jvm.functions.Function1[] a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.compareValuesBy(java.lang.Object,java.lang.Object,kotlin.jvm.functions.Function1[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(byte a0, byte[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(byte,byte[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(double a0, double[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(double,double[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(float a0, float[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(float,float[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(int a0, int[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(int,int[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Comparable a0, java.lang.Comparable a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Comparable,java.lang.Comparable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Comparable a0, java.lang.Comparable a1, java.lang.Comparable a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Comparable,java.lang.Comparable,java.lang.Comparable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Comparable a0, java.lang.Comparable[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Comparable,java.lang.Comparable[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Object a0, java.lang.Object a1, java.lang.Object a2, java.util.Comparator a3) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Object,java.lang.Object,java.lang.Object,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Object a0, java.lang.Object a1, java.util.Comparator a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Object,java.lang.Object,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(java.lang.Object a0, java.lang.Object[] a1, java.util.Comparator a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(java.lang.Object,java.lang.Object[],java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(long a0, long[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(long,long[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void maxOf(short a0, short[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.maxOf(short,short[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(byte a0, byte[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(byte,byte[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(double a0, double[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(double,double[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(float a0, float[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(float,float[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(int a0, int[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(int,int[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Comparable a0, java.lang.Comparable a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Comparable,java.lang.Comparable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Comparable a0, java.lang.Comparable a1, java.lang.Comparable a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Comparable,java.lang.Comparable,java.lang.Comparable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Comparable a0, java.lang.Comparable[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Comparable,java.lang.Comparable[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Object a0, java.lang.Object a1, java.lang.Object a2, java.util.Comparator a3) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Object,java.lang.Object,java.lang.Object,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Object a0, java.lang.Object a1, java.util.Comparator a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Object,java.lang.Object,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(java.lang.Object a0, java.lang.Object[] a1, java.util.Comparator a2) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(java.lang.Object,java.lang.Object[],java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(long a0, long[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(long,long[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void minOf(short a0, short[] a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.minOf(short,short[]) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void naturalOrder() {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.naturalOrder() — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void nullsFirst(java.util.Comparator a0) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.nullsFirst(java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void nullsLast(java.util.Comparator a0) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.nullsLast(java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void reverseOrder() {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.reverseOrder() — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void reversed(java.util.Comparator a0) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.reversed(java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void then(java.util.Comparator a0, java.util.Comparator a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.then(java.util.Comparator,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void thenDescending(java.util.Comparator a0, java.util.Comparator a1) {
-        throw fail("bmc4j: unmodelled member kotlin.comparisons.ComparisonsKt.thenDescending(java.util.Comparator,java.util.Comparator) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
+    // --- remaining facade surface: declared class-level above — @BmcNotNeeded (scalar Comparable
+    //     maxOf/minOf, green-if-reached) and @BmcUnmodelable (comparator builders / varargs /
+    //     Comparator overloads, loud-if-reached). ---
 }

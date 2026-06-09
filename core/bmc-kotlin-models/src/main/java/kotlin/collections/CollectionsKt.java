@@ -3,6 +3,7 @@ package kotlin.collections;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
+import org.bmc4j.models.audit.BmcNotNeeded;
 import org.bmc4j.models.audit.BmcUnmodelable;
 import org.cprover.CProver;
 
@@ -33,6 +34,15 @@ import kotlin.sequences.Sequence;
  * those java.util members are not double-counted. The vast remainder of this multifile facade
  * (~230 stdlib extension functions: aggregation, windowing, grouping, set ops, etc.) is the tail.
  */
+@BmcNotNeeded(member = "contains(java.lang.Iterable, java.lang.Object)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "elementAt(java.lang.Iterable, int)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcUnmodelable(member = "elementAtOrNull(java.lang.Iterable, int)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcUnmodelable(member = "getOrNull(java.util.List, int)", reason = "real stdlib bytecode does NOT analyze soundly when reached (probed REFUTED/UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals / FP / reflection that JBMC nondet-stubs); loud-if-reached")
+@BmcNotNeeded(member = "indexOf(java.lang.Iterable, java.lang.Object)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "indexOf(java.util.List, java.lang.Object)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "last(java.lang.Iterable)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "lastIndexOf(java.lang.Iterable, java.lang.Object)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
+@BmcNotNeeded(member = "lastIndexOf(java.util.List, java.lang.Object)", reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed (green-if-reached: JBMC falls through to the real facade)")
 public final class CollectionsKt {
 
     private CollectionsKt() {
@@ -2018,11 +2028,6 @@ public final class CollectionsKt {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.binarySearchBy(java.util.List,java.lang.Comparable,int,int,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
     }
 
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void contains(java.lang.Iterable a0, java.lang.Object a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.contains(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void count(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.count(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
@@ -2041,16 +2046,6 @@ public final class CollectionsKt {
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void dropWhile(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.dropWhile(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void elementAt(java.lang.Iterable a0, int a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.elementAt(java.lang.Iterable,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void elementAtOrNull(java.lang.Iterable a0, int a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.elementAtOrNull(java.lang.Iterable,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
     }
 
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
@@ -2148,11 +2143,6 @@ public final class CollectionsKt {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.forEachIndexed(java.lang.Iterable,kotlin.jvm.functions.Function2) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
     }
 
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void getOrNull(java.util.List a0, int a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.getOrNull(java.util.List,int) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void groupBy(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
@@ -2178,16 +2168,6 @@ public final class CollectionsKt {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.groupingBy(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
     }
 
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void indexOf(java.lang.Iterable a0, java.lang.Object a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOf(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void indexOf(java.util.List a0, java.lang.Object a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOf(java.util.List,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void indexOfFirst(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfFirst(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
@@ -2208,11 +2188,6 @@ public final class CollectionsKt {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.indexOfLast(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
     }
 
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void last(java.lang.Iterable a0) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.lang.Iterable) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void last(java.lang.Iterable a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.lang.Iterable,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
@@ -2221,16 +2196,6 @@ public final class CollectionsKt {
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")
     public static void last(java.util.List a0, kotlin.jvm.functions.Function1 a1) {
         throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.last(java.util.List,kotlin.jvm.functions.Function1) — inline — body lands in caller; the facade JVM method is never called from a Kotlin call site");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void lastIndexOf(java.lang.Iterable a0, java.lang.Object a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastIndexOf(java.lang.Iterable,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
-    }
-
-    @BmcUnmodelable(reason = "real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed")
-    public static void lastIndexOf(java.util.List a0, java.lang.Object a1) {
-        throw fail("bmc4j: unmodelled member kotlin.collections.CollectionsKt.lastIndexOf(java.util.List,java.lang.Object) — real stdlib bytecode analyzes soundly under JBMC over the modeled surface; no facade model needed");
     }
 
     @BmcUnmodelable(reason = "inline — body lands in caller; the facade JVM method is never called from a Kotlin call site")

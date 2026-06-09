@@ -141,6 +141,13 @@ class BmcPlugin : Plugin<Project> {
             // attributed, one not). ConcurrentHashMap because test workers report in parallel.
             val cachedProofs = ConcurrentHashMap<String, Boolean>()
             val cachedMarker = Regex("""bmc4j: (\S+) -> \S+ \(cached""")
+            // Failure breakdown for the final tally. bmc4j's whole point is that an undecided proof
+            // (timeout / unmodelled reach) is an honest UNKNOWN, NOT a refutation — so the summary must
+            // not lump every failed test under "refuted". Classified per-test in afterTest below
+            // (verified comes from the JUnit success count; this splits the failures).
+            val refutedCount = java.util.concurrent.atomic.AtomicInteger()
+            val unknownCount = java.util.concurrent.atomic.AtomicInteger()
+            val errorCount = java.util.concurrent.atomic.AtomicInteger()
             test.addTestOutputListener { _, event ->
                 val msg = event.message
                 if (msg != null && msg.contains("(cached")) {
@@ -153,11 +160,18 @@ class BmcPlugin : Plugin<Project> {
 
                 override fun afterSuite(suite: TestDescriptor, result: TestResult) {
                     if (suite.parent == null && ext.progress.getOrElse(true) && result.testCount > 0) {
-                        test.logger.lifecycle(String.format(
-                                "bmc4j: %d proofs -> %d passed, %d refuted, %d skipped (%.1fs)",
+                        val sb = StringBuilder(String.format(
+                                "bmc4j: %d proofs -> %d verified, %d refuted, %d unknown",
                                 result.testCount, result.successfulTestCount,
-                                result.failedTestCount, result.skippedTestCount,
-                                (result.endTime - result.startTime) / 1000.0))
+                                refutedCount.get(), unknownCount.get()))
+                        if (errorCount.get() > 0) {
+                            sb.append(String.format(", %d error", errorCount.get()))
+                        }
+                        if (result.skippedTestCount > 0) {
+                            sb.append(String.format(", %d skipped", result.skippedTestCount))
+                        }
+                        sb.append(String.format(" (%.1fs)", (result.endTime - result.startTime) / 1000.0))
+                        test.logger.lifecycle(sb.toString())
                     }
                 }
 
@@ -169,19 +183,25 @@ class BmcPlugin : Plugin<Project> {
                 }
 
                 override fun afterTest(t: TestDescriptor, r: TestResult) {
+                    val outcome = when {
+                        r.resultType == TestResult.ResultType.SUCCESS -> "OK"
+                        r.resultType == TestResult.ResultType.SKIPPED -> "SKIP"
+                        // Distinguish UNKNOWN (undecided within budget) from a real REFUTED so the
+                        // progress log doesn't call a timeout/engine-error a refutation.
+                        isUndecided(r) -> "UNKNOWN"
+                        // A malformed domainSplit (two domainSplit, an orphan slice, a split with no
+                        // slices) fails at PROCESSING time, before any verdict — it is a 0.0s
+                        // configuration error, not a refutation, so don't print "REFUTED" for it.
+                        isProcessingError(r) -> "ERROR"
+                        else -> "REFUTED"
+                    }
+                    // Tally the failure breakdown regardless of the progress toggle (the summary reads it).
+                    when (outcome) {
+                        "REFUTED" -> refutedCount.incrementAndGet()
+                        "UNKNOWN" -> unknownCount.incrementAndGet()
+                        "ERROR" -> errorCount.incrementAndGet()
+                    }
                     if (ext.progress.getOrElse(true)) {
-                        val outcome = when {
-                            r.resultType == TestResult.ResultType.SUCCESS -> "OK"
-                            r.resultType == TestResult.ResultType.SKIPPED -> "SKIP"
-                            // Distinguish UNKNOWN (undecided within budget) from a real REFUTED so the
-                            // progress log doesn't call a timeout/engine-error a refutation.
-                            isUndecided(r) -> "UNKNOWN"
-                            // A malformed domainSplit (two domainSplit, an orphan slice, a split with no
-                            // slices) fails at PROCESSING time, before any verdict — it is a 0.0s
-                            // configuration error, not a refutation, so don't print "REFUTED" for it.
-                            isProcessingError(r) -> "ERROR"
-                            else -> "REFUTED"
-                        }
                         // A proof served from the verdict cache says so - a 0.0s "OK" otherwise
                         // reads as either suspicious or as engine speed it didn't earn. The map key
                         // is the entry-function FQN the extension printed (class.method, no parens);
