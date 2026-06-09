@@ -360,7 +360,7 @@ object VerdictCache {
      */
     private fun memoizedCone(classpath: String?, entryClass: String): String {
         val cp = classpath ?: ""
-        val memoKey = entryClass + " " + cp
+        val memoKey = entryClass + " " + cp
         val fp = fingerprint(cp)
         var m = CONE_MEMO[memoKey]
         if (m != null && m.fingerprint == fp) {
