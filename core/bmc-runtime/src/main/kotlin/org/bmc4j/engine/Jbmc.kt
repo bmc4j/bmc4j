@@ -110,6 +110,18 @@ class Jbmc(private val executable: String) {
                 cmd.add(maxStringLength.toString())
             }
             addSolver(cmd, solver, externalSatPath)
+            // Soundness-neutral pruning before bit-blasting. --slice-formula removes ASSIGNMENTS
+            // that lie outside the cone-of-influence of the asserted PROPERTIES (it never removes a
+            // property/assertion), and --drop-unused-functions removes functions trivially
+            // unreachable from the entry point. Crucially, bmc4j's soundness machinery is itself
+            // expressed as ASSERTIONS — the @BmcProof reachability markers (ReachabilityBytecode) and
+            // the unmodelled-member loud stub (BmcUnmodelledReached.reached = `assert false`) are the
+            // very properties the cone is computed relative to, so they can never be sliced away. A
+            // reach into a sliced/unmodelled member therefore still trips its assertion and surfaces
+            // as a member-named UNKNOWN (verified by SliceSoundnessProbe / LoudUnmodelledProbe), never
+            // a silent green. These flags only shrink the formula; they cannot change a verdict.
+            cmd.add("--drop-unused-functions")
+            cmd.add("--slice-formula")
             cmd.add("--json-ui")
             cmd.add("--trace")
             // Bump verbosity so the engine emits its "opaque symbol" messages — the nondet-stub fact we
