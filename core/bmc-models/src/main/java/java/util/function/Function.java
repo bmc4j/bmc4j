@@ -1,7 +1,6 @@
 package java.util.function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.function.Function}. The SAM {@code apply} is abstract (supplied by a
@@ -21,7 +20,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * composition path) — the modeled result for the non-null functions a proof composes is identical.
  * {@code identity()} returns {@code t -> t}, desugared like any lambda.
  */
-@BmcModelTail(reason = "java.util.function.Function has no surface beyond the SAM + the two modeled composition defaults (andThen/compose) + identity; nothing else exists to be loud about")
 @FunctionalInterface
 public interface Function<T, R> {
 

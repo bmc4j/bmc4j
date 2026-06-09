@@ -58,12 +58,18 @@ class IntStreamDoubleBridgeLaws {
         Bmc.check(stats.getAverage() == 4.0);
     }
 
-    /** Symbolic: asDoubleStream().sum() equals the integer sum widened, for all small inputs. */
+    /**
+     * Symbolic: asDoubleStream().sum() equals the integer sum widened, for all small inputs. The cost
+     * is the symbolic FP-adder bit-width (the {@code symbolic_sum} lesson), so the operand window is
+     * kept tight (±32); int->double widening is exact for every value, so this narrowed-but-still-
+     * symbolic window (crossing zero, both signs) proves the same identity. It ran ~135s fresh over
+     * ±100 — right at the slow-CI budget wall — and well under it here.
+     */
     @BmcProof
     void symbolic_asDoubleStream_sum_matches_int_sum() {
-        int a = Bmc.anyInt(-100, 100);
-        int b = Bmc.anyInt(-100, 100);
-        int c = Bmc.anyInt(-100, 100);
+        int a = Bmc.anyInt(-32, 32);
+        int b = Bmc.anyInt(-32, 32);
+        int c = Bmc.anyInt(-32, 32);
         double s = IntStream.of(a, b, c).asDoubleStream().sum();
         Bmc.check(s == (double) (a + b + c));
     }

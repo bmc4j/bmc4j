@@ -357,12 +357,22 @@ public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
         return changed;
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
-
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
+    /**
+     * Bulk membership — true iff every element of {@code c} is present (by {@code equals}). A bounded
+     * sequential loop of {@link #contains(Object)} over the FIFO backing; an empty {@code c} is vacuously
+     * true (JDK semantics). Single-thread observable: bulk membership is just a loop of point membership.
+     */
+    @BmcModelConforms("differential (non-blocking surface) + @BmcProof (put/take assume-prune)")
     public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.concurrent.ArrayBlockingQueue.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     /** Parallel-decomposition primitive — true-parallel split is the concurrency wall; use iterator()/stream(). */
     @BmcUnmodelable(reason = "spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/stream() instead")

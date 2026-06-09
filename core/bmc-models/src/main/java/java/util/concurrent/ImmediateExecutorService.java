@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Sequential BMC model of an {@link ExecutorService}: an immediate / same-thread executor. Every
@@ -18,8 +17,10 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <p>Returned by {@link Executors#newFixedThreadPool(int)} and friends.
  */
 // Model-only class (no real java.util.concurrent.ImmediateExecutorService twin) implementing the
-// ExecutorService contract with same-thread semantics; exercised via the concurrency example + proofs.
-@BmcModelTail(reason = "scheduling-bound ExecutorService surface not on the immediate model path (timed awaitTermination variants, invokeAny, scheduled hooks) — out of scope; loud under JBMC")
+// bmc4j ExecutorService model interface with same-thread semantics; exercised via the concurrency
+// example + proofs. Every member of the modeled ExecutorService surface is implemented and conforming
+// below; the JDK's scheduling-bound extras (timed awaitTermination/invokeAll, invokeAny) are not part
+// of the bmc4j ExecutorService interface, so there is no own member left to classify.
 public class ImmediateExecutorService implements ExecutorService {
 
     private boolean shutdown;

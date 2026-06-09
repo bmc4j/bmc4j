@@ -1,7 +1,6 @@
 package java.util.function;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.function.BiConsumer}. The SAM {@code accept(T,U)} is abstract (a
@@ -12,7 +11,6 @@ import org.bmc4j.models.audit.BmcModelTail;
  * JDK default {@code Objects.requireNonNull}s {@code after} first; elided here (no Objects model) —
  * behavior for the non-null consumers a proof composes is identical.
  */
-@BmcModelTail(reason = "java.util.function.BiConsumer has no surface beyond the SAM + the modeled andThen default; nothing else exists to be loud about")
 @FunctionalInterface
 public interface BiConsumer<T, U> {
 

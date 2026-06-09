@@ -209,8 +209,11 @@ class HashMapLaws {
     @BmcProof
     fun replaceAll_remaps_every_value_via_lambda() {
         val m = HashMap<Int, Int>()
-        val k1 = Bmc.anyInt(-1000, 1000)
-        val k2 = k1 + 1                             // distinct key
+        // The law is about remapping VALUES through the BiFunction; the keys are irrelevant to it.
+        // Symbolic keys make the bounded-HashMap linear-scan indexing explode for no proof value
+        // (it times out on a fresh queue run), so use two concrete distinct keys instead.
+        val k1 = 1
+        val k2 = 2                                  // distinct key
         m[k1] = 10
         m[k2] = 20
         m.replaceAll { _, v -> v + 1 }              // BiFunction through the model

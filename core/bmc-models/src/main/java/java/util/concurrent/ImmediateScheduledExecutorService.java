@@ -3,7 +3,6 @@ package java.util.concurrent;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -22,8 +21,9 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * <p>Returned by {@link Executors#newScheduledThreadPool(int)} and friends.
  */
 // Model-only class (no real java.util.concurrent.ImmediateScheduledExecutorService twin) implementing
-// the ScheduledExecutorService contract with same-thread semantics; exercised via proofs + differential.
-@BmcModelTail(reason = "the periodic clock-driven repetition (scheduleAtFixedRate/scheduleWithFixedDelay) and the scheduling-bound ExecutorService surface (timed awaitTermination, invokeAny) have no terminating sequential meaning — out of scope; loud under JBMC")
+// the bmc4j ScheduledExecutorService model interface with same-thread semantics; exercised via proofs +
+// differential. The one-shot schedule(...) factories conform; the periodic clock-driven repetition
+// (scheduleAtFixedRate/scheduleWithFixedDelay) carries per-member loud @BmcUnmodelable stubs below.
 public class ImmediateScheduledExecutorService extends ImmediateExecutorService
         implements ScheduledExecutorService {
 
