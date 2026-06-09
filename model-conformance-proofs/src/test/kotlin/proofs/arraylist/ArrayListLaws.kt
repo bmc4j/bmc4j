@@ -144,6 +144,58 @@ class ArrayListLaws {
     // only resolve against java.util.List on the Java 21+ floor, so those proofs live in the
     // jvm21+ source set (see build.gradle.kts). lastIndexOf is on List in every supported floor.
 
+    // --- positional add / addAll(int) / containsAll / replaceAll ------------------------------------
+
+    @BmcProof
+    fun add_at_index_shifts_tail_right() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val x = Bmc.anyInt()
+        l.add(a); l.add(b)
+        l.add(1, x)                                 // [a, x, b]
+        Bmc.check(l.size == 3 && l[0] == a && l[1] == x && l[2] == b)
+    }
+
+    @BmcProof
+    fun addAll_at_index_inserts_in_order() {
+        val src = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        src.add(a); src.add(b)
+        val dst = ArrayList<Int>()
+        val z = Bmc.anyInt()
+        dst.add(z); dst.add(z + 1)
+        val changed = dst.addAll(1, src)            // [z, a, b, z+1]
+        Bmc.check(changed && dst.size == 4 && dst[0] == z && dst[1] == a && dst[2] == b && dst[3] == z + 1)
+    }
+
+    @BmcProof
+    fun containsAll_true_iff_every_element_present() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        l.add(a); l.add(b)
+        // b+1 must be genuinely absent from l={a,b}: b+1 != b always, but b+1 != a only if a != b+1
+        // (else other={a,b+1}={a,a} is fully contained and the law's own assertion is false).
+        Bmc.assume(a != b + 1)
+        val sub = ArrayList<Int>()
+        sub.add(a)
+        val other = ArrayList<Int>()
+        other.add(a); other.add(b + 1)              // b+1 now absent (b+1 != a and b+1 != b)
+        Bmc.check(l.containsAll(sub) && !l.containsAll(other))
+    }
+
+    @BmcProof
+    fun replaceAll_maps_every_element_via_lambda() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt(0, 1000)
+        val b = Bmc.anyInt(0, 1000)
+        l.add(a); l.add(b)
+        l.replaceAll { it + 1 }
+        Bmc.check(l.size == 2 && l[0] == a + 1 && l[1] == b + 1)
+    }
+
     @BmcProof
     fun lastIndexOf_finds_the_last_equal_element() {
         val l = ArrayList<Int>()
@@ -152,5 +204,76 @@ class ArrayListLaws {
         l.add(x + 1)        // index 1
         l.add(x)            // index 2 (duplicate of index 0)
         Bmc.check(l.indexOf(x) == 0 && l.lastIndexOf(x) == 2)
+    }
+
+    // --- view ops: subList / listIterator (live, by-index over the backing) -------------------------
+
+    @BmcProof
+    fun subList_is_a_live_window_that_reads_through() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val c = Bmc.anyInt()
+        l.add(a); l.add(b); l.add(c)        // [a, b, c]
+        val sub = l.subList(1, 3)           // view of [b, c]
+        Bmc.check(sub.size == 2 && sub[0] == b && sub[1] == c)
+    }
+
+    @BmcProof
+    fun subList_set_writes_through_to_the_backing_list() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        val x = Bmc.anyInt()
+        l.add(a); l.add(b)                  // [a, b]
+        val sub: MutableList<Int> = l.subList(0, 1)   // view of [a]
+        sub[0] = x                          // writes through
+        Bmc.check(l[0] == x && l[1] == b && l.size == 2)
+    }
+
+    @BmcProof
+    fun listIterator_walks_forward_and_back_by_index() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        l.add(a); l.add(b)                  // [a, b]
+        val it = l.listIterator()
+        Bmc.check(it.hasNext() && it.next() == a)
+        Bmc.check(it.hasNext() && it.next() == b)
+        Bmc.check(!it.hasNext() && it.hasPrevious() && it.previous() == b)
+    }
+
+    @BmcProof
+    fun listIterator_set_replaces_the_last_returned_element() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val x = Bmc.anyInt()
+        l.add(a)                            // [a]
+        val it = l.listIterator()
+        it.next()                           // returns a, positions last=0
+        it.set(x)                           // replaces index 0 with x
+        Bmc.check(l[0] == x && l.size == 1)
+    }
+
+    // --- capacity ops are observable no-ops; parallelStream is the sequential stream ----------------
+
+    @BmcProof
+    fun capacity_ops_do_not_change_observable_state() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt()
+        val b = Bmc.anyInt()
+        l.add(a); l.add(b)
+        l.ensureCapacity(128)               // no-op on the fixed-capacity model
+        l.trimToSize()                      // no-op on the fixed-capacity model
+        Bmc.check(l.size == 2 && l[0] == a && l[1] == b)
+    }
+
+    @BmcProof
+    fun parallelStream_is_the_sequential_stream() {
+        val l = ArrayList<Int>()
+        val a = Bmc.anyInt(0, 100)
+        val b = Bmc.anyInt(0, 100)
+        l.add(a); l.add(b)
+        Bmc.check(l.parallelStream().count() == 2L)
     }
 }

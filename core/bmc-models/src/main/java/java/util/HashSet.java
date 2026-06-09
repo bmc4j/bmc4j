@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -11,7 +10,6 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * (linear membership check). Sound and bounded — membership/iteration unwind to the current size.
  * Element equality uses {@code equals} (sound for boxed primitives). Capacity is {@value #CAPACITY}.
  */
-@BmcModelTail(reason = "exotic remainder: spliterator (parallel-decomposition view) and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope; all loud under JBMC. newHashSet(int) presizing factory is now MODELED")
 public class HashSet<E> implements Set<E> {
 
     private static final int CAPACITY = 64;
@@ -20,19 +18,6 @@ public class HashSet<E> implements Set<E> {
     private int size;
 
     public HashSet() {
-    }
-
-    /**
-     * Presizing factory ({@code HashSet.newHashSet(numElements)}, Java 19+) — capacity is a hint only,
-     * so the model returns a fresh empty set (its fixed backing absorbs the hint). Negative throws
-     * IllegalArgumentException, like the JDK.
-     */
-    @BmcModelConforms("differential (SetConformanceTest): newHashSet(int) presizing factory -> empty set")
-    public static <T> HashSet<T> newHashSet(int numElements) {
-        if (numElements < 0) {
-            throw new IllegalArgumentException("Negative number of elements: " + numElements);
-        }
-        return new HashSet<>();
     }
 
     public HashSet(int initialCapacity) {
@@ -263,21 +248,71 @@ public class HashSet<E> implements Set<E> {
         return stream();
     }
 
-    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
+    // --- bulk membership / array snapshot (modeled) ---------------------------------------------
 
-    @BmcUnmodelable(reason = "bulk membership — compose contains() explicitly")
+    /** Bulk membership: true iff every element of {@code c} is contained here (reuses {@link #contains}). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public boolean containsAll(Collection<?> c) {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.containsAll(java.util.Collection) — bulk membership — compose contains() explicitly");
+        // Read an ArrayList argument's backing BY INDEX rather than via the interface-typed
+        // c.iterator(): that virtual dispatch on the Collection parameter is devirtualization-fragile
+        // under JBMC (the iterator index can go nondet → a false counterexample, notably on the
+        // "element absent" case). A concrete-typed get(i) resolves soundly; other types fall back.
+        if (c instanceof ArrayList) {
+            ArrayList<?> a = (ArrayList<?>) c;
+            int n = a.size();
+            for (int i = 0; i < n; i++) {
+                if (!contains(a.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    @BmcUnmodelable(reason = "array snapshot — iterate the model instead")
+    /** A new array holding every element in insertion order (allocate {@code Object[size]}, copy by index). */
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
     public Object[] toArray() {
-        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray() — array snapshot — iterate the model instead");
+        Object[] out = new Object[size];
+        for (int i = 0; i < size; i++) {
+            out[i] = elements[i];
+        }
+        return out;
     }
+
+    // --- presizing factory (Java 19+) ----------------------------------------
+    // newHashSet(numElements) returns an EMPTY set sized to hold numElements without resizing. The
+    // capacity hint is observably irrelevant to this fixed-capacity bounded model, so it is exactly a
+    // fresh empty set.
+
+    @BmcModelConforms("differential (SetConformanceTest) + @BmcProof (proofs.hashset)")
+    public static <T> HashSet<T> newHashSet(int numElements) {
+        if (numElements < 0) {
+            throw new IllegalArgumentException("Negative number of elements: " + numElements);
+        }
+        return new HashSet<>();
+    }
+
+    // --- explicitly UNMODELLED members (loud stubs; decision + reason live here) ----------------
 
     @BmcUnmodelable(reason = "typed array snapshot — iterate the model instead")
     public <T> T[] toArray(T[] a) {
         throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.lang.Object[]) — typed array snapshot — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead")
+    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator) {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.toArray(java.util.function.IntFunction) — array snapshot via a reflective generator — iterate the model instead");
+    }
+
+    @BmcUnmodelable(reason = "parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead")
+    public java.util.Spliterator<E> spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.HashSet.spliterator() — parallel-decomposition Spliterator view — iterate the model instead");
     }
 
     @BmcUnmodelable(reason = "shallow copy of a bounded model — construct a fresh set from the elements instead")

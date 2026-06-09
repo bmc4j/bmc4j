@@ -222,32 +222,17 @@ Real surface: 13 members — modeled 13, unmodelable 0, not-needed 0, tail 0.
 
 ## `java.util.ArrayList`
 
-Real surface: 42 members — modeled 27, unmodelable 7, not-needed 0, tail 8.
+Real surface: 42 members — modeled 37, unmodelable 5, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `ensureCapacity(int)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `trimToSize()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 8 members, all loud): exotic remainder: listIterator (ListIterator interface), spliterator/parallelStream (parallel split), capacity tuning (ensureCapacity/trimToSize), removeRange, toArray(IntFunction) — out of scope for a bounded array-backed model; all loud under JBMC. subList and reversed are now MODELED as bounded snapshot views</summary>
-
-- `ensureCapacity(int)`
-- `listIterator()`
-- `listIterator(int)`
-- `parallelStream()`
-- `removeRange(int, int)`
-- `spliterator()`
-- `toArray(IntFunction)`
-- `trimToSize()`
-
-</details>
 
 
 ## `java.util.Arrays`
@@ -376,43 +361,27 @@ Real surface: 8 members — modeled 5, unmodelable 2, not-needed 1, tail 0.
 
 ## `java.util.HashMap`
 
-Real surface: 25 members — modeled 21, unmodelable 4, not-needed 0, tail 0.
+Real surface: 25 members — modeled 24, unmodelable 1, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): no remaining tail members: the full audited surface is modeled or declared. newHashMap(int) presizing factory is now MODELED</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.HashSet`
 
-Real surface: 21 members — modeled 15, unmodelable 4, not-needed 0, tail 2.
+Real surface: 21 members — modeled 17, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeIf(Predicate)`, `retainAll(Collection)`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `toArray()` | array snapshot — iterate the model instead |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): exotic remainder: spliterator (parallel-decomposition view) and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope; all loud under JBMC. newHashSet(int) presizing factory is now MODELED</summary>
-
-- `spliterator()`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.IntSummaryStatistics`
@@ -428,17 +397,14 @@ Real surface: 8 members — modeled 7, unmodelable 0, not-needed 1, tail 0.
 
 ## `java.util.LinkedHashMap`
 
-Real surface: 37 members — modeled 32, unmodelable 5, not-needed 0, tail 0.
+Real surface: 37 members — modeled 35, unmodelable 2, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `reversed()`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `entrySet()`, `firstEntry()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `merge(Object, Object, BiFunction)`, `newHashMap(int)`, `newLinkedHashMap(int)`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `reversed()`, `sequencedEntrySet()`, `sequencedKeySet()`, `sequencedValues()`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
 | `removeEldestEntry(Entry)` | access-order LRU eviction hook — the insertion-ordered array model has no eviction policy; loud under JBMC |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the access-order/eldest-entry LRU eviction hooks (removeEldestEntry + the accessOrder ctor) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot; differential axis — JBMC binds the real SequencedMap default over the override, like the sequenced* views) and the newHashMap/newLinkedHashMap presizing factories are now MODELED</summary>
 
@@ -449,51 +415,37 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.LinkedHashSet`
 
-Real surface: 29 members — modeled 23, unmodelable 4, not-needed 0, tail 2.
+Real surface: 29 members — modeled 25, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `isEmpty()`, `iterator()`, `newHashSet(int)`, `newLinkedHashSet(int)`, `parallelStream()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `toArray()` | array snapshot — iterate the model instead |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 2 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the spliterator parallel-decomposition view and toArray(IntFunction) (typed array snapshot — iterate instead) — out of scope for this insertion-ordered array-backed model; all loud under JBMC. reversed() (reverse-insertion snapshot) and the newHashSet/newLinkedHashSet presizing factories are now MODELED</summary>
 
-- `spliterator()`
-- `toArray(IntFunction)`
+_(none — the real surface is fully modeled/declared)_
 
 </details>
 
 
 ## `java.util.LinkedList`
 
-Real surface: 56 members — modeled 43, unmodelable 7, not-needed 0, tail 6.
+Real surface: 56 members — modeled 51, unmodelable 5, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addFirst(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `element()`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `listIterator()`, `listIterator(int)`, `offer(Object)`, `offerFirst(Object)`, `offerLast(Object)`, `parallelStream()`, `peek()`, `peekFirst()`, `peekLast()`, `poll()`, `pollFirst()`, `pollLast()`, `pop()`, `push(Object)`, `remove()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeFirstOccurrence(Object)`, `removeIf(Predicate)`, `removeLast()`, `removeLastOccurrence(Object)`, `removeRange(int, int)`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
+| `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
+| `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 6 members, all loud): the remaining Deque/List surface not implemented (listIterator, spliterator, parallelStream, removeRange, clone) is out of scope for this array-backed model; all loud under JBMC. subList/reversed are inherited from the ArrayList model; descendingIterator is implemented here</summary>
-
-- `listIterator()`
-- `listIterator(int)`
-- `parallelStream()`
-- `removeRange(int, int)`
-- `spliterator()`
-- `toArray(IntFunction)`
-
-</details>
 
 
 ## `java.util.LongSummaryStatistics`
@@ -568,17 +520,14 @@ Real surface: 33 members — modeled 13, unmodelable 20, not-needed 0, tail 0.
 
 ## `java.util.TreeMap`
 
-Real surface: 54 members — modeled 40, unmodelable 7, not-needed 0, tail 7.
+Real surface: 54 members — modeled 43, unmodelable 4, not-needed 0, tail 7.
 
-**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `ceilingEntry(Object)`, `ceilingKey(Object)`, `clear()`, `comparator()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `containsKey(Object)`, `containsValue(Object)`, `descendingKeySet()`, `descendingMap()`, `entrySet()`, `firstEntry()`, `firstKey()`, `floorEntry(Object)`, `floorKey(Object)`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `higherEntry(Object)`, `higherKey(Object)`, `isEmpty()`, `keySet()`, `lastEntry()`, `lastKey()`, `lowerEntry(Object)`, `lowerKey(Object)`, `merge(Object, Object, BiFunction)`, `navigableKeySet()`, `pollFirstEntry()`, `pollLastEntry()`, `put(Object, Object)`, `putAll(Map)`, `putFirst(Object, Object)`, `putIfAbsent(Object, Object)`, `putLast(Object, Object)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 | `headMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 | `subMap(Object, Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 | `tailMap(Object)` | SortedMap range view over a bounded unordered store — out of scope; loud under JBMC |
 
@@ -597,18 +546,16 @@ Real surface: 54 members — modeled 40, unmodelable 7, not-needed 0, tail 7.
 
 ## `java.util.TreeSet`
 
-Real surface: 44 members — modeled 32, unmodelable 7, not-needed 0, tail 5.
+Real surface: 44 members — modeled 34, unmodelable 5, not-needed 0, tail 5.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addFirst(Object)`, `addLast(Object)`, `ceiling(Object)`, `clear()`, `comparator()`, `contains(Object)`, `containsAll(Collection)`, `descendingIterator()`, `descendingSet()`, `first()`, `floor(Object)`, `forEach(Consumer)`, `getFirst()`, `getLast()`, `higher(Object)`, `isEmpty()`, `iterator()`, `last()`, `lower(Object)`, `parallelStream()`, `pollFirst()`, `pollLast()`, `remove(Object)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `size()`, `stream()`, `toArray()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh set from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
 | `headSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.headMap); loud under JBMC |
 | `subSet(Object, Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.subMap); loud under JBMC |
 | `tailSet(Object)` | NavigableSet range view over a bounded unordered store — out of scope (mirrors TreeMap.tailMap); loud under JBMC |
-| `toArray()` | array snapshot — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): exotic remainder beyond the explicitly-stubbed range views: the boolean-inclusive NavigableSet range views (subSet/headSet/tailSet with from/to inclusivity), the comparator-taking constructor, spliterator (parallel-decomposition view), toArray(IntFunction), and equals/hashCode/toString — out of scope for this bounded backing store; all loud under JBMC. descendingSet/reversed (descending snapshots) and the SequencedCollection ends getFirst/getLast/removeFirst/removeLast (== first/last/poll) are now MODELED; addFirst/addLast throw UnsupportedOperationException like the JDK sorted set</summary>
@@ -679,16 +626,13 @@ Real surface: 79 members — modeled 47, unmodelable 32, not-needed 0, tail 0.
 
 ## `java.util.concurrent.ConcurrentHashMap`
 
-Real surface: 62 members — modeled 58, unmodelable 4, not-needed 0, tail 0.
+Real surface: 62 members — modeled 61, unmodelable 1, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `forEach(long, BiConsumer)`, `forEach(long, BiFunction, Consumer)`, `forEachEntry(long, Consumer)`, `forEachEntry(long, Function, Consumer)`, `forEachKey(long, Consumer)`, `forEachKey(long, Function, Consumer)`, `forEachValue(long, Consumer)`, `forEachValue(long, Function, Consumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keySet(Object)`, `keys()`, `mappingCount()`, `merge(Object, Object, BiFunction)`, `newKeySet()`, `newKeySet(int)`, `put(Object, Object)`, `putAll(Map)`, `putIfAbsent(Object, Object)`, `reduce(long, BiFunction, BiFunction)`, `reduceEntries(long, BiFunction)`, `reduceEntries(long, Function, BiFunction)`, `reduceEntriesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceEntriesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceEntriesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceKeys(long, BiFunction)`, `reduceKeys(long, Function, BiFunction)`, `reduceKeysToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceKeysToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceKeysToLong(long, ToLongFunction, long, LongBinaryOperator)`, `reduceToDouble(long, ToDoubleBiFunction, double, DoubleBinaryOperator)`, `reduceToInt(long, ToIntBiFunction, int, IntBinaryOperator)`, `reduceToLong(long, ToLongBiFunction, long, LongBinaryOperator)`, `reduceValues(long, BiFunction)`, `reduceValues(long, Function, BiFunction)`, `reduceValuesToDouble(long, ToDoubleFunction, double, DoubleBinaryOperator)`, `reduceValuesToInt(long, ToIntFunction, int, IntBinaryOperator)`, `reduceValuesToLong(long, ToLongFunction, long, LongBinaryOperator)`, `remove(Object)`, `remove(Object, Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `replaceAll(BiFunction)`, `search(long, BiFunction)`, `searchEntries(long, Function)`, `searchKeys(long, Function)`, `searchValues(long, Function)`, `size()`, `values()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
-| `putAll(Map)` | bulk put — put entries explicitly over the bounded model |
-| `remove(Object, Object)` | compare-and-remove — compose get()/remove() explicitly |
-| `replaceAll(BiFunction)` | functional-arg bulk replace — JBMC stubs the lambda dispatch |
 
 <details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): exotic remainder absorbed from the HashMap backing surface — out of scope for the bounded concurrent-map model; all loud under JBMC</summary>
 
@@ -699,21 +643,14 @@ _(none — the real surface is fully modeled/declared)_
 
 ## `java.util.concurrent.CopyOnWriteArrayList`
 
-Real surface: 43 members — modeled 32, unmodelable 11, not-needed 0, tail 0.
+Real surface: 43 members — modeled 39, unmodelable 4, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `add(Object)`, `addAll(Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
+**Modeled** (`@BmcModelConforms`): `add(Object)`, `add(int, Object)`, `addAll(Collection)`, `addAll(int, Collection)`, `addAllAbsent(Collection)`, `addFirst(Object)`, `addIfAbsent(Object)`, `addLast(Object)`, `clear()`, `contains(Object)`, `containsAll(Collection)`, `forEach(Consumer)`, `get(int)`, `getFirst()`, `getLast()`, `indexOf(Object)`, `indexOf(Object, int)`, `isEmpty()`, `iterator()`, `lastIndexOf(Object)`, `lastIndexOf(Object, int)`, `listIterator()`, `listIterator(int)`, `parallelStream()`, `remove(Object)`, `remove(int)`, `removeAll(Collection)`, `removeFirst()`, `removeIf(Predicate)`, `removeLast()`, `replaceAll(UnaryOperator)`, `retainAll(Collection)`, `reversed()`, `set(int, Object)`, `size()`, `stream()`, `subList(int, int)`, `toArray()`, `toArray(IntFunction)`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
-| `add(int, Object)` | positional insert — exotic; append + shift not modeled |
-| `addAll(int, Collection)` | positional bulk add — exotic; add elements explicitly |
 | `clone()` | shallow copy of a bounded model — construct a fresh list from the elements instead |
-| `containsAll(Collection)` | bulk membership — compose contains() explicitly |
-| `listIterator()` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
-| `listIterator(int)` | the bidirectional ListIterator surface is out of scope for the bounded array-backed model — index with get()/size() instead |
-| `parallelStream()` | parallelStream's true-parallel execution is the concurrency wall — use the sequential stream() instead |
-| `replaceAll(UnaryOperator)` | functional-arg map — JBMC stubs the operator dispatch |
-| `sort(Comparator)` | comparator-driven sort over the bounded array — not modeled |
+| `sort(Comparator)` | comparator-driven sort over the bounded array: a bounded insertion sort calling the comparator is modelable but O(n^2) symbolic comparisons are SAT-heavy and rarely the thing under proof — not worth it |
 | `spliterator()` | spliterator's parallel split / true-parallel decomposition is the concurrency wall — use the sequential iterator()/get()/size() instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 

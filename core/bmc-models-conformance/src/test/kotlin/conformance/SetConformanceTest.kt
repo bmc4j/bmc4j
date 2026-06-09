@@ -117,6 +117,55 @@ class SetConformanceTest : FunSpec({
         }
     }
 
+    // --- containsAll / toArray() --------------------------------------------------------------------
+    // containsAll reuses contains; toArray() snapshots the elements. HashSet/LinkedHashSet iteration
+    // order isn't modeled, so compare toArray() as a multiset; TreeSet is sorted, so compare in order.
+    test("HashSet/LinkedHashSet/TreeSet containsAll conforms") {
+        val seedAndSource = Arb.bind(
+            Arb.list(Arb.int(-3..5), 0..20),
+            Arb.list(Arb.int(-3..5), 0..8),
+        ) { a, b -> a to b }
+        checkAll(seedAndSource) { (seed, src) ->
+            for ((real, model) in listOf(
+                { java.util.HashSet<Any?>() } to { bmcref.java.util.HashSet<Any?>() },
+                { java.util.LinkedHashSet<Any?>() } to { bmcref.java.util.LinkedHashSet<Any?>() },
+                { java.util.TreeSet<Any?>() } to { bmcref.java.util.TreeSet<Any?>() },
+            )) {
+                val r = real(); val m = model()
+                for (x in seed) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                assertEquivalent("containsAll",
+                    call(r, "containsAll", arrayOf(java.util.Collection::class.java), java.util.ArrayList<Any?>(src)),
+                    call(m, "containsAll", arrayOf(bmcref.java.util.Collection::class.java), bmcref.java.util.ArrayList<Any?>().also { for (x in src) it.add(x) }))
+            }
+        }
+    }
+
+    test("HashSet/LinkedHashSet toArray() snapshots the elements (multiset)") {
+        val elem: Arb<Int?> = Arb.int(-3..5).orNull(0.15)
+        checkAll(Arb.list(elem, 0..30)) { items ->
+            for ((real, model) in listOf(
+                { java.util.HashSet<Any?>() } to { bmcref.java.util.HashSet<Any?>() },
+                { java.util.LinkedHashSet<Any?>() } to { bmcref.java.util.LinkedHashSet<Any?>() },
+            )) {
+                val r = real(); val m = model()
+                for (x in items) { call(r, "add", arrayOf(OBJECT), x); call(m, "add", arrayOf(OBJECT), x) }
+                val ra = call(r, "toArray", arrayOf()).getOrThrow() as Array<*>
+                val ma = call(m, "toArray", arrayOf()).getOrThrow() as Array<*>
+                ma.toList().groupingBy { it }.eachCount() shouldBe ra.toList().groupingBy { it }.eachCount()
+            }
+        }
+    }
+
+    test("TreeSet toArray() returns the sorted snapshot like the JDK") {
+        checkAll(Arb.list(Arb.int(-5..7), 0..25)) { items ->
+            val r = java.util.TreeSet<Any?>(); val m = bmcref.java.util.TreeSet<Any?>()
+            for (x in items) { r.add(x); m.add(x) }
+            val ra = call(r, "toArray", arrayOf()).getOrThrow() as Array<*>
+            val ma = call(m, "toArray", arrayOf()).getOrThrow() as Array<*>
+            ma.toList() shouldBe ra.toList()   // ascending order on both
+        }
+    }
+
     test("HashSet removeIf/forEach conform (lambdas)") {
         checkAll(Arb.list(Arb.int(-3..5), 0..20)) { seed ->
             val r = java.util.HashSet<Int>(); val m = bmcref.java.util.HashSet<Int>()
