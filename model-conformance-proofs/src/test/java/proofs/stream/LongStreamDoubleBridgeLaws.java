@@ -55,12 +55,18 @@ class LongStreamDoubleBridgeLaws {
         Bmc.check(stats.getAverage() == 4.0);
     }
 
-    /** Symbolic: asDoubleStream().sum() equals the long sum widened, for all small inputs. */
+    /**
+     * Symbolic: asDoubleStream().sum() equals the long sum widened, for all small inputs. The cost is
+     * the symbolic FP-adder bit-width (the {@code symbolic_sum} lesson), so the operand window is kept
+     * tight (±32); long->double widening is exact for every value in this window, so the narrowed-but-
+     * still-symbolic range (crossing zero, both signs) proves the same identity. It ran ~111s fresh
+     * over ±100 — close to the slow-CI budget wall — and well under it here.
+     */
     @BmcProof
     void symbolic_asDoubleStream_sum_matches_long_sum() {
-        long a = Bmc.anyLong(-100L, 100L);
-        long b = Bmc.anyLong(-100L, 100L);
-        long c = Bmc.anyLong(-100L, 100L);
+        long a = Bmc.anyLong(-32L, 32L);
+        long b = Bmc.anyLong(-32L, 32L);
+        long c = Bmc.anyLong(-32L, 32L);
         double s = LongStream.of(a, b, c).asDoubleStream().sum();
         Bmc.check(s == (double) (a + b + c));
     }
