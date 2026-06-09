@@ -102,9 +102,17 @@ fun relocateModelJar(inputs: Set<File>, output: File) {
     // model proofs (proofs.function), never the differential axis, so they never load on the test JVM
     // and need no relocated twin. (Streams/Collectors stay relocatable: they're concrete classes the
     // differential gate enumerates but never JVM-runs, and they only USE function interfaces.)
+    // java.util.Comparator is excluded for the SAME reason as java.util.function: it is a SHARED
+    // interface — a user/proof passes a real-JDK Comparator (incl. a desugared lambda) to a model's
+    // sort/sorted, and the natural-order witness's own java.util.BmcNaturalOrder.COMPARATOR is a
+    // Comparator. Relocating the interface to bmcref.* would split those into incompatible twins. The
+    // Comparator model exists only to give JBMC a sound, devirtualizable naturalOrder() body on the
+    // PROOF analysis classpath; it is validated by model proofs (proofs.sort), never the differential
+    // axis, so it needs no relocated twin.
     fun isModel(internalName: String) =
         (internalName.startsWith("java/") || internalName.startsWith("kotlin/") || internalName.startsWith("kotlinx/")) &&
-            !internalName.startsWith("java/util/function/")
+            !internalName.startsWith("java/util/function/") &&
+            internalName != "java/util/Comparator"
     // 1) Collect every owned internal class name across the input jars (models only).
     val owned = mutableSetOf<String>()
     for (f in inputs) {

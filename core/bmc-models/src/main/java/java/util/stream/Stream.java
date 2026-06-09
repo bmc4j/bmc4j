@@ -19,8 +19,6 @@ import java.util.function.UnaryOperator;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
-import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
-
 /**
  * Minimal BMC model of {@link java.util.stream.Stream}, evaluated <em>eagerly</em> over a bounded
  * backing list ({@link ListStream}). JBMC otherwise stubs the stream framework to nondet. Pipelines
@@ -160,13 +158,15 @@ public interface Stream<T> {
     @BmcModelConforms("@BmcProof (proofs.stream StreamDoubleBridgeLaws)")
     DoubleStream mapMultiToDouble(BiConsumer<? super T, ? super java.util.function.DoubleConsumer> mapper);
 
-    // The NATURAL-ORDER sorted() (no comparator) routes through the elements' Comparable.compareTo via a
-    // boxed/dynamic dispatch JBMC cannot resolve soundly (the #169 devirt family for the unconstrained T),
-    // so it is a loud @BmcUnmodelable rather than a quiet fiction. The COMPARATOR sorted(Comparator) above
-    // IS modeled — the comparator is an explicit, desugared SAM the model can drive by index.
-    @BmcUnmodelable(reason = "Stream.sorted() (natural order) dispatches through the elements' Comparable.compareTo on the unconstrained T — a boxed/dynamic comparison JBMC cannot devirtualize soundly (#169 family); a fiction would diverge from the JDK ordering. Use sorted(Comparator), which IS modeled.")
+    // The NATURAL-ORDER sorted() (no comparator) orders by the elements' natural order. Rather than the
+    // JDK's virtual Comparable.compareTo on the unconstrained T (a boxed/dynamic dispatch JBMC cannot
+    // devirtualize soundly — the #169 family), it routes through the single concrete, devirtualizable
+    // java.util.BmcNaturalOrder.compare via the same witness as sorted(Comparator). BmcNaturalOrder covers
+    // the builtin Comparables (Integer/Long/Short/Byte/Character/Boolean/String) bit-precisely and stays
+    // LOUD for any other (incl. user-defined) Comparable — an unknown total order it can't enumerate.
+    @BmcModelConforms("@BmcProof (proofs.sort NaturalOrderSortLaws)")
     default Stream<T> sorted() {
-        throw fail("bmc4j: unmodelled member java.util.stream.Stream.sorted() — natural-order Comparable.compareTo dispatch on the unconstrained element type is unsound under JBMC; use sorted(Comparator)");
+        return sorted(java.util.BmcNaturalOrder.COMPARATOR);
     }
 
     @SafeVarargs

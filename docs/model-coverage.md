@@ -815,9 +815,9 @@ Real surface: 51 members — modeled 39, unmodelable 12, not-needed 0, tail 0.
 
 ## `java.util.stream.Stream`
 
-Real surface: 56 members — modeled 44, unmodelable 12, not-needed 0, tail 0.
+Real surface: 56 members — modeled 45, unmodelable 11, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `allMatch(Predicate)`, `anyMatch(Predicate)`, `collect(Collector)`, `collect(Supplier, BiConsumer, BiConsumer)`, `concat(Stream, Stream)`, `count()`, `distinct()`, `dropWhile(Predicate)`, `empty()`, `filter(Predicate)`, `findAny()`, `findFirst()`, `flatMap(Function)`, `flatMapToDouble(Function)`, `flatMapToInt(Function)`, `flatMapToLong(Function)`, `forEach(Consumer)`, `forEachOrdered(Consumer)`, `iterate(Object, Predicate, UnaryOperator)`, `limit(long)`, `map(Function)`, `mapMulti(BiConsumer)`, `mapMultiToDouble(BiConsumer)`, `mapMultiToInt(BiConsumer)`, `mapMultiToLong(BiConsumer)`, `mapToDouble(ToDoubleFunction)`, `mapToInt(ToIntFunction)`, `mapToLong(ToLongFunction)`, `max(Comparator)`, `min(Comparator)`, `noneMatch(Predicate)`, `of(Object)`, `of(Object[])`, `ofNullable(Object)`, `peek(Consumer)`, `reduce(BinaryOperator)`, `reduce(Object, BiFunction, BinaryOperator)`, `reduce(Object, BinaryOperator)`, `skip(long)`, `sorted(Comparator)`, `takeWhile(Predicate)`, `toArray()`, `toArray(IntFunction)`, `toList()`
+**Modeled** (`@BmcModelConforms`): `allMatch(Predicate)`, `anyMatch(Predicate)`, `collect(Collector)`, `collect(Supplier, BiConsumer, BiConsumer)`, `concat(Stream, Stream)`, `count()`, `distinct()`, `dropWhile(Predicate)`, `empty()`, `filter(Predicate)`, `findAny()`, `findFirst()`, `flatMap(Function)`, `flatMapToDouble(Function)`, `flatMapToInt(Function)`, `flatMapToLong(Function)`, `forEach(Consumer)`, `forEachOrdered(Consumer)`, `iterate(Object, Predicate, UnaryOperator)`, `limit(long)`, `map(Function)`, `mapMulti(BiConsumer)`, `mapMultiToDouble(BiConsumer)`, `mapMultiToInt(BiConsumer)`, `mapMultiToLong(BiConsumer)`, `mapToDouble(ToDoubleFunction)`, `mapToInt(ToIntFunction)`, `mapToLong(ToLongFunction)`, `max(Comparator)`, `min(Comparator)`, `noneMatch(Predicate)`, `of(Object)`, `of(Object[])`, `ofNullable(Object)`, `peek(Consumer)`, `reduce(BinaryOperator)`, `reduce(Object, BiFunction, BinaryOperator)`, `reduce(Object, BinaryOperator)`, `skip(long)`, `sorted()`, `sorted(Comparator)`, `takeWhile(Predicate)`, `toArray()`, `toArray(IntFunction)`, `toList()`
 
 | Unmodelable (loud-if-reached) | Reason |
 |---|---|
@@ -830,7 +830,6 @@ Real surface: 56 members — modeled 44, unmodelable 12, not-needed 0, tail 0.
 | `onClose(Runnable)` | BaseStream close-handler registration — no model on the eager interface; loud if reached |
 | `parallel()` | true-parallel execution is out of scope for the sequential eager model |
 | `sequential()` | BaseStream lifecycle no-op — no model on the eager interface; loud if reached |
-| `sorted()` | Stream.sorted() (natural order) dispatches through the elements' Comparable.compareTo on the unconstrained T — a boxed/dynamic comparison JBMC cannot devirtualize soundly (#169 family); a fiction would diverge from the JDK ordering. Use sorted(Comparator), which IS modeled. |
 | `spliterator()` | Spliterator (parallel-decomposition) dispatch is out of scope for the sequential eager model |
 | `unordered()` | BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached |
 
