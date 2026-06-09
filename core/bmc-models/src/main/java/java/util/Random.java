@@ -2,8 +2,12 @@ package java.util;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
+import java.util.random.RandomGenerator;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 import org.cprover.CProver;
 
@@ -38,18 +42,25 @@ import org.cprover.CProver;
  * (honest) — the false-refutation above can never arise. An <em>unseeded</em> {@code Random}'s draws are
  * sound nondet. This separation is the whole design.
  *
- * <p>Per the library's no-{@code double} convention, {@code nextDouble}/{@code nextFloat}/
- * {@code nextGaussian} and the {@code doubles()}/{@code ints()}/{@code longs()} stream families are also
- * loud (the streams would need an unbounded element count; the no-arg {@code ints()}/{@code longs()} are
- * infinite). They live in the {@link BmcModelTail} together with the rest of the exotic
- * {@code RandomGenerator} default-method surface ({@code nextExponential}, the {@code from(...)} adapter,
- * {@code isDeprecated}, the bounded {@code float}/{@code double} overloads, {@code nextBytes}). Reaching
- * any of them is a NAMED, LOUD {@code UNKNOWN}, never a silent nondet stub.
+ * <h2>The {@code double}/{@code float} draws ARE modeled (nondet-in-range)</h2>
+ * {@code nextDouble()}/{@code nextFloat()} return some value in {@code [0, 1)} and the bounded
+ * {@code nextDouble(bound)}/{@code (origin, bound)} (and the {@code float} twins) return some value in
+ * their documented range — each as a <em>nondeterministic</em> primitive draw constrained by
+ * {@code CProver.assume}. This is sound: a primitive {@code double}/{@code float} comparison under JBMC
+ * is bit-precise, and the {@code assume(v >= 0 && v < 1)} excludes NaN/±Inf (which compare false to
+ * everything), so the modeled draw really is a finite value in range — proven for EVERY outcome, exactly
+ * like the integral draws. (The old no-{@code double} convention does not apply to a draw whose only
+ * operations are an in-range {@code assume}; the FP quirks bite ordering/hashing, not a range gate.)
+ *
+ * <p>Per-member LOUD ({@code @BmcUnmodelable}, honest {@code UNKNOWN} under JBMC if reached): the seeded
+ * surface ({@code Random(long)} / {@code setSeed}, the LCG), {@code nextGaussian} (polar method:
+ * {@code Math.log}/{@code sqrt} + a rejection loop), the {@code doubles()}/{@code ints()}/{@code longs()}
+ * stream families (unbounded element count; the no-arg {@code ints()}/{@code longs()} are infinite),
+ * {@code nextBytes}, {@code nextExponential}, the {@code from(RandomGenerator)} adapter, the protected
+ * {@code next(int)} bit primitive, and {@code isDeprecated}. Reaching any is a NAMED, LOUD
+ * {@code UNKNOWN}, never a silent nondet stub. The class-level {@code @BmcModelTail} is gone: every real
+ * member is now an explicit per-member decision (modeled or loud).
  */
-@BmcModelTail(reason = "exotic java.util.Random / RandomGenerator remainder — the double-valued draws "
-        + "(nextDouble/nextFloat/nextGaussian/nextExponential, no-double policy), the ints()/longs()/"
-        + "doubles() nondet streams (unbounded element count), nextBytes, the from(RandomGenerator) "
-        + "adapter, and isDeprecated; loud (UNKNOWN) under JBMC if reached")
 public class Random {
 
     /** The unseeded constructor — no state to keep, since every draw is fresh nondet. */
@@ -140,6 +151,190 @@ public class Random {
     @BmcModelConforms("nondet boolean — proven true-or-false for every outcome (RandomLaws model proofs)")
     public boolean nextBoolean() {
         return CProver.nondetBoolean();
+    }
+
+    // --- double / float draws (nondet-in-range — sound, see the class doc) ----------------------------
+    // A primitive double/float comparison is bit-precise under JBMC, and the in-range assume excludes
+    // NaN/±Inf (they compare false to every bound), so each draw is a finite value in its documented
+    // range, proven for EVERY outcome. No FP ordering/hashing is involved here, so this is sound.
+
+    /** Some value in {@code [0, 1)} — for every outcome. */
+    @BmcModelConforms("nondet-in-range [0,1) double — proven for every outcome (JavaRandomLaws model proofs)")
+    public double nextDouble() {
+        double v = CProver.nondetDouble();
+        CProver.assume(v >= 0.0 && v < 1.0);
+        return v;
+    }
+
+    /** Some value in {@code [0, bound)} — for every outcome. Throws on a non-finite/{@code <= 0} bound. */
+    @BmcModelConforms("nondet-in-range [0,bound) double + bound check — JavaRandomLaws model proofs")
+    public double nextDouble(double bound) {
+        if (!(bound > 0.0 && bound < Double.POSITIVE_INFINITY)) {
+            throw new IllegalArgumentException("bound must be finite and positive");
+        }
+        double v = CProver.nondetDouble();
+        CProver.assume(v >= 0.0 && v < bound);
+        return v;
+    }
+
+    /** Some value in {@code [origin, bound)} — for every outcome. Throws on a bad/non-finite range. */
+    @BmcModelConforms("nondet-in-range [origin,bound) double + range check — JavaRandomLaws model proofs")
+    public double nextDouble(double origin, double bound) {
+        if (!(origin < bound && origin > Double.NEGATIVE_INFINITY && bound < Double.POSITIVE_INFINITY)) {
+            throw new IllegalArgumentException("bound must be greater than origin and the range finite");
+        }
+        double v = CProver.nondetDouble();
+        CProver.assume(v >= origin && v < bound);
+        return v;
+    }
+
+    /** Some value in {@code [0, 1)} — for every outcome. */
+    @BmcModelConforms("nondet-in-range [0,1) float — proven for every outcome (JavaRandomLaws model proofs)")
+    public float nextFloat() {
+        float v = CProver.nondetFloat();
+        CProver.assume(v >= 0.0f && v < 1.0f);
+        return v;
+    }
+
+    /** Some value in {@code [0, bound)} — for every outcome. Throws on a non-finite/{@code <= 0} bound. */
+    @BmcModelConforms("nondet-in-range [0,bound) float + bound check — JavaRandomLaws model proofs")
+    public float nextFloat(float bound) {
+        if (!(bound > 0.0f && bound < Float.POSITIVE_INFINITY)) {
+            throw new IllegalArgumentException("bound must be finite and positive");
+        }
+        float v = CProver.nondetFloat();
+        CProver.assume(v >= 0.0f && v < bound);
+        return v;
+    }
+
+    /** Some value in {@code [origin, bound)} — for every outcome. Throws on a bad/non-finite range. */
+    @BmcModelConforms("nondet-in-range [origin,bound) float + range check — JavaRandomLaws model proofs")
+    public float nextFloat(float origin, float bound) {
+        if (!(origin < bound && origin > Float.NEGATIVE_INFINITY && bound < Float.POSITIVE_INFINITY)) {
+            throw new IllegalArgumentException("bound must be greater than origin and the range finite");
+        }
+        float v = CProver.nondetFloat();
+        CProver.assume(v >= origin && v < bound);
+        return v;
+    }
+
+    // --- loud walls (honest UNKNOWN under JBMC if reached) --------------------------------------------
+
+    @BmcUnmodelable(reason = "the protected next(int) bit primitive exposes the LCG — modeling it as nondet "
+            + "would break seeded determinism; the draw methods nondet directly instead")
+    protected int next(int bits) {
+        throw fail("bmc4j: unmodelled member java.util.Random.next(int) — the LCG bit primitive is out of "
+                + "scope (seeded determinism); the public draws nondet directly, honestly UNKNOWN here");
+    }
+
+    @BmcUnmodelable(reason = "nextGaussian uses the polar method (Math.log/sqrt + a rejection loop) — no "
+            + "sound bounded nondet model")
+    public double nextGaussian() {
+        throw fail("bmc4j: unmodelled member java.util.Random.nextGaussian() — the polar method "
+                + "(Math.log/sqrt + rejection loop) has no sound bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "parameterized Gaussian — same polar-method wall as nextGaussian()")
+    public double nextGaussian(double mean, double stddev) {
+        throw fail("bmc4j: unmodelled member java.util.Random.nextGaussian(double, double) — the polar "
+                + "method (Math.log/sqrt + rejection loop) has no sound bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "exponential draw via -log(nextDouble) — transcendental, no sound bounded model")
+    public double nextExponential() {
+        throw fail("bmc4j: unmodelled member java.util.Random.nextExponential() — the -log(U) transform is "
+                + "transcendental with no sound bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "fills a byte[] from the LCG stream — seeded determinism, no sound nondet model")
+    public void nextBytes(byte[] bytes) {
+        throw fail("bmc4j: unmodelled member java.util.Random.nextBytes(byte[]) — filling from the LCG "
+                + "stream is seeded determinism, out of scope; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite IntStream — unbounded element count, can't unwind")
+    public IntStream ints() {
+        throw fail("bmc4j: unmodelled member java.util.Random.ints() — an infinite stream has an unbounded "
+                + "element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized IntStream — unbounded element count for a bounded model")
+    public IntStream ints(long streamSize) {
+        throw fail("bmc4j: unmodelled member java.util.Random.ints(long) — a sized random stream has an "
+                + "unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite ranged IntStream — unbounded element count")
+    public IntStream ints(int randomNumberOrigin, int randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.ints(int, int) — an infinite stream has an "
+                + "unbounded element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized ranged IntStream — unbounded element count")
+    public IntStream ints(long streamSize, int randomNumberOrigin, int randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.ints(long, int, int) — a sized random stream "
+                + "has an unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite LongStream — unbounded element count, can't unwind")
+    public LongStream longs() {
+        throw fail("bmc4j: unmodelled member java.util.Random.longs() — an infinite stream has an unbounded "
+                + "element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized LongStream — unbounded element count")
+    public LongStream longs(long streamSize) {
+        throw fail("bmc4j: unmodelled member java.util.Random.longs(long) — a sized random stream has an "
+                + "unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite ranged LongStream — unbounded element count")
+    public LongStream longs(long randomNumberOrigin, long randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.longs(long, long) — an infinite stream has an "
+                + "unbounded element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized ranged LongStream — unbounded element count")
+    public LongStream longs(long streamSize, long randomNumberOrigin, long randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.longs(long, long, long) — a sized random "
+                + "stream has an unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite DoubleStream — unbounded element count, can't unwind")
+    public DoubleStream doubles() {
+        throw fail("bmc4j: unmodelled member java.util.Random.doubles() — an infinite stream has an "
+                + "unbounded element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized DoubleStream — unbounded element count")
+    public DoubleStream doubles(long streamSize) {
+        throw fail("bmc4j: unmodelled member java.util.Random.doubles(long) — a sized random stream has an "
+                + "unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "infinite ranged DoubleStream — unbounded element count")
+    public DoubleStream doubles(double randomNumberOrigin, double randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.doubles(double, double) — an infinite stream "
+                + "has an unbounded element count and cannot be unwound; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "sized ranged DoubleStream — unbounded element count")
+    public DoubleStream doubles(long streamSize, double randomNumberOrigin, double randomNumberBound) {
+        throw fail("bmc4j: unmodelled member java.util.Random.doubles(long, double, double) — a sized random "
+                + "stream has an unbounded element count for the bounded model; honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "adapts an arbitrary RandomGenerator — open-universe device, no sound model")
+    public static Random from(RandomGenerator generator) {
+        throw fail("bmc4j: unmodelled member java.util.Random.from(java.util.random.RandomGenerator) — "
+                + "adapting an arbitrary generator is an open-universe device with no sound model; "
+                + "honestly UNKNOWN");
+    }
+
+    @BmcUnmodelable(reason = "RandomGenerator deprecation flag — no analysis-relevant behavior to model")
+    public boolean isDeprecated() {
+        throw fail("bmc4j: unmodelled member java.util.Random.isDeprecated() — a deprecation flag with no "
+                + "analysis-relevant behavior; honestly UNKNOWN");
     }
 
     // --- internal nondet-in-range helpers ------------------------------------------------------------

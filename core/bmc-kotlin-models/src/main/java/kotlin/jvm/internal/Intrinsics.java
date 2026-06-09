@@ -4,7 +4,6 @@ import kotlin.UninitializedPropertyAccessException;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -19,9 +18,13 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  *
  * <p>Compiled into a separate source set and bundled as a resource (not on any
  * runtime classpath); the JUnit extension extracts it onto JBMC's analysis classpath.
+ *
+ * <p>No class-level {@code @BmcModelTail}: the entire real {@code Intrinsics} surface is enumerated
+ * per-member below — the null-safety / equality / comparison helpers are modeled and
+ * {@code @BmcModelConforms}-pinned, and the reflective / reified / stacktrace-sanitizing / boxed-FP
+ * overloads each carry an explicit method-level {@code @BmcUnmodelable} loud stub — so there is no
+ * undeclared remainder for a tail to absorb.
  */
-@BmcModelTail(reason = "exotic Intrinsics surface — reflective/spread/typed-checkNotNull/array overloads "
-        + "Kotlin's null-safety lowering does not emit on the bounded analysis path; loud under JBMC if reached")
 public class Intrinsics {
 
     private Intrinsics() {

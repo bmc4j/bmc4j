@@ -4,9 +4,12 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import java.time.chrono.ChronoLocalDate;
 import java.time.chrono.Chronology;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalUnit;
+import java.time.temporal.ValueRange;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
@@ -21,7 +24,7 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * differential suite vs the real JDK). {@code of(y, m, d)} is NOT a factory here; build
  * dates via {@link #ofEpochDay} (or via LocalDateTime). Formatters/zones are out of scope.
  */
-@BmcModelTail(reason = "the remaining ChronoLocalDate/Temporal surface (with(TemporalField/Adjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/range/query/get(TemporalField)/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
+@BmcModelTail(reason = "the remaining ChronoLocalDate/Temporal surface (with(TemporalAdjuster)/getDayOfWeek/getMonth/getEra/getChronology/datesUntil/format/query/plus(TemporalAmount)/the of(y,Month,d) and parse factories) is out of scope for this epoch-day model; all loud under JBMC")
 public final class LocalDate implements ChronoLocalDate {
 
     // DAYS from year 0000-01-01 (proleptic) to 1970-01-01.
@@ -451,50 +454,242 @@ public final class LocalDate implements ChronoLocalDate {
         return lengthOfMonth(f[0], f[1]);
     }
 
-    // --- ChronoLocalDate / Temporal abstract surface: implemented ONLY to make the LocalDate an
-    //     instanceof ChronoLocalDate (so the proof-site checkcast passes); each is LOUD, never modeled.
-    //     lengthOfMonth() and until(ChronoLocalDate) above already satisfy the interface. ---
+    // --- generic TemporalField / TemporalUnit accessors: dispatch on the (now-modeled) ChronoField /
+    //     ChronoUnit and read/recompose the epoch-day backing. A non-Chrono field/unit, or one this
+    //     date-only model can't carry, is declined LOUD — a NAMED UNKNOWN, never a wrong value. The
+    //     ChronoLocalDate interface makes a LocalDate an instanceof it so the proof-site checkcast passes;
+    //     lengthOfMonth() and until(ChronoLocalDate) above already satisfy the interface too. ---
+
+    /** Non-negative remainder of {@code (epochDay + 3)} mod 7 — Math.floorMod-free (JBMC-sound). */
+    private int dayOfWeekValue() {
+        return (int) (((epochDay + 3) % 7 + 7) % 7) + 1;
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public boolean isSupported(TemporalField field) {
+        return (field instanceof ChronoField) && ((ChronoField) field).isDateBased();
+    }
+
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public boolean isSupported(TemporalUnit unit) {
+        if (unit instanceof ChronoUnit) {
+            return ((ChronoUnit) unit).isDateBased();
+        }
+        return unit != null && unit.isSupportedBy(this);
+    }
+
+    /**
+     * The {@code long} value of a date-based {@link ChronoField}, decoded from the epoch-day exactly like
+     * the JDK. The whole supported date-field set is covered (weekday/aligned/month/year/era/proleptic);
+     * a non-ChronoField or a time-based field is declined LOUD ({@link UnsupportedTemporalTypeException}-
+     * shaped via the loud sentinel) — never a silent value.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public long getLong(TemporalField field) {
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.getLong(java.time.temporal.TemporalField) — only ChronoField is dispatched by this epoch-day model");
+        }
+        int[] f = ymd();
+        int year = f[0], month = f[1], dom = f[2];
+        switch ((ChronoField) field) {
+            case DAY_OF_WEEK:
+                return dayOfWeekValue();
+            case ALIGNED_DAY_OF_WEEK_IN_MONTH:
+                return (dom - 1) % 7 + 1;
+            case ALIGNED_DAY_OF_WEEK_IN_YEAR:
+                return (getDayOfYear() - 1) % 7 + 1;
+            case DAY_OF_MONTH:
+                return dom;
+            case DAY_OF_YEAR:
+                return getDayOfYear();
+            case EPOCH_DAY:
+                return epochDay;
+            case ALIGNED_WEEK_OF_MONTH:
+                return (dom - 1) / 7 + 1;
+            case ALIGNED_WEEK_OF_YEAR:
+                return (getDayOfYear() - 1) / 7 + 1;
+            case MONTH_OF_YEAR:
+                return month;
+            case PROLEPTIC_MONTH:
+                return year * 12L + (month - 1);
+            case YEAR_OF_ERA:
+                return year < 1 ? 1L - year : year;
+            case YEAR:
+                return year;
+            case ERA:
+                return year < 1 ? 0 : 1;
+            default:
+                throw fail("bmc4j: unmodelled member java.time.LocalDate.getLong(java.time.temporal.TemporalField) — the time-based field " + field + " is not supported by the date-only epoch-day model");
+        }
+    }
+
+    /**
+     * The {@code int} value of a date-based field — the JDK's {@code get} (range-checked {@code getLong},
+     * loud on a field whose range exceeds int, e.g. EPOCH_DAY/PROLEPTIC_MONTH). Delegates to the modeled
+     * {@link #getLong} and the field's own {@link ValueRange#checkValidIntValue}.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public int get(TemporalField field) {
+        return range(field).checkValidIntValue(getLong(field), field);
+    }
+
+    /**
+     * The valid-value range of a date-based field FOR THIS DATE — the JDK refines DAY_OF_MONTH to this
+     * month's length, DAY_OF_YEAR to this year's length, ALIGNED_WEEK_OF_MONTH to this month, and
+     * YEAR_OF_ERA to the era's max; every other date field uses the field's constant range.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public ValueRange range(TemporalField field) {
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.range(java.time.temporal.TemporalField) — only ChronoField is dispatched by this epoch-day model");
+        }
+        ChronoField cf = (ChronoField) field;
+        if (!cf.isDateBased()) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.range(java.time.temporal.TemporalField) — the time-based field " + field + " is not supported by the date-only epoch-day model");
+        }
+        int[] f = ymd();
+        switch (cf) {
+            case DAY_OF_MONTH:
+                return ValueRange.of(1, lengthOfMonth(f[0], f[1]));
+            case DAY_OF_YEAR:
+                return ValueRange.of(1, isLeapYear(f[0]) ? 366 : 365);
+            case ALIGNED_WEEK_OF_MONTH:
+                return ValueRange.of(1, lengthOfMonth(f[0], f[1]) == 28 ? 4 : 5);
+            case YEAR_OF_ERA:
+                return f[0] <= 0 ? ValueRange.of(1, 1_000_000_000L) : ValueRange.of(1, 999_999_999L);
+            default:
+                return cf.range();
+        }
+    }
+
+    /**
+     * A copy of this date with a date-based field set, dispatching to the typed {@code withYear/withMonth/
+     * withDayOf*} setters (whose clamp/strict-validation already mirror the JDK). EPOCH_DAY/PROLEPTIC_MONTH/
+     * DAY_OF_WEEK and the aligned-week fields recompose through the exact day/month arithmetic. The field's
+     * value is range-checked LOUDLY first ({@link ChronoField#checkValidValue}); an unsupported field is
+     * declined LOUD.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public LocalDate with(TemporalField field, long newValue) {
+        if (!(field instanceof ChronoField)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalField,long) — only ChronoField is dispatched by this epoch-day model");
+        }
+        ChronoField cf = (ChronoField) field;
+        switch (cf) {
+            case EPOCH_DAY:
+                return new LocalDate(newValue);
+            case DAY_OF_MONTH:
+                return withDayOfMonth((int) cf.checkValidValue(newValue));
+            case DAY_OF_YEAR:
+                return withDayOfYear((int) cf.checkValidValue(newValue));
+            case MONTH_OF_YEAR:
+                return withMonth((int) cf.checkValidValue(newValue));
+            case YEAR:
+                return withYear((int) cf.checkValidValue(newValue));
+            case DAY_OF_WEEK:
+                return plusDays(cf.checkValidValue(newValue) - dayOfWeekValue());
+            case ALIGNED_DAY_OF_WEEK_IN_MONTH:
+                return plusDays(cf.checkValidValue(newValue) - getLong(ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH));
+            case ALIGNED_DAY_OF_WEEK_IN_YEAR:
+                return plusDays(cf.checkValidValue(newValue) - getLong(ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR));
+            case PROLEPTIC_MONTH:
+                return plusMonths(cf.checkValidValue(newValue) - getProlepticMonth());
+            default:
+                throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalField,long) — the field " + field + " (era flip / aligned-week recompose) is out of scope for this epoch-day model");
+        }
+    }
+
+    /** A copy with {@code amountToAdd} of {@code unit} added — dispatch on ChronoUnit to the typed adders. */
+    @BmcModelConforms("differential (TimeConformanceTest) + @BmcProof (proofs.time)")
+    @Override
+    public LocalDate plus(long amountToAdd, TemporalUnit unit) {
+        if (!(unit instanceof ChronoUnit)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(long,java.time.temporal.TemporalUnit) — only ChronoUnit is dispatched by this epoch-day model");
+        }
+        switch ((ChronoUnit) unit) {
+            case DAYS:
+                return plusDays(amountToAdd);
+            case WEEKS:
+                return plusWeeks(amountToAdd);
+            case MONTHS:
+                return plusMonths(amountToAdd);
+            case YEARS:
+                return plusYears(amountToAdd);
+            case DECADES:
+                return plusYears(Math.multiplyExact(amountToAdd, 10));
+            case CENTURIES:
+                return plusYears(Math.multiplyExact(amountToAdd, 100));
+            case MILLENNIA:
+                return plusYears(Math.multiplyExact(amountToAdd, 1000));
+            default:
+                throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(long,java.time.temporal.TemporalUnit) — the unit " + unit + " (ERAS / sub-day units) is not supported by the date-only epoch-day model");
+        }
+    }
+
+    /** A copy with {@code amountToSubtract} of {@code unit} removed — negate and reuse {@link #plus}. */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public LocalDate minus(long amountToSubtract, TemporalUnit unit) {
+        return amountToSubtract == Long.MIN_VALUE
+            ? plus(Long.MAX_VALUE, unit).plus(1, unit)
+            : plus(-amountToSubtract, unit);
+    }
+
+    /**
+     * The amount of time from this date to {@code endExclusive} in {@code unit}, for the date-based units —
+     * matching the JDK's day-count then unit scaling (months via the proleptic-month difference, weeks via
+     * the day count / 7, years/decades/centuries/millennia via the truncating month/12 split). The end
+     * must be a modeled LocalDate; an unsupported unit is declined LOUD.
+     */
+    @BmcModelConforms("differential (TimeConformanceTest)")
+    @Override
+    public long until(Temporal endExclusive, TemporalUnit unit) {
+        if (!(endExclusive instanceof LocalDate)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — only LocalDate endpoints are modeled");
+        }
+        if (!(unit instanceof ChronoUnit)) {
+            throw fail("bmc4j: unmodelled member java.time.LocalDate.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — only ChronoUnit is dispatched by this epoch-day model");
+        }
+        LocalDate end = (LocalDate) endExclusive;
+        long days = end.epochDay - this.epochDay;
+        switch ((ChronoUnit) unit) {
+            case DAYS:
+                return days;
+            case WEEKS:
+                return days / 7;
+            case MONTHS:
+                return monthsUntil(end);
+            case YEARS:
+                return monthsUntil(end) / 12;
+            case DECADES:
+                return monthsUntil(end) / 120;
+            case CENTURIES:
+                return monthsUntil(end) / 1200;
+            case MILLENNIA:
+                return monthsUntil(end) / 12000;
+            default:
+                throw fail("bmc4j: unmodelled member java.time.LocalDate.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the unit " + unit + " (ERAS / sub-day units) is not supported by the date-only epoch-day model");
+        }
+    }
+
+    /** Whole-month difference exactly as the JDK's {@code monthsUntil}: proleptic-month delta, then a
+     *  -1 carry when the end's day-of-month is still short of this one's (the partial-month adjustment). */
+    private long monthsUntil(LocalDate end) {
+        long packed1 = this.getProlepticMonth() * 32L + this.getDayOfMonth();
+        long packed2 = end.getProlepticMonth() * 32L + end.getDayOfMonth();
+        return (packed2 - packed1) / 32;
+    }
 
     @BmcUnmodelable(reason = "the Chronology accessor (getChronology) is out of scope for this epoch-day model")
     @Override
     public Chronology getChronology() {
         throw fail("bmc4j: unmodelled member java.time.LocalDate.getChronology() — the Chronology accessor is out of scope for this epoch-day model");
-    }
-
-    @BmcUnmodelable(reason = "the generic TemporalUnit difference (until) is out of scope for this epoch-day model")
-    @Override
-    public long until(Temporal endExclusive, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.until(java.time.temporal.Temporal,java.time.temporal.TemporalUnit) — the generic TemporalUnit difference is out of scope for this epoch-day model");
-    }
-
-    @BmcUnmodelable(reason = "the TemporalField query plumbing (isSupported) is out of scope for this epoch-day model")
-    @Override
-    public boolean isSupported(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.isSupported(java.time.temporal.TemporalField) — the TemporalField query plumbing is out of scope for this epoch-day model");
-    }
-
-    @BmcUnmodelable(reason = "the TemporalUnit query plumbing (isSupported) is out of scope for this epoch-day model")
-    @Override
-    public boolean isSupported(TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.isSupported(java.time.temporal.TemporalUnit) — the TemporalUnit query plumbing is out of scope for this epoch-day model");
-    }
-
-    @BmcUnmodelable(reason = "the TemporalField accessor (getLong) is out of scope for this epoch-day model")
-    @Override
-    public long getLong(TemporalField field) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.getLong(java.time.temporal.TemporalField) — the TemporalField accessor is out of scope for this epoch-day model");
-    }
-
-    @BmcUnmodelable(reason = "the generic TemporalField setter (with) is out of scope; use withYear/withMonth/withDayOf*")
-    @Override
-    public ChronoLocalDate with(TemporalField field, long newValue) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.with(java.time.temporal.TemporalField,long) — the generic TemporalField setter is out of scope; use withYear/withMonth/withDayOf*");
-    }
-
-    @BmcUnmodelable(reason = "the generic TemporalUnit add (plus) is out of scope; use plusDays/plusWeeks/plusMonths/plusYears")
-    @Override
-    public ChronoLocalDate plus(long amountToAdd, TemporalUnit unit) {
-        throw fail("bmc4j: unmodelled member java.time.LocalDate.plus(long,java.time.temporal.TemporalUnit) — the generic TemporalUnit add is out of scope; use plusDays/plusWeeks/plusMonths/plusYears");
     }
 
     @Override

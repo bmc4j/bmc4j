@@ -3,7 +3,6 @@ package java.math;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -16,8 +15,12 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * contract. Within the bound, behavior matches the JDK; beyond it the model throws where the
  * (arbitrary-precision) JDK would not. Covers the common
  * valueOf/add/subtract/multiply/divide/mod/compareTo/intValue surface.
+ *
+ * <p>The real {@link java.math.BigInteger} surface is accounted for per-member: every public/protected
+ * method is either modeled ({@link BmcModelConforms}) or carries an explicit per-member
+ * {@link BmcUnmodelable} waiver (probabilistic number-theory and radix formatting). There is no
+ * class-level {@code @BmcModelTail} catch-all — the tail is drained to zero.
  */
-@BmcModelTail(reason = "the probabilistic number-theory (isProbablePrime/nextProbablePrime/probablePrime) and radix formatting (toString(int)) are out of scope for a long-backed bounded model; all loud under JBMC")
 public class BigInteger extends Number implements Comparable<BigInteger> {
 
     public static final BigInteger ZERO = new BigInteger(0L);
