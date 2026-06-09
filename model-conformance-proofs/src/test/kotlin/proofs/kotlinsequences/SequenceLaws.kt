@@ -704,4 +704,208 @@ class SequenceLaws {
         val xs = empty.ifEmpty { sequenceOf(a, b) }.toList()
         Bmc.check(xs.size == 2 && xs[0] == a && xs[1] == b)
     }
+
+    // ==== #184 tail-drain laws: terminal accessors, conversions, numeric reductions and extrema, plus the
+    // remaining intermediate ops. Each exercises the newly-modeled facade member over the concrete bounded
+    // backing (NEVER the kotlinc-version-fragile virtual Sequence.iterator()). Symbolic laws keep the
+    // interface dispatch live so they pin the seqIter/backing checkcast (the #169 family).
+
+    // ---- first / last / single / singleOrNull / any / none (no-predicate terminals).
+
+    @BmcProof
+    fun first_last_single_terminals() {
+        Bmc.check(sequenceOf(7, 8, 9).first() == 7)
+        Bmc.check(sequenceOf(7, 8, 9).last() == 9)
+        Bmc.check(sequenceOf(42).single() == 42)
+        Bmc.check(sequenceOf(42).singleOrNull() == 42)
+        Bmc.check(sequenceOf(1, 2).singleOrNull() == null)
+    }
+
+    @BmcProof
+    fun any_none_terminals() {
+        Bmc.check(sequenceOf(1).any())
+        Bmc.check(!sequenceOf(1, 2, 3).filter { it > 100 }.any())
+        Bmc.check(sequenceOf(1, 2, 3).filter { it > 100 }.none())
+        Bmc.check(!sequenceOf(1).none())
+    }
+
+    /** Symbolic first/last law: brackets the two ends of a symbolic sequence. */
+    @BmcProof
+    fun symbolic_first_last() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val c = Bmc.anyInt(-50, 50)
+        val s = sequenceOf(a, b, c)
+        Bmc.check(s.first() == a && s.last() == c)
+    }
+
+    // ---- contains / indexOf / lastIndexOf / elementAt / elementAtOrElse.
+
+    @BmcProof
+    fun contains_indexOf_positions() {
+        val s = sequenceOf(10, 20, 30, 20)
+        Bmc.check(s.contains(20) && !s.contains(99))
+        Bmc.check(s.indexOf(20) == 1 && s.lastIndexOf(20) == 3 && s.indexOf(99) == -1)
+    }
+
+    @BmcProof
+    fun elementAt_and_orElse() {
+        val s = sequenceOf(11, 22, 33)
+        Bmc.check(s.elementAt(1) == 22)
+        Bmc.check(s.elementAtOrElse(5) { it * 100 } == 500)
+        Bmc.check(s.elementAtOrElse(0) { -1 } == 11)
+    }
+
+    /** Symbolic indexOf law: the first equals-match index, or -1 when absent. */
+    @BmcProof
+    fun symbolic_indexOf_first_match() {
+        val a = Bmc.anyInt(0, 10)
+        val b = Bmc.anyInt(11, 20)   // disjoint from a's range -> a != b
+        val s = sequenceOf(a, b, a)
+        Bmc.check(s.indexOf(a) == 0 && s.lastIndexOf(a) == 2 && s.indexOf(b) == 1)
+    }
+
+    // ---- sumOf* / averageOf* numeric reductions.
+
+    @BmcProof
+    fun sumOf_integral_widths() {
+        Bmc.check(sequenceOf(1L, 2L, 3L).sum() == 6L)
+        Bmc.check(sequenceOf<Byte>(1, 2, 3).sum() == 6)
+        Bmc.check(sequenceOf<Short>(4, 5, 6).sum() == 15)
+    }
+
+    @BmcProof
+    fun average_of_int() {
+        // 2,4,6 -> 12/3 = 4.0 (integral-valued so FP-exact)
+        Bmc.check(sequenceOf(2, 4, 6).average() == 4.0)
+    }
+
+    /** Symbolic sumOfLong law: folding a symbolic pair equals their sum. */
+    @BmcProof
+    fun symbolic_sumOfLong() {
+        val a = Bmc.anyLong(0, 1000)
+        val b = Bmc.anyLong(0, 1000)
+        Bmc.check(sequenceOf(a, b).sum() == a + b)
+    }
+
+    // ---- maxOrNull / minOrNull / maxOrThrow / minOrThrow / maxWith / minWith extrema.
+
+    @BmcProof
+    fun max_min_natural_order() {
+        Bmc.check(sequenceOf(3, 1, 4, 1, 5).maxOrNull() == 5)
+        Bmc.check(sequenceOf(3, 1, 4, 1, 5).minOrNull() == 1)
+        Bmc.check(sequenceOf(3, 1, 4).max() == 4)   // maxOrThrow
+        Bmc.check(sequenceOf(3, 1, 4).min() == 1)   // minOrThrow
+        Bmc.check(sequenceOf(1, 2, 3).filter { it > 100 }.maxOrNull() == null)
+    }
+
+    @BmcProof
+    fun max_min_with_comparator() {
+        // reverse comparator: maxWith picks the natural-minimum
+        Bmc.check(sequenceOf(3, 1, 4).maxWith(compareByDescending { it }) == 1)
+        Bmc.check(sequenceOf(3, 1, 4).minWith(compareByDescending { it }) == 4)
+    }
+
+    /** Symbolic max/min law: the extrema of a symbolic pair are its larger/smaller. */
+    @BmcProof
+    fun symbolic_max_min_pair() {
+        val a = Bmc.anyInt(-50, 50)
+        val b = Bmc.anyInt(-50, 50)
+        val s = sequenceOf(a, b)
+        val hi = if (a >= b) a else b
+        val lo = if (a <= b) a else b
+        Bmc.check(s.maxOrNull() == hi && s.minOrNull() == lo)
+    }
+
+    // ---- runningReduce / runningReduceIndexed (first-element-seeded accumulation prefix).
+
+    @BmcProof
+    fun runningReduce_accumulates() {
+        // seed 1; then +2,+3,+4 -> 1,3,6,10
+        val xs = sequenceOf(1, 2, 3, 4).runningReduce { acc, e -> acc + e }.toList()
+        Bmc.check(xs.size == 4 && xs[0] == 1 && xs[1] == 3 && xs[2] == 6 && xs[3] == 10)
+    }
+
+    @BmcProof
+    fun runningReduceIndexed_uses_index() {
+        // seed 5; step adds index*100 + element -> [5, 5+1*100+6=111]
+        val xs = sequenceOf(5, 6).runningReduceIndexed { i, acc, e -> acc + i * 100 + e }.toList()
+        Bmc.check(xs.size == 2 && xs[0] == 5 && xs[1] == 111)
+    }
+
+    /** Symbolic runningReduce law: the last running-sum element equals the total. */
+    @BmcProof
+    fun symbolic_runningReduce_last_is_sum() {
+        val a = Bmc.anyInt(0, 100)
+        val b = Bmc.anyInt(0, 100)
+        val c = Bmc.anyInt(0, 100)
+        val xs = sequenceOf(a, b, c).runningReduce { acc, e -> acc + e }.toList()
+        Bmc.check(xs.size == 3 && xs[0] == a && xs[1] == a + b && xs[2] == a + b + c)
+    }
+
+    // ---- conversions: toMutableList / toMutableSet / toHashSet / toSortedSet / toCollection.
+
+    @BmcProof
+    fun toMutableList_and_sets() {
+        val ml = sequenceOf(1, 2, 3).toMutableList()
+        Bmc.check(ml.size == 3 && ml[0] == 1 && ml[2] == 3)
+        val ms = sequenceOf(1, 2, 2, 3).toMutableSet()
+        Bmc.check(ms.size == 3 && ms.contains(2))
+        val hs = sequenceOf(1, 2, 2).toHashSet()
+        Bmc.check(hs.size == 2 && hs.contains(1) && hs.contains(2))
+    }
+
+    @BmcProof
+    fun toCollection_drains_into_destination() {
+        val dest = ArrayList<Int>()
+        val out = sequenceOf(7, 8).toCollection(dest)
+        Bmc.check(out.size == 2 && out[0] == 7 && out[1] == 8)
+    }
+
+    // ---- flatten / flattenSequenceOfIterable / flatMapIterable / filterNotNullTo / filterIsInstance.
+
+    @BmcProof
+    fun flatten_sequence_of_sequences() {
+        val f = sequenceOf(sequenceOf(1, 2), sequenceOf(3, 4)).flatten().toList()
+        Bmc.check(f.size == 4 && f[0] == 1 && f[1] == 2 && f[2] == 3 && f[3] == 4)
+    }
+
+    @BmcProof
+    fun flatten_sequence_of_iterables() {
+        val f = sequenceOf(listOf(1, 2), listOf(3)).flatten().toList()
+        Bmc.check(f.size == 3 && f[0] == 1 && f[1] == 2 && f[2] == 3)
+    }
+
+    @BmcProof
+    fun flatMapIterable_concatenates_iterables() {
+        val f = sequenceOf(1, 2).flatMap { listOf(it, it * 10) }.toList()
+        Bmc.check(f.size == 4 && f[0] == 1 && f[1] == 10 && f[2] == 2 && f[3] == 20)
+    }
+
+    @BmcProof
+    fun filterNotNullTo_drains_nonnull() {
+        val dest = ArrayList<Int>()
+        sequenceOf(1, null, 2, null, 3).filterNotNullTo(dest)
+        Bmc.check(dest.size == 3 && dest[0] == 1 && dest[1] == 2 && dest[2] == 3)
+    }
+
+    // ---- unzip / sequenceOf(single) / emptySequence / asSequence(Iterator).
+
+    @BmcProof
+    fun unzip_splits_pairs() {
+        val (a, b) = sequenceOf(1 to "a", 2 to "b").unzip()
+        Bmc.check(a.size == 2 && a[0] == 1 && a[1] == 2 && b[0] == "a" && b[1] == "b")
+    }
+
+    @BmcProof
+    fun sequenceOf_single_and_empty() {
+        Bmc.check(sequenceOf(99).toList().let { it.size == 1 && it[0] == 99 })
+        Bmc.check(emptySequence<Int>().toList().isEmpty())
+    }
+
+    @BmcProof
+    fun asSequence_from_iterator() {
+        val xs = listOf(4, 5, 6).iterator().asSequence().toList()
+        Bmc.check(xs.size == 3 && xs[0] == 4 && xs[1] == 5 && xs[2] == 6)
+    }
 }
