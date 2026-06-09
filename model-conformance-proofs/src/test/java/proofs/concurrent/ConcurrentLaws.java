@@ -2,6 +2,7 @@ package proofs.concurrent;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -11,10 +12,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
+import org.bmc4j.Verdict;
 
 /**
  * Model proofs (axis 2) for the j.u.c "advanced" sequential models: CountDownLatch,
@@ -430,6 +433,112 @@ class ConcurrentLaws {
         java.util.concurrent.CompletionStage<Integer> stage =
                 CompletableFuture.completedFuture(v).minimalCompletionStage();
         Bmc.check(stage.thenApply(x -> x + 1).toCompletableFuture().join() == v + 1);
+    }
+
+    // --- CompletableFuture explicit-Executor *Async twins (reduce to synchronous form) ------------
+    // On one thread a user-supplied Executor produces no observable difference, so the explicit-Executor
+    // *Async twin carries the value through exactly like the synchronous combinator (the executor arg is
+    // dropped). An immediate same-thread executor is a sound stand-in.
+
+    /** thenApplyAsync(fn, executor) carries the value through like thenApply (executor dropped). */
+    @BmcProof
+    void completablefuture_thenApplyAsync_with_executor_reduces_to_sync() {
+        int v = Bmc.anyInt(-100, 100);
+        java.util.concurrent.Executor ex = Runnable::run;   // immediate same-thread executor
+        int r = CompletableFuture.completedFuture(v).thenApplyAsync(x -> x + 7, ex).join();
+        Bmc.check(r == v + 7);
+    }
+
+    /** supplyAsync(supplier, executor) runs the supplier and the value reaches join (executor dropped). */
+    @BmcProof
+    void completablefuture_supplyAsync_with_executor_runs_eagerly() {
+        int v = Bmc.anyInt(-100, 100);
+        java.util.concurrent.Executor ex = Runnable::run;
+        int r = CompletableFuture.supplyAsync(() -> v + 1, ex).join();
+        Bmc.check(r == v + 1);
+    }
+
+    // --- CompletableFuture get(timeout) as a finite two-outcome state machine ----------------------
+    // A settled future returns its value (success outcome); an unsettled future can only time out on the
+    // single thread BMC analyzes (TimeoutException — the timeout outcome). Both outcomes are reachable
+    // and driven by `done`, neither is hard-coded.
+
+    /** SUCCESS outcome: a settled future's timed get returns the value (postcondition holds on success). */
+    @BmcProof
+    void completablefuture_timed_get_settled_returns_value() throws Exception {
+        int v = Bmc.anyInt(-100, 100);
+        CompletableFuture<Integer> f = CompletableFuture.completedFuture(v);
+        Bmc.check(f.get(5, TimeUnit.SECONDS) == v);    // settled -> value (timeout dropped)
+    }
+
+    /** TIMEOUT outcome: an unsettled future's timed get throws TimeoutException (the wait expired). */
+    @BmcProof
+    void completablefuture_timed_get_unsettled_times_out() {
+        CompletableFuture<Integer> f = new CompletableFuture<>();   // never completed
+        boolean threw = false;
+        try {
+            f.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            threw = true;
+        } catch (Exception e) {
+            // any other checked exception leaves threw=false -> the check below refutes
+        }
+        Bmc.check(threw);   // the timeout outcome IS reachable
+    }
+
+    /**
+     * NEGATIVE law (REFUTED): "timed get always returns the value, never times out" does NOT hold —
+     * an unsettled future times out. Pins that the timeout branch is genuinely reachable (the model is
+     * not a hard-coded success), so this proof is correctly REFUTED.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    void completablefuture_timed_get_never_times_out_REFUTES() throws Exception {
+        int v = Bmc.anyInt(-100, 100);
+        boolean done = Bmc.anyBoolean();
+        CompletableFuture<Integer> f = new CompletableFuture<>();
+        if (done) {
+            f.complete(v);
+        }
+        // Claim (false): get(timeout) always returns v without timing out. On the unsettled branch it
+        // throws TimeoutException instead, so the post-state is never reached -> REFUTED.
+        Integer got = f.get(5, TimeUnit.SECONDS);
+        Bmc.check(got == v);
+    }
+
+    // --- containsAll over the concurrent collections (bounded loop of point membership) -----------
+
+    /** ArrayBlockingQueue.containsAll is a bounded loop of contains(): true iff every element is present. */
+    @BmcProof
+    void arrayqueue_containsAll_is_bulk_membership() {
+        int a = Bmc.anyInt(0, 50);
+        int b = Bmc.anyInt(0, 50);
+        ArrayBlockingQueue<Integer> q = new ArrayBlockingQueue<>(4);
+        q.offer(a);
+        q.offer(b);
+        java.util.ArrayList<Integer> sub = new java.util.ArrayList<>();
+        sub.add(a);
+        Bmc.check(q.containsAll(sub));          // a is present
+        sub.add(b);
+        Bmc.check(q.containsAll(sub));          // both present
+        sub.add(999);
+        Bmc.check(!q.containsAll(sub));         // 999 absent -> false
+        Bmc.check(q.containsAll(new java.util.ArrayList<Integer>())); // empty -> vacuously true
+    }
+
+    /** CopyOnWriteArrayList.containsAll is the same bounded bulk-membership loop. */
+    @BmcProof
+    void cow_containsAll_is_bulk_membership() {
+        int a = Bmc.anyInt(0, 50);
+        int b = Bmc.anyInt(0, 50);
+        CopyOnWriteArrayList<Integer> list = new CopyOnWriteArrayList<>();
+        list.add(a);
+        list.add(b);
+        java.util.ArrayList<Integer> sub = new java.util.ArrayList<>();
+        sub.add(a);
+        sub.add(b);
+        Bmc.check(list.containsAll(sub));       // both present
+        sub.add(777);
+        Bmc.check(!list.containsAll(sub));      // 777 absent -> false
     }
 
     // --- Atomic Number narrowing (byteValue/shortValue) -------------------------------------------
