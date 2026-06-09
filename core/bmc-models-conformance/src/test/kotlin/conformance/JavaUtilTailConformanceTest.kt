@@ -3,6 +3,7 @@ package conformance
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.list
 import io.kotest.property.checkAll
@@ -458,5 +459,240 @@ class CollectionViewsConformanceTest : FunSpec({
         call(bmcref.java.util.LinkedHashMap.newLinkedHashMap<Any?, Any?>(8), "size", arrayOf()).getOrThrow() shouldBe 0
         call(bmcref.java.util.LinkedHashSet.newLinkedHashSet<Any?>(8), "size", arrayOf()).getOrThrow() shouldBe 0
         runCatching { bmcref.java.util.HashMap.newHashMap<Any?, Any?>(-1) }.isFailure shouldBe true
+    }
+})
+
+// --- Objects: the null-safe / bounds-check static utility surface ---------------------------------
+// Each method is invoked on the real java.util.Objects and the relocated model and compared on the
+// observable (returned value or thrown exception type). Comparators/suppliers are real SAMs (the
+// java.util.function.* params are NOT relocated, so they pass straight through).
+
+class ObjectsConformanceTest : FunSpec({
+    val REAL = java.util.Objects::class.java
+    val MODEL = bmcref.java.util.Objects::class.java
+    val STRING: Class<*> = java.lang.String::class.java
+    val LONG: Class<*> = Long::class.javaPrimitiveType!!
+    val COMPARATOR: Class<*> = java.util.Comparator::class.java
+    val SUPPLIER: Class<*> = java.util.function.Supplier::class.java
+    val OBJARR: Class<*> = Array<Any?>::class.java
+
+    test("equals(a,b) is null-safe and matches the JDK") {
+        val vals = listOf<Any?>(null, 1, 2, "x", "x")
+        for (a in vals) for (b in vals) {
+            staticCall(MODEL, "equals", arrayOf(OBJECT, OBJECT), a, b).getOrThrow() shouldBe
+                java.util.Objects.equals(a, b)
+        }
+    }
+
+    test("hashCode(o) / hash(values...) / isNull / nonNull / toString match the JDK") {
+        checkAll(Arb.int(-50..50)) { x ->
+            staticCall(MODEL, "hashCode", arrayOf(OBJECT), x).getOrThrow() shouldBe java.util.Objects.hashCode(x)
+            staticCall(MODEL, "hashCode", arrayOf(OBJECT), null).getOrThrow() shouldBe java.util.Objects.hashCode(null)
+            staticCall(MODEL, "isNull", arrayOf(OBJECT), x).getOrThrow() shouldBe java.util.Objects.isNull(x)
+            staticCall(MODEL, "nonNull", arrayOf(OBJECT), x).getOrThrow() shouldBe java.util.Objects.nonNull(x)
+            staticCall(MODEL, "toString", arrayOf(OBJECT), x).getOrThrow() shouldBe java.util.Objects.toString(x)
+            staticCall(MODEL, "toString", arrayOf(OBJECT), null).getOrThrow() shouldBe java.util.Objects.toString(null)
+            staticCall(MODEL, "toString", arrayOf(OBJECT, STRING), null, "dфлt").getOrThrow() shouldBe
+                java.util.Objects.toString(null, "dфлt")
+            val arr: Array<Any?> = arrayOf(x, x + 1)
+            staticCall(MODEL, "hash", arrayOf(OBJARR), arr).getOrThrow() shouldBe java.util.Objects.hash(x, x + 1)
+        }
+    }
+
+    test("requireNonNull family: returns on non-null, NPEs on null") {
+        // returns the same reference on non-null
+        staticCall(MODEL, "requireNonNull", arrayOf(OBJECT), 7).getOrThrow() shouldBe 7
+        staticCall(MODEL, "requireNonNull", arrayOf(OBJECT, STRING), 7, "m").getOrThrow() shouldBe 7
+        staticCall(MODEL, "requireNonNull", arrayOf(OBJECT, SUPPLIER), 7, java.util.function.Supplier { "m" }).getOrThrow() shouldBe 7
+        // NPE on null (each overload), conforming to the JDK
+        assertSameException(
+            runCatching { java.util.Objects.requireNonNull<Any?>(null) },
+            staticCall(MODEL, "requireNonNull", arrayOf(OBJECT), null))
+        assertSameException(
+            runCatching { java.util.Objects.requireNonNull<Any?>(null, "m") },
+            staticCall(MODEL, "requireNonNull", arrayOf(OBJECT, STRING), null, "m"))
+        assertSameException(
+            runCatching { java.util.Objects.requireNonNull<Any?>(null, java.util.function.Supplier { "m" }) },
+            staticCall(MODEL, "requireNonNull", arrayOf(OBJECT, SUPPLIER), null, java.util.function.Supplier { "m" }))
+    }
+
+    test("requireNonNullElse / requireNonNullElseGet conform (incl. both-null NPE)") {
+        staticCall(MODEL, "requireNonNullElse", arrayOf(OBJECT, OBJECT), null, 9).getOrThrow() shouldBe 9
+        staticCall(MODEL, "requireNonNullElse", arrayOf(OBJECT, OBJECT), 3, 9).getOrThrow() shouldBe 3
+        assertSameException(
+            runCatching { java.util.Objects.requireNonNullElse<Any?>(null, null) },
+            staticCall(MODEL, "requireNonNullElse", arrayOf(OBJECT, OBJECT), null, null))
+        staticCall(MODEL, "requireNonNullElseGet", arrayOf(OBJECT, SUPPLIER), null, java.util.function.Supplier { 5 }).getOrThrow() shouldBe 5
+        staticCall(MODEL, "requireNonNullElseGet", arrayOf(OBJECT, SUPPLIER), 3, java.util.function.Supplier { 5 }).getOrThrow() shouldBe 3
+        assertSameException(
+            runCatching { java.util.Objects.requireNonNullElseGet<Any?>(null, java.util.function.Supplier { null }) },
+            staticCall(MODEL, "requireNonNullElseGet", arrayOf(OBJECT, SUPPLIER), null, java.util.function.Supplier { null }))
+    }
+
+    test("compare(a,b,cmp) via a lambda comparator conforms (incl. a==b shortcut)") {
+        val cmp = Comparator<Int> { a, b -> a - b }
+        checkAll(Arb.int(-9..9), Arb.int(-9..9)) { a, b ->
+            val r = java.util.Objects.compare(a, b, cmp)
+            val m = staticCall(MODEL, "compare", arrayOf(OBJECT, OBJECT, COMPARATOR), a, b, cmp).getOrThrow() as Int
+            // sign-compare (JDK compare contracts on sign, not magnitude)
+            (m < 0) shouldBe (r < 0); (m == 0) shouldBe (r == 0); (m > 0) shouldBe (r > 0)
+        }
+        // a == b (same reference) short-circuits to 0 without calling the comparator on both
+        val same = "z"
+        staticCall(MODEL, "compare", arrayOf(OBJECT, OBJECT, COMPARATOR), same, same,
+            Comparator<String> { _, _ -> 42 }).getOrThrow() shouldBe 0
+    }
+
+    test("checkIndex (int + long) conforms: in-range returns, out-of-range IOOBE") {
+        checkAll(Arb.int(-2..6), Arb.int(0..5)) { i, len ->
+            assertEquivalent("checkIndex($i,$len)",
+                runCatching { java.util.Objects.checkIndex(i, len) },
+                staticCall(MODEL, "checkIndex", arrayOf(INT, INT), i, len))
+            assertEquivalent("checkIndex($i,$len) long",
+                runCatching { java.util.Objects.checkIndex(i.toLong(), len.toLong()) },
+                staticCall(MODEL, "checkIndex", arrayOf(LONG, LONG), i.toLong(), len.toLong()))
+        }
+    }
+
+    test("checkFromToIndex / checkFromIndexSize (int + long) conform") {
+        checkAll(Arb.int(-2..6), Arb.int(-2..6), Arb.int(0..5)) { a, b, len ->
+            assertEquivalent("checkFromToIndex($a,$b,$len)",
+                runCatching { java.util.Objects.checkFromToIndex(a, b, len) },
+                staticCall(MODEL, "checkFromToIndex", arrayOf(INT, INT, INT), a, b, len))
+            assertEquivalent("checkFromToIndex($a,$b,$len) long",
+                runCatching { java.util.Objects.checkFromToIndex(a.toLong(), b.toLong(), len.toLong()) },
+                staticCall(MODEL, "checkFromToIndex", arrayOf(LONG, LONG, LONG), a.toLong(), b.toLong(), len.toLong()))
+            assertEquivalent("checkFromIndexSize($a,$b,$len)",
+                runCatching { java.util.Objects.checkFromIndexSize(a, b, len) },
+                staticCall(MODEL, "checkFromIndexSize", arrayOf(INT, INT, INT), a, b, len))
+            assertEquivalent("checkFromIndexSize($a,$b,$len) long",
+                runCatching { java.util.Objects.checkFromIndexSize(a.toLong(), b.toLong(), len.toLong()) },
+                staticCall(MODEL, "checkFromIndexSize", arrayOf(LONG, LONG, LONG), a.toLong(), b.toLong(), len.toLong()))
+        }
+    }
+})
+
+// --- EnumMap / EnumSet: enum-keyed map / enum-element set over a real test enum -------------------
+// Both sides take a real java.lang.Enum constant (java.lang.* is not relocated), so the same enum
+// constants drive the JDK class and the relocated model; value ops + ordinal-ordered iteration are
+// compared. EnumSet's universe factories (allOf/noneOf/range/complementOf) are loud (not exercised).
+
+enum class Color { RED, GREEN, BLUE, YELLOW }
+
+class EnumMapConformanceTest : FunSpec({
+    val colors = Color.entries
+
+    fun keyList(l: Any): List<Any?> {
+        val ks = call(l, "keySet", arrayOf()).getOrThrow()!!
+        val it = call(ks, "iterator", arrayOf()).getOrThrow()!!
+        val out = ArrayList<Any?>()
+        while (call(it, "hasNext", arrayOf()).getOrThrow() as Boolean) out.add(call(it, "next", arrayOf()).getOrThrow())
+        return out
+    }
+
+    // An op is encoded as (opcode, keyOrdinal, value): opcode 0 = put, 1 = remove. keyOrdinal in
+    // 0..3 selects a Color; value in -9..9. (Avoids Arb.element/3-arg bind to keep type inference clean.)
+    test("EnumMap put/get/overwrite/remove/size/containsKey conform; iteration is ordinal-ordered") {
+        val opArb = Arb.bind(Arb.int(0..1), Arb.int(0..3), Arb.int(-9..9)) { o, ki, v -> Triple(o, ki, v) }
+        checkAll(Arb.list(opArb, 0..30)) { ops ->
+            val r = java.util.EnumMap<Color, Int>(Color::class.java)
+            val m = bmcref.java.util.EnumMap<Color, Int>(Color::class.java)
+            for ((o, ki, v) in ops) {
+                val k = colors[ki]
+                if (o == 0) {
+                    assertEquivalent("put($k,$v)",
+                        runCatching { r.put(k, v) }, call(m, "put", arrayOf(java.lang.Enum::class.java, OBJECT), k, v))
+                } else {
+                    assertEquivalent("remove($k)",
+                        runCatching { r.remove(k) }, call(m, "remove", arrayOf(OBJECT), k))
+                }
+            }
+            assertEquivalent("size", runCatching { r.size }, call(m, "size", arrayOf()))
+            for (k in colors) {
+                assertEquivalent("get($k)", runCatching { r.get(k) }, call(m, "get", arrayOf(OBJECT), k))
+                assertEquivalent("containsKey($k)", runCatching { r.containsKey(k) }, call(m, "containsKey", arrayOf(OBJECT), k))
+            }
+            // keySet iterates in ordinal order, like the JDK EnumMap
+            keyList(m) shouldBe r.keys.toList()
+        }
+    }
+
+    test("EnumMap(Class) is empty; put(null) throws NPE like the JDK") {
+        call(bmcref.java.util.EnumMap<Color, Int>(Color::class.java), "size", arrayOf()).getOrThrow() shouldBe 0
+        val r = java.util.EnumMap<Color, Int>(Color::class.java)
+        val m = bmcref.java.util.EnumMap<Color, Int>(Color::class.java)
+        assertSameException(
+            runCatching { r.put(null, 1) },
+            call(m, "put", arrayOf(java.lang.Enum::class.java, OBJECT), null, 1))
+    }
+
+    test("EnumMap copy constructor preserves mappings") {
+        checkAll(Arb.list(Arb.bind(Arb.int(0..3), Arb.int(-9..9)) { ki, v -> ki to v }, 0..12)) { pairs ->
+            val rSrc = java.util.EnumMap<Color, Int>(Color::class.java)
+            val mSrc = bmcref.java.util.EnumMap<Color, Int>(Color::class.java)
+            for ((ki, v) in pairs) { val k = colors[ki]; rSrc.put(k, v); call(mSrc, "put", arrayOf(java.lang.Enum::class.java, OBJECT), k, v) }
+            val r = java.util.EnumMap<Color, Int>(rSrc)
+            val m = bmcref.java.util.EnumMap<Color, Int>(mSrc as bmcref.java.util.EnumMap<Color, Int>)
+            assertEquivalent("size", runCatching { r.size }, call(m, "size", arrayOf()))
+            for (k in colors) assertEquivalent("get($k)", runCatching { r.get(k) }, call(m, "get", arrayOf(OBJECT), k))
+        }
+    }
+})
+
+class EnumSetConformanceTest : FunSpec({
+    val colors = Color.entries
+
+    fun setMembers(s: Any): Set<Any?> {
+        val out = LinkedHashSet<Any?>()
+        for (c in colors) if (call(s, "contains", arrayOf(OBJECT), c).getOrThrow() as Boolean) out.add(c)
+        return out
+    }
+
+    test("EnumSet.of (1..5 + varargs) dedups and contains the given elements") {
+        // of(e)
+        setMembers(bmcref.java.util.EnumSet.of(Color.RED)) shouldBe setOf(Color.RED)
+        // of(e1,e2) with a duplicate dedups
+        setMembers(bmcref.java.util.EnumSet.of(Color.RED, Color.RED)) shouldBe setOf(Color.RED)
+        setMembers(bmcref.java.util.EnumSet.of(Color.RED, Color.BLUE)) shouldBe setOf(Color.RED, Color.BLUE)
+        setMembers(bmcref.java.util.EnumSet.of(Color.RED, Color.GREEN, Color.BLUE)) shouldBe
+            setOf(Color.RED, Color.GREEN, Color.BLUE)
+        // of(E, E...) varargs
+        val s = bmcref.java.util.EnumSet.of(Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.RED)
+        setMembers(s) shouldBe setOf(Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW)
+        call(s, "size", arrayOf()).getOrThrow() shouldBe 4
+    }
+
+    // An op is (opcode, elemOrdinal): opcode 0 = add, 1 = remove; elemOrdinal in 0..3 selects a Color.
+    test("EnumSet add/remove/contains/size conform vs a real noneOf-seeded JDK EnumSet") {
+        checkAll(Arb.list(Arb.bind(Arb.int(0..1), Arb.int(0..3)) { o, ei -> o to ei }, 0..30)) { ops ->
+            val r = java.util.EnumSet.noneOf(Color::class.java)
+            // model: start from an empty set built via copyOf(emptyList)
+            val m = bmcref.java.util.EnumSet.copyOf<Color>(bmcref.java.util.ArrayList())
+            for ((o, ei) in ops) {
+                val e = colors[ei]
+                if (o == 0) {
+                    assertEquivalent("add($e)", runCatching { r.add(e) }, call(m, "add", arrayOf(OBJECT), e))
+                } else {
+                    assertEquivalent("remove($e)", runCatching { r.remove(e) }, call(m, "remove", arrayOf(OBJECT), e))
+                }
+            }
+            assertEquivalent("size", runCatching { r.size }, call(m, "size", arrayOf()))
+            setMembers(m) shouldBe r.toSet()
+        }
+    }
+
+    test("EnumSet.copyOf(Collection) holds the distinct elements") {
+        val src = bmcref.java.util.ArrayList<Color>()
+        listOf(Color.RED, Color.BLUE, Color.RED).forEach { src.add(it) }
+        val m = bmcref.java.util.EnumSet.copyOf(src)
+        setMembers(m) shouldBe setOf(Color.RED, Color.BLUE)
+        call(m, "size", arrayOf()).getOrThrow() shouldBe 2
+    }
+
+    test("EnumSet universe factories are loud (allOf/noneOf/range/complementOf)") {
+        // The model keeps these @BmcUnmodelable — invoking on the JVM trips the loud sentinel.
+        runCatching { bmcref.java.util.EnumSet.allOf(Color::class.java) }.isFailure shouldBe true
+        runCatching { bmcref.java.util.EnumSet.noneOf(Color::class.java) }.isFailure shouldBe true
+        runCatching { bmcref.java.util.EnumSet.range(Color.RED, Color.BLUE) }.isFailure shouldBe true
     }
 })
