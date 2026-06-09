@@ -7,9 +7,12 @@ import org.bmc4j.BmcProof;
 import org.bmc4j.Verdict;
 
 /**
- * {@code @NotBlank} lowers to {@code (x != null && !x.trim().isEmpty())} — the trim route, now that
- * StringLaws pins trim() sound on the modeled string layer. Unlike the numeric constraints,
- * {@code @NotBlank} REJECTS null (the deliberate jakarta asymmetry).
+ * {@code @NotBlank} lowers to a non-null check AND a bounded {@code charAt} blankness scan ("some
+ * index in [0, maxStringLength) holds a char {@code > ' '}") — the {@code length()}/{@code charAt}
+ * route, which uses only JBMC-natively-sound string primitives and never the native
+ * {@code String.trim()} model (which mis-binds on the older Kotlin matrix legs, false-refuting this
+ * proof). Unlike the numeric constraints, {@code @NotBlank} REJECTS null (the deliberate jakarta
+ * asymmetry).
  */
 class NotBlankProofTests {
 

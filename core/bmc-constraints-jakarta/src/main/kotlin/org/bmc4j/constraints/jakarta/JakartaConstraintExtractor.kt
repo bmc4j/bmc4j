@@ -350,13 +350,20 @@ class JakartaConstraintExtractor @JvmOverloads constructor(
     private companion object {
 
         /**
-         * `@NotBlank` route. The strings conformance suite (StringLaws) now pins `trim()` SOUND on the
-         * modeled string layer — concrete + symbolic, both directions (`trim().isEmpty()` agrees with a
-         * `charAt` blankness scan over every bounded string). So `@NotBlank` lowers to the cheap
-         * `(x != null && !x.trim().isEmpty())` form. The charAt-loop ([Constraints.notBlankCharAtLoop])
-         * stays available and is itself conformance-pinned as the fallback had trim turned out unsound.
+         * `@NotBlank` route. The lowering is generated as Java, so `x.trim().isEmpty()` binds to the
+         * NATIVE `java.lang.String.trim()`/`isEmpty()` — JBMC's built-in CProver string library, which
+         * StringBytecode does not redirect. That native `trim()` is the fragile op: on the older Kotlin
+         * matrix legs (the kotlin-2.3.21 codegen) JBMC mis-models it so that `"".trim().isEmpty()` can
+         * read back FALSE, admitting a length-0 "valid" name and FALSE-REFUTING `valid_name_is_non_empty`
+         * (the same older-leg model-fragility family as the #237 devirt fixes — sound logic, leg-specific
+         * unsound modeling). The charAt-loop ([Constraints.notBlankCharAtLoop]) is built only from the
+         * natively-sound `length()`/`charAt` primitives and is itself conformance-pinned, so we route
+         * `@NotBlank` through it: a bounded existential over `[0, MAX_STRING_LENGTH)`. The bound matches
+         * `maxStringLength`'s nondet-string cap ([BmcProofExtension] DEFAULT_MAX_STRING = 16), so the OR
+         * is COMPLETE over every modeled string — no valid name is excluded (sound), and the trim model
+         * is never touched.
          */
-        const val USE_TRIM = true
+        const val USE_TRIM = false
         const val MAX_STRING_LENGTH = 16
 
         /** Default container-element loop cap when no `@Size(max)` pairs the field (mirrors the string cap). */
