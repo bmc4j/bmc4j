@@ -437,9 +437,7 @@ public final class SequencesKt {
         ArrayList<R> out = new ArrayList<>();
         for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             Iterable<? extends R> inner = transform.invoke(it.next());
-            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
-                out.add(in.next());
-            }
+            drainIterable(inner, out);
         }
         return new ListSequence<>(out);
     }
@@ -459,9 +457,7 @@ public final class SequencesKt {
     public static <T> Sequence<T> flattenSequenceOfIterable(Sequence<? extends Iterable<? extends T>> source) {
         ArrayList<T> out = new ArrayList<>();
         for (Iterator<? extends Iterable<? extends T>> it = seqIter(source); it.hasNext(); ) {
-            for (Iterator<? extends T> in = it.next().iterator(); in.hasNext(); ) {
-                out.add(in.next());
-            }
+            drainIterable(it.next(), out);
         }
         return new ListSequence<>(out);
     }
@@ -1427,9 +1423,7 @@ public final class SequencesKt {
         for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             out.add(it.next());
         }
-        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
-            out.add(it.next());
-        }
+        drainIterable(elements, out);
         return new ListSequence<>(out);
     }
 
@@ -1472,9 +1466,7 @@ public final class SequencesKt {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T> Sequence<T> minus(Sequence<T> source, Iterable<T> elements) {
         ArrayList<T> removeFrom = new ArrayList<>();
-        for (Iterator<T> it = elements.iterator(); it.hasNext(); ) {
-            removeFrom.add(it.next());
-        }
+        drainIterable(elements, removeFrom);
         return minusAll(source, removeFrom);
     }
 
@@ -1617,6 +1609,38 @@ public final class SequencesKt {
         return SequencesKt.<T>backing(source).iterator();
     }
 
+    /**
+     * Append every element of an inner {@link Iterable} (in order) to {@code out}. The flatteners
+     * ({@code flatten}/{@code flatMapIterable}/{@code flattenSequenceOfIterable}) drain an inner
+     * {@code Iterable<? extends T>} whose static type is the interface — so a raw {@code inner.iterator()}
+     * is a multi-implementor interface dispatch JBMC must devirtualize on the interface-typed value.
+     * That devirtualization is fragile on some codegen legs (the jdk25 {@code flatten} false REFUTED:
+     * the inner {@code Iterable.iterator()} went nondet, cascading to a phantom "Dynamic cast check" /
+     * null-pointer / array-index counterexample at the inner index). Same {@code #169} family as
+     * {@link #backing}/{@link #seqIter}.
+     *
+     * <p>Every model {@code Iterable} the flatteners see — {@code listOf(...)}, {@code mutableListOf}, a
+     * collection literal, the {@link ArrayList} model itself — is backed by the concrete {@link ArrayList}
+     * model. When {@code inner} is one, read it BY INDEX via the concrete-typed {@code get(i)}, which JBMC
+     * resolves where the interface dispatch is not. The {@code instanceof} prunes only the never-taken
+     * non-{@code ArrayList} branch for those; any genuinely other {@code Iterable} falls back to its own
+     * {@code iterator()} (sound — that path is unchanged, just not the one the proofs exercise).
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> void drainIterable(Iterable<? extends T> inner, ArrayList<T> out) {
+        if (inner instanceof ArrayList) {
+            ArrayList<? extends T> a = (ArrayList<? extends T>) inner;
+            int n = a.size();
+            for (int i = 0; i < n; i++) {
+                out.add(a.get(i));
+            }
+            return;
+        }
+        for (Iterator<? extends T> in = inner.iterator(); in.hasNext(); ) {
+            out.add(in.next());
+        }
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static <T> int compare(T x, T y, Comparator<? super T> cmp) {
         if (cmp != null) {
@@ -1747,7 +1771,6 @@ public final class SequencesKt {
     // a Kotlin call site → stays loud in the tail). We concatenate each element's expansion in order,
     // indexing from 0. The transform is the desugared user lambda (Function2), genuinely applied.
 
-    @SuppressWarnings("unchecked")
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static <T, R> Sequence<R> flatMapIndexedIterable(
             Sequence<T> source, Function2<? super Integer, ? super T, ? extends Iterable<? extends R>> transform) {
@@ -1755,9 +1778,7 @@ public final class SequencesKt {
         int index = 0;
         for (Iterator<T> it = seqIter(source); it.hasNext(); ) {
             Iterable<? extends R> inner = transform.invoke(index, it.next());
-            for (Iterator<? extends R> in = inner.iterator(); in.hasNext(); ) {
-                out.add(in.next());
-            }
+            drainIterable(inner, out);
             index++;
         }
         return new ListSequence<>(out);
