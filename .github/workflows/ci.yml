@@ -758,17 +758,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Assert no gating job failed or was cancelled
+      # The step's own `if` is the gate: it runs (and fails the job) only when a gating
+      # job's result is failure/cancelled; otherwise it is skipped and ci-green is green.
+      # (GitHub Actions expression string literals must be single-quoted.)
+      - name: Block merge if any gating job failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
-          results='${{ join(needs.*.result, ",") }}'
-          echo "gating job results: $results"
-          case ",$results," in
-            *,failure,*|*,cancelled,*)
-              echo "::error::A gating job failed or was cancelled — merge blocked."
-              exit 1 ;;
-            *)
-              echo "All gating jobs passed or were skipped." ;;
-          esac
+          echo "::error::A gating job failed or was cancelled — merge blocked."
+          exit 1
 
   # ── Snapshot publish + consumer test (push-to-main only) ──────────────────────
   #
