@@ -1312,15 +1312,9 @@ Real surface: 253 members — modeled 109, unmodelable 99, not-needed 0, tail 45
 
 ## `kotlin.collections.IndexedValue`
 
-Real surface: 5 members — modeled 4, unmodelable 0, not-needed 0, tail 1.
+Real surface: 5 members — modeled 5, unmodelable 0, not-needed 0, tail 0.
 
-**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `getIndex()`, `getValue()`
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1 members, all loud): IndexedValue data-class auto-generated surface (copy/toString/equals/hashCode) not exercised by the bounded proofs; loud under JBMC if reached</summary>
-
-- `copy(int, Object)`
-
-</details>
+**Modeled** (`@BmcModelConforms`): `component1()`, `component2()`, `copy(int, Object)`, `getIndex()`, `getValue()`
 
 
 ## `kotlin.collections.MapsKt`

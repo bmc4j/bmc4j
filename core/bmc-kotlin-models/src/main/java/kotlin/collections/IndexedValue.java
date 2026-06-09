@@ -1,17 +1,15 @@
 package kotlin.collections;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * Clean model of Kotlin's {@code kotlin.collections.IndexedValue} (the element/index pair produced by
- * {@code withIndex()} / {@code *Indexed} ops), enough for {@code index}/{@code value} access and
- * destructuring ({@code component1}/{@code component2}). The real class is a {@code data class}; the
- * auto-generated remainder (copy/toString/equals/hashCode) is not exercised by the bounded proofs and
- * is left in the loud tail.
+ * {@code withIndex()} / {@code *Indexed} ops): {@code index}/{@code value} access, destructuring
+ * ({@code component1}/{@code component2}), and the data-class {@code copy(index, value)} (a fresh pair
+ * with the chosen fields). The real class is a {@code data class}; its auto-generated
+ * {@code equals}/{@code hashCode}/{@code toString} are pure {@link Object} overrides that JBMC analyzes
+ * directly (no model needed), so they are not part of this model's own auditable surface.
  */
-@BmcModelTail(reason = "IndexedValue data-class auto-generated surface (copy/toString/equals/hashCode) "
-        + "not exercised by the bounded proofs; loud under JBMC if reached")
 public final class IndexedValue<T> {
 
     private final int index;
@@ -40,5 +38,14 @@ public final class IndexedValue<T> {
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public T component2() {
         return value;
+    }
+
+    /**
+     * Data-class {@code copy}: a fresh {@code IndexedValue} with the chosen {@code index} and
+     * {@code value}. A pure constructor call — no shared state with the receiver.
+     */
+    @BmcModelConforms("@BmcProof (model-conformance-proofs)")
+    public IndexedValue<T> copy(int index, T value) {
+        return new IndexedValue<>(index, value);
     }
 }
