@@ -384,12 +384,6 @@ Real surface: 24 members — modeled 23, unmodelable 1, not-needed 0, tail 0.
 |---|---|
 | `clone()` | shallow copy of a bounded model — construct a fresh map from the entries instead |
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): clone() (shallow copy of a bounded model — build a fresh EnumMap from the entries instead) is the only EnumMap-specific member not modeled/declared; all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
-
 
 ## `java.util.EnumSet`
 
@@ -407,12 +401,6 @@ Real surface: 32 members — modeled 24, unmodelable 8, not-needed 0, tail 0.
 | `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model instead |
 | `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
-
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 0 members, all loud): the Class-universe factories (allOf/noneOf/range/complementOf) are per-member loud @BmcUnmodelable stubs below; clone()/toArray(T[])/toArray(IntFunction)/spliterator()/stream()/parallelStream() are inherited HashSet loud stubs or fall here — all loud under JBMC</summary>
-
-_(none — the real surface is fully modeled/declared)_
-
-</details>
 
 
 ## `java.util.HashMap`

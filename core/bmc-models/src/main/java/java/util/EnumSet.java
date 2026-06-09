@@ -3,7 +3,6 @@ package java.util;
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 /**
@@ -33,8 +32,14 @@ import org.bmc4j.models.audit.BmcUnmodelable;
  * symbolic enum {@code Class} at analysis time, so the universe factories cannot be modeled. The
  * per-instance {@code ordinal()} read IS sound — that is what the EnumMap model uses — but that does
  * not recover the full constant set from a {@code Class} token.)
+ *
+ * <p>Every real EnumSet member is classified per-member: the explicit-element factories carry
+ * {@code @BmcModelConforms}, the Class-universe factories below are loud {@code @BmcUnmodelable}
+ * stubs, and the remaining surface ({@code clone()}, {@code toArray(T[])},
+ * {@code toArray(IntFunction)}, {@code spliterator()}, plus the modeled
+ * {@code stream()}/{@code parallelStream()}/{@code forEach}/etc.) resolves up the modeled
+ * {@link HashSet} chain to HashSet's per-member decisions. There is no class-level catch-all.
  */
-@BmcModelTail(reason = "the Class-universe factories (allOf/noneOf/range/complementOf) are per-member loud @BmcUnmodelable stubs below; clone()/toArray(T[])/toArray(IntFunction)/spliterator()/stream()/parallelStream() are inherited HashSet loud stubs or fall here — all loud under JBMC")
 public abstract class EnumSet<E extends Enum<E>> extends HashSet<E> {
 
     EnumSet() {

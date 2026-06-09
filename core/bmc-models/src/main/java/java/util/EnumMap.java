@@ -3,7 +3,6 @@ package java.util;
 import java.util.function.BiConsumer;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 
 /**
  * BMC model of {@link java.util.EnumMap} — an enum-keyed map, modeled over the same fixed-capacity
@@ -26,8 +25,11 @@ import org.bmc4j.models.audit.BmcModelTail;
  * <p>The {@code EnumMap(Class)} key-type constructor stores nothing observable in this fixed-capacity
  * model (the key type is only a sizing/validation hint); it is exactly a fresh empty map. The
  * {@code EnumMap(EnumMap)} and {@code EnumMap(Map)} copy constructors insert the source mappings.
+ *
+ * <p>Every real EnumMap member is classified per-member: the EnumMap-specific overrides below carry
+ * {@code @BmcModelConforms}, and the remaining surface (including {@code clone()}) resolves up the
+ * modeled {@link HashMap} chain to HashMap's per-member decisions. There is no class-level catch-all.
  */
-@BmcModelTail(reason = "clone() (shallow copy of a bounded model — build a fresh EnumMap from the entries instead) is the only EnumMap-specific member not modeled/declared; all loud under JBMC")
 public class EnumMap<K extends Enum<K>, V> extends HashMap<K, V> {
 
     /**
