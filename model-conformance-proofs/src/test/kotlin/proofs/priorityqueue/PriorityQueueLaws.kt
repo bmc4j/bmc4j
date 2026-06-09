@@ -79,7 +79,14 @@ class PriorityQueueLaws {
     // String to String.compareTo, which here is a single-char comparison — proving the natural-order
     // path works for String (not just the numeric builtins). Uses peek (one bounded scan, no removal
     // shift over the String array) to stay decidable.
-    @BmcProof(maxStringLength = 1, timeoutSeconds = 300)
+    //
+    // unwind = 4 (down from the build default of 16) is load-bearing on the JDK-17 floor leg: with
+    // maxStringLength = 1 the String.compareTo char loop and the 2-element heap arrays need only a
+    // few iterations, but at the default bound the symbolic-String circuit grew large enough that
+    // jbmc exhausted memory and was killed before emitting any output (empty stdout -> PARSE_FAILURE)
+    // on 17 specifically (21/25 absorbed it). A bound of 4 fully covers the loops here, so the proof
+    // verifies the same law over the same two symbolic strings while fitting the engine's memory.
+    @BmcProof(maxStringLength = 1, unwind = 4, timeoutSeconds = 300)
     fun natural_string_head_is_the_lexicographic_minimum() {
         val q = PriorityQueue<String>()
         val a = Bmc.anyString(1, "ab")
