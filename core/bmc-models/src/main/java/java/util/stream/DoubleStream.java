@@ -2,11 +2,14 @@ package java.util.stream;
 
 import java.util.DoubleSummaryStatistics;
 import java.util.OptionalDouble;
+import java.util.PrimitiveIterator;
+import java.util.Spliterator;
 import java.util.function.BiConsumer;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
 import java.util.function.DoublePredicate;
+import java.util.function.DoubleSupplier;
 import java.util.function.DoubleToIntFunction;
 import java.util.function.DoubleToLongFunction;
 import java.util.function.DoubleUnaryOperator;
@@ -14,7 +17,6 @@ import java.util.function.ObjDoubleConsumer;
 import java.util.function.Supplier;
 
 import org.bmc4j.models.audit.BmcModelConforms;
-import org.bmc4j.models.audit.BmcModelTail;
 import org.bmc4j.models.audit.BmcUnmodelable;
 
 import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
@@ -32,8 +34,13 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
  * through {@code doubleToLongBits} — one of the only two unsound double ops under JBMC (the other is
  * dtoa / double-to-string). A primitive {@code <} model would silently diverge from the JDK contract on
  * NaN and signed zero, so those three are loud {@link BmcUnmodelable} rather than a quiet fiction.
+ *
+ * <p>The remaining surface — the infinite {@code generate}/2-arg {@code iterate}, {@code mapMulti}, the
+ * lazy {@code builder}/{@code iterator}/{@code spliterator}, and the {@code BaseStream} lifecycle no-ops
+ * — is enumerated per-member as method-level loud {@link BmcUnmodelable} stubs (loud-if-reached), exactly
+ * as the FP-total-order trio {@link #min()}/{@link #max()}/{@link #sorted()} below. There is no
+ * {@code @BmcModelTail} remainder.
  */
-@BmcModelTail(reason = "the remaining DoubleStream surface (the infinite generate(supplier)/iterate(seed,next); mapMulti (nested DoubleMapMultiConsumer SAM); builder/iterator/spliterator; sequential/parallel lifecycle no-ops) is out of scope for this minimal eager model; loud under JBMC via the concrete impl")
 public interface DoubleStream {
 
     @BmcModelConforms("@BmcProof (proofs.stream DoubleStreamLaws)")
@@ -140,6 +147,83 @@ public interface DoubleStream {
     @BmcUnmodelable(reason = "DoubleStream.sorted is Double.compare TOTAL order (NaN greatest, -0.0<+0.0) via doubleToLongBits — the FP total-order wall, unsound under JBMC; a primitive-< sort would diverge from the JDK on NaN/signed zero")
     default DoubleStream sorted() {
         throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.sorted() — Double.compare total order (NaN/-0.0) via doubleToLongBits is unsound under JBMC");
+    }
+
+    // --- TAIL: infinite producers, lazy/virtual surfaces, BaseStream lifecycle no-ops -----------------
+    // Each is a normal method whose loud-if-reached decision lives ON its stub body (mirrors min/max/
+    // sorted above and the IntStream/LongStream tails). The infinite generate/2-arg iterate never
+    // terminate; the primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch
+    // is out of scope; builder()/iterator()/spliterator() are lazy/virtual; the BaseStream lifecycle
+    // members carry no model on this sequential eager interface. Each throws the recognized sentinel.
+
+    @BmcUnmodelable(reason = "infinite producer — never terminates; a bounded eager model would diverge from the JDK observable")
+    static DoubleStream generate(DoubleSupplier s) {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.generate(java.util.function.DoubleSupplier) — infinite producer — never terminates; a bounded eager model would diverge from the JDK observable");
+    }
+
+    @BmcUnmodelable(reason = "the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled")
+    static DoubleStream iterate(double seed, DoubleUnaryOperator next) {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.iterate(double,java.util.function.DoubleUnaryOperator) — the 2-arg infinite iterate(seed, next) — never terminates; use the bounded 3-arg iterate(seed, hasNext, next), which IS modeled");
+    }
+
+    @BmcUnmodelable(reason = "primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model")
+    default DoubleStream mapMulti(DoubleMapMultiConsumer mapper) {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.mapMulti(java.util.stream.DoubleStream$DoubleMapMultiConsumer) — primitive mapMulti drives a nested DoubleMapMultiConsumer SAM whose virtual dispatch is out of scope for the eager array model");
+    }
+
+    @BmcUnmodelable(reason = "lazy DoubleStream.Builder accumulation is out of scope for the eager array-backed model")
+    static DoubleStream builder() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.builder() — lazy DoubleStream.Builder accumulation is out of scope for the eager array-backed model");
+    }
+
+    @BmcUnmodelable(reason = "virtual PrimitiveIterator.OfDouble dispatch is out of scope for the eager array model")
+    default PrimitiveIterator.OfDouble iterator() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.iterator() — virtual PrimitiveIterator.OfDouble dispatch is out of scope for the eager array model");
+    }
+
+    @BmcUnmodelable(reason = "Spliterator.OfDouble (parallel-decomposition) dispatch is out of scope for the sequential eager model")
+    default Spliterator.OfDouble spliterator() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.spliterator() — Spliterator.OfDouble (parallel-decomposition) dispatch is out of scope for the sequential eager model");
+    }
+
+    @BmcUnmodelable(reason = "BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached")
+    default boolean isParallel() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.isParallel() — BaseStream lifecycle: parallelism flag — no model on the sequential eager interface; loud if reached");
+    }
+
+    @BmcUnmodelable(reason = "true-parallel execution is out of scope for the sequential eager model")
+    default DoubleStream parallel() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.parallel() — true-parallel execution is out of scope for the sequential eager model");
+    }
+
+    @BmcUnmodelable(reason = "BaseStream lifecycle no-op — no model on the eager interface; loud if reached")
+    default DoubleStream sequential() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.sequential() — BaseStream lifecycle no-op — no model on the eager interface; loud if reached");
+    }
+
+    @BmcUnmodelable(reason = "BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached")
+    default DoubleStream unordered() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.unordered() — BaseStream lifecycle no-op (ordering hint) — no model on the eager interface; loud if reached");
+    }
+
+    @BmcUnmodelable(reason = "BaseStream close-handler registration — no model on the eager interface; loud if reached")
+    default DoubleStream onClose(Runnable closeHandler) {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.onClose(java.lang.Runnable) — BaseStream close-handler registration — no model on the eager interface; loud if reached");
+    }
+
+    @BmcUnmodelable(reason = "BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached")
+    default void close() {
+        throw fail("bmc4j: unmodelled member java.util.stream.DoubleStream.close() — BaseStream/AutoCloseable lifecycle no-op — no model on the eager interface; loud if reached");
+    }
+
+    /**
+     * Declared so {@link #mapMulti(DoubleMapMultiConsumer)} can name its parameter as a method-level stub
+     * (the model shadows {@code java.util.stream.DoubleStream}, so the real nested SAM isn't otherwise
+     * referenceable). It carries no model — {@code mapMulti} is loud-if-reached.
+     */
+    @FunctionalInterface
+    interface DoubleMapMultiConsumer {
+        void accept(double value, DoubleConsumer dc);
     }
 
     @BmcModelConforms("@BmcProof (proofs.stream DoubleStreamLaws)")
