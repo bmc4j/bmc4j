@@ -138,6 +138,8 @@ val WAIVED: Map<String, String> = mapOf(
     "kotlin.coroutines.jvm.internal.Boxing" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.jvm.internal.ContinuationImpl" to "coroutine runtime model — coroutines example",
     "kotlin.coroutines.jvm.internal.SuspendLambda" to "coroutine runtime model — coroutines example",
+    "kotlin.coroutines.jvm.internal.DebugMetadata" to "coroutine runtime plumbing — type-only stand-in (synthetic invokeSuspend annotation, no behavior); bundled so the continuation resolves single-source; coroutines example",
+    "kotlin.coroutines.jvm.internal.SpillingKt" to "coroutine runtime model (nullOutSpilledVariable = identity, debug-off) — bundled so the continuation resolves single-source; coroutines example",
     "kotlinx.coroutines.BuildersKt" to "coroutine runtime model (immediate-drive) — coroutines example",
     "kotlinx.coroutines.CompletedDeferred" to "coroutine runtime model — coroutines example",
     "kotlinx.coroutines.CompletedJob" to "coroutine runtime model — coroutines example",

@@ -5,6 +5,7 @@ import static org.bmc4j.analysis.BmcUnmodelledReached.fail;
 import org.bmc4j.models.audit.BmcModelConforms;
 import org.bmc4j.models.audit.BmcNotNeeded;
 import org.bmc4j.models.audit.BmcUnmodelable;
+import org.cprover.CProver;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -1517,12 +1518,25 @@ public final class StringsKt {
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static Iterable<Character> asIterable(CharSequence cs) {
-        return toMutableList(cs);
+        // Materialize the CONCRETE ArrayList and return it through that local (not the List-typed
+        // toMutableList result) so the Iterable-typed slot carries a checkcast-pinned ArrayList: any
+        // downstream drain (e.g. CollectionsKt.count) binds to ArrayList.iterator()/size(), never a
+        // kotlinc-version-fragile virtual Iterable.iterator() dispatch (the #169/#173 devirt family).
+        ArrayList<Character> out = new ArrayList<>(toMutableList(cs));
+        return out;
     }
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
     public static kotlin.sequences.Sequence<Character> asSequence(CharSequence cs) {
-        return new kotlin.sequences.ListSequence<>((ArrayList<Character>) toMutableList(cs));
+        // ListSequence is the SOLE final Sequence implementor; pin it here so the Sequence-typed result
+        // gives JBMC a single concrete iterator() target on every kotlinc codegen leg. Without this the
+        // interface dispatch JBMC must devirtualize ("no body for callee kotlin.sequences.Sequence.
+        // iterator()") is the recurring older-Kotlin false REFUTED (#169/#173) — the assume makes the
+        // checkcast to the concrete implementor explicit at the model boundary, matching SequencesKt.backing.
+        kotlin.sequences.ListSequence<Character> seq =
+                new kotlin.sequences.ListSequence<>((ArrayList<Character>) toMutableList(cs));
+        CProver.assume(seq instanceof kotlin.sequences.ListSequence);
+        return seq;
     }
 
     @BmcModelConforms("@BmcProof (model-conformance-proofs)")
