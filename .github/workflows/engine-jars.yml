@@ -215,7 +215,7 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
           mod="bmc-engine-${{ matrix.platform }}"
           if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
@@ -223,7 +223,16 @@ jobs:
             echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
             exit 0
           fi
-          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon
+          # The curl pre-check can race / lag GHP's index, so a jar it judged absent can still 409.
+          # A 409 means the version is already published (the desired end state), so treat just that
+          # as success and keep the publish idempotent; any other failure still fails the job.
+          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon 2>&1 | tee publish-ghp.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -qiE "status code 409|409 *conflict|conflict.*409|already exists" publish-ghp.log \
+              && { echo "::notice::$mod $BMC4J_VERSION already on GitHub Packages (409) - idempotent"; exit 0; }
+            exit "$status"
+          fi
 
       # Maven Central staging: publish this platform's engine jar (signed - Central
       # requires .asc on every file) into a local directory repo and hand it to the
@@ -346,7 +355,7 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -eu
+          set -uo pipefail
           [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
           mod="bmc-engine-linux-x64-musl"
           if curl -sf -o /dev/null -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
@@ -354,7 +363,16 @@ jobs:
             echo "$mod $BMC4J_VERSION already on GitHub Packages - skipping"
             exit 0
           fi
-          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon
+          # The curl pre-check can race / lag GHP's index, so a jar it judged absent can still 409.
+          # A 409 means the version is already published (the desired end state), so treat just that
+          # as success and keep the publish idempotent; any other failure still fails the job.
+          ./gradlew -p core ":$mod:publishMavenPublicationToGitHubPackagesRepository" --no-daemon 2>&1 | tee publish-ghp.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -qiE "status code 409|409 *conflict|conflict.*409|already exists" publish-ghp.log \
+              && { echo "::notice::$mod $BMC4J_VERSION already on GitHub Packages (409) - idempotent"; exit 0; }
+            exit "$status"
+          fi
 
       - name: Publish to Central staging artifact
         if: ${{ inputs.centralStaging }}

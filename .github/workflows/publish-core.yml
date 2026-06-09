@@ -129,9 +129,23 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           [ -n "${BMC4J_VERSION:-}" ] || { echo "::error::no version provided - refusing to publish the 0.0.1-local dev default; pass the version input"; exit 1; }
-          ./gradlew -p core --no-daemon ":${{ matrix.module }}:publishAllPublicationsToGitHubPackagesRepository"
+          # The plan job pre-skips modules already on GHP, but that check can race / lag GHP's
+          # index, so a module it judged absent can still 409 here. GitHub Packages rejects
+          # overwriting an existing release version with 409 Conflict - which means the artifact is
+          # already published, i.e. the desired end state. Treat that one failure as success so the
+          # publish is idempotent (any OTHER failure still fails the job).
+          ./gradlew -p core --no-daemon ":${{ matrix.module }}:publishAllPublicationsToGitHubPackagesRepository" 2>&1 | tee publish-ghp.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            if grep -qiE "status code 409|409 *conflict|conflict.*409|already exists" publish-ghp.log; then
+              echo "::notice::${{ matrix.module }} $BMC4J_VERSION is already on GitHub Packages (409 Conflict) - idempotent, treating as published"
+              exit 0
+            fi
+            echo "::error::publishing ${{ matrix.module }} to GitHub Packages failed (exit $status, not a 409)"
+            exit "$status"
+          fi
 
   # Maven Central staging: the whole module set into one local directory repo (signed -
   # Central requires .asc on every file), handed to the release workflow as a single
