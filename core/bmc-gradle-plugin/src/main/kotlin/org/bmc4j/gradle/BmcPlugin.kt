@@ -218,13 +218,18 @@ class BmcPlugin : Plugin<Project> {
                 /**
                  * True if the failure was an UNKNOWN verdict (`BmcUndecidedError`). The exception
                  * crosses the test-worker -> Gradle boundary as a `PlaceholderException` (its real
-                 * class isn't on Gradle's classpath), so we match the synthesized message — which always
-                 * carries the `(UNKNOWN)` verdict tag from BmcProofExtension — rather than the type.
+                 * class isn't on Gradle's classpath), so we match either the boundary-preserved type
+                 * name or the synthesized message's verdict tag. The tag is "(UNKNOWN)" for a bare
+                 * undecided, but kind-annotated ones read "(UNKNOWN: <kind>, ...)" (colon, no closing
+                 * paren on that token) — so match the "(UNKNOWN" prefix, not the closed "(UNKNOWN)",
+                 * or PARSE_FAILURE/TIMEOUT/etc. get mislabelled REFUTED.
                  */
                 private fun isUndecided(r: TestResult): Boolean =
                         r.exceptions.any { e ->
-                            generateSequence(e) { it.cause }
-                                    .any { it.message?.contains("(UNKNOWN)") == true }
+                            generateSequence(e) { it.cause }.any {
+                                it.toString().contains("BmcUndecidedError") ||
+                                        it.message?.contains("(UNKNOWN") == true
+                            }
                         }
 
                 /**
