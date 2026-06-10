@@ -734,10 +734,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
         /**
          * The UNKNOWN framing for a refutation demoted because it ran through a nondet stub of a method
-         * whose owning class IS present on the analysis classpath — a transient engine LINK FAILURE, not
-         * a counterexample. Marked engine-INFRASTRUCTURE (so it does NOT satisfy `expect = UNKNOWN`: a
-         * broken link is a bug to re-run past, not a deliberate undecidability demo — and it self-clears
-         * on the next run). Names the member(s) and what it means.
+         * whose owning class IS present on the analysis classpath — NOT a counterexample. Two shapes feed
+         * this, both present-on-classpath link failures: a TRANSIENT engine link failure (engine had a body
+         * but havoc'd it; self-clears on re-run), and an UNRESOLVED DEVIRTUALIZATION (a "no body for callee"
+         * property on an interface/abstract call it could not bind to its present concrete override — e.g.
+         * a modelled-abstract java.util.List/Set/Map held over an UNMODELLED concrete subtype; this needs the
+         * abstract base modelled). Engine-INFRASTRUCTURE (does NOT satisfy `expect = UNKNOWN`); either way
+         * honestly UNKNOWN — never a false REFUTED. Names the member(s).
          */
         internal fun linkFailureUndecided(engineId: String, entryFunction: String,
                                           members: List<String>): BmcUndecidedError {
@@ -750,11 +753,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             for (m in members) {
                 sb.append("      ").append(m).append('\n')
             }
-            sb.append("    The engine nondet-stubbed a method it HAD a body for (the class is present, not\n")
-                    .append("    sliced away) — a transient link failure — so the \"counterexample\" rests on\n")
-                    .append("    that havoc and is NOT a real refutation. This is engine infrastructure, not a\n")
-                    .append("    verdict: it does not satisfy expect = UNKNOWN. It typically self-clears on a\n")
-                    .append("    re-run; if it persists, file it with the trace.")
+            sb.append("    The engine nondet-stubbed a method whose class IS present (not sliced away) — either\n")
+                    .append("    a transient link failure, or an interface/abstract call it could not devirtualize\n")
+                    .append("    to its present concrete override — so the \"counterexample\" rests on that havoc and\n")
+                    .append("    is NOT a real refutation. This is engine infrastructure, not a verdict: it does not\n")
+                    .append("    satisfy expect = UNKNOWN. A transient link failure self-clears on a re-run; an\n")
+                    .append("    unresolved devirtualization needs the (abstract) declaring type modelled, or the\n")
+                    .append("    member acknowledged via acknowledgeUnmodelled. If it persists, file it with the trace.")
             return BmcUndecidedError(sb.toString().trimEnd(), true, UnknownKind.LINK_FAILURE_STUB)
         }
 

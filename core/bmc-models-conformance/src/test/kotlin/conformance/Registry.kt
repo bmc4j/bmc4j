@@ -103,6 +103,15 @@ val WAIVED: Map<String, String> = mapOf(
     "java.lang.Iterable" to "interface — exercised via concrete impls",
     "java.util.Collection" to "interface — via impls",
     "java.util.List" to "interface — via ArrayList/LinkedList",
+    // The skeletal Abstract* collection bases a USER subclass extends (overriding the abstract
+    // primitives) so it devirtualizes through the JDK interface. Their derived surface is modeled
+    // over those primitives (AbstractList/Map: index/entrySet loops); exercised via the subclass
+    // devirt proofs (proofs.abstractcollections AbstractCollectionSubclassLaws). Abstract bases with
+    // no own JVM-runnable twin to differentially test — covered structurally via the subclass proofs.
+    "java.util.AbstractCollection" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
+    "java.util.AbstractList" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
+    "java.util.AbstractSet" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
+    "java.util.AbstractMap" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
     "java.util.ArrayListView" to "internal model helper (no JDK twin) — the live subList/reversed view over the ArrayList model; exercised via ArrayList's subList/reversed conformance + @BmcProof",
     "java.util.BmcSortWitness" to "internal model helper (no JDK twin) — the nondet sorted-permutation witness shared by the comparator-driven sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort SortWitnessLaws)",
     "java.util.BmcNaturalOrder" to "internal model helper (no JDK twin) — the single concrete, devirtualizable natural-order comparison (bit-precise for the builtin Comparables, loud otherwise) that drives the witness for the natural-order sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort NaturalOrderSortLaws)",

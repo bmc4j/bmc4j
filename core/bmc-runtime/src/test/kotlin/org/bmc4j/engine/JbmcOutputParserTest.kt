@@ -384,6 +384,69 @@ internal class JbmcOutputParserTest {
         assertTrue(r.linkFailureStubs.isEmpty())
     }
 
+    // --- "no body for callee" devirtualization-failure harvest (lever a safety net) ----------
+    // When JBMC cannot bind an invokeinterface/abstract call to its present concrete override it emits a
+    // FAILURE property whose description is "no body for callee <pkg.Class.method(params)>". The parser
+    // folds that member into linkFailureStubs so the interpreter demotes the would-be REFUTED to a
+    // member-named UNKNOWN (the owning interface IS on the classpath) instead of a false refutation.
+
+    @Test
+    fun no_body_for_callee_description_harvests_the_interface_member() {
+        // A user subclass of (unmodelled) AbstractList held through java.util.List: the size() call has
+        // "no body for callee", and the Bmc.check fails on the havoc'd result. Both surface as FAILUREs.
+        val json = """
+            [
+              {"result":[
+                {"name":"p.1","status":"FAILURE","description":"a checked property does not hold",
+                 "sourceLocation":{"file":"Proof.java","line":"49","function":"java::pkg.Proof.p:()V"}},
+                {"name":"p.2","status":"FAILURE","description":"no body for callee java.util.List.size()",
+                 "sourceLocation":{"file":"Proof.java","line":"49","function":"java::pkg.Proof.p:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertFalse(r.isVerified)
+        // The harvested member is exactly the interface method JBMC could not resolve, dot/erased form.
+        assertEquals(listOf("java.util.List.size()"), r.linkFailureStubs)
+    }
+
+    @Test
+    fun no_body_for_callee_harvests_each_distinct_member_first_seen_order() {
+        val json = """
+            [
+              {"result":[
+                {"name":"a","status":"FAILURE","description":"no body for callee java.util.List.contains(java.lang.Object)",
+                 "sourceLocation":{"file":"Proof.java","line":"70","function":"java::pkg.Proof.p:()V"}},
+                {"name":"b","status":"FAILURE","description":"no body for callee java.util.List.indexOf(java.lang.Object)",
+                 "sourceLocation":{"file":"Proof.java","line":"70","function":"java::pkg.Proof.p:()V"}},
+                {"name":"c","status":"FAILURE","description":"no body for callee java.util.List.contains(java.lang.Object)",
+                 "sourceLocation":{"file":"Proof.java","line":"70","function":"java::pkg.Proof.p:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals(
+                listOf("java.util.List.contains(java.lang.Object)", "java.util.List.indexOf(java.lang.Object)"),
+                r.linkFailureStubs)
+    }
+
+    @Test
+    fun a_plain_assertion_without_no_body_description_harvests_no_link_failure() {
+        // A genuine assertion failure (not a "no body for callee") leaves linkFailureStubs empty, so a
+        // real refutation is never masked.
+        val json = """
+            [
+              {"result":[
+                {"name":"f.1","status":"FAILURE","description":"a checked property does not hold",
+                 "sourceLocation":{"file":"Example.java","line":"12","function":"java::pkg.Example.f:(I)V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertFalse(r.isVerified)
+        assertTrue(r.linkFailureStubs.isEmpty())
+    }
+
     // --- vacuity check: the injected reachability marker ----------
     // The marker is identified by the sentinel source line BmcReachability.SENTINEL_LINE.
 

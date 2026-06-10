@@ -35,7 +35,13 @@ object JbmcOutputParser {
         return parseVerdict(root, json, entryFunctionFqn)
                 .withStubbedMethods(harvestStubs(root))
                 .withUnmodelledMembers(harvestUnmodelledMembers(root))
-                .withLinkFailureStubs(harvestLinkFailureStubMembers(root))
+                // linkFailureStubs carries BOTH fingerprints of a present-class nondet stub a refutation
+                // ran through: (1) the stub_ignored_arg* trace fingerprint (caller had a body but it was
+                // havoc'd), and (2) the explicit "no body for callee <member>" property JBMC emits when it
+                // could not resolve an invokeinterface/abstract call to its present concrete override (the
+                // devirtualization-fragility case). Both demote a would-be REFUTED to a member-named UNKNOWN
+                // when the owner class is present on the classpath — never a silent false refutation.
+                .withLinkFailureStubs(harvestLinkFailureStubMembers(root) + harvestNoBodyCalleeMembers(root))
     }
 
     private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?): JbmcResult {
@@ -428,6 +434,59 @@ object JbmcOutputParser {
                         }
                     }
                 }
+            }
+        }
+        return members.toList()
+    }
+
+    /**
+     * Marker phrase JBMC stamps on a FAILURE property when it could not resolve a virtual/interface
+     * call to a body and havoc'd the result: the property's `description` reads
+     * `"no body for callee <pkg.Class.method(params)>"` (the member already in dot/erased form). This is
+     * the SECOND fingerprint of a present-class nondet stub (alongside the [STUB_IGNORED_ARG_PREFIX]
+     * trace assignment): it fires for an `invokeinterface`/abstract call the engine failed to
+     * devirtualize to its present concrete override — exactly the devirtualization-fragility case where
+     * a modelled-abstract collection interface ({@code java.util.List}/{@code Set}/{@code Map}) is held
+     * over an unmodelled concrete subtype. The owning class is the modelled interface, which IS present
+     * on the classpath, so the interpreter's present-on-classpath demotion turns the would-be REFUTED
+     * into a member-named UNKNOWN instead of leaking a false refutation on the havoc artifact.
+     */
+    private const val NO_BODY_CALLEE_PREFIX = "no body for callee "
+
+    /**
+     * Harvest the members of every `"no body for callee <member>"` FAILURE property: scan each FAILURE
+     * property's `description`, and when it starts with [NO_BODY_CALLEE_PREFIX] take the trailing
+     * `pkg.Class.method(params)` member (already dot/erased form — no `java::`/signature to strip).
+     * Deduped, first-seen order. Empty on a clean run (the description only appears alongside a
+     * could-not-link FAILURE). Pure; never throws.
+     *
+     * Parallel FACT to [harvestLinkFailureStubMembers]; the demote-to-UNKNOWN POLICY (only when the
+     * member's owning class is present on the classpath, and never when the proof PINS expect=REFUTED)
+     * lives in [org.bmc4j.junit.BmcProofExtension], identical to the stub_ignored_arg* path.
+     */
+    internal fun harvestNoBodyCalleeMembers(root: JsonArray): List<String> {
+        var resultArray: JsonArray? = null
+        for (e in root) {
+            if (e.isJsonObject && e.asJsonObject.has("result")) {
+                resultArray = e.asJsonObject.getAsJsonArray("result")
+            }
+        }
+        if (resultArray == null) {
+            return emptyList()
+        }
+        val members = LinkedHashSet<String>()
+        for (pe in resultArray) {
+            val p = pe.asJsonObject
+            if (str(p, "status") != "FAILURE") {
+                continue
+            }
+            val desc = str(p, "description") ?: continue
+            if (!desc.startsWith(NO_BODY_CALLEE_PREFIX)) {
+                continue
+            }
+            val member = desc.substring(NO_BODY_CALLEE_PREFIX.length).trim()
+            if (member.isNotEmpty() && member.contains('(')) {
+                members.add(member)
             }
         }
         return members.toList()
