@@ -91,11 +91,36 @@ class JbmcBackend : VerificationBackend {
             return jbmcPath
         }
 
+        /** Gradle-provided pre-mirrored classpath directory, set by the plugin's mirror task. When
+         *  present, the six environment-INDEPENDENT desugar passes (coroutine-LVT/String/lambda/switch/
+         *  residual-indy/Math) were already applied to the analysis classpath by a cacheable Gradle task,
+         *  so the runtime substitutes the mirrored entries and skips those passes. */
+        const val GRADLE_MIRROR_PROP = "bmc.gradleMirrorDir"
+
         /** All the JBMC-specific classpath preparation (contracts, bytecode rewrites, model jars). */
         fun prepareClasspath(request: BmcRequest, jbmcPath: String): String {
+            // If the Gradle plugin pre-mirrored the analysis classpath (the six environment-independent
+            // desugar passes, computed once as a cacheable Gradle task), substitute each covered entry for
+            // its already-rewritten counterpart and desugar the rest IN-JVM. The plugin's mirror task only
+            // sees the resolved DEPENDENCY classpath, not the consumer's own freshly-compiled class dirs
+            // (which Gradle adds to java.class.path separately), so the uncovered entries — the consumer's
+            // own domain + proof classes — MUST still be desugared here; skipping them would analyse them
+            // unsound. The work is split so every entry is desugared exactly once (plugin OR in-JVM). This
+            // runs BEFORE contracts, so contracts/config/per-proof passes still run on top exactly as they
+            // do without the plugin. request.classpath itself (the verdict-cache key + witness source) is
+            // NEVER substituted — only this internal working classpath is.
+            val mirrorDir = System.getProperty(GRADLE_MIRROR_PROP)
+            val preMirrored = !mirrorDir.isNullOrBlank()
+            val analysisClasspath =
+                    if (preMirrored) {
+                        desugarWithGradleMirror(request.classpath, Path.of(mirrorDir))
+                    } else {
+                        // No plugin mirror: the whole classpath is desugared in-JVM further below.
+                        request.classpath
+                    }
             // Method contracts: rewrite contracted call sites to their replace-stubs; a
             // generated enforce proof is excluded as a caller so it sees the real body (modular enforce).
-            var classpath = applyContracts(request)
+            var classpath = applyContracts(request, analysisClasspath)
             // Fold the consumer's own src/bmcModel output into the SAME classpath the rewrite chain runs
             // over, so a user-authored model is desugared exactly like the proof/test classes: String
             // content ops -> BmcStrings, concat / record / typeSwitch / lambda invokedynamic desugared,
@@ -112,27 +137,23 @@ class JbmcBackend : VerificationBackend {
             // later be inserted AFTER all of them (the user override must still win by classpath order).
             var userModelEntries = 0
             if (!userModels.isNullOrBlank()) {
-                classpath = userModels + File.pathSeparator + classpath
-                userModelEntries = userModels.split(File.pathSeparator).count { it.isNotEmpty() }
+                // The consumer's bmcModel output is NOT pre-mirrored by the plugin's mirror task (it is
+                // compiled fresh each run and kept off the resolved dependency classpath the task takes),
+                // so when the rest of the classpath is pre-mirrored, run the six desugar passes on JUST
+                // the user models here so they are still desugared exactly like every other class. With no
+                // plugin mirror this is a no-op (the whole classpath goes through the passes below).
+                val foldedUserModels = if (preMirrored) applyDesugarPasses(userModels) else userModels
+                classpath = foldedUserModels + File.pathSeparator + classpath
+                userModelEntries = foldedUserModels.split(File.pathSeparator).count { it.isNotEmpty() }
             }
-            // Strip the LVT from coroutine methods (JBMC 6.9.0 aborts on multi-suspension state machines).
-            classpath = CoroutineBytecode.strip(classpath)
-            // Sound String content ops (JBMC's own String.equals is unsound).
-            classpath = StringBytecode.rewrite(classpath)
-            // Desugar lambda / method-reference invokedynamic to generated functional-interface classes.
-            classpath = LambdaBytecode.rewrite(classpath)
-            // Desugar pattern-matching switch invokedynamic (SwitchBootstraps.typeSwitch) to a sound
-            // instanceof/equals chain (JBMC links the indy to an unconstrained result otherwise).
-            classpath = SwitchBytecode.rewrite(classpath)
-            // LAST indy pass: any invokedynamic still standing (enumSwitch, an unhandled typeSwitch
-            // label shape, record toString with a reference component, future bootstraps) would be
-            // SILENTLY linked to an unconstrained result by JBMC — no opaque-symbol message, invisible
-            // to the stub policy. Replace each with a call to a deliberately-bodiless marker so the
-            // same trust surfaces through the normal nondet-stub channel (footnote / strictStubs).
-            classpath = ResidualIndyBytecode.rewrite(classpath)
-            // Redirect the integer Math.* methods JBMC stubs to nondet (floorDiv/floorMod/*Exact/
-            // toIntExact/absExact/abs) to the sound BmcMath; sqrt/pow/trig (modeled) pass through.
-            classpath = MathBytecode.rewrite(classpath)
+            // The six environment-INDEPENDENT desugar passes (coroutine-LVT strip, String, lambda, switch,
+            // residual-indy, Math). When the Gradle plugin pre-mirrored the classpath, every entry was
+            // already desugared — covered entries by the plugin, uncovered ones by desugarWithGradleMirror
+            // above, and the user models just above — so skip the global block; otherwise run it here over
+            // the whole classpath.
+            if (!preMirrored) {
+                classpath = applyDesugarPasses(classpath)
+            }
             // Pin Bmc.*FromEnv/*FromProperty("KEY") to this run's real value (baked in as a constant).
             classpath = ConfigBytecode.rewrite(classpath)
             // Kotlin symbolic parameters: inside @BmcProof methods only, turn the kotlinc
@@ -232,18 +253,101 @@ class JbmcBackend : VerificationBackend {
             return if (dot >= 0) entryFunction.substring(dot + 1) else entryFunction
         }
 
-        /** Apply the contract rewriter to the request's classpath (no-op without a manifest). */
-        fun applyContracts(request: BmcRequest): String {
+        /**
+         * The six environment-INDEPENDENT desugar passes, in order: coroutine-LVT strip, String content
+         * ops, lambda/method-ref indy, pattern-switch indy, residual indy marker, integer Math.*. These
+         * are pure functions of the input bytes (no env / property / per-proof state), which is exactly
+         * why the Gradle plugin can pre-compute them as a cacheable task. [GradleClasspathMirror.mirror]
+         * runs THIS SAME chain in the plugin worker, so the pre-mirrored bytecode is byte-for-byte what
+         * this produces.
+         */
+        fun applyDesugarPasses(classpath: String): String {
+            // Strip the LVT from coroutine methods (JBMC 6.9.0 aborts on multi-suspension state machines).
+            var cp = CoroutineBytecode.strip(classpath)
+            // Sound String content ops (JBMC's own String.equals is unsound).
+            cp = StringBytecode.rewrite(cp)
+            // Desugar lambda / method-reference invokedynamic to generated functional-interface classes.
+            cp = LambdaBytecode.rewrite(cp)
+            // Desugar pattern-matching switch invokedynamic (SwitchBootstraps.typeSwitch) to a sound
+            // instanceof/equals chain (JBMC links the indy to an unconstrained result otherwise).
+            cp = SwitchBytecode.rewrite(cp)
+            // LAST indy pass: any invokedynamic still standing (enumSwitch, an unhandled typeSwitch
+            // label shape, record toString with a reference component, future bootstraps) would be
+            // SILENTLY linked to an unconstrained result by JBMC — no opaque-symbol message, invisible
+            // to the stub policy. Replace each with a call to a deliberately-bodiless marker so the
+            // same trust surfaces through the normal nondet-stub channel (footnote / strictStubs).
+            cp = ResidualIndyBytecode.rewrite(cp)
+            // Redirect the integer Math.* methods JBMC stubs to nondet (floorDiv/floorMod/*Exact/
+            // toIntExact/absExact/abs) to the sound BmcMath; sqrt/pow/trig (modeled) pass through.
+            return MathBytecode.rewrite(cp)
+        }
+
+        /**
+         * Build the fully-desugared working classpath when the Gradle plugin provided a pre-mirror at
+         * [mirrorDir]: each ORIGINAL entry covered by the plugin's manifest is swapped for its mirrored
+         * counterpart (the six passes already applied, owned + cached by Gradle), and every entry the
+         * plugin did NOT cover — chiefly the consumer's own freshly-compiled class dirs — is desugared
+         * here in-JVM. Order is preserved. Every entry ends up desugared exactly once; skipping the
+         * uncovered ones would analyse the consumer's own classes unsound (the bug this guards against).
+         */
+        fun desugarWithGradleMirror(classpath: String, mirrorDir: Path): String {
+            val covered = GradleClasspathMirror.coveredEntries(mirrorDir)
+            val entries = classpath.split(File.pathSeparator).filter { it.isNotEmpty() }
+            // Desugar all the UNCOVERED entries together as one sub-classpath (1:1, order-preserving), so
+            // they can be zipped back into their original positions below.
+            val uncovered = entries.filter { it !in covered }
+            val desugaredUncovered =
+                    if (uncovered.isEmpty()) {
+                        emptyList()
+                    } else {
+                        applyDesugarPasses(uncovered.joinToString(File.pathSeparator))
+                                .split(File.pathSeparator).filter { it.isNotEmpty() }
+                    }
+            // Mismatch (an uncovered entry was dropped/added by the passes) would desync the zip-back —
+            // fail loud rather than silently mis-map an entry to the wrong mirrored bytecode.
+            if (desugaredUncovered.size != uncovered.size) {
+                throw IllegalStateException(
+                        "bmc4j in-JVM desugar produced ${desugaredUncovered.size} entries for " +
+                                "${uncovered.size} uncovered inputs; refusing to mis-map the classpath.")
+            }
+            val substituted = GradleClasspathMirror.substitute(classpath, mirrorDir)
+                    .split(File.pathSeparator).filter { it.isNotEmpty() }
+            // substitute() preserves order and count over non-empty entries, so it lines up with [entries].
+            if (substituted.size != entries.size) {
+                throw IllegalStateException(
+                        "bmc4j mirror substitution produced ${substituted.size} entries for " +
+                                "${entries.size} inputs; refusing to mis-map the classpath.")
+            }
+            val out = StringBuilder()
+            var u = 0
+            for (i in entries.indices) {
+                if (i > 0) {
+                    out.append(File.pathSeparator)
+                }
+                if (entries[i] in covered) {
+                    out.append(substituted[i]) // plugin-mirrored counterpart
+                } else {
+                    out.append(desugaredUncovered[u++]) // desugared in-JVM
+                }
+            }
+            return out.toString()
+        }
+
+        /** Apply the contract rewriter to [analysisClasspath] (no-op without a manifest). The contract
+         *  MANIFEST is always read from the ORIGINAL request classpath (a resource, never rewritten); the
+         *  call-site rewrite is applied to [analysisClasspath], which may be the plugin's pre-mirrored
+         *  classpath. */
+        fun applyContracts(request: BmcRequest, analysisClasspath: String): String {
             val contracts = ContractManifest.readFromClasspath(request.classpath)
             if (contracts.isEmpty) {
-                return request.classpath
+                return analysisClasspath
             }
             // A generated enforce proof is excluded as a caller so its direct call to the
             // method-under-test stays real; every other proof is a replace proof (rewrite fully).
             val entryInternal = request.entryClass.replace('.', '/')
             val excludeCaller =
                     if (contracts.enforceProofClasses().contains(entryInternal)) entryInternal else null
-            return ContractRewriter.rewrite(request.classpath, contracts.redirects(), excludeCaller)
+            return ContractRewriter.rewrite(analysisClasspath, contracts.redirects(), excludeCaller)
         }
 
         /** core-models.jar sits next to the jbmc binary (`<home>/lib/core-models.jar`). */

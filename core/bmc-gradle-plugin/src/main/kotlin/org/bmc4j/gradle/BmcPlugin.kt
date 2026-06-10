@@ -110,10 +110,48 @@ class BmcPlugin : Plugin<Project> {
             task.reportFile.set(project.layout.buildDirectory.file("bmc4j/stub-report.txt"))
         }
 
+        // Pre-mirror the analysis classpath as a cacheable Gradle task: the six environment-independent
+        // desugar passes (coroutine-LVT/String/lambda/switch/residual-indy/Math) that the runtime
+        // extension otherwise re-pays on every cold JVM / CI run. Gradle's up-to-date checks + build
+        // cache then own the result (UP-TO-DATE / FROM-CACHE on an unchanged classpath), so the runtime
+        // skips those passes and only the remaining environment / per-proof passes run at test time.
+        //
+        // The task runs the rewrite in a classloader-isolated worker whose classpath is bmc-runtime
+        // (which carries the rewrite code + relocated ASM). A dedicated resolvable configuration pins
+        // exactly the bmc-runtime this plugin build wires in.
+        val mirrorWorker = project.configurations.create("bmcMirrorWorker") { c ->
+            c.isCanBeConsumed = false
+            c.isCanBeResolved = true
+        }
+        project.dependencies.add(mirrorWorker.name, "$GROUP:bmc-runtime:$VERSION")
+        val mirrorTask = project.tasks.register(
+                "bmcMirrorClasspath", BmcMirrorClasspathTask::class.java) { task ->
+            task.group = "verification"
+            task.description =
+                    "Pre-mirror the analysis classpath through bmc4j's environment-independent " +
+                            "bytecode rewrites (cacheable; consumed by the test task)."
+            task.mirrorClasspath.from(mirrorWorker)
+            task.outputDir.set(project.layout.buildDirectory.dir("bmc4j/mirror"))
+        }
+        // The analysis classpath the runtime sees as java.class.path = the test runtime classpath. Wired
+        // in afterEvaluate so the testRuntimeClasspath configuration is fully populated (engine jar,
+        // bmc-runtime, models) before it is captured as the task's @Classpath input. Done at the plugin
+        // level (not inside the register action, which can run after evaluation has begun).
+        project.afterEvaluate { p ->
+            mirrorTask.configure { task ->
+                task.analysisClasspath.from(p.configurations.getByName("testRuntimeClasspath"))
+            }
+        }
+
         project.tasks.withType(Test::class.java).configureEach { test ->
             test.useJUnitPlatform()
             // Consumer models must be compiled before proofs run.
             test.dependsOn(bmcModel.classesTaskName)
+            // The pre-mirrored classpath must exist before proofs run; the runtime substitutes it.
+            test.dependsOn(mirrorTask)
+            test.inputs.dir(mirrorTask.flatMap { it.outputDir })
+                    .withPropertyName("bmcMirror")
+                    .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
 
             // Progress logging (issue: silence during proof runs looks like a hang). At lifecycle
             // level so it shows in a normal `gradlew test`: a header, a line as each proof starts and
@@ -303,6 +341,13 @@ class BmcPlugin : Plugin<Project> {
 
                 // Point JBMC at the consumer's compiled models (empty path if none).
                 test.systemProperty("bmc.userModels", bmcModel.output.classesDirs.asPath)
+
+                // Hand the runtime the pre-mirrored analysis classpath produced by bmcMirrorClasspath.
+                // The runtime substitutes each entry for its already-desugared counterpart and skips the
+                // six environment-independent passes; it falls back to mirroring in-JVM if the dir is
+                // missing or was produced under a different Bmc4jVersion.IDENTITY (sound either way).
+                test.systemProperty("bmc.gradleMirrorDir",
+                        mirrorTask.flatMap { it.outputDir }.get().asFile.absolutePath)
 
                 // Nondet-stub policy. These are READ-TIME policy, NOT part of the verdict-cache
                 // key — the stub FACT is cached, judged here — so a command-line flag wins over the build

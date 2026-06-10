@@ -134,10 +134,36 @@ internal object ClasspathMirror {
         return name.endsWith(".jar") || name.endsWith(".zip")
     }
 
-    private fun cacheRoot(cacheName: String): Path =
-            // Unified under ~/.cache/bmc4j/ alongside the engine cache (previously
-            // legacy pre-rename dir). A one-time rebuild of the rewrite mirrors is harmless.
-            Path.of(System.getProperty("user.home"), ".cache", "bmc4j", cacheName)
+    /**
+     * Optional override for where mirrors land, set for the lifetime of one [withCacheRoot] block.
+     * Default (null) keeps the per-user `~/.cache/bmc4j/` cache used by the runtime extension and any
+     * direct (non-Gradle) invocation. The Gradle mirror task sets it to its own `@OutputDirectory` so
+     * Gradle's build cache — not an out-of-band `~/.cache` dir — owns the mirrored classpath. Per-thread
+     * because a worker process runs the whole pass chain on one thread under one fixed root; it never
+     * mixes a Gradle root and the user cache in the same JVM (the runtime fallback never sets it).
+     */
+    private val cacheRootOverride = ThreadLocal<Path?>()
+
+    /** Run [body] with all mirrors landing under [root] instead of `~/.cache/bmc4j/`. */
+    internal fun <T> withCacheRoot(root: Path, body: () -> T): T {
+        val prev = cacheRootOverride.get()
+        cacheRootOverride.set(root)
+        try {
+            return body()
+        } finally {
+            cacheRootOverride.set(prev)
+        }
+    }
+
+    private fun cacheRoot(cacheName: String): Path {
+        val override = cacheRootOverride.get()
+        if (override != null) {
+            return override.resolve(cacheName)
+        }
+        // Unified under ~/.cache/bmc4j/ alongside the engine cache (previously
+        // legacy pre-rename dir). A one-time rebuild of the rewrite mirrors is harmless.
+        return Path.of(System.getProperty("user.home"), ".cache", "bmc4j", cacheName)
+    }
 
     // ---- directories: mirror to a FRESH dir keyed by CONTENT HASH, .done-marked ----
     //
