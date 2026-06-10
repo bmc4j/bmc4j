@@ -18,11 +18,13 @@ import java.nio.file.Path
 import java.util.ArrayList
 
 /**
- * The Gradle mirror task and its runtime consumer. [GradleClasspathMirror.mirror] pre-applies the six
- * environment-independent desugar passes into a Gradle-owned dir + manifest; [GradleClasspathMirror.substitute]
- * swaps the original entries for the mirrored ones in the test JVM. These tests pin the round trip
- * (mirrored bytecode is really desugared), the manifest's relocatability, and the soundness gates
- * (identity mismatch / missing mirror fall back to the original classpath, never serve a stale rewrite).
+ * The Gradle mirror task and its runtime consumer. [GradleClasspathMirror.mirror] pre-applies the
+ * run-wide passes (the six desugars + Config bake + KotlinParam + Reachability) into a Gradle-owned dir
+ * + manifest; [GradleClasspathMirror.substitute] swaps the original entries for the mirrored ones in the
+ * test JVM. These tests pin the round trip (mirrored bytecode is really rewritten), the manifest's
+ * relocatability, BYTE-IDENTITY against the in-JVM pipeline over a representative classpath including a
+ * project class dir, and the soundness gates (identity / Kotlin-param-flag mismatch and a missing mirror
+ * fall back to the original classpath, never serve a stale rewrite).
  */
 internal class GradleClasspathMirrorTest {
 
@@ -36,12 +38,15 @@ internal class GradleClasspathMirrorTest {
         val out = tmp.resolve("mirror")
         GradleClasspathMirror.mirror(original, out)
 
-        // The manifest exists and is stamped with this runtime's identity.
+        // The manifest exists and carries the two header lines: the identity (semantics + the Kotlin-param
+        // flag the default mirror was produced under) and the resolved-config line.
         val manifest = out.resolve("manifest.txt")
         assertTrue(Files.isRegularFile(manifest), "mirror writes a manifest")
-        assertEquals("bmc4j-mirror-identity " + Bmc4jVersion.IDENTITY,
-                Files.readAllLines(manifest, StandardCharsets.UTF_8)[0],
-                "manifest header carries the runtime semantics identity")
+        val headerLines = Files.readAllLines(manifest, StandardCharsets.UTF_8)
+        assertEquals("bmc4j-mirror-identity " + Bmc4jVersion.IDENTITY + "|knp=false", headerLines[0],
+                "manifest header carries the runtime semantics identity + Kotlin-param flag")
+        assertTrue(headerLines[1].startsWith("bmc4j-mirror-config "),
+                "manifest carries the resolved-config line: ${headerLines[1]}")
 
         // substitute swaps the original entry for the mirrored one.
         val substituted = GradleClasspathMirror.substitute(original, out)
@@ -66,9 +71,10 @@ internal class GradleClasspathMirrorTest {
         val out = tmp.resolve("mirror")
         GradleClasspathMirror.mirror(srcDir.toString(), out)
 
-        // Every mapped target is RELATIVE (no drive letter / leading slash) so the cache is relocatable.
+        // Every mapped target (after the 2 header lines: identity + config) is RELATIVE (no drive letter /
+        // leading slash) so the cache is relocatable.
         Files.readAllLines(out.resolve("manifest.txt"), StandardCharsets.UTF_8)
-                .drop(1)
+                .drop(2)
                 .filter { it.isNotEmpty() }
                 .forEach { line ->
                     val rel = line.substringAfter('\t')
@@ -118,6 +124,123 @@ internal class GradleClasspathMirrorTest {
         assertEquals(2, substituted.size, "entry count preserved")
         assertNotEquals(srcDir.toString(), substituted[0], "the mapped entry is substituted")
         assertEquals(foreign, substituted[1], "the unmapped entry passes through unchanged")
+    }
+
+    @Test
+    fun substitute_falls_back_on_kotlin_param_flag_mismatch(@TempDir tmp: Path) {
+        // A mirror produced under the DEFAULT Kotlin-param semantics must not be trusted by an honest-JVM
+        // run (kotlinNullableParams=true), even on disk — the flag is folded into the manifest identity.
+        val srcDir = tmp.resolve("classes")
+        Files.createDirectories(srcDir)
+        Files.write(srcDir.resolve("Sample.class"), sampleClass())
+        val out = tmp.resolve("mirror")
+        GradleClasspathMirror.mirror(srcDir.toString(), out, false) // default-flag mirror
+
+        val prev = System.getProperty("bmc.kotlinNullableParams")
+        System.setProperty("bmc.kotlinNullableParams", "true")
+        try {
+            assertEquals(srcDir.toString(), GradleClasspathMirror.substitute(srcDir.toString(), out),
+                    "a default-flag mirror must NOT be served to an honest-JVM run (fall back to original)")
+            assertTrue(GradleClasspathMirror.coveredEntries(out).isEmpty(),
+                    "coveredEntries is empty on a flag mismatch — the runtime rewrites in-JVM")
+        } finally {
+            if (prev == null) System.clearProperty("bmc.kotlinNullableParams")
+            else System.setProperty("bmc.kotlinNullableParams", prev)
+        }
+    }
+
+    @Test
+    fun config_match_re_validates_the_baked_config(@TempDir tmp: Path) {
+        // A class that reads Bmc.intFromProperty("cfg.k") — a config call site the bake pins.
+        val srcDir = tmp.resolve("classes")
+        Files.createDirectories(srcDir)
+        Files.write(srcDir.resolve("ConfigSample.class"), configSample())
+        val cp = srcDir.toString()
+        val out = tmp.resolve("mirror")
+
+        val prev = System.getProperty("cfg.k")
+        System.setProperty("cfg.k", "7")
+        try {
+            // Bake the mirror with cfg.k=7 (passed as a worker config property, as the plugin forwards it).
+            GradleClasspathMirror.mirror(cp, out, false, mapOf("cfg.k" to "7"))
+            assertTrue(GradleClasspathMirror.configMatches(cp, out),
+                    "config matches when the run resolves the SAME value the bake used")
+            // Flip the live property: the baked constant (7) is now stale -> must NOT match.
+            System.setProperty("cfg.k", "9")
+            assertFalse(GradleClasspathMirror.configMatches(cp, out),
+                    "config must NOT match when a consumed property changed since the bake")
+        } finally {
+            if (prev == null) System.clearProperty("cfg.k") else System.setProperty("cfg.k", prev)
+        }
+    }
+
+    /**
+     * The headline soundness proof for the HOISTED set: the bytecode the cacheable Gradle task produces
+     * ([GradleClasspathMirror.mirror]) must be byte-for-byte what the in-JVM run-wide pipeline
+     * produces — `6-desugar (ClasspathMirror.mirrorAll) -> KotlinParam -> Reachability` — over a
+     * representative classpath that INCLUDES a project class dir carrying a `@BmcProof` method (so
+     * Reachability fires) with a kotlinc non-null parameter prologue (so KotlinParam fires), alongside a
+     * String/concat/lambda/Math class (so the desugars fire). A divergence here is a soundness
+     * regression: a covered entry would be analysed differently than an uncovered (in-JVM) one.
+     */
+    @Test
+    fun mirror_is_byte_identical_to_the_in_jvm_env_independent_pipeline(@TempDir tmp: Path) {
+        val prev = System.getProperty("bmc.mirrorParallelism")
+        System.setProperty("bmc.mirrorParallelism", "1") // deterministic entry order for the diff
+        try {
+            // A dependency-style dir (desugar triggers) AND a project-style dir (a @BmcProof with a
+            // non-null param prologue → KotlinParam + Reachability triggers), so every hoisted pass fires.
+            val deps = tmp.resolve("deps")
+            Files.createDirectories(deps)
+            Files.write(deps.resolve("Sample.class"), sampleClass())
+            val proj = tmp.resolve("proj")
+            Files.createDirectories(proj)
+            Files.write(proj.resolve("ProofSample.class"), proofSample())
+            val classpath = deps.toString() + File.pathSeparator + proj.toString()
+
+            // IN-JVM reference: the exact chain JbmcBackend.applyHoistablePasses runs (same entry points,
+            // same order: 6-desugar -> Config -> KotlinParam -> Reachability). Lands under ~/.cache via the
+            // default ClasspathMirror root. The samples have no Bmc.*From* call sites, so Config is a no-op
+            // here — but including it keeps the reference faithful to the worker's pipeline.
+            val inJvm = run {
+                var cp = ClasspathMirror.mirrorAll(classpath)
+                cp = ConfigBytecode.rewrite(cp)
+                cp = KotlinParamBytecode.rewrite(cp)
+                ReachabilityBytecode.rewrite(cp)
+            }
+            // HOISTED: the cacheable task's worker entry point (default Kotlin-param flag = what the
+            // in-JVM reference uses with no honest-JVM property set).
+            val out = tmp.resolve("mirror")
+            GradleClasspathMirror.mirror(classpath, out, false)
+            val mirrored = GradleClasspathMirror.substitute(classpath, out)
+
+            val inJvmEntries = inJvm.split(File.pathSeparator).filter { it.isNotEmpty() }
+            val mirroredEntries = mirrored.split(File.pathSeparator).filter { it.isNotEmpty() }
+            assertEquals(2, inJvmEntries.size, "in-JVM pipeline is 1:1 over the two entries")
+            assertEquals(inJvmEntries.size, mirroredEntries.size,
+                    "the hoisted mirror must be 1:1 over the same entries")
+
+            for (i in inJvmEntries.indices) {
+                val expected = collectClasses(Path.of(inJvmEntries[i]))
+                val actual = collectClasses(Path.of(mirroredEntries[i]))
+                assertEquals(expected.keys, actual.keys,
+                        "entry $i: hoisted and in-JVM must emit the SAME class files")
+                for ((name, bytes) in expected) {
+                    org.junit.jupiter.api.Assertions.assertArrayEquals(bytes, actual[name],
+                            "entry $i: class $name must be byte-for-byte identical (hoisted vs in-JVM)")
+                }
+            }
+            // Sanity: the proof class really exercised KotlinParam + Reachability (not a vacuous match).
+            val proofClass = collectClasses(Path.of(mirroredEntries[1]))["ProofSample.class"]!!
+            val calls = methodCalls(proofClass)
+            assertTrue(calls.any { it.contains("org/bmc4j/engine/BmcKotlin.assumeNotNullParameter") },
+                    "KotlinParam must have rewritten the prologue intrinsic: $calls")
+            assertTrue(calls.any { it.contains("java/lang/AssertionError.<init>") },
+                    "Reachability must have injected the vacuity marker throw: $calls")
+        } finally {
+            if (prev == null) System.clearProperty("bmc.mirrorParallelism")
+            else System.setProperty("bmc.mirrorParallelism", prev)
+        }
     }
 
     companion object {
@@ -181,6 +304,64 @@ internal class GradleClasspathMirrorTest {
                         }
             }, 0)
             return out
+        }
+
+        /**
+         * A class with a `@BmcProof` method that (a) opens with the kotlinc non-null parameter prologue
+         * `Intrinsics.checkNotNullParameter(p, "p")` (→ KotlinParam relaxes it) and (b) returns normally
+         * (→ Reachability replaces the return with the vacuity-marker throw). Mirrors the bytecode kotlinc
+         * emits for a `@BmcProof fun(p: String)` proof, so both hoisted proof-aware passes fire.
+         */
+        private fun proofSample(): ByteArray {
+            val cw = org.objectweb.asm.ClassWriter(
+                    org.objectweb.asm.ClassWriter.COMPUTE_MAXS or org.objectweb.asm.ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ProofSample", null, "java/lang/Object", null)
+            val m = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "proof",
+                    "(Ljava/lang/String;)V", null, null)
+            // @org.bmc4j.BmcProof — what KotlinParam and Reachability key on.
+            m.visitAnnotation("Lorg/bmc4j/BmcProof;", true).visitEnd()
+            m.visitCode()
+            // checkNotNullParameter(p, "p") prologue.
+            m.visitVarInsn(Opcodes.ALOAD, 0)
+            m.visitLdcInsn("p")
+            m.visitMethodInsn(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics",
+                    "checkNotNullParameter", "(Ljava/lang/Object;Ljava/lang/String;)V", false)
+            m.visitInsn(Opcodes.RETURN)
+            m.visitMaxs(0, 0)
+            m.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** A class reading `Bmc.intFromProperty("cfg.k")` — a config call site the Config bake pins to the
+         *  run's value of the `cfg.k` property. */
+        private fun configSample(): ByteArray {
+            val cw = org.objectweb.asm.ClassWriter(
+                    org.objectweb.asm.ClassWriter.COMPUTE_MAXS or org.objectweb.asm.ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ConfigSample", null, "java/lang/Object", null)
+            val m = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "k", "()I", null, null)
+            m.visitCode()
+            m.visitLdcInsn("cfg.k")
+            m.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "intFromProperty",
+                    "(Ljava/lang/String;)I", false)
+            m.visitInsn(Opcodes.IRETURN)
+            m.visitMaxs(0, 0)
+            m.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** Every `.class` file under [root], keyed by its path relative to [root] (sorted, stable). */
+        private fun collectClasses(root: Path): Map<String, ByteArray> {
+            val map = java.util.TreeMap<String, ByteArray>()
+            Files.walk(root).use { walk ->
+                walk.forEach { p ->
+                    if (!Files.isDirectory(p) && p.toString().endsWith(".class")) {
+                        map[root.relativize(p).toString().replace('\\', '/')] = Files.readAllBytes(p)
+                    }
+                }
+            }
+            return map
         }
     }
 }

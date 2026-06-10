@@ -92,91 +92,108 @@ class JbmcBackend : VerificationBackend {
         }
 
         /** Gradle-provided pre-mirrored classpath directory, set by the plugin's mirror task. When
-         *  present, the six environment-INDEPENDENT desugar passes (coroutine-LVT/String/lambda/switch/
-         *  residual-indy/Math) were already applied to the analysis classpath by a cacheable Gradle task,
-         *  so the runtime substitutes the mirrored entries and skips those passes. */
+         *  present, the run-wide hoistable passes — the six desugars (coroutine-LVT/String/lambda/switch/
+         *  residual-indy/Math) plus the Config bake, KotlinParam and Reachability — were already applied to
+         *  the analysis classpath (including the consumer's own compiled output and bmcModel output) by a
+         *  cacheable Gradle task, so the runtime substitutes the mirrored entries and skips those passes;
+         *  only the per-proof tail (contracts, domain split, purity audit, model slice) runs in-JVM. */
         const val GRADLE_MIRROR_PROP = "bmc.gradleMirrorDir"
 
         /** All the JBMC-specific classpath preparation (contracts, bytecode rewrites, model jars). */
         fun prepareClasspath(request: BmcRequest, jbmcPath: String): String {
-            // If the Gradle plugin pre-mirrored the analysis classpath (the six environment-independent
-            // desugar passes, computed once as a cacheable Gradle task), substitute each covered entry for
-            // its already-rewritten counterpart and desugar the rest IN-JVM. The plugin's mirror task only
-            // sees the resolved DEPENDENCY classpath, not the consumer's own freshly-compiled class dirs
-            // (which Gradle adds to java.class.path separately), so the uncovered entries — the consumer's
-            // own domain + proof classes — MUST still be desugared here; skipping them would analyse them
-            // unsound. The work is split so every entry is desugared exactly once (plugin OR in-JVM). This
-            // runs BEFORE contracts, so contracts/config/per-proof passes still run on top exactly as they
-            // do without the plugin. request.classpath itself (the verdict-cache key + witness source) is
-            // NEVER substituted — only this internal working classpath is.
+            // If the Gradle plugin pre-mirrored the analysis classpath, substitute each covered entry for
+            // its already-rewritten counterpart and run the HOISTABLE passes on the rest IN-JVM. The mirror
+            // task takes the consumer's own compiled output AND the bmcModel output as inputs too, so on a
+            // normal Gradle run every entry is covered; an entry the task did NOT cover (e.g. a non-standard
+            // class dir, or a stale / identity- / config-mismatched mirror falling back) is rewritten here
+            // so it is never analysed unsound. The work is split so every entry is rewritten exactly once
+            // (plugin OR in-JVM). The hoisted set is `6-desugar + Config + KotlinParam + Reachability`:
+            // the desugars + Reachability are pure functions of the bytecode, KotlinParam reads one run-wide
+            // flag (a task @Input), and the Config bake's resolved values are recorded in the manifest and
+            // re-validated here, so a stale mirror is never trusted. request.classpath itself (the
+            // verdict-cache key + witness source) is NEVER substituted — only this internal working
+            // classpath is.
             val mirrorDir = System.getProperty(GRADLE_MIRROR_PROP)
+            // The consumer's bmcModel output, passed by the plugin (may be several class dirs); needed both
+            // for the config-match gate (the worker baked Config over the FULL union deps+project+bmcModel,
+            // so the re-validation must resolve config over the SAME union = request.classpath + userModels)
+            // and below to fold the models into the classpath.
+            val userModels = System.getProperty(USER_MODELS_PROP)
+            // Trust the plugin mirror only when it exists AND its baked Config matches what this run
+            // resolves over the full union — a config flip since the mirror was built makes the baked
+            // constants stale, so we fall back to a full in-JVM rewrite (sound; the task re-runs next time
+            // since config is one of its @Inputs). The identity/Kotlin-param match is checked per entry in
+            // coveredEntries/substitute; the config match is one classpath-wide gate here.
             val preMirrored = !mirrorDir.isNullOrBlank()
+                    && GradleClasspathMirror.configMatches(unionClasspath(request.classpath, userModels),
+                            Path.of(mirrorDir))
             val analysisClasspath =
                     if (preMirrored) {
-                        desugarWithGradleMirror(request.classpath, Path.of(mirrorDir))
+                        hoistableWithGradleMirror(request.classpath, Path.of(mirrorDir))
                     } else {
-                        // No plugin mirror: the whole classpath is desugared in-JVM further below.
+                        // No usable plugin mirror: the whole classpath gets the hoistable passes in-JVM below.
                         request.classpath
                     }
             // Method contracts: rewrite contracted call sites to their replace-stubs; a
             // generated enforce proof is excluded as a caller so it sees the real body (modular enforce).
             var classpath = applyContracts(request, analysisClasspath)
             // Fold the consumer's own src/bmcModel output into the SAME classpath the rewrite chain runs
-            // over, so a user-authored model is desugared exactly like the proof/test classes: String
+            // over, so a user-authored model is rewritten exactly like the proof/test classes (String
             // content ops -> BmcStrings, concat / record / typeSwitch / lambda invokedynamic desugared,
-            // integer Math.* redirected to BmcMath. Without this a faithful model (real-looking Java) that
-            // internally uses String.equals/concat, a lambda, a pattern switch, or Math.floorDiv would be
-            // analysed unsound, silently — the more realistic the model, the worse. The ReachabilityBytecode
-            // pass only touches @BmcProof methods, so it's a harmless no-op on models. A rewrite failure on
-            // a user model throws (ClasspathMirror's fail-loud contract) -> UNKNOWN, never a false green.
-            // It is prepended (kept first below) so the override still wins by classpath order over the
-            // bundled models, the Kotlin models, and JBMC's core-models.
-            val userModels = System.getProperty(USER_MODELS_PROP)
+            // integer Math.* -> BmcMath, and — harmlessly, since models carry no @BmcProof — KotlinParam /
+            // Reachability). Without this a faithful model (real-looking Java) that internally uses
+            // String.equals/concat, a lambda, a pattern switch, or Math.floorDiv would be analysed unsound,
+            // silently. A rewrite failure on a user model throws (ClasspathMirror's fail-loud contract) ->
+            // UNKNOWN, never a false green. It is prepended (kept first below) so the override still wins by
+            // classpath order over the bundled models, the Kotlin models, and JBMC's core-models. When the
+            // plugin pre-mirrored, the bmcModel output is one of the task's covered inputs, so it is
+            // SUBSTITUTED for its mirror here rather than rewritten in-JVM.
             // The plugin passes the bmcModel source set's output, which can be several class dirs (e.g. a
             // Java dir AND a Kotlin dir) joined by the path separator — count them so the Kotlin models can
             // later be inserted AFTER all of them (the user override must still win by classpath order).
             var userModelEntries = 0
             if (!userModels.isNullOrBlank()) {
-                // The consumer's bmcModel output is NOT pre-mirrored by the plugin's mirror task (it is
-                // compiled fresh each run and kept off the resolved dependency classpath the task takes),
-                // so when the rest of the classpath is pre-mirrored, run the six desugar passes on JUST
-                // the user models here so they are still desugared exactly like every other class. With no
-                // plugin mirror this is a no-op (the whole classpath goes through the passes below).
-                val foldedUserModels = if (preMirrored) applyDesugarPasses(userModels) else userModels
+                // With a plugin mirror the bmcModel output is a covered task input — substitute it for its
+                // already-rewritten mirror; an uncovered entry (fallback) is rewritten in-JVM. With no
+                // plugin mirror, run the hoistable passes on it directly. Either way it ends up
+                // rewritten exactly once.
+                val foldedUserModels =
+                        if (preMirrored) hoistableWithGradleMirror(userModels, Path.of(mirrorDir))
+                        else applyHoistablePasses(userModels)
                 classpath = foldedUserModels + File.pathSeparator + classpath
                 userModelEntries = foldedUserModels.split(File.pathSeparator).count { it.isNotEmpty() }
             }
-            // The six environment-INDEPENDENT desugar passes (coroutine-LVT strip, String, lambda, switch,
-            // residual-indy, Math). When the Gradle plugin pre-mirrored the classpath, every entry was
-            // already desugared — covered entries by the plugin, uncovered ones by desugarWithGradleMirror
-            // above, and the user models just above — so skip the global block; otherwise run it here over
-            // the whole classpath.
+            // The hoistable passes (6 desugars + Config bake + KotlinParam + Reachability). When the Gradle
+            // plugin pre-mirrored the classpath, every entry was already rewritten — covered entries by the
+            // plugin (Config baked there from the forwarded run config, re-validated by the manifest), the
+            // uncovered ones by hoistableWithGradleMirror above, and the user models just above — so skip
+            // the global block; otherwise run it here over the whole classpath. The Config bake pins
+            // Bmc.*FromEnv/*FromProperty("KEY") to this run's real value as a constant; it is baked at the
+            // SAME pipeline position whether by the plugin worker (with the forwarded properties + the
+            // worker's env) or in-JVM (with the test JVM's properties + env), which match when the config is
+            // unchanged. Its verdict-relevant values are also folded into the verdict-cache key
+            // (VerdictCache.resolvedConfig), which over-invalidates on any config change.
             if (!preMirrored) {
-                classpath = applyDesugarPasses(classpath)
+                classpath = applyHoistablePasses(classpath)
             }
-            // Pin Bmc.*FromEnv/*FromProperty("KEY") to this run's real value (baked in as a constant).
-            classpath = ConfigBytecode.rewrite(classpath)
-            // Kotlin symbolic parameters: inside @BmcProof methods only, turn the kotlinc
-            // checkNotNullParameter prologue into assume(p != null) — the proof ranges over the inputs
-            // the Kotlin type system admits instead of spuriously refuting on p = null. Interior calls
-            // keep throwing; -Dbmc.kotlinNullableParams=true restores the honest-JVM prologue.
-            classpath = KotlinParamBytecode.rewrite(classpath)
             // Domain split: when this request is ONE derived run of a domainSplit proof, rewrite the
             // entry method's domainSplit/slice markers for that run — a slice's injected assume, or the
             // cover obligation (overall => union of slices). Runs AFTER the desugar passes so a marker
-            // condition that uses strings/concat/lambdas is already sound, and BEFORE the reachability
-            // pass so the cover run's injected return gets a vacuity marker and the markers are gone
-            // before vacuity injection. A no-op for an ordinary proof (domainSplitRun == null).
+            // condition that uses strings/concat/lambdas is already sound. A no-op for an ordinary proof
+            // (domainSplitRun == null).
             val splitRun = request.domainSplitRun
             if (splitRun != null) {
                 classpath = DomainSplitBytecode.rewrite(
                         classpath, request.entryClass, entryMethodName(request.entryFunction), splitRun)
+                // The cover run injects a NEW return into the entry method AFTER the (hoisted) Reachability
+                // pass ran, so that injected return carries no vacuity marker yet. Re-run Reachability here
+                // — AFTER the split rewrite — so the injected return gets its marker. Reachability is
+                // idempotent on returns it already replaced (an existing marker throw is no longer a
+                // `return`), so re-running over the already-marked entry only catches the freshly-injected
+                // one. Scoped to the split case: an ordinary proof's returns were all marked by the hoisted
+                // pass, so no in-JVM Reachability scan is paid for the common (non-split) proof.
+                classpath = ReachabilityBytecode.rewrite(classpath)
             }
-            // Vacuity guard: inject a reachability marker before every return of each
-            // @BmcProof / enforce-proof. Runs LAST over the .class dirs so the marker lands in the final
-            // proof bodies and no earlier desugar can strip it; the verdict logic flags a proof whose
-            // every normal exit is unreachable (unsatisfiable assumptions) instead of passing it vacuously.
-            classpath = ReachabilityBytecode.rewrite(classpath)
             // Add the bundled Kotlin models (clean Intrinsics / coroutine runtime); harmless for Java.
             // It must sit AFTER the consumer's user models so a user model still shadows first: the user
             // models are the leading entries of the (now-rewritten) classpath, so splice the Kotlin models
@@ -247,6 +264,14 @@ class JbmcBackend : VerificationBackend {
             return sb.toString()
         }
 
+        /** The union of the analysis classpath and the consumer's bmcModel output — the SAME set the
+         *  Gradle mirror worker baked Config over (deps + project + bmcModel), so the config-match
+         *  re-validation resolves config over identical scope. Mirrors VerdictCache.resolvedConfig's
+         *  classpath+userModels union. A blank userModels yields just the classpath. */
+        fun unionClasspath(classpath: String, userModels: String?): String =
+                if (userModels.isNullOrBlank()) classpath
+                else classpath + File.pathSeparator + userModels
+
         /** The method-name half of a `Class.method` entry-function string. */
         fun entryMethodName(entryFunction: String): String {
             val dot = entryFunction.lastIndexOf('.')
@@ -273,32 +298,55 @@ class JbmcBackend : VerificationBackend {
         }
 
         /**
-         * Build the fully-desugared working classpath when the Gradle plugin provided a pre-mirror at
-         * [mirrorDir]: each ORIGINAL entry covered by the plugin's manifest is swapped for its mirrored
-         * counterpart (the six passes already applied, owned + cached by Gradle), and every entry the
-         * plugin did NOT cover — chiefly the consumer's own freshly-compiled class dirs — is desugared
-         * here in-JVM. Order is preserved. Every entry ends up desugared exactly once; skipping the
-         * uncovered ones would analyse the consumer's own classes unsound (the bug this guards against).
+         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain — `6-desugar -> KotlinParam ->
+         * Config -> KotlinParam -> Reachability` — in the SAME order, with the SAME pass entry points,
+         * that [GradleClasspathMirror.mirror] runs in the plugin worker. So the bytecode this produces
+         * in-JVM (for an uncovered entry, or with no plugin mirror at all) is byte-for-byte what the
+         * cacheable task produces for a covered one. The six desugars + Reachability are pure functions of
+         * the bytecode; KotlinParam additionally reads the run-wide `bmc.kotlinNullableParams` flag; Config
+         * additionally bakes the run's env/property config — but all are run-wide (not per-proof), which is
+         * why they can be hoisted into the cacheable task (Config keyed by the manifest config re-validation).
          */
-        fun desugarWithGradleMirror(classpath: String, mirrorDir: Path): String {
+        fun applyHoistablePasses(classpath: String): String {
+            var cp = applyDesugarPasses(classpath)
+            cp = ConfigBytecode.rewrite(cp)
+            cp = KotlinParamBytecode.rewrite(cp)
+            return ReachabilityBytecode.rewrite(cp)
+        }
+
+        /**
+         * Build the fully hoistable-rewritten working classpath when the Gradle plugin provided a
+         * pre-mirror at [mirrorDir]: each ORIGINAL entry covered by the plugin's manifest (identity- AND
+         * config-matched) is swapped for its mirrored counterpart (`6-desugar + Config + KotlinParam +
+         * Reachability` already applied, owned + cached by Gradle), and every entry the plugin did NOT
+         * cover is rewritten here in-JVM with the identical pass chain. Order is preserved. Every entry
+         * ends up rewritten exactly once; skipping an uncovered one would analyse it unsound (the bug this
+         * guards against).
+         */
+        fun hoistableWithGradleMirror(classpath: String, mirrorDir: Path): String {
             val covered = GradleClasspathMirror.coveredEntries(mirrorDir)
             val entries = classpath.split(File.pathSeparator).filter { it.isNotEmpty() }
-            // Desugar all the UNCOVERED entries together as one sub-classpath (1:1, order-preserving), so
+            // Membership is by CANONICAL path: the covered keys are canonical, but a java.class.path entry
+            // can spell the same location differently (Gradle's test worker doubles backslashes on Windows),
+            // so a raw compare would treat every entry as uncovered and pointlessly re-rewrite the whole
+            // classpath in-JVM.
+            fun isCovered(e: String) = GradleClasspathMirror.canonicalKey(e) in covered
+            // Rewrite all the UNCOVERED entries together as one sub-classpath (1:1, order-preserving), so
             // they can be zipped back into their original positions below.
-            val uncovered = entries.filter { it !in covered }
-            val desugaredUncovered =
+            val uncovered = entries.filter { !isCovered(it) }
+            val rewrittenUncovered =
                     if (uncovered.isEmpty()) {
                         emptyList()
                     } else {
-                        applyDesugarPasses(uncovered.joinToString(File.pathSeparator))
+                        applyHoistablePasses(uncovered.joinToString(File.pathSeparator))
                                 .split(File.pathSeparator).filter { it.isNotEmpty() }
                     }
             // Mismatch (an uncovered entry was dropped/added by the passes) would desync the zip-back —
             // fail loud rather than silently mis-map an entry to the wrong mirrored bytecode.
-            if (desugaredUncovered.size != uncovered.size) {
+            if (rewrittenUncovered.size != uncovered.size) {
                 throw IllegalStateException(
-                        "bmc4j in-JVM desugar produced ${desugaredUncovered.size} entries for " +
-                                "${uncovered.size} uncovered inputs; refusing to mis-map the classpath.")
+                        "bmc4j in-JVM hoistable rewrite produced ${rewrittenUncovered.size} entries " +
+                                "for ${uncovered.size} uncovered inputs; refusing to mis-map the classpath.")
             }
             val substituted = GradleClasspathMirror.substitute(classpath, mirrorDir)
                     .split(File.pathSeparator).filter { it.isNotEmpty() }
@@ -314,10 +362,10 @@ class JbmcBackend : VerificationBackend {
                 if (i > 0) {
                     out.append(File.pathSeparator)
                 }
-                if (entries[i] in covered) {
+                if (isCovered(entries[i])) {
                     out.append(substituted[i]) // plugin-mirrored counterpart
                 } else {
-                    out.append(desugaredUncovered[u++]) // desugared in-JVM
+                    out.append(rewrittenUncovered[u++]) // rewritten in-JVM
                 }
             }
             return out.toString()
