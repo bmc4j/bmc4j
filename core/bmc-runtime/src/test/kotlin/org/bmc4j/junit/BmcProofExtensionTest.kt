@@ -534,6 +534,62 @@ internal class BmcProofExtensionTest {
         }
     }
 
+    // --- Observability: the counterexample reaches the summary on the EXPECTED-match (pass) path ----
+    // The `enforce` seam captures the framed counterexample onto ProofOutcome.detail BEFORE
+    // enforcement swallows (pass) or rethrows (fail) the error — so a pinned expect=REFUTED/UNKNOWN
+    // proof that PASSES still records its counterexample, instead of the old `detail = null`. This is
+    // pure record data: it must never alter the swallow/rethrow (verdict) behavior.
+
+    @Test
+    fun enforce_recordsCounterexampleDetail_onExpectedRefutedMatch_andStillSwallows() {
+        val ext = BmcProofExtension()
+        val outcome = BmcProofExtension.ProofOutcome()
+        val framed = org.bmc4j.engine.BmcVerificationError("score = 100 (Foo.java:42)")
+        // expect=REFUTED, actual=REFUTED -> the proof PASSES (no throw)...
+        assertDoesNotThrow {
+            ext.enforce(outcome, "pkg.P.p", org.bmc4j.Verdict.REFUTED, org.bmc4j.Verdict.REFUTED, framed)
+        }
+        // ...yet the counterexample is now captured for the summary's `detail`.
+        assertEquals("score = 100 (Foo.java:42)", outcome.detail,
+                "a pinned expect=REFUTED pass must still record its counterexample, not lose it")
+    }
+
+    @Test
+    fun enforce_recordsDetail_onExpectedUnknownMatch_andStillSwallows() {
+        val ext = BmcProofExtension()
+        val outcome = BmcProofExtension.ProofOutcome()
+        val genuine = BmcUndecidedError("JBMC could not decide pkg.P.p (UNKNOWN)")
+        assertFalse(genuine.isEngineInfrastructure())
+        assertDoesNotThrow {
+            ext.enforce(outcome, "pkg.P.p", org.bmc4j.Verdict.UNKNOWN, org.bmc4j.Verdict.UNKNOWN, genuine)
+        }
+        assertEquals("JBMC could not decide pkg.P.p (UNKNOWN)", outcome.detail,
+                "a pinned expect=UNKNOWN pass must record its undecided-reason detail too")
+    }
+
+    @Test
+    fun enforce_recordsDetail_onMismatchRethrow_too_butIsObservabilityOnly() {
+        // On a MISMATCH (rethrow) the detail is still captured (it feeds the FAIL-path record), and the
+        // throw/verdict behavior is unchanged from the static enforceExpectation. Observability-only:
+        // setting detail did not suppress the rethrow.
+        val ext = BmcProofExtension()
+        val outcome = BmcProofExtension.ProofOutcome()
+        val framed = org.bmc4j.engine.BmcVerificationError("JBMC refuted pkg.P.p")
+        assertThrows(org.bmc4j.engine.BmcVerificationError::class.java) {
+            ext.enforce(outcome, "pkg.P.p", org.bmc4j.Verdict.VERIFIED, org.bmc4j.Verdict.REFUTED, framed)
+        }
+        assertEquals("JBMC refuted pkg.P.p", outcome.detail)
+    }
+
+    @Test
+    fun proofOutcome_detailIsNullByDefault_soAVerifiedPassRecordsEmptyDetail() {
+        // A VERIFIED pass never goes through `enforce` (only non-VERIFIED verdicts do), so detail stays
+        // null and the summary's `detail` is empty — the pre-change behavior on the green path.
+        val outcome = BmcProofExtension.ProofOutcome()
+        assertEquals(org.bmc4j.Verdict.VERIFIED, outcome.verdict)
+        assertEquals(null, outcome.detail, "a VERIFIED pass leaves detail null (empty in the summary)")
+    }
+
     @Test
     fun defaultExpectation_rethrowsTheFramedErrorUnchanged() {
         val framed = org.bmc4j.engine.BmcVerificationError("JBMC refuted pkg.P.p")
