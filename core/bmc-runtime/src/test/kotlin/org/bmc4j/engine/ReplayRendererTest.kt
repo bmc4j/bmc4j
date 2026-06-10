@@ -22,6 +22,23 @@ internal class ReplayRendererTest {
     }
 
     @Test
+    fun renders_int_array_as_initializer_java_and_factory_kotlin() {
+        // The parser tags an array input kind="int[]" with data rendered as "[e0, e1, …]".
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("a", "int[]", "[1, 0, 0, 0]")))
+        assertTrue(out!!.contains("int[] a = {1, 0, 0, 0};"), out)
+        val kt = ReplayRenderer.render(ENTRY, null, violation(b("a", "int[]", "[1, 0, 0, 0]")), KT)
+        assertTrue(kt!!.contains("val a = intArrayOf(1, 0, 0, 0)"), kt)
+    }
+
+    @Test
+    fun renders_long_array_with_L_suffix_and_long_factory() {
+        val out = ReplayRenderer.render(ENTRY, null, violation(b("a", "long[]", "[7, -2]")))
+        assertTrue(out!!.contains("long[] a = {7L, -2L};"), out)
+        val kt = ReplayRenderer.render(ENTRY, null, violation(b("a", "long[]", "[7, -2]")), KT)
+        assertTrue(kt!!.contains("val a = longArrayOf(7L, -2L)"), kt)
+    }
+
+    @Test
     fun renders_boolean_from_truefalse_and_from_01() {
         assertTrue(ReplayRenderer.render(ENTRY, null, violation(b("flag", "boolean", "true")))!!
                 .contains("boolean flag = true;"))

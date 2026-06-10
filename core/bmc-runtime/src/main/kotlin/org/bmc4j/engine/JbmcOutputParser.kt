@@ -601,6 +601,12 @@ object JbmcOutputParser {
         val inputs = LinkedHashMap<String, String>()
         // name -> JBMC value kind, parallel to `inputs` (for structured replay rendering).
         val inputKinds = LinkedHashMap<String, String>()
+        // The heap state needed to reconstruct an ARRAY input back to `name = [e0, e1, …]`. A Java
+        // `int[]`/`long[]` is not a flat value in the trace: the proof-local variable (`a`) is only a
+        // POINTER to a heap `dynamic_object$N` struct, whose `data` member points to a backing store
+        // (`dynamic_array`), and the concrete elements arrive as per-index assignments to that backing
+        // store. So we harvest the three links across the whole trace and stitch them together after.
+        val heap = ArrayHeap()
         val entryPrefix = if (entryFunctionFqn != null) "java::$entryFunctionFqn" else null
 
         for (se in trace) {
@@ -621,7 +627,10 @@ object JbmcOutputParser {
                         active.pop()
                     }
                 }
-                "assignment" -> collectCounterexample(step, entryPrefix, userCode, inputs, inputKinds)
+                "assignment" -> {
+                    collectCounterexample(step, entryPrefix, userCode, inputs, inputKinds)
+                    heap.observe(step, entryPrefix, userCode)
+                }
                 "failure" -> {
                     val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
                     if (loc != null) {
@@ -636,6 +645,16 @@ object JbmcOutputParser {
         inputs.forEach { (k, v) ->
             counterexample.add("$k = $v")
             bindings.add(JbmcResult.Binding(k, inputKinds[k], v))
+        }
+        // Array inputs: stitch each user array variable's pointer -> object -> backing-store -> elements
+        // into one `name = [e0, e1, …]` binding (concrete values, index order), honoring first-wins on
+        // the array's name exactly like the scalar path. A scalar already bound under the same name wins
+        // (an array variable is never also a primitive, so they don't collide in practice).
+        heap.resolveArrays().forEach { (name, arr) ->
+            if (name !in inputs) {
+                counterexample.add("$name = ${arr.render()}")
+                bindings.add(JbmcResult.Binding(name, arr.kind, arr.render()))
+            }
         }
 
         // active (top -> bottom) = [innermost callee, ..., entry]
@@ -666,29 +685,8 @@ object JbmcOutputParser {
         // The function this assignment is attributed to (the trace stamps the CALLER's frame here).
         val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
         val fn = if (loc != null) str(loc, "function") else null
-        if (userCode != null) {
-            // Frame filter (widened): keep an input declared in ANY of the consumer's OWN methods — the
-            // proof method or a helper it factored symbolic inputs into — while still excluding the
-            // library-under-proof, the bmc4j models, the runtime, and engine frames. "User's own code" is
-            // discriminated by classpath ORIGIN (a directory-compiled, non-reserved class), never a
-            // package-prefix guess; see [WitnessUserCode].
-            if (!userCode.isUserFrame(fn)) {
-                return
-            }
-            // Declared-local filter: require the name to be an actual LocalVariableTable entry of the
-            // method it is attributed to. This drops engine synthetics that share a user frame yet were
-            // declared nowhere — e.g. the nondet symbol jbmc names `i` for a `Bmc.anyInt()` call — while
-            // keeping the developer's real `val x`/helper `val a`. NO_TABLE (compiled -g:none, unreadable,
-            // method absent) degrades to the legacy keep-this-frame behavior rather than dropping inputs.
-            if (userCode.checkLocal(fn, lhs) == WitnessUserCode.LocalCheck.UNDECLARED) {
-                return
-            }
-        } else if (entryPrefix != null) {
-            // Legacy path (no classpath available, e.g. the pure-parser unit tests / engine canary):
-            // restrict to variables attributed to the proof method itself.
-            if (fn == null || !fn.startsWith(entryPrefix)) {
-                return
-            }
+        if (!isUserDeclaredLocal(fn, lhs, entryPrefix, userCode)) {
+            return
         }
         if (!step.has("value") || !step.get("value").isJsonObject) {
             return
@@ -710,6 +708,136 @@ object JbmcOutputParser {
             inputs[lhs] = data
             inputKinds[lhs] = kind
         }
+    }
+
+    /**
+     * The shared "is [name], attributed to frame [fn], a real user-declared input?" discrimination —
+     * used by BOTH the scalar [collectCounterexample] and the array reconstruction ([ArrayHeap]) so
+     * they keep the same inputs. With a classpath ([userCode]): require a user-owned frame (a
+     * directory-compiled, non-reserved class — never a package-prefix guess) AND that the name is an
+     * actual LocalVariableTable entry of that method (drops engine synthetics like the nondet `i` jbmc
+     * mints for a `Bmc.anyInt()` call; NO_TABLE degrades to keep-this-frame). Without a classpath (the
+     * pure-parser unit tests / engine canary): restrict to the proof method's own frame via [entryPrefix].
+     */
+    private fun isUserDeclaredLocal(fn: String?, name: String, entryPrefix: String?,
+                                    userCode: WitnessUserCode?): Boolean {
+        if (userCode != null) {
+            if (!userCode.isUserFrame(fn)) {
+                return false
+            }
+            return userCode.checkLocal(fn, name) != WitnessUserCode.LocalCheck.UNDECLARED
+        }
+        if (entryPrefix != null) {
+            return fn != null && fn.startsWith(entryPrefix)
+        }
+        return true
+    }
+
+    /**
+     * Reconstructs ARRAY inputs from a refutation trace. A Java `int[]`/`long[]` is not a flat value in
+     * JBMC's `--json-ui` trace; it surfaces as a three-link heap chain that we harvest across the trace
+     * and stitch back together in [resolveArrays]:
+     *
+     *  1. the proof-local variable (`a`) is a `pointer` whose `type` is `struct java::array[…] *` and
+     *     whose `data` is a heap object id (`dynamic_object$0`) — recorded FIRST-WINS per name, and only
+     *     for a real user-declared local (same [isUserDeclaredLocal] discrimination as the scalar path);
+     *  2. that object's backing store is an assignment to `dynamic_object$N.data` (a `pointer` whose
+     *     `data` is the backing-array id, e.g. `dynamic_array`) — recorded last-wins (the settled link);
+     *  3. the concrete elements are per-index assignments to that backing store (`dynamic_array[<i>L]`),
+     *     each an `integer` value with a primitive `type` (`int`/`long`/…) — recorded last-per-index
+     *     (the symbolic fill overwrites the `new T[n]` zero-init, and the proof under test does not
+     *     mutate its own input array).
+     *
+     * The element `type` (`int`/`long`) yields the binding kind (`int[]`/`long[]`) the replay renderer
+     * keys on. This is DISPLAY-ONLY reconstruction — it never affects the verdict — and pins the shape
+     * jbmc 6.9.0 actually emits (covered by the parser unit tests; the engine identity is in the
+     * verdict-cache key, so a bump forces re-validation, same discipline as the scalar witness path).
+     */
+    private class ArrayHeap {
+        // user array variable name -> heap object id (dynamic_object$N), FIRST-WINS.
+        private val arrayVars = LinkedHashMap<String, String>()
+        // heap object id -> its backing-store id (dynamic_array), last-wins.
+        private val objectBacking = HashMap<String, String>()
+        // backing-store id -> (index -> element data), last-per-index.
+        private val backingElems = HashMap<String, MutableMap<Int, String>>()
+        // backing-store id -> element primitive type (int/long/…), from the per-index value's `type`.
+        private val backingType = HashMap<String, String>()
+
+        /** Folds one `assignment` step into the heap maps. Pure bookkeeping; never throws. */
+        fun observe(step: JsonObject, entryPrefix: String?, userCode: WitnessUserCode?) {
+            val lhs = str(step, "lhs")
+            if (lhs.isNullOrEmpty()
+                    || !step.has("value") || !step.get("value").isJsonObject) {
+                return
+            }
+            val value = step.getAsJsonObject("value")
+            // (1) a user-declared array variable: an array-typed pointer in the user's own frame.
+            if (isUserVariable(lhs) && str(value, "name") == "pointer" && isArrayPointerType(str(value, "type"))) {
+                val obj = str(value, "data")
+                if (obj != null && obj != "null" && lhs !in arrayVars) {
+                    val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
+                    val fn = if (loc != null) str(loc, "function") else null
+                    if (isUserDeclaredLocal(fn, lhs, entryPrefix, userCode)) {
+                        arrayVars[lhs] = obj
+                    }
+                }
+                return
+            }
+            // (2) the object's backing store: `dynamic_object$N.data` -> backing-array id.
+            val backing = OBJECT_DATA_RE.matchEntire(lhs)
+            if (backing != null && str(value, "name") == "pointer") {
+                val bid = str(value, "data")
+                if (bid != null && bid != "null") {
+                    objectBacking[backing.groupValues[1]] = bid
+                }
+                return
+            }
+            // (3) a per-index element write: `<backing>[<i>L] = <integer>`.
+            val elem = ELEMENT_RE.matchEntire(lhs)
+            if (elem != null && str(value, "name") == "integer") {
+                val data = str(value, "data") ?: return
+                val bid = elem.groupValues[1]
+                val idx = elem.groupValues[2].toIntOrNull() ?: return
+                backingElems.getOrPut(bid) { LinkedHashMap() }[idx] = data
+                str(value, "type")?.let { backingType[bid] = it }
+            }
+        }
+
+        /** Stitch every recorded array variable into a [ResolvedArray], in first-seen name order.
+         *  An array that couldn't be fully resolved (no backing store / no elements) is dropped. */
+        fun resolveArrays(): Map<String, ResolvedArray> {
+            val out = LinkedHashMap<String, ResolvedArray>()
+            for ((name, obj) in arrayVars) {
+                val backing = objectBacking[obj] ?: continue
+                val elems = backingElems[backing] ?: continue
+                if (elems.isEmpty()) {
+                    continue
+                }
+                val ordered = elems.toSortedMap()
+                val values = ordered.values.toList()
+                out[name] = ResolvedArray(values, arrayKind(backingType[backing]))
+            }
+            return out
+        }
+
+        /** `int`/`long`/… element type -> the binding kind (`int[]`/`long[]`/…) the renderer keys on. */
+        private fun arrayKind(elementType: String?): String =
+                if (elementType.isNullOrBlank()) "array" else "$elementType[]"
+
+        companion object {
+            private val OBJECT_DATA_RE = Regex("""^(dynamic_object\$\d+)\.data$""")
+            private val ELEMENT_RE = Regex("""^([A-Za-z_][A-Za-z0-9_$]*)\[(\d+)L?]$""")
+
+            /** True for a JBMC array-handle pointer type, e.g. `struct java::array[int] *`. */
+            private fun isArrayPointerType(type: String?): Boolean =
+                    type != null && type.contains("java::array[")
+        }
+    }
+
+    /** A reconstructed array input: its concrete element data in index order, plus the binding kind
+     *  (`int[]`/`long[]`). [render] is the human-readable `[e0, e1, …]` display form. */
+    private class ResolvedArray(val elements: List<String>, val kind: String) {
+        fun render(): String = elements.joinToString(", ", "[", "]")
     }
 
     /**
