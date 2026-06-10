@@ -4,7 +4,7 @@ These are inherent to bounded model checking or to the current engine — listed
 full, because a proof tool that hides its limits is worse than no proof tool.
 
 A word on the difference between a **boundary** and a **scaling cost**. Some things below
-are genuinely *out of scope* — `double`/`float` and transcendental math, time zones/DST,
+are genuinely *out of scope* — irrational/transcendental floating-point math (`Math.sin`/`cos`/`log`, and even `Math.floor` — see the floating-point bullet), time zones/DST,
 thread-interleaving concurrency, residual `invokedynamic`. Those are honest hard edges and
 they're called out as such. But "this proof is slow / runs out of memory" is **not** a
 boundary — it's a scaling cost with a [toolbox](performance.md) of levers (range reduction,
@@ -107,6 +107,22 @@ below is really a scaling cost, it points at the lever.
   `Bmc.anyString(n)`. Residual: `Integer.toString(0)` has a JBMC length quirk, so an
   *exact-length* assertion over `"x" + n` where `n` can be `0` may spuriously fail
   (a visible over-approximation, not silent); `float`/`double` formatting is unmodeled.
+- **Floating point is supported, with caveats — it is a *scaling cost*, not a boundary, for
+  the parts that are sound.** `anyFloat()`/`anyDouble()` introduce genuine symbolic IEEE-754
+  inputs (full domain incl. `NaN`/±∞; the bounded `anyFloat(lo,hi)`/`anyDouble(lo,hi)` forms
+  exclude `NaN`), and JBMC reasons soundly about float/double **arithmetic** (`+`/`-`/`*`/`/`),
+  **ordered comparisons**, and the algebraic `Math` functions `abs`/`sqrt`/`pow`/`min`/`max`
+  (all verified over symbolic inputs). The cost is performance: IEEE-754 in a SAT solver is slow
+  by construction, so prefer integer models where you can ([performance](performance.md)) — but a
+  slow FP proof is tunable, not a dead end. What is **genuinely out of scope** is the
+  *irrational/transcendental* `Math` library on **symbolic** inputs: `sin`/`cos`/`tan`/`log`/`exp`
+  and even `floor` are modeled by the underlying engine but **imprecisely**, so a symbolic-input
+  property over them can spuriously **REFUTE** (e.g. the engine admits `sin(0) == 1`, or
+  `floor(0)` a tiny denormal) — these are reliable only over **concrete** inputs. The Kotlin
+  `kotlin.math` facade follows the same line: the inline `Math`-delegating functions are sound,
+  while `acosh`/`asinh`/`atanh` (no `java.lang.Math` primitive) are `@BmcUnmodelable` and fail
+  loud if reached. `double`/`float` **formatting** (`Double.toString`, `"" + aDouble`) is
+  separately unsound — see [coverage](coverage.md).
 - **Lambdas & method references work** (Java and Kotlin) — they're desugared to real
   classes, so you can pass a lambda into a proof or apply it to symbolic inputs (see
   [`examples/language-java`](../examples/language-java)); stream/collection pipelines
