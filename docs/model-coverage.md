@@ -895,1181 +895,1182 @@ Real surface: 3 members — modeled 3, unmodelable 0, not-needed 0, tail 0.
 
 ## `kotlin.collections.ArraysKt`
 
-Real surface: 1313 members — modeled 146, unmodelable 0, not-needed 0, tail 1167.
+Real surface: 1313 members — modeled 146, unmodelable 1158, not-needed 9, tail 0.
 
 **Modeled** (`@BmcModelConforms`): `asList(Object[])`, `asList(boolean[])`, `asList(byte[])`, `asList(char[])`, `asList(double[])`, `asList(float[])`, `asList(int[])`, `asList(long[])`, `asList(short[])`, `contains(Object[], Object)`, `contains(boolean[], boolean)`, `contains(byte[], byte)`, `contains(char[], char)`, `contains(int[], int)`, `contains(long[], long)`, `contains(short[], short)`, `copyInto(Object[], Object[], int, int, int)`, `copyInto(boolean[], boolean[], int, int, int)`, `copyInto(byte[], byte[], int, int, int)`, `copyInto(char[], char[], int, int, int)`, `copyInto(double[], double[], int, int, int)`, `copyInto(float[], float[], int, int, int)`, `copyInto(int[], int[], int, int, int)`, `copyInto(long[], long[], int, int, int)`, `copyInto(short[], short[], int, int, int)`, `copyOfRange(Object[], int, int)`, `copyOfRange(boolean[], int, int)`, `copyOfRange(byte[], int, int)`, `copyOfRange(char[], int, int)`, `copyOfRange(double[], int, int)`, `copyOfRange(float[], int, int)`, `copyOfRange(int[], int, int)`, `copyOfRange(long[], int, int)`, `copyOfRange(short[], int, int)`, `fill(Object[], Object, int, int)`, `fill(boolean[], boolean, int, int)`, `fill(byte[], byte, int, int)`, `fill(char[], char, int, int)`, `fill(double[], double, int, int)`, `fill(float[], float, int, int)`, `fill(int[], int, int, int)`, `fill(long[], long, int, int)`, `fill(short[], short, int, int)`, `first(Object[])`, `first(boolean[])`, `first(byte[])`, `first(char[])`, `first(double[])`, `first(float[])`, `first(int[])`, `first(long[])`, `first(short[])`, `getOrNull(Object[], int)`, `getOrNull(boolean[], int)`, `getOrNull(byte[], int)`, `getOrNull(char[], int)`, `getOrNull(double[], int)`, `getOrNull(float[], int)`, `getOrNull(int[], int)`, `getOrNull(long[], int)`, `getOrNull(short[], int)`, `indexOf(Object[], Object)`, `indexOf(boolean[], boolean)`, `indexOf(byte[], byte)`, `indexOf(char[], char)`, `indexOf(int[], int)`, `indexOf(long[], long)`, `indexOf(short[], short)`, `last(Object[])`, `last(boolean[])`, `last(byte[])`, `last(char[])`, `last(double[])`, `last(float[])`, `last(int[])`, `last(long[])`, `last(short[])`, `lastIndexOf(Object[], Object)`, `lastIndexOf(boolean[], boolean)`, `lastIndexOf(byte[], byte)`, `lastIndexOf(char[], char)`, `lastIndexOf(int[], int)`, `lastIndexOf(long[], long)`, `lastIndexOf(short[], short)`, `plus(Object[], Collection)`, `plus(Object[], Object)`, `plus(Object[], Object[])`, `plus(boolean[], Collection)`, `plus(boolean[], boolean)`, `plus(boolean[], boolean[])`, `plus(byte[], Collection)`, `plus(byte[], byte)`, `plus(byte[], byte[])`, `plus(char[], Collection)`, `plus(char[], char)`, `plus(char[], char[])`, `plus(double[], Collection)`, `plus(double[], double)`, `plus(double[], double[])`, `plus(float[], Collection)`, `plus(float[], float)`, `plus(float[], float[])`, `plus(int[], Collection)`, `plus(int[], int)`, `plus(int[], int[])`, `plus(long[], Collection)`, `plus(long[], long)`, `plus(long[], long[])`, `plus(short[], Collection)`, `plus(short[], short)`, `plus(short[], short[])`, `single(Object[])`, `single(boolean[])`, `single(byte[])`, `single(char[])`, `single(double[])`, `single(float[])`, `single(int[])`, `single(long[])`, `single(short[])`, `toList(Object[])`, `toList(boolean[])`, `toList(byte[])`, `toList(char[])`, `toList(double[])`, `toList(float[])`, `toList(int[])`, `toList(long[])`, `toList(short[])`, `toMutableList(Object[])`, `toMutableList(boolean[])`, `toMutableList(byte[])`, `toMutableList(char[])`, `toMutableList(double[])`, `toMutableList(float[])`, `toMutableList(int[])`, `toMutableList(long[])`, `toMutableList(short[])`, `toTypedArray(boolean[])`, `toTypedArray(byte[])`, `toTypedArray(char[])`, `toTypedArray(double[])`, `toTypedArray(float[])`, `toTypedArray(int[])`, `toTypedArray(long[])`, `toTypedArray(short[])`
 
-<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 1167 members, all loud): the ~1200-member kotlin.collections.ArraysKt array-extension surface (all/any/map/filter/fold/sort/sum/zip/windowed/… across nine element types, plus the lambda-taking inline forms that inline into the caller) is the exotic tail; the high-value copy/fill surface (copyInto/copyOf/copyOfRange/fill) and the hot read/convert surface (asList/plus/contains/indexOf/lastIndexOf/toList/toMutableList/toTypedArray/first/last/single/getOrNull) are modeled, the remainder is build-synthesized loud (member-named UNKNOWN if reached, never a silent nondet stub)</summary>
+| Unmodelable (loud-if-reached) | Reason |
+|---|---|
+| `all(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `all(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `any(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `any(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `arrayOfNulls(Object[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asIterable(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `asSequence(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `associate(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associate(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(Object[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(boolean[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(byte[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(char[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(double[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(float[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(int[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(long[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateBy(short[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Object[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(Object[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(boolean[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(boolean[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(byte[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(byte[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(char[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(char[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(double[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(double[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(float[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(float[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(int[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(int[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(long[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(long[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(short[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateByTo(short[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(Object[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(boolean[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(byte[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(char[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(double[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(float[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(int[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(long[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateTo(short[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWith(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `associateWithTo(Object[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `average(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `average(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `average(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `average(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `average(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `average(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfByte(Byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfDouble(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfFloat(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfInt(Integer[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfLong(Long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `averageOfShort(Short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(Object[], Object, Comparator, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(Object[], Object, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(byte[], byte, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(char[], char, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(double[], double, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(float[], float, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(int[], int, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(long[], long, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `binarySearch(short[], short, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `contentDeepEquals(Object[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `contentDeepHashCode(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `contentDeepToString(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `copyOfRangeToIndexCheck(int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `count(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `count(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinct(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinct(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `distinctBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `distinctBy(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `drop(Object[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(boolean[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(byte[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(char[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(double[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(float[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(int[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(long[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `drop(short[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(Object[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(boolean[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(byte[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(char[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(double[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(float[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(int[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(long[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLast(short[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `dropLastWhile(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropLastWhile(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `dropWhile(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filter(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexed(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(Object[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(boolean[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(byte[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(char[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(double[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(float[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(int[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(long[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIndexedTo(short[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterIsInstance(Object[], Class)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `filterIsInstanceTo(Object[], Collection, Class)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `filterNot(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNot(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotNull(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `filterNotNullTo(Object[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `filterNotTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(boolean[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(byte[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(char[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(double[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(float[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(int[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(long[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterNotTo(short[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(boolean[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(byte[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(char[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(double[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(float[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(int[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(long[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `filterTo(short[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `first(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `firstOrNull(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `firstOrNull(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMap(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequence(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapSequenceTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(boolean[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(byte[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(char[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(double[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(float[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(int[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(long[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatMapTo(short[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `flatten(Object[][])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `fold(Object[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(boolean[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(byte[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(char[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(double[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(float[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(int[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(long[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `fold(short[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(Object[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(boolean[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(byte[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(char[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(double[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(float[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(int[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(long[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldIndexed(short[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(Object[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(boolean[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(byte[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(char[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(double[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(float[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(int[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(long[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRight(short[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(Object[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(boolean[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(byte[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(char[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(double[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(float[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(int[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(long[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `foldRightIndexed(short[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEach(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `forEachIndexed(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `getIndices(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getIndices(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `getLastIndex(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `groupBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(Object[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(boolean[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(byte[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(char[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(double[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(float[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(int[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(long[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupBy(short[], Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Object[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(Object[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(boolean[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(boolean[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(byte[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(byte[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(char[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(char[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(double[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(double[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(float[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(float[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(int[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(int[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(long[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(long[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(short[], Map, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupByTo(short[], Map, Function1, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `groupingBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfFirst(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `indexOfLast(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `intersect(Object[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(boolean[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(byte[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(char[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(double[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(float[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(int[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(long[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `intersect(short[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(Object[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(boolean[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(byte[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(char[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(double[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(float[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(int[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(long[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinTo(short[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(Object[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(boolean[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(byte[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(char[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(double[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(float[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(int[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(long[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `joinToString(short[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `last(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `last(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `lastOrNull(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `lastOrNull(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `map(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexed(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNull(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedNotNullTo(Object[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(Object[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(boolean[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(byte[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(char[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(double[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(float[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(int[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(long[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapIndexedTo(short[], Collection, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapNotNullTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(Object[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(boolean[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(byte[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(char[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(double[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(float[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(int[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(long[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `mapTo(short[], Collection, Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrNull(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxByOrThrow(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `maxOrNull(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrNull(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxOrThrow(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(boolean[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(byte[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(char[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(double[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(float[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(int[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(long[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrNull(short[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(boolean[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(byte[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(char[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(double[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(float[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(int[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(long[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `maxWithOrThrow(short[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minByOrNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrNull(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minByOrThrow(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `minOrNull(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrNull(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minOrThrow(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(boolean[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(byte[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(char[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(double[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(float[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(int[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(long[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrNull(short[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(boolean[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(byte[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(char[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(double[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(float[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(int[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(long[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `minWithOrThrow(short[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `none(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `none(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `partition(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `random(Object[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(boolean[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(byte[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(char[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(double[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(float[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(int[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(long[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `random(short[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(Object[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(boolean[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(byte[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(char[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(double[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(float[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(int[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(long[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `randomOrNull(short[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reduce(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduce(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(Object[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(boolean[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(byte[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(char[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(double[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(float[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(int[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(long[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexed(short[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(Object[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(boolean[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(byte[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(char[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(double[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(float[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(int[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(long[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceIndexedOrNull(short[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceOrNull(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRight(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(Object[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(boolean[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(byte[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(char[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(double[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(float[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(int[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(long[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexed(short[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(Object[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(boolean[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(byte[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(char[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(double[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(float[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(int[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(long[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightIndexedOrNull(short[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `reduceRightOrNull(short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `requireNoNulls(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(Object[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(boolean[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(byte[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(char[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(double[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(float[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(int[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(long[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reverse(short[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversed(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `reversedArray(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `runningFold(Object[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningFoldIndexed(Object[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningReduce(Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `runningReduceIndexed(Object[], Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `scan(Object[], Object, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `scanIndexed(Object[], Object, Function3)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `shuffle(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(Object[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(boolean[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(byte[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(char[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(double[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(float[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(int[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(long[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `shuffle(short[], Random)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `single(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `single(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `singleOrNull(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `singleOrNull(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `slice(Object[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(Object[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(boolean[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(boolean[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(byte[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(byte[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(char[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(char[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(double[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(double[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(float[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(float[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(int[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(int[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(long[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(long[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(short[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `slice(short[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(Object[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(Object[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(boolean[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(boolean[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(byte[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(byte[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(char[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(char[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(double[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(double[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(float[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(float[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(int[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(int[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(long[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(long[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(short[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sliceArray(short[], IntRange)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(Comparable[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(Object[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(byte[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(char[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(double[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(float[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(int[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(long[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sort(short[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortByDescending(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortDescending(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(Comparable[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(byte[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(char[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(double[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(float[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(int[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(long[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortDescending(short[], int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortWith(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortWith(Object[], Comparator, int, int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sorted(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArray(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayDescending(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedArrayWith(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedBy(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedByDescending(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sortedDescending(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedDescending(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(boolean[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(byte[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(char[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(double[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(float[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(int[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(long[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sortedWith(short[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(Object[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(boolean[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(byte[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(char[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(double[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(float[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(int[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(long[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `subtract(short[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sum(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumBy(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumBy(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumByDouble(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `sumOfByte(Byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumOfDouble(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumOfFloat(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumOfInt(Integer[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumOfLong(Long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `sumOfShort(Short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(Object[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(boolean[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(byte[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(char[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(double[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(float[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(int[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(long[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `take(short[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(Object[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(boolean[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(byte[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(char[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(double[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(float[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(int[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(long[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLast(short[], int)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `takeLastWhile(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeLastWhile(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(Object[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(boolean[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(byte[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(char[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(double[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(float[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(int[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(long[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `takeWhile(short[], Function1)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `toBooleanArray(Boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toByteArray(Byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCharArray(Character[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(Object[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(boolean[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(byte[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(char[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(double[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(float[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(int[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(long[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toCollection(short[], Collection)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toDoubleArray(Double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toFloatArray(Float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toHashSet(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toIntArray(Integer[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toLongArray(Long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toMutableSet(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSet(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toShortArray(Short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(Comparable[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(Object[], Comparator)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `toSortedSet(short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(Object[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(boolean[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(byte[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(char[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(double[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(float[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(int[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(long[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `union(short[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `unzip(Pair[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(Object[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(Object[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(Object[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(Object[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(boolean[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(boolean[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(boolean[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(boolean[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(boolean[], boolean[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(boolean[], boolean[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(byte[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(byte[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(byte[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(byte[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(byte[], byte[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(byte[], byte[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(char[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(char[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(char[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(char[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(char[], char[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(char[], char[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(double[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(double[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(double[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(double[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(double[], double[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(double[], double[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(float[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(float[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(float[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(float[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(float[], float[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(float[], float[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(int[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(int[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(int[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(int[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(int[], int[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(int[], int[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(long[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(long[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(long[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(long[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(long[], long[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(long[], long[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(short[], Iterable)` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(short[], Iterable, Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(short[], Object[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(short[], Object[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
+| `zip(short[], short[])` | real stdlib bytecode does NOT analyze soundly when reached (probed UNKNOWN through the real facade — routes through unmodeled kotlin-stdlib internals JBMC nondet-stubs); loud-if-reached |
+| `zip(short[], short[], Function2)` | inline — body lands in caller; the facade JVM method is never called from a Kotlin call site |
 
-- `all(Object[], Function1)`
-- `all(boolean[], Function1)`
-- `all(byte[], Function1)`
-- `all(char[], Function1)`
-- `all(double[], Function1)`
-- `all(float[], Function1)`
-- `all(int[], Function1)`
-- `all(long[], Function1)`
-- `all(short[], Function1)`
-- `any(Object[])`
-- `any(Object[], Function1)`
-- `any(boolean[])`
-- `any(boolean[], Function1)`
-- `any(byte[])`
-- `any(byte[], Function1)`
-- `any(char[])`
-- `any(char[], Function1)`
-- `any(double[])`
-- `any(double[], Function1)`
-- `any(float[])`
-- `any(float[], Function1)`
-- `any(int[])`
-- `any(int[], Function1)`
-- `any(long[])`
-- `any(long[], Function1)`
-- `any(short[])`
-- `any(short[], Function1)`
-- `arrayOfNulls(Object[], int)`
-- `asIterable(Object[])`
-- `asIterable(boolean[])`
-- `asIterable(byte[])`
-- `asIterable(char[])`
-- `asIterable(double[])`
-- `asIterable(float[])`
-- `asIterable(int[])`
-- `asIterable(long[])`
-- `asIterable(short[])`
-- `asSequence(Object[])`
-- `asSequence(boolean[])`
-- `asSequence(byte[])`
-- `asSequence(char[])`
-- `asSequence(double[])`
-- `asSequence(float[])`
-- `asSequence(int[])`
-- `asSequence(long[])`
-- `asSequence(short[])`
-- `associate(Object[], Function1)`
-- `associate(boolean[], Function1)`
-- `associate(byte[], Function1)`
-- `associate(char[], Function1)`
-- `associate(double[], Function1)`
-- `associate(float[], Function1)`
-- `associate(int[], Function1)`
-- `associate(long[], Function1)`
-- `associate(short[], Function1)`
-- `associateBy(Object[], Function1)`
-- `associateBy(Object[], Function1, Function1)`
-- `associateBy(boolean[], Function1)`
-- `associateBy(boolean[], Function1, Function1)`
-- `associateBy(byte[], Function1)`
-- `associateBy(byte[], Function1, Function1)`
-- `associateBy(char[], Function1)`
-- `associateBy(char[], Function1, Function1)`
-- `associateBy(double[], Function1)`
-- `associateBy(double[], Function1, Function1)`
-- `associateBy(float[], Function1)`
-- `associateBy(float[], Function1, Function1)`
-- `associateBy(int[], Function1)`
-- `associateBy(int[], Function1, Function1)`
-- `associateBy(long[], Function1)`
-- `associateBy(long[], Function1, Function1)`
-- `associateBy(short[], Function1)`
-- `associateBy(short[], Function1, Function1)`
-- `associateByTo(Object[], Map, Function1)`
-- `associateByTo(Object[], Map, Function1, Function1)`
-- `associateByTo(boolean[], Map, Function1)`
-- `associateByTo(boolean[], Map, Function1, Function1)`
-- `associateByTo(byte[], Map, Function1)`
-- `associateByTo(byte[], Map, Function1, Function1)`
-- `associateByTo(char[], Map, Function1)`
-- `associateByTo(char[], Map, Function1, Function1)`
-- `associateByTo(double[], Map, Function1)`
-- `associateByTo(double[], Map, Function1, Function1)`
-- `associateByTo(float[], Map, Function1)`
-- `associateByTo(float[], Map, Function1, Function1)`
-- `associateByTo(int[], Map, Function1)`
-- `associateByTo(int[], Map, Function1, Function1)`
-- `associateByTo(long[], Map, Function1)`
-- `associateByTo(long[], Map, Function1, Function1)`
-- `associateByTo(short[], Map, Function1)`
-- `associateByTo(short[], Map, Function1, Function1)`
-- `associateTo(Object[], Map, Function1)`
-- `associateTo(boolean[], Map, Function1)`
-- `associateTo(byte[], Map, Function1)`
-- `associateTo(char[], Map, Function1)`
-- `associateTo(double[], Map, Function1)`
-- `associateTo(float[], Map, Function1)`
-- `associateTo(int[], Map, Function1)`
-- `associateTo(long[], Map, Function1)`
-- `associateTo(short[], Map, Function1)`
-- `associateWith(Object[], Function1)`
-- `associateWithTo(Object[], Map, Function1)`
-- `average(byte[])`
-- `average(double[])`
-- `average(float[])`
-- `average(int[])`
-- `average(long[])`
-- `average(short[])`
-- `averageOfByte(Byte[])`
-- `averageOfDouble(Double[])`
-- `averageOfFloat(Float[])`
-- `averageOfInt(Integer[])`
-- `averageOfLong(Long[])`
-- `averageOfShort(Short[])`
-- `binarySearch(Object[], Object, Comparator, int, int)`
-- `binarySearch(Object[], Object, int, int)`
-- `binarySearch(byte[], byte, int, int)`
-- `binarySearch(char[], char, int, int)`
-- `binarySearch(double[], double, int, int)`
-- `binarySearch(float[], float, int, int)`
-- `binarySearch(int[], int, int, int)`
-- `binarySearch(long[], long, int, int)`
-- `binarySearch(short[], short, int, int)`
-- `contentDeepEquals(Object[], Object[])`
-- `contentDeepHashCode(Object[])`
-- `contentDeepToString(Object[])`
-- `copyOfRangeToIndexCheck(int, int)`
-- `count(Object[], Function1)`
-- `count(boolean[], Function1)`
-- `count(byte[], Function1)`
-- `count(char[], Function1)`
-- `count(double[], Function1)`
-- `count(float[], Function1)`
-- `count(int[], Function1)`
-- `count(long[], Function1)`
-- `count(short[], Function1)`
-- `distinct(Object[])`
-- `distinct(boolean[])`
-- `distinct(byte[])`
-- `distinct(char[])`
-- `distinct(double[])`
-- `distinct(float[])`
-- `distinct(int[])`
-- `distinct(long[])`
-- `distinct(short[])`
-- `distinctBy(Object[], Function1)`
-- `distinctBy(boolean[], Function1)`
-- `distinctBy(byte[], Function1)`
-- `distinctBy(char[], Function1)`
-- `distinctBy(double[], Function1)`
-- `distinctBy(float[], Function1)`
-- `distinctBy(int[], Function1)`
-- `distinctBy(long[], Function1)`
-- `distinctBy(short[], Function1)`
-- `drop(Object[], int)`
-- `drop(boolean[], int)`
-- `drop(byte[], int)`
-- `drop(char[], int)`
-- `drop(double[], int)`
-- `drop(float[], int)`
-- `drop(int[], int)`
-- `drop(long[], int)`
-- `drop(short[], int)`
-- `dropLast(Object[], int)`
-- `dropLast(boolean[], int)`
-- `dropLast(byte[], int)`
-- `dropLast(char[], int)`
-- `dropLast(double[], int)`
-- `dropLast(float[], int)`
-- `dropLast(int[], int)`
-- `dropLast(long[], int)`
-- `dropLast(short[], int)`
-- `dropLastWhile(Object[], Function1)`
-- `dropLastWhile(boolean[], Function1)`
-- `dropLastWhile(byte[], Function1)`
-- `dropLastWhile(char[], Function1)`
-- `dropLastWhile(double[], Function1)`
-- `dropLastWhile(float[], Function1)`
-- `dropLastWhile(int[], Function1)`
-- `dropLastWhile(long[], Function1)`
-- `dropLastWhile(short[], Function1)`
-- `dropWhile(Object[], Function1)`
-- `dropWhile(boolean[], Function1)`
-- `dropWhile(byte[], Function1)`
-- `dropWhile(char[], Function1)`
-- `dropWhile(double[], Function1)`
-- `dropWhile(float[], Function1)`
-- `dropWhile(int[], Function1)`
-- `dropWhile(long[], Function1)`
-- `dropWhile(short[], Function1)`
-- `filter(Object[], Function1)`
-- `filter(boolean[], Function1)`
-- `filter(byte[], Function1)`
-- `filter(char[], Function1)`
-- `filter(double[], Function1)`
-- `filter(float[], Function1)`
-- `filter(int[], Function1)`
-- `filter(long[], Function1)`
-- `filter(short[], Function1)`
-- `filterIndexed(Object[], Function2)`
-- `filterIndexed(boolean[], Function2)`
-- `filterIndexed(byte[], Function2)`
-- `filterIndexed(char[], Function2)`
-- `filterIndexed(double[], Function2)`
-- `filterIndexed(float[], Function2)`
-- `filterIndexed(int[], Function2)`
-- `filterIndexed(long[], Function2)`
-- `filterIndexed(short[], Function2)`
-- `filterIndexedTo(Object[], Collection, Function2)`
-- `filterIndexedTo(boolean[], Collection, Function2)`
-- `filterIndexedTo(byte[], Collection, Function2)`
-- `filterIndexedTo(char[], Collection, Function2)`
-- `filterIndexedTo(double[], Collection, Function2)`
-- `filterIndexedTo(float[], Collection, Function2)`
-- `filterIndexedTo(int[], Collection, Function2)`
-- `filterIndexedTo(long[], Collection, Function2)`
-- `filterIndexedTo(short[], Collection, Function2)`
-- `filterIsInstance(Object[], Class)`
-- `filterIsInstanceTo(Object[], Collection, Class)`
-- `filterNot(Object[], Function1)`
-- `filterNot(boolean[], Function1)`
-- `filterNot(byte[], Function1)`
-- `filterNot(char[], Function1)`
-- `filterNot(double[], Function1)`
-- `filterNot(float[], Function1)`
-- `filterNot(int[], Function1)`
-- `filterNot(long[], Function1)`
-- `filterNot(short[], Function1)`
-- `filterNotNull(Object[])`
-- `filterNotNullTo(Object[], Collection)`
-- `filterNotTo(Object[], Collection, Function1)`
-- `filterNotTo(boolean[], Collection, Function1)`
-- `filterNotTo(byte[], Collection, Function1)`
-- `filterNotTo(char[], Collection, Function1)`
-- `filterNotTo(double[], Collection, Function1)`
-- `filterNotTo(float[], Collection, Function1)`
-- `filterNotTo(int[], Collection, Function1)`
-- `filterNotTo(long[], Collection, Function1)`
-- `filterNotTo(short[], Collection, Function1)`
-- `filterTo(Object[], Collection, Function1)`
-- `filterTo(boolean[], Collection, Function1)`
-- `filterTo(byte[], Collection, Function1)`
-- `filterTo(char[], Collection, Function1)`
-- `filterTo(double[], Collection, Function1)`
-- `filterTo(float[], Collection, Function1)`
-- `filterTo(int[], Collection, Function1)`
-- `filterTo(long[], Collection, Function1)`
-- `filterTo(short[], Collection, Function1)`
-- `first(Object[], Function1)`
-- `first(boolean[], Function1)`
-- `first(byte[], Function1)`
-- `first(char[], Function1)`
-- `first(double[], Function1)`
-- `first(float[], Function1)`
-- `first(int[], Function1)`
-- `first(long[], Function1)`
-- `first(short[], Function1)`
-- `firstOrNull(Object[])`
-- `firstOrNull(Object[], Function1)`
-- `firstOrNull(boolean[])`
-- `firstOrNull(boolean[], Function1)`
-- `firstOrNull(byte[])`
-- `firstOrNull(byte[], Function1)`
-- `firstOrNull(char[])`
-- `firstOrNull(char[], Function1)`
-- `firstOrNull(double[])`
-- `firstOrNull(double[], Function1)`
-- `firstOrNull(float[])`
-- `firstOrNull(float[], Function1)`
-- `firstOrNull(int[])`
-- `firstOrNull(int[], Function1)`
-- `firstOrNull(long[])`
-- `firstOrNull(long[], Function1)`
-- `firstOrNull(short[])`
-- `firstOrNull(short[], Function1)`
-- `flatMap(Object[], Function1)`
-- `flatMap(boolean[], Function1)`
-- `flatMap(byte[], Function1)`
-- `flatMap(char[], Function1)`
-- `flatMap(double[], Function1)`
-- `flatMap(float[], Function1)`
-- `flatMap(int[], Function1)`
-- `flatMap(long[], Function1)`
-- `flatMap(short[], Function1)`
-- `flatMapSequence(Object[], Function1)`
-- `flatMapSequenceTo(Object[], Collection, Function1)`
-- `flatMapTo(Object[], Collection, Function1)`
-- `flatMapTo(boolean[], Collection, Function1)`
-- `flatMapTo(byte[], Collection, Function1)`
-- `flatMapTo(char[], Collection, Function1)`
-- `flatMapTo(double[], Collection, Function1)`
-- `flatMapTo(float[], Collection, Function1)`
-- `flatMapTo(int[], Collection, Function1)`
-- `flatMapTo(long[], Collection, Function1)`
-- `flatMapTo(short[], Collection, Function1)`
-- `flatten(Object[][])`
-- `fold(Object[], Object, Function2)`
-- `fold(boolean[], Object, Function2)`
-- `fold(byte[], Object, Function2)`
-- `fold(char[], Object, Function2)`
-- `fold(double[], Object, Function2)`
-- `fold(float[], Object, Function2)`
-- `fold(int[], Object, Function2)`
-- `fold(long[], Object, Function2)`
-- `fold(short[], Object, Function2)`
-- `foldIndexed(Object[], Object, Function3)`
-- `foldIndexed(boolean[], Object, Function3)`
-- `foldIndexed(byte[], Object, Function3)`
-- `foldIndexed(char[], Object, Function3)`
-- `foldIndexed(double[], Object, Function3)`
-- `foldIndexed(float[], Object, Function3)`
-- `foldIndexed(int[], Object, Function3)`
-- `foldIndexed(long[], Object, Function3)`
-- `foldIndexed(short[], Object, Function3)`
-- `foldRight(Object[], Object, Function2)`
-- `foldRight(boolean[], Object, Function2)`
-- `foldRight(byte[], Object, Function2)`
-- `foldRight(char[], Object, Function2)`
-- `foldRight(double[], Object, Function2)`
-- `foldRight(float[], Object, Function2)`
-- `foldRight(int[], Object, Function2)`
-- `foldRight(long[], Object, Function2)`
-- `foldRight(short[], Object, Function2)`
-- `foldRightIndexed(Object[], Object, Function3)`
-- `foldRightIndexed(boolean[], Object, Function3)`
-- `foldRightIndexed(byte[], Object, Function3)`
-- `foldRightIndexed(char[], Object, Function3)`
-- `foldRightIndexed(double[], Object, Function3)`
-- `foldRightIndexed(float[], Object, Function3)`
-- `foldRightIndexed(int[], Object, Function3)`
-- `foldRightIndexed(long[], Object, Function3)`
-- `foldRightIndexed(short[], Object, Function3)`
-- `forEach(Object[], Function1)`
-- `forEach(boolean[], Function1)`
-- `forEach(byte[], Function1)`
-- `forEach(char[], Function1)`
-- `forEach(double[], Function1)`
-- `forEach(float[], Function1)`
-- `forEach(int[], Function1)`
-- `forEach(long[], Function1)`
-- `forEach(short[], Function1)`
-- `forEachIndexed(Object[], Function2)`
-- `forEachIndexed(boolean[], Function2)`
-- `forEachIndexed(byte[], Function2)`
-- `forEachIndexed(char[], Function2)`
-- `forEachIndexed(double[], Function2)`
-- `forEachIndexed(float[], Function2)`
-- `forEachIndexed(int[], Function2)`
-- `forEachIndexed(long[], Function2)`
-- `forEachIndexed(short[], Function2)`
-- `getIndices(Object[])`
-- `getIndices(boolean[])`
-- `getIndices(byte[])`
-- `getIndices(char[])`
-- `getIndices(double[])`
-- `getIndices(float[])`
-- `getIndices(int[])`
-- `getIndices(long[])`
-- `getIndices(short[])`
-- `getLastIndex(Object[])`
-- `getLastIndex(boolean[])`
-- `getLastIndex(byte[])`
-- `getLastIndex(char[])`
-- `getLastIndex(double[])`
-- `getLastIndex(float[])`
-- `getLastIndex(int[])`
-- `getLastIndex(long[])`
-- `getLastIndex(short[])`
-- `groupBy(Object[], Function1)`
-- `groupBy(Object[], Function1, Function1)`
-- `groupBy(boolean[], Function1)`
-- `groupBy(boolean[], Function1, Function1)`
-- `groupBy(byte[], Function1)`
-- `groupBy(byte[], Function1, Function1)`
-- `groupBy(char[], Function1)`
-- `groupBy(char[], Function1, Function1)`
-- `groupBy(double[], Function1)`
-- `groupBy(double[], Function1, Function1)`
-- `groupBy(float[], Function1)`
-- `groupBy(float[], Function1, Function1)`
-- `groupBy(int[], Function1)`
-- `groupBy(int[], Function1, Function1)`
-- `groupBy(long[], Function1)`
-- `groupBy(long[], Function1, Function1)`
-- `groupBy(short[], Function1)`
-- `groupBy(short[], Function1, Function1)`
-- `groupByTo(Object[], Map, Function1)`
-- `groupByTo(Object[], Map, Function1, Function1)`
-- `groupByTo(boolean[], Map, Function1)`
-- `groupByTo(boolean[], Map, Function1, Function1)`
-- `groupByTo(byte[], Map, Function1)`
-- `groupByTo(byte[], Map, Function1, Function1)`
-- `groupByTo(char[], Map, Function1)`
-- `groupByTo(char[], Map, Function1, Function1)`
-- `groupByTo(double[], Map, Function1)`
-- `groupByTo(double[], Map, Function1, Function1)`
-- `groupByTo(float[], Map, Function1)`
-- `groupByTo(float[], Map, Function1, Function1)`
-- `groupByTo(int[], Map, Function1)`
-- `groupByTo(int[], Map, Function1, Function1)`
-- `groupByTo(long[], Map, Function1)`
-- `groupByTo(long[], Map, Function1, Function1)`
-- `groupByTo(short[], Map, Function1)`
-- `groupByTo(short[], Map, Function1, Function1)`
-- `groupingBy(Object[], Function1)`
-- `indexOfFirst(Object[], Function1)`
-- `indexOfFirst(boolean[], Function1)`
-- `indexOfFirst(byte[], Function1)`
-- `indexOfFirst(char[], Function1)`
-- `indexOfFirst(double[], Function1)`
-- `indexOfFirst(float[], Function1)`
-- `indexOfFirst(int[], Function1)`
-- `indexOfFirst(long[], Function1)`
-- `indexOfFirst(short[], Function1)`
-- `indexOfLast(Object[], Function1)`
-- `indexOfLast(boolean[], Function1)`
-- `indexOfLast(byte[], Function1)`
-- `indexOfLast(char[], Function1)`
-- `indexOfLast(double[], Function1)`
-- `indexOfLast(float[], Function1)`
-- `indexOfLast(int[], Function1)`
-- `indexOfLast(long[], Function1)`
-- `indexOfLast(short[], Function1)`
-- `intersect(Object[], Iterable)`
-- `intersect(boolean[], Iterable)`
-- `intersect(byte[], Iterable)`
-- `intersect(char[], Iterable)`
-- `intersect(double[], Iterable)`
-- `intersect(float[], Iterable)`
-- `intersect(int[], Iterable)`
-- `intersect(long[], Iterable)`
-- `intersect(short[], Iterable)`
-- `joinTo(Object[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(boolean[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(byte[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(char[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(double[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(float[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(int[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(long[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinTo(short[], Appendable, CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(Object[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(boolean[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(byte[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(char[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(double[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(float[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(int[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(long[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `joinToString(short[], CharSequence, CharSequence, CharSequence, int, CharSequence, Function1)`
-- `last(Object[], Function1)`
-- `last(boolean[], Function1)`
-- `last(byte[], Function1)`
-- `last(char[], Function1)`
-- `last(double[], Function1)`
-- `last(float[], Function1)`
-- `last(int[], Function1)`
-- `last(long[], Function1)`
-- `last(short[], Function1)`
-- `lastOrNull(Object[])`
-- `lastOrNull(Object[], Function1)`
-- `lastOrNull(boolean[])`
-- `lastOrNull(boolean[], Function1)`
-- `lastOrNull(byte[])`
-- `lastOrNull(byte[], Function1)`
-- `lastOrNull(char[])`
-- `lastOrNull(char[], Function1)`
-- `lastOrNull(double[])`
-- `lastOrNull(double[], Function1)`
-- `lastOrNull(float[])`
-- `lastOrNull(float[], Function1)`
-- `lastOrNull(int[])`
-- `lastOrNull(int[], Function1)`
-- `lastOrNull(long[])`
-- `lastOrNull(long[], Function1)`
-- `lastOrNull(short[])`
-- `lastOrNull(short[], Function1)`
-- `map(Object[], Function1)`
-- `map(boolean[], Function1)`
-- `map(byte[], Function1)`
-- `map(char[], Function1)`
-- `map(double[], Function1)`
-- `map(float[], Function1)`
-- `map(int[], Function1)`
-- `map(long[], Function1)`
-- `map(short[], Function1)`
-- `mapIndexed(Object[], Function2)`
-- `mapIndexed(boolean[], Function2)`
-- `mapIndexed(byte[], Function2)`
-- `mapIndexed(char[], Function2)`
-- `mapIndexed(double[], Function2)`
-- `mapIndexed(float[], Function2)`
-- `mapIndexed(int[], Function2)`
-- `mapIndexed(long[], Function2)`
-- `mapIndexed(short[], Function2)`
-- `mapIndexedNotNull(Object[], Function2)`
-- `mapIndexedNotNullTo(Object[], Collection, Function2)`
-- `mapIndexedTo(Object[], Collection, Function2)`
-- `mapIndexedTo(boolean[], Collection, Function2)`
-- `mapIndexedTo(byte[], Collection, Function2)`
-- `mapIndexedTo(char[], Collection, Function2)`
-- `mapIndexedTo(double[], Collection, Function2)`
-- `mapIndexedTo(float[], Collection, Function2)`
-- `mapIndexedTo(int[], Collection, Function2)`
-- `mapIndexedTo(long[], Collection, Function2)`
-- `mapIndexedTo(short[], Collection, Function2)`
-- `mapNotNull(Object[], Function1)`
-- `mapNotNullTo(Object[], Collection, Function1)`
-- `mapTo(Object[], Collection, Function1)`
-- `mapTo(boolean[], Collection, Function1)`
-- `mapTo(byte[], Collection, Function1)`
-- `mapTo(char[], Collection, Function1)`
-- `mapTo(double[], Collection, Function1)`
-- `mapTo(float[], Collection, Function1)`
-- `mapTo(int[], Collection, Function1)`
-- `mapTo(long[], Collection, Function1)`
-- `mapTo(short[], Collection, Function1)`
-- `maxByOrNull(Object[], Function1)`
-- `maxByOrNull(boolean[], Function1)`
-- `maxByOrNull(byte[], Function1)`
-- `maxByOrNull(char[], Function1)`
-- `maxByOrNull(double[], Function1)`
-- `maxByOrNull(float[], Function1)`
-- `maxByOrNull(int[], Function1)`
-- `maxByOrNull(long[], Function1)`
-- `maxByOrNull(short[], Function1)`
-- `maxByOrThrow(Object[], Function1)`
-- `maxByOrThrow(boolean[], Function1)`
-- `maxByOrThrow(byte[], Function1)`
-- `maxByOrThrow(char[], Function1)`
-- `maxByOrThrow(double[], Function1)`
-- `maxByOrThrow(float[], Function1)`
-- `maxByOrThrow(int[], Function1)`
-- `maxByOrThrow(long[], Function1)`
-- `maxByOrThrow(short[], Function1)`
-- `maxOrNull(Comparable[])`
-- `maxOrNull(Double[])`
-- `maxOrNull(Float[])`
-- `maxOrNull(byte[])`
-- `maxOrNull(char[])`
-- `maxOrNull(double[])`
-- `maxOrNull(float[])`
-- `maxOrNull(int[])`
-- `maxOrNull(long[])`
-- `maxOrNull(short[])`
-- `maxOrThrow(Comparable[])`
-- `maxOrThrow(Double[])`
-- `maxOrThrow(Float[])`
-- `maxOrThrow(byte[])`
-- `maxOrThrow(char[])`
-- `maxOrThrow(double[])`
-- `maxOrThrow(float[])`
-- `maxOrThrow(int[])`
-- `maxOrThrow(long[])`
-- `maxOrThrow(short[])`
-- `maxWithOrNull(Object[], Comparator)`
-- `maxWithOrNull(boolean[], Comparator)`
-- `maxWithOrNull(byte[], Comparator)`
-- `maxWithOrNull(char[], Comparator)`
-- `maxWithOrNull(double[], Comparator)`
-- `maxWithOrNull(float[], Comparator)`
-- `maxWithOrNull(int[], Comparator)`
-- `maxWithOrNull(long[], Comparator)`
-- `maxWithOrNull(short[], Comparator)`
-- `maxWithOrThrow(Object[], Comparator)`
-- `maxWithOrThrow(boolean[], Comparator)`
-- `maxWithOrThrow(byte[], Comparator)`
-- `maxWithOrThrow(char[], Comparator)`
-- `maxWithOrThrow(double[], Comparator)`
-- `maxWithOrThrow(float[], Comparator)`
-- `maxWithOrThrow(int[], Comparator)`
-- `maxWithOrThrow(long[], Comparator)`
-- `maxWithOrThrow(short[], Comparator)`
-- `minByOrNull(Object[], Function1)`
-- `minByOrNull(boolean[], Function1)`
-- `minByOrNull(byte[], Function1)`
-- `minByOrNull(char[], Function1)`
-- `minByOrNull(double[], Function1)`
-- `minByOrNull(float[], Function1)`
-- `minByOrNull(int[], Function1)`
-- `minByOrNull(long[], Function1)`
-- `minByOrNull(short[], Function1)`
-- `minByOrThrow(Object[], Function1)`
-- `minByOrThrow(boolean[], Function1)`
-- `minByOrThrow(byte[], Function1)`
-- `minByOrThrow(char[], Function1)`
-- `minByOrThrow(double[], Function1)`
-- `minByOrThrow(float[], Function1)`
-- `minByOrThrow(int[], Function1)`
-- `minByOrThrow(long[], Function1)`
-- `minByOrThrow(short[], Function1)`
-- `minOrNull(Comparable[])`
-- `minOrNull(Double[])`
-- `minOrNull(Float[])`
-- `minOrNull(byte[])`
-- `minOrNull(char[])`
-- `minOrNull(double[])`
-- `minOrNull(float[])`
-- `minOrNull(int[])`
-- `minOrNull(long[])`
-- `minOrNull(short[])`
-- `minOrThrow(Comparable[])`
-- `minOrThrow(Double[])`
-- `minOrThrow(Float[])`
-- `minOrThrow(byte[])`
-- `minOrThrow(char[])`
-- `minOrThrow(double[])`
-- `minOrThrow(float[])`
-- `minOrThrow(int[])`
-- `minOrThrow(long[])`
-- `minOrThrow(short[])`
-- `minWithOrNull(Object[], Comparator)`
-- `minWithOrNull(boolean[], Comparator)`
-- `minWithOrNull(byte[], Comparator)`
-- `minWithOrNull(char[], Comparator)`
-- `minWithOrNull(double[], Comparator)`
-- `minWithOrNull(float[], Comparator)`
-- `minWithOrNull(int[], Comparator)`
-- `minWithOrNull(long[], Comparator)`
-- `minWithOrNull(short[], Comparator)`
-- `minWithOrThrow(Object[], Comparator)`
-- `minWithOrThrow(boolean[], Comparator)`
-- `minWithOrThrow(byte[], Comparator)`
-- `minWithOrThrow(char[], Comparator)`
-- `minWithOrThrow(double[], Comparator)`
-- `minWithOrThrow(float[], Comparator)`
-- `minWithOrThrow(int[], Comparator)`
-- `minWithOrThrow(long[], Comparator)`
-- `minWithOrThrow(short[], Comparator)`
-- `none(Object[])`
-- `none(Object[], Function1)`
-- `none(boolean[])`
-- `none(boolean[], Function1)`
-- `none(byte[])`
-- `none(byte[], Function1)`
-- `none(char[])`
-- `none(char[], Function1)`
-- `none(double[])`
-- `none(double[], Function1)`
-- `none(float[])`
-- `none(float[], Function1)`
-- `none(int[])`
-- `none(int[], Function1)`
-- `none(long[])`
-- `none(long[], Function1)`
-- `none(short[])`
-- `none(short[], Function1)`
-- `partition(Object[], Function1)`
-- `partition(boolean[], Function1)`
-- `partition(byte[], Function1)`
-- `partition(char[], Function1)`
-- `partition(double[], Function1)`
-- `partition(float[], Function1)`
-- `partition(int[], Function1)`
-- `partition(long[], Function1)`
-- `partition(short[], Function1)`
-- `random(Object[], Random)`
-- `random(boolean[], Random)`
-- `random(byte[], Random)`
-- `random(char[], Random)`
-- `random(double[], Random)`
-- `random(float[], Random)`
-- `random(int[], Random)`
-- `random(long[], Random)`
-- `random(short[], Random)`
-- `randomOrNull(Object[], Random)`
-- `randomOrNull(boolean[], Random)`
-- `randomOrNull(byte[], Random)`
-- `randomOrNull(char[], Random)`
-- `randomOrNull(double[], Random)`
-- `randomOrNull(float[], Random)`
-- `randomOrNull(int[], Random)`
-- `randomOrNull(long[], Random)`
-- `randomOrNull(short[], Random)`
-- `reduce(Object[], Function2)`
-- `reduce(boolean[], Function2)`
-- `reduce(byte[], Function2)`
-- `reduce(char[], Function2)`
-- `reduce(double[], Function2)`
-- `reduce(float[], Function2)`
-- `reduce(int[], Function2)`
-- `reduce(long[], Function2)`
-- `reduce(short[], Function2)`
-- `reduceIndexed(Object[], Function3)`
-- `reduceIndexed(boolean[], Function3)`
-- `reduceIndexed(byte[], Function3)`
-- `reduceIndexed(char[], Function3)`
-- `reduceIndexed(double[], Function3)`
-- `reduceIndexed(float[], Function3)`
-- `reduceIndexed(int[], Function3)`
-- `reduceIndexed(long[], Function3)`
-- `reduceIndexed(short[], Function3)`
-- `reduceIndexedOrNull(Object[], Function3)`
-- `reduceIndexedOrNull(boolean[], Function3)`
-- `reduceIndexedOrNull(byte[], Function3)`
-- `reduceIndexedOrNull(char[], Function3)`
-- `reduceIndexedOrNull(double[], Function3)`
-- `reduceIndexedOrNull(float[], Function3)`
-- `reduceIndexedOrNull(int[], Function3)`
-- `reduceIndexedOrNull(long[], Function3)`
-- `reduceIndexedOrNull(short[], Function3)`
-- `reduceOrNull(Object[], Function2)`
-- `reduceOrNull(boolean[], Function2)`
-- `reduceOrNull(byte[], Function2)`
-- `reduceOrNull(char[], Function2)`
-- `reduceOrNull(double[], Function2)`
-- `reduceOrNull(float[], Function2)`
-- `reduceOrNull(int[], Function2)`
-- `reduceOrNull(long[], Function2)`
-- `reduceOrNull(short[], Function2)`
-- `reduceRight(Object[], Function2)`
-- `reduceRight(boolean[], Function2)`
-- `reduceRight(byte[], Function2)`
-- `reduceRight(char[], Function2)`
-- `reduceRight(double[], Function2)`
-- `reduceRight(float[], Function2)`
-- `reduceRight(int[], Function2)`
-- `reduceRight(long[], Function2)`
-- `reduceRight(short[], Function2)`
-- `reduceRightIndexed(Object[], Function3)`
-- `reduceRightIndexed(boolean[], Function3)`
-- `reduceRightIndexed(byte[], Function3)`
-- `reduceRightIndexed(char[], Function3)`
-- `reduceRightIndexed(double[], Function3)`
-- `reduceRightIndexed(float[], Function3)`
-- `reduceRightIndexed(int[], Function3)`
-- `reduceRightIndexed(long[], Function3)`
-- `reduceRightIndexed(short[], Function3)`
-- `reduceRightIndexedOrNull(Object[], Function3)`
-- `reduceRightIndexedOrNull(boolean[], Function3)`
-- `reduceRightIndexedOrNull(byte[], Function3)`
-- `reduceRightIndexedOrNull(char[], Function3)`
-- `reduceRightIndexedOrNull(double[], Function3)`
-- `reduceRightIndexedOrNull(float[], Function3)`
-- `reduceRightIndexedOrNull(int[], Function3)`
-- `reduceRightIndexedOrNull(long[], Function3)`
-- `reduceRightIndexedOrNull(short[], Function3)`
-- `reduceRightOrNull(Object[], Function2)`
-- `reduceRightOrNull(boolean[], Function2)`
-- `reduceRightOrNull(byte[], Function2)`
-- `reduceRightOrNull(char[], Function2)`
-- `reduceRightOrNull(double[], Function2)`
-- `reduceRightOrNull(float[], Function2)`
-- `reduceRightOrNull(int[], Function2)`
-- `reduceRightOrNull(long[], Function2)`
-- `reduceRightOrNull(short[], Function2)`
-- `requireNoNulls(Object[])`
-- `reverse(Object[])`
-- `reverse(Object[], int, int)`
-- `reverse(boolean[])`
-- `reverse(boolean[], int, int)`
-- `reverse(byte[])`
-- `reverse(byte[], int, int)`
-- `reverse(char[])`
-- `reverse(char[], int, int)`
-- `reverse(double[])`
-- `reverse(double[], int, int)`
-- `reverse(float[])`
-- `reverse(float[], int, int)`
-- `reverse(int[])`
-- `reverse(int[], int, int)`
-- `reverse(long[])`
-- `reverse(long[], int, int)`
-- `reverse(short[])`
-- `reverse(short[], int, int)`
-- `reversed(Object[])`
-- `reversed(boolean[])`
-- `reversed(byte[])`
-- `reversed(char[])`
-- `reversed(double[])`
-- `reversed(float[])`
-- `reversed(int[])`
-- `reversed(long[])`
-- `reversed(short[])`
-- `reversedArray(Object[])`
-- `reversedArray(boolean[])`
-- `reversedArray(byte[])`
-- `reversedArray(char[])`
-- `reversedArray(double[])`
-- `reversedArray(float[])`
-- `reversedArray(int[])`
-- `reversedArray(long[])`
-- `reversedArray(short[])`
-- `runningFold(Object[], Object, Function2)`
-- `runningFoldIndexed(Object[], Object, Function3)`
-- `runningReduce(Object[], Function2)`
-- `runningReduceIndexed(Object[], Function3)`
-- `scan(Object[], Object, Function2)`
-- `scanIndexed(Object[], Object, Function3)`
-- `shuffle(Object[])`
-- `shuffle(Object[], Random)`
-- `shuffle(boolean[])`
-- `shuffle(boolean[], Random)`
-- `shuffle(byte[])`
-- `shuffle(byte[], Random)`
-- `shuffle(char[])`
-- `shuffle(char[], Random)`
-- `shuffle(double[])`
-- `shuffle(double[], Random)`
-- `shuffle(float[])`
-- `shuffle(float[], Random)`
-- `shuffle(int[])`
-- `shuffle(int[], Random)`
-- `shuffle(long[])`
-- `shuffle(long[], Random)`
-- `shuffle(short[])`
-- `shuffle(short[], Random)`
-- `single(Object[], Function1)`
-- `single(boolean[], Function1)`
-- `single(byte[], Function1)`
-- `single(char[], Function1)`
-- `single(double[], Function1)`
-- `single(float[], Function1)`
-- `single(int[], Function1)`
-- `single(long[], Function1)`
-- `single(short[], Function1)`
-- `singleOrNull(Object[])`
-- `singleOrNull(Object[], Function1)`
-- `singleOrNull(boolean[])`
-- `singleOrNull(boolean[], Function1)`
-- `singleOrNull(byte[])`
-- `singleOrNull(byte[], Function1)`
-- `singleOrNull(char[])`
-- `singleOrNull(char[], Function1)`
-- `singleOrNull(double[])`
-- `singleOrNull(double[], Function1)`
-- `singleOrNull(float[])`
-- `singleOrNull(float[], Function1)`
-- `singleOrNull(int[])`
-- `singleOrNull(int[], Function1)`
-- `singleOrNull(long[])`
-- `singleOrNull(long[], Function1)`
-- `singleOrNull(short[])`
-- `singleOrNull(short[], Function1)`
-- `slice(Object[], IntRange)`
-- `slice(Object[], Iterable)`
-- `slice(boolean[], IntRange)`
-- `slice(boolean[], Iterable)`
-- `slice(byte[], IntRange)`
-- `slice(byte[], Iterable)`
-- `slice(char[], IntRange)`
-- `slice(char[], Iterable)`
-- `slice(double[], IntRange)`
-- `slice(double[], Iterable)`
-- `slice(float[], IntRange)`
-- `slice(float[], Iterable)`
-- `slice(int[], IntRange)`
-- `slice(int[], Iterable)`
-- `slice(long[], IntRange)`
-- `slice(long[], Iterable)`
-- `slice(short[], IntRange)`
-- `slice(short[], Iterable)`
-- `sliceArray(Object[], Collection)`
-- `sliceArray(Object[], IntRange)`
-- `sliceArray(boolean[], Collection)`
-- `sliceArray(boolean[], IntRange)`
-- `sliceArray(byte[], Collection)`
-- `sliceArray(byte[], IntRange)`
-- `sliceArray(char[], Collection)`
-- `sliceArray(char[], IntRange)`
-- `sliceArray(double[], Collection)`
-- `sliceArray(double[], IntRange)`
-- `sliceArray(float[], Collection)`
-- `sliceArray(float[], IntRange)`
-- `sliceArray(int[], Collection)`
-- `sliceArray(int[], IntRange)`
-- `sliceArray(long[], Collection)`
-- `sliceArray(long[], IntRange)`
-- `sliceArray(short[], Collection)`
-- `sliceArray(short[], IntRange)`
-- `sort(Comparable[], int, int)`
-- `sort(Object[])`
-- `sort(Object[], int, int)`
-- `sort(byte[])`
-- `sort(byte[], int, int)`
-- `sort(char[])`
-- `sort(char[], int, int)`
-- `sort(double[])`
-- `sort(double[], int, int)`
-- `sort(float[])`
-- `sort(float[], int, int)`
-- `sort(int[])`
-- `sort(int[], int, int)`
-- `sort(long[])`
-- `sort(long[], int, int)`
-- `sort(short[])`
-- `sort(short[], int, int)`
-- `sortBy(Object[], Function1)`
-- `sortByDescending(Object[], Function1)`
-- `sortDescending(Comparable[])`
-- `sortDescending(Comparable[], int, int)`
-- `sortDescending(byte[])`
-- `sortDescending(byte[], int, int)`
-- `sortDescending(char[])`
-- `sortDescending(char[], int, int)`
-- `sortDescending(double[])`
-- `sortDescending(double[], int, int)`
-- `sortDescending(float[])`
-- `sortDescending(float[], int, int)`
-- `sortDescending(int[])`
-- `sortDescending(int[], int, int)`
-- `sortDescending(long[])`
-- `sortDescending(long[], int, int)`
-- `sortDescending(short[])`
-- `sortDescending(short[], int, int)`
-- `sortWith(Object[], Comparator)`
-- `sortWith(Object[], Comparator, int, int)`
-- `sorted(Comparable[])`
-- `sorted(byte[])`
-- `sorted(char[])`
-- `sorted(double[])`
-- `sorted(float[])`
-- `sorted(int[])`
-- `sorted(long[])`
-- `sorted(short[])`
-- `sortedArray(Comparable[])`
-- `sortedArray(byte[])`
-- `sortedArray(char[])`
-- `sortedArray(double[])`
-- `sortedArray(float[])`
-- `sortedArray(int[])`
-- `sortedArray(long[])`
-- `sortedArray(short[])`
-- `sortedArrayDescending(Comparable[])`
-- `sortedArrayDescending(byte[])`
-- `sortedArrayDescending(char[])`
-- `sortedArrayDescending(double[])`
-- `sortedArrayDescending(float[])`
-- `sortedArrayDescending(int[])`
-- `sortedArrayDescending(long[])`
-- `sortedArrayDescending(short[])`
-- `sortedArrayWith(Object[], Comparator)`
-- `sortedBy(Object[], Function1)`
-- `sortedBy(boolean[], Function1)`
-- `sortedBy(byte[], Function1)`
-- `sortedBy(char[], Function1)`
-- `sortedBy(double[], Function1)`
-- `sortedBy(float[], Function1)`
-- `sortedBy(int[], Function1)`
-- `sortedBy(long[], Function1)`
-- `sortedBy(short[], Function1)`
-- `sortedByDescending(Object[], Function1)`
-- `sortedByDescending(boolean[], Function1)`
-- `sortedByDescending(byte[], Function1)`
-- `sortedByDescending(char[], Function1)`
-- `sortedByDescending(double[], Function1)`
-- `sortedByDescending(float[], Function1)`
-- `sortedByDescending(int[], Function1)`
-- `sortedByDescending(long[], Function1)`
-- `sortedByDescending(short[], Function1)`
-- `sortedDescending(Comparable[])`
-- `sortedDescending(byte[])`
-- `sortedDescending(char[])`
-- `sortedDescending(double[])`
-- `sortedDescending(float[])`
-- `sortedDescending(int[])`
-- `sortedDescending(long[])`
-- `sortedDescending(short[])`
-- `sortedWith(Object[], Comparator)`
-- `sortedWith(boolean[], Comparator)`
-- `sortedWith(byte[], Comparator)`
-- `sortedWith(char[], Comparator)`
-- `sortedWith(double[], Comparator)`
-- `sortedWith(float[], Comparator)`
-- `sortedWith(int[], Comparator)`
-- `sortedWith(long[], Comparator)`
-- `sortedWith(short[], Comparator)`
-- `subtract(Object[], Iterable)`
-- `subtract(boolean[], Iterable)`
-- `subtract(byte[], Iterable)`
-- `subtract(char[], Iterable)`
-- `subtract(double[], Iterable)`
-- `subtract(float[], Iterable)`
-- `subtract(int[], Iterable)`
-- `subtract(long[], Iterable)`
-- `subtract(short[], Iterable)`
-- `sum(byte[])`
-- `sum(double[])`
-- `sum(float[])`
-- `sum(int[])`
-- `sum(long[])`
-- `sum(short[])`
-- `sumBy(Object[], Function1)`
-- `sumBy(boolean[], Function1)`
-- `sumBy(byte[], Function1)`
-- `sumBy(char[], Function1)`
-- `sumBy(double[], Function1)`
-- `sumBy(float[], Function1)`
-- `sumBy(int[], Function1)`
-- `sumBy(long[], Function1)`
-- `sumBy(short[], Function1)`
-- `sumByDouble(Object[], Function1)`
-- `sumByDouble(boolean[], Function1)`
-- `sumByDouble(byte[], Function1)`
-- `sumByDouble(char[], Function1)`
-- `sumByDouble(double[], Function1)`
-- `sumByDouble(float[], Function1)`
-- `sumByDouble(int[], Function1)`
-- `sumByDouble(long[], Function1)`
-- `sumByDouble(short[], Function1)`
-- `sumOfByte(Byte[])`
-- `sumOfDouble(Double[])`
-- `sumOfFloat(Float[])`
-- `sumOfInt(Integer[])`
-- `sumOfLong(Long[])`
-- `sumOfShort(Short[])`
-- `take(Object[], int)`
-- `take(boolean[], int)`
-- `take(byte[], int)`
-- `take(char[], int)`
-- `take(double[], int)`
-- `take(float[], int)`
-- `take(int[], int)`
-- `take(long[], int)`
-- `take(short[], int)`
-- `takeLast(Object[], int)`
-- `takeLast(boolean[], int)`
-- `takeLast(byte[], int)`
-- `takeLast(char[], int)`
-- `takeLast(double[], int)`
-- `takeLast(float[], int)`
-- `takeLast(int[], int)`
-- `takeLast(long[], int)`
-- `takeLast(short[], int)`
-- `takeLastWhile(Object[], Function1)`
-- `takeLastWhile(boolean[], Function1)`
-- `takeLastWhile(byte[], Function1)`
-- `takeLastWhile(char[], Function1)`
-- `takeLastWhile(double[], Function1)`
-- `takeLastWhile(float[], Function1)`
-- `takeLastWhile(int[], Function1)`
-- `takeLastWhile(long[], Function1)`
-- `takeLastWhile(short[], Function1)`
-- `takeWhile(Object[], Function1)`
-- `takeWhile(boolean[], Function1)`
-- `takeWhile(byte[], Function1)`
-- `takeWhile(char[], Function1)`
-- `takeWhile(double[], Function1)`
-- `takeWhile(float[], Function1)`
-- `takeWhile(int[], Function1)`
-- `takeWhile(long[], Function1)`
-- `takeWhile(short[], Function1)`
-- `toBooleanArray(Boolean[])`
-- `toByteArray(Byte[])`
-- `toCharArray(Character[])`
-- `toCollection(Object[], Collection)`
-- `toCollection(boolean[], Collection)`
-- `toCollection(byte[], Collection)`
-- `toCollection(char[], Collection)`
-- `toCollection(double[], Collection)`
-- `toCollection(float[], Collection)`
-- `toCollection(int[], Collection)`
-- `toCollection(long[], Collection)`
-- `toCollection(short[], Collection)`
-- `toDoubleArray(Double[])`
-- `toFloatArray(Float[])`
-- `toHashSet(Object[])`
-- `toHashSet(boolean[])`
-- `toHashSet(byte[])`
-- `toHashSet(char[])`
-- `toHashSet(double[])`
-- `toHashSet(float[])`
-- `toHashSet(int[])`
-- `toHashSet(long[])`
-- `toHashSet(short[])`
-- `toIntArray(Integer[])`
-- `toLongArray(Long[])`
-- `toMutableSet(Object[])`
-- `toMutableSet(boolean[])`
-- `toMutableSet(byte[])`
-- `toMutableSet(char[])`
-- `toMutableSet(double[])`
-- `toMutableSet(float[])`
-- `toMutableSet(int[])`
-- `toMutableSet(long[])`
-- `toMutableSet(short[])`
-- `toSet(Object[])`
-- `toSet(boolean[])`
-- `toSet(byte[])`
-- `toSet(char[])`
-- `toSet(double[])`
-- `toSet(float[])`
-- `toSet(int[])`
-- `toSet(long[])`
-- `toSet(short[])`
-- `toShortArray(Short[])`
-- `toSortedSet(Comparable[])`
-- `toSortedSet(Object[], Comparator)`
-- `toSortedSet(boolean[])`
-- `toSortedSet(byte[])`
-- `toSortedSet(char[])`
-- `toSortedSet(double[])`
-- `toSortedSet(float[])`
-- `toSortedSet(int[])`
-- `toSortedSet(long[])`
-- `toSortedSet(short[])`
-- `union(Object[], Iterable)`
-- `union(boolean[], Iterable)`
-- `union(byte[], Iterable)`
-- `union(char[], Iterable)`
-- `union(double[], Iterable)`
-- `union(float[], Iterable)`
-- `union(int[], Iterable)`
-- `union(long[], Iterable)`
-- `union(short[], Iterable)`
-- `unzip(Pair[])`
-- `withIndex(Object[])`
-- `withIndex(boolean[])`
-- `withIndex(byte[])`
-- `withIndex(char[])`
-- `withIndex(double[])`
-- `withIndex(float[])`
-- `withIndex(int[])`
-- `withIndex(long[])`
-- `withIndex(short[])`
-- `zip(Object[], Iterable)`
-- `zip(Object[], Iterable, Function2)`
-- `zip(Object[], Object[])`
-- `zip(Object[], Object[], Function2)`
-- `zip(boolean[], Iterable)`
-- `zip(boolean[], Iterable, Function2)`
-- `zip(boolean[], Object[])`
-- `zip(boolean[], Object[], Function2)`
-- `zip(boolean[], boolean[])`
-- `zip(boolean[], boolean[], Function2)`
-- `zip(byte[], Iterable)`
-- `zip(byte[], Iterable, Function2)`
-- `zip(byte[], Object[])`
-- `zip(byte[], Object[], Function2)`
-- `zip(byte[], byte[])`
-- `zip(byte[], byte[], Function2)`
-- `zip(char[], Iterable)`
-- `zip(char[], Iterable, Function2)`
-- `zip(char[], Object[])`
-- `zip(char[], Object[], Function2)`
-- `zip(char[], char[])`
-- `zip(char[], char[], Function2)`
-- `zip(double[], Iterable)`
-- `zip(double[], Iterable, Function2)`
-- `zip(double[], Object[])`
-- `zip(double[], Object[], Function2)`
-- `zip(double[], double[])`
-- `zip(double[], double[], Function2)`
-- `zip(float[], Iterable)`
-- `zip(float[], Iterable, Function2)`
-- `zip(float[], Object[])`
-- `zip(float[], Object[], Function2)`
-- `zip(float[], float[])`
-- `zip(float[], float[], Function2)`
-- `zip(int[], Iterable)`
-- `zip(int[], Iterable, Function2)`
-- `zip(int[], Object[])`
-- `zip(int[], Object[], Function2)`
-- `zip(int[], int[])`
-- `zip(int[], int[], Function2)`
-- `zip(long[], Iterable)`
-- `zip(long[], Iterable, Function2)`
-- `zip(long[], Object[])`
-- `zip(long[], Object[], Function2)`
-- `zip(long[], long[])`
-- `zip(long[], long[], Function2)`
-- `zip(short[], Iterable)`
-- `zip(short[], Iterable, Function2)`
-- `zip(short[], Object[])`
-- `zip(short[], Object[], Function2)`
-- `zip(short[], short[])`
-- `zip(short[], short[], Function2)`
-
-</details>
+| Not needed (green-if-reached) | Reason |
+|---|---|
+| `withIndex(Object[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(boolean[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(byte[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(char[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(double[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(float[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(int[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(long[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
+| `withIndex(short[])` | real stdlib bytecode analyzes soundly under JBMC over the bounded array (probed VERIFIED through the real facade); no model needed (green-if-reached: JBMC falls through to the real facade) |
 
 
 ## `kotlin.collections.CollectionsKt`
