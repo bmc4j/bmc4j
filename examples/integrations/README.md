@@ -48,6 +48,19 @@ The `null` value passes every constraint except `@NotNull`/`@NotBlank`, so the g
 valid-`null` objects in the proof domain. Unmodeled surfaces (regex `@Pattern`/`@Email`,
 `ZonedDateTime`, `Map` element constraints) are skipped with a processor NOTE, never silently.
 
+## `jakartakt` — the same, for a **Kotlin** DTO (no Java mirror class)
+
+A `data class Req(@field:Min(1) val qty: Int, …)` is a proof source directly: the
+`bmc-constraints-jakarta` **KSP** processor reads the Jakarta annotations off the Kotlin declarations
+and generates the identical `ReqConstraints.assumeValid(Req)` helper the Java path generates — so you
+no longer write a Java mirror of a Kotlin request type. The plugin wires this automatically for any
+Kotlin consumer (the Java DTO path on `annotationProcessor`/`testAnnotationProcessor` is unchanged and
+both coexist). **Use the `@field:` use-site target** (`@field:Min(1)`) — that is what validation
+libraries resolve, and what the processor reads first; `@param:` and bare annotations are also
+honored. A non-nullable `Int` lowers to a primitive (un-guarded bound); a nullable `Int?` is boxed and
+its bound is null-guarded, exactly as a Java `Integer` field. *(3 proofs: the `assumeValid` bounds
+hold, a divide stays safe, and a valid-`null` boxed field still refutes an unguarded unbox.)*
+
 ## `config` — pinned to the run's real values
 
 `Bmc.intFromProperty("app.port")` / `intFromEnv` / `boolFromProperty` / `doubleFrom…` /

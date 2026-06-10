@@ -424,25 +424,31 @@ class BmcPlugin : Plugin<Project> {
 }
 
 /**
- * Wire method contracts for a Kotlin consumer with zero ceremony. The contracts processor ships in
- * two forms in `bmc-contracts`: a javac annotation processor (the Java path) and a **KSP**
- * `SymbolProcessor` (the Kotlin path). KSP replaces the deprecated kapt — it runs natively over the
- * Kotlin declarations instead of over kapt's generated Java stubs, and emits the SAME replace-stubs /
- * enforce-`@BmcProof`s / manifest into the test output, so generated output is equivalent and no
- * downstream proof is affected. This:
+ * Wire the KSP processors for a Kotlin consumer with zero ceremony. Two bmc4j processors run as KSP
+ * `SymbolProcessor`s and are added to `kspTest` here:
  *
+ * - **contracts** (`bmc-contracts`): the KSP analogue of the javac contracts processor. KSP replaces
+ *   the deprecated kapt — it runs natively over the Kotlin declarations instead of over kapt's
+ *   generated Java stubs, and emits the SAME replace-stubs / enforce-`@BmcProof`s / manifest into the
+ *   test output, so generated output is equivalent and no downstream proof is affected.
+ * - **Jakarta constraints** (`bmc-constraints-jakarta`): the KSP analogue of the javac constraints
+ *   processor. It generates the `<Type>Constraints.assumeValid` helper from a KOTLIN DTO's
+ *   `jakarta.validation.constraints.*` annotations — the same helper the javac path generates for a
+ *   Java DTO — so a Kotlin `data class Req(@field:Min(1) val qty: Int)` is a proof source with no Java
+ *   mirror class. Inert unless the consumer actually annotates a DTO. The two processors compose on
+ *   one `kspTest` (KSP runs every registered SymbolProcessorProvider).
+ *
+ * This also:
  * - applies `com.google.devtools.ksp` (the version is supplied by the consumer's `pluginManagement`,
  *   exactly as the Kotlin plugin version is — see the examples' root settings);
- * - adds `bmc-contracts` to the `kspTest` configuration (the KSP analogue of
- *   `testAnnotationProcessor`), so the SymbolProcessor runs on the Kotlin `src/test` contract types;
  * - sets `javaParameters = true` on every Kotlin compile so predicate parameter names survive into
  *   bytecode — the enforce-proof and replace-stub call the contract's `boolean` predicates by the
  *   names the processor read from the mirror, exactly as bmc-runtime's own build does for parity
  *   with javac's `-parameters`.
  *
  * Unlike kapt, KSP does NOT take annotation processing off javac, so a mixed-source consumer's other
- * javac processors (declared on `testAnnotationProcessor`, e.g. bmc-constraints-jakarta) keep running
- * normally — no configuration bridging is needed.
+ * javac processors (declared on `testAnnotationProcessor`) keep running normally — no configuration
+ * bridging is needed; the Java DTO path stays on `testAnnotationProcessor` exactly as before.
  *
  * Called only from inside `withPlugin("org.jetbrains.kotlin.jvm")`, so the `KotlinCompile` class
  * reference is never loaded in a Java-only consumer (whose Gradle daemon may not carry KGP).
@@ -450,6 +456,16 @@ class BmcPlugin : Plugin<Project> {
 private fun wireKotlinContracts(project: Project) {
     project.pluginManager.apply("com.google.devtools.ksp")
     project.dependencies.add("kspTest", "$GROUP:bmc-contracts:$VERSION")
+    // The Jakarta-constraints KSP SymbolProcessor: it generates the `<Type>Constraints.assumeValid`
+    // helper from a KOTLIN DTO's `jakarta.validation.constraints.*` annotations, the same helper the
+    // javac processor generates for a Java DTO. Wired onto BOTH `ksp` (main) and `kspTest` (test): a
+    // validated DTO is usually production code in `src/main`, so the helper must be generated there
+    // (the Java path's `annotationProcessor` runs on the main compile likewise); a test-located DTO is
+    // also supported via `kspTest`. On `kspTest` it composes with the contracts processor (KSP runs
+    // every registered SymbolProcessorProvider). Inert unless the consumer annotates a DTO — the
+    // jakarta annotations are a compileOnly dependency the consumer brings.
+    project.dependencies.add("ksp", "$GROUP:bmc-constraints-jakarta:$VERSION")
+    project.dependencies.add("kspTest", "$GROUP:bmc-constraints-jakarta:$VERSION")
     project.tasks.withType(KotlinCompile::class.java).configureEach { task ->
         task.compilerOptions.javaParameters.set(true)
     }
