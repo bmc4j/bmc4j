@@ -86,35 +86,133 @@ internal object ClasspathMirror {
     @JvmOverloads
     @JvmName("mirror") // internal-object members keep their names, but be explicit for the Java callers
     fun mirror(classpath: String, cacheName: String, transform: ClassTransform,
-               extraKey: String = ""): String {
-        val effectiveKey = effectiveExtraKey(extraKey)
-        val out = mutableListOf<String>()
-        for (entry in classpath.split(File.pathSeparator)) {
-            if (entry.isEmpty()) {
-                continue
+               extraKey: String = ""): String =
+            mirrorEntries(classpath, cacheName, transform, effectiveExtraKey(extraKey))
+
+    /**
+     * The FUSED entry point: mirror [classpath] once through the whole desugar chain
+     * ([DesugarPasses.fuseClass]) instead of one [mirror] call per pass. Each class is inflated once, run
+     * through every pass in order in-memory (with generated classes threaded through their downstream
+     * passes, exactly as the per-pass walk did), and deflated once — eliminating the redundant
+     * inflate/deflate round-trips and jar/dir traversals that dominated cold-build cost. The output is
+     * byte-for-byte what running [mirror] once per pass produced (pinned by the golden-bytes test); this
+     * is purely a relocation of WHEN the codec runs, not WHAT bytecode it yields.
+     *
+     * Like [mirror] this is order-preserving and 1:1 over non-empty entries, content-hash cached, and
+     * fails LOUD on any per-entry failure (so a proof goes UNKNOWN, never a false green).
+     */
+    @JvmStatic
+    @JvmOverloads
+    @JvmName("mirrorAll")
+    fun mirrorAll(classpath: String, extraKey: String = ""): String =
+            mirrorEntries(classpath, DesugarPasses.CACHE_NAME, ClassTransform(DesugarPasses::fuseClass),
+                    effectiveExtraKey(extraKey))
+
+    /**
+     * Mirror every entry of [classpath] under [cacheName] with [transform] (the effective, identity-folded
+     * [extraKey] already computed by the caller). PARALLELIZED across [mirrorParallelism] workers: each
+     * per-class transform is a pure function and each entry's content-hashed publish is independent, so
+     * entries mirror concurrently with no shared mutable state. The mirror walk runs OUTSIDE jbmc's
+     * process semaphore (it is CPU/heap-bound prep, not an engine run), so it is free to use the cores the
+     * single jbmc process would otherwise leave idle.
+     *
+     * Order is preserved by writing each result into its input slot; a failure on ANY entry fails the
+     * whole walk LOUD (the first failure wins) — never a silent pass-through of an unrewritten entry.
+     */
+    private fun mirrorEntries(classpath: String, cacheName: String, transform: ClassTransform,
+                              effectiveKey: String): String {
+        val entries = classpath.split(File.pathSeparator).filter { it.isNotEmpty() }
+        if (entries.isEmpty()) {
+            return ""
+        }
+        val results = arrayOfNulls<String>(entries.size)
+        val workers = mirrorParallelism(entries.size)
+        if (workers <= 1) {
+            for (i in entries.indices) {
+                results[i] = mirrorOne(entries[i], cacheName, transform, effectiveKey)
             }
-            val p = Path.of(entry)
+        } else {
+            // The cache-root override ([withCacheRoot]) is a per-thread value, so capture the dispatching
+            // thread's override and RE-ESTABLISH it inside each pool worker — otherwise a worker thread
+            // would fall back to ~/.cache/bmc4j and (under a Gradle root) produce mirror paths outside the
+            // task's output dir, desynchronising the manifest. Workers must see the SAME root.
+            val rootForWorkers = cacheRootOverride.get()
+            val pool = java.util.concurrent.Executors.newFixedThreadPool(workers) { r ->
+                Thread(r, "bmc4j-mirror").apply { isDaemon = true }
+            }
             try {
-                when {
-                    Files.isDirectory(p) ->
-                        out.add(mirrorDir(p, cacheName, transform, effectiveKey).toString())
-                    isJar(p) ->
-                        out.add(mirrorJar(p, cacheName, transform, effectiveKey).toString())
-                    // not a class container we rewrite (no soundness rewrite to lose)
-                    else -> out.add(entry)
+                val futures = ArrayList<java.util.concurrent.Future<*>>(entries.size)
+                for (i in entries.indices) {
+                    futures.add(pool.submit {
+                        results[i] = runWithRoot(rootForWorkers) {
+                            mirrorOne(entries[i], cacheName, transform, effectiveKey)
+                        }
+                    })
                 }
-            } catch (e: Exception) {
-                // Fail LOUD, not open: an unmirrored String/indy class analysed as-is is silently
-                // unsound. Throw so the proof fails toward UNKNOWN , never a false
-                // VERIFIED. The actionable message names the entry that couldn't be mirrored.
-                throw MirrorException(
-                        "Could not mirror classpath entry for sound rewriting: " + entry +
-                                " (cache '" + cacheName + "'). The bytecode rewrite that makes " +
-                                "String ops and invokedynamic sound for JBMC could not be applied, " +
-                                "so this proof cannot be soundly decided. Cause: " + e, e)
+                // Surface the FIRST failure (unwrapped) and let it propagate LOUD; the remaining work is
+                // abandoned (results stay null), and the join below would re-observe it anyway.
+                for (f in futures) {
+                    try {
+                        f.get()
+                    } catch (e: java.util.concurrent.ExecutionException) {
+                        val cause = e.cause
+                        if (cause is RuntimeException) {
+                            throw cause
+                        }
+                        throw MirrorException("classpath mirror failed", cause ?: e)
+                    } catch (ie: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        throw MirrorException("interrupted mirroring the classpath", ie)
+                    }
+                }
+            } finally {
+                pool.shutdownNow()
             }
         }
-        return out.joinToString(File.pathSeparator)
+        return results.joinToString(File.pathSeparator) { it!! }
+    }
+
+    /** Mirror ONE classpath [entry] (dir/jar/pass-through), wrapping any failure in the fail-LOUD
+     *  [MirrorException] that names the entry — the per-entry body shared by the serial and parallel
+     *  paths. */
+    private fun mirrorOne(entry: String, cacheName: String, transform: ClassTransform,
+                          effectiveKey: String): String {
+        val p = Path.of(entry)
+        return try {
+            when {
+                Files.isDirectory(p) -> mirrorDir(p, cacheName, transform, effectiveKey).toString()
+                isJar(p) -> mirrorJar(p, cacheName, transform, effectiveKey).toString()
+                // not a class container we rewrite (no soundness rewrite to lose)
+                else -> entry
+            }
+        } catch (e: Exception) {
+            // Fail LOUD, not open: an unmirrored String/indy class analysed as-is is silently
+            // unsound. Throw so the proof fails toward UNKNOWN , never a false
+            // VERIFIED. The actionable message names the entry that couldn't be mirrored.
+            throw MirrorException(
+                    "Could not mirror classpath entry for sound rewriting: " + entry +
+                            " (cache '" + cacheName + "'). The bytecode rewrite that makes " +
+                            "String ops and invokedynamic sound for JBMC could not be applied, " +
+                            "so this proof cannot be soundly decided. Cause: " + e, e)
+        }
+    }
+
+    /**
+     * How many entries to mirror in parallel. Bounded by the entry count and the available processors,
+     * and capped to keep peak RSS in check (each worker holds one jar's inflated classes at a time). The
+     * `bmc.mirrorParallelism` system property overrides the default (`<= 0` or unset -> auto); `1`
+     * forces the serial path (used by the golden-bytes equivalence test for determinism, and a safe
+     * escape hatch). The walk runs outside the jbmc semaphore, so it does not contend with engine
+     * processes for the parallelism budget.
+     */
+    private fun mirrorParallelism(entryCount: Int): Int {
+        val prop = System.getProperty("bmc.mirrorParallelism")?.toIntOrNull()
+        if (prop != null && prop > 0) {
+            return minOf(prop, entryCount)
+        }
+        val cores = Runtime.getRuntime().availableProcessors()
+        // Cap workers: more than ~8 inflated jars resident at once buys little and risks RSS spikes.
+        return minOf(maxOf(cores, 1), entryCount, 8)
     }
 
     /**
@@ -154,6 +252,12 @@ internal object ClasspathMirror {
             cacheRootOverride.set(prev)
         }
     }
+
+    /** Run [body] under [root] when non-null, else with no override (the user-cache default). Used to
+     *  re-establish the dispatching thread's per-thread cache root inside a parallel mirror worker, so
+     *  every worker writes under the SAME root the caller chose (Gradle output dir or user cache). */
+    private fun <T> runWithRoot(root: Path?, body: () -> T): T =
+            if (root == null) body() else withCacheRoot(root, body)
 
     private fun cacheRoot(cacheName: String): Path {
         val override = cacheRootOverride.get()
