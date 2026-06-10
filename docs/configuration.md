@@ -25,10 +25,6 @@ bmc {
                                       // null instead of being auto-assumed non-null. For proofs that
                                       // deliberately model hostile Java callers. Part of the
                                       // verdict-cache key. (-Dbmc.kotlinNullableParams=true)
-
-    replayLanguage = "auto"           // language of the refutation replay scratch file:
-                                      // auto (default) = .kt for a Kotlin proof class, .java otherwise;
-                                      // "kotlin" / "java" force one regardless. (-Pbmc.replayLanguage)
 }
 ```
 
