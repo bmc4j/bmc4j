@@ -54,6 +54,21 @@ object LambdaBytecode {
                 }
             })
 
+    /** The per-class transform as a [ClasspathMirror.Transformed], exposed for the fused walk
+     *  ([DesugarPasses]). Byte-for-byte identical to what the standalone [rewrite] pass writes for one
+     *  class: the same rewritten owner plus the same generated lambda classes keyed by internal name. */
+    internal fun transformForFusion(bytes: ByteArray): ClasspathMirror.Transformed {
+        val r = transform(bytes)
+        if (r.extra.isEmpty()) {
+            return ClasspathMirror.Transformed(r.main)
+        }
+        val extra = java.util.LinkedHashMap<String, ByteArray>()
+        for (g in r.extra) {
+            extra[g.internalName] = g.bytes
+        }
+        return ClasspathMirror.Transformed(r.main, extra)
+    }
+
     internal class GeneratedClass(
             @JvmField val internalName: String,
             @JvmField val bytes: ByteArray)

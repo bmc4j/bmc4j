@@ -106,20 +106,12 @@ gradeBand_never_throws_for_valid_scores()  FAILED
   org.bmc4j.engine.BmcVerificationError: JBMC refuted ...gradeBand_never_throws_for_valid_scores
     ✗ Array index should be < length  (Example.java:16)
       counterexample: score = 100
-      replay:
-        int score = 100;
-        // then run the body of GradeBandProofTests.gradeBand_never_throws_for_valid_scores with these value(s)
-      replay test written to: build/bmc4j/replays/GradeBandProofTests_gradeBand_never_throws_for_valid_scoresReplay.java
     at example.Example.gradeBand(Example.java:16)
     at proofs.GradeBandProofTests.gradeBand_never_throws_for_valid_scores(GradeBandProofTests.java:20)
 ```
 
-The counterexample renders as concrete source you can paste into a scratch test and step
-through in a debugger — and bmc4j drops a ready-to-run `@Test` scaffold next to it. The
-scaffold matches the language of the proof: a Kotlin proof class gets a `.kt` replay
-(`val` bindings, Kotlin literals), a Java proof class gets a `.java` one. Pin the language
-with `bmc { replayLanguage = "kotlin" }` (or `"java"` / `"auto"`, the default), overridable
-per run with `-Pbmc.replayLanguage=...`.
+The counterexample is reported as concrete values, naming the exact input that breaks the
+property so you can reproduce it.
 
 ## Key principles
 
@@ -129,7 +121,7 @@ per run with `-Pbmc.replayLanguage=...`.
    differential testing against the real JDK, algebraic law proofs under JBMC itself, and an
    enforced per-member audit the coverage docs are generated from.
 2. **Developer experience.** Proofs are ordinary JUnit 5 tests: one Gradle plugin, the IDE
-   gutter, real stack traces, counterexamples as runnable replay tests in your proof's language.
+   gutter, real stack traces, and counterexamples reported as the concrete input that breaks the property.
 
 **What's supported today:**
 
@@ -139,7 +131,6 @@ per run with `-Pbmc.replayLanguage=...`.
 - **Method contracts** (`@Requires`/`@Ensures`): modular proofs via contract redirect, auto-generated enforce proofs, a conservative purity audit — Kotlin-first, including `suspend` functions
 - **Jakarta validation integration**: `assumeValid(bean)` generated from constraint annotations, including `@Valid` cascades and container-element constraints
 - Conformance-proven **JDK + Kotlin stdlib models** (collections, streams, BigDecimal/BigInteger, java.time, coroutines under the immediate-dispatch idealization) with the per-member audit above
-- **Counterexample replays**: refuted proofs write a ready-to-run scratch test in your proof's language
 - **Fast re-runs**: proofs run in parallel, and verdict caching skips proofs whose module hasn't changed
 - **Vacuity detection** — a proof whose assumptions rule out every input is flagged, not passed
 - **User models with declared intent** (`conformant`/`domain`) — shadow any class on the analysis path, with provenance footnotes naming every model/stub a green verdict relied on
@@ -186,8 +177,7 @@ It's also a **debugger that works backwards**: when you know a bad state exists 
 total that went negative in production, the enum combination that "can't happen", the
 corrupted invariant — but not which input gets there, write the bad state as the
 property (`Bmc.check(!bad)`) and let the refutation *find the input for you*. The
-counterexample is a ready-made reproduction of the bug, dropped into
-`build/bmc4j/replays/` as a runnable test.
+counterexample is the exact input that produces the bad state.
 
 And when **not** to: I/O and frameworks (mock boundaries, prove the logic between them),
 float-heavy numerics (IEEE-754 is slow in a SAT solver — prefer integer models),

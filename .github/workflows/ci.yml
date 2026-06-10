@@ -376,7 +376,7 @@ jobs:
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
         run: |
-          ./gradlew --no-daemon --no-build-cache -Dbmc.timeoutSeconds=300 \
+          ./gradlew --no-daemon --no-build-cache --stacktrace -Dbmc.timeoutSeconds=300 \
             -Dbmc.shard.count=${{ matrix.shardCount }} -Dbmc.shard.index=${{ matrix.shardIndex }} \
             -Dbmc.summaryDir="$GITHUB_WORKSPACE/bmc-proof-summary" \
             ${{ matrix.flags }} ${{ matrix.tasks }}

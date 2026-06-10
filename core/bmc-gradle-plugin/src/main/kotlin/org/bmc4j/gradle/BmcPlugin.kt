@@ -110,11 +110,14 @@ class BmcPlugin : Plugin<Project> {
             task.reportFile.set(project.layout.buildDirectory.file("bmc4j/stub-report.txt"))
         }
 
-        // Pre-mirror the analysis classpath as a cacheable Gradle task: the six environment-independent
-        // desugar passes (coroutine-LVT/String/lambda/switch/residual-indy/Math) that the runtime
-        // extension otherwise re-pays on every cold JVM / CI run. Gradle's up-to-date checks + build
-        // cache then own the result (UP-TO-DATE / FROM-CACHE on an unchanged classpath), so the runtime
-        // skips those passes and only the remaining environment / per-proof passes run at test time.
+        // Pre-mirror the analysis classpath as a cacheable Gradle task: the run-wide passes
+        // (the six desugars + Config bake + KotlinParam + Reachability) the runtime extension otherwise re-pays on every
+        // cold JVM / CI run — each a full ASM walk of every dependency jar, which under cold parallel proof
+        // lanes contends on ~/.cache and dominates wall time. Gradle's up-to-date checks + build cache then
+        // own the result (UP-TO-DATE / FROM-CACHE on an unchanged classpath), so the runtime substitutes
+        // the mirrored entries and only the per-proof tail (contracts, config bake, domain split, purity,
+        // slicing) runs at test time. setup-gradle's existing build-cache persistence reuses it across CI
+        // runs for free.
         //
         // The task runs the rewrite in a classloader-isolated worker whose classpath is bmc-runtime
         // (which carries the rewrite code + relocated ASM). A dedicated resolvable configuration pins
@@ -128,18 +131,54 @@ class BmcPlugin : Plugin<Project> {
                 "bmcMirrorClasspath", BmcMirrorClasspathTask::class.java) { task ->
             task.group = "verification"
             task.description =
-                    "Pre-mirror the analysis classpath through bmc4j's environment-independent " +
+                    "Pre-mirror the analysis classpath through bmc4j's run-wide " +
                             "bytecode rewrites (cacheable; consumed by the test task)."
             task.mirrorClasspath.from(mirrorWorker)
+            // The bmcModel output is a covered input: a user model is desugared by this task, not in-JVM.
+            // It is compiled before the mirror runs (the dependsOn below), and reaches the test JVM via
+            // bmc.userModels at the SAME absolute path, so the runtime substitutes it by that path.
+            task.bmcModelClasses.from(bmcModel.output)
+            task.dependsOn(bmcModel.classesTaskName)
             task.outputDir.set(project.layout.buildDirectory.dir("bmc4j/mirror"))
         }
-        // The analysis classpath the runtime sees as java.class.path = the test runtime classpath. Wired
-        // in afterEvaluate so the testRuntimeClasspath configuration is fully populated (engine jar,
-        // bmc-runtime, models) before it is captured as the task's @Classpath input. Done at the plugin
-        // level (not inside the register action, which can run after evaluation has begun).
+        // Wire the resolved-classpath inputs in afterEvaluate so the testRuntimeClasspath configuration is
+        // fully populated (engine jar, bmc-runtime, models) before it is captured as the task's @Classpath
+        // input. Done at the plugin level (not inside the register action, which can run after evaluation
+        // has begun).
         project.afterEvaluate { p ->
             mirrorTask.configure { task ->
+                // The resolved dependency classpath the runtime sees as part of java.class.path.
                 task.analysisClasspath.from(p.configurations.getByName("testRuntimeClasspath"))
+                // The consumer's OWN compiled output (main + test). These reach the test JVM via
+                // java.class.path independently of the resolved dependency classpath, so covering them
+                // here is what lets the runtime substitute them instead of rewriting them in-JVM. Compiled
+                // before the mirror via the source-set output's implicit task dependency (a FileCollection
+                // from `.output` carries its compile task as a builtBy, so no explicit dependsOn needed).
+                val ss = p.extensions.getByType(SourceSetContainer::class.java)
+                task.projectClasses.from(ss.getByName("main").output, ss.getByName("test").output)
+                // The only run-wide flag a hoisted pass reads (KotlinParam). Same CLI-over-build precedence
+                // the test task uses: a -Dbmc.kotlinNullableParams on the Gradle JVM wins, else the DSL.
+                val cliFlag = System.getProperty("bmc.kotlinNullableParams")
+                val flag = if (!cliFlag.isNullOrBlank()) cliFlag.toBoolean()
+                else ext.kotlinNullableParams.getOrElse(false)
+                task.kotlinNullableParams.set(flag)
+                // Config bake source: the test tasks' configured system properties (the Bmc.*FromProperty
+                // values), forwarded so the worker JVM bakes the SAME constants the forked test JVM
+                // resolves. Wired as a PROVIDER (not an eager read): the Test tasks' system properties are
+                // set lazily (the consumer's `tasks.withType<Test>{ systemProperty(...) }` and the plugin's
+                // own config below), so they are only complete once the task graph is realized — which is
+                // before the mirror task's inputs are snapshotted (the test task dependsOn the mirror, so
+                // both are realized together). Values stringified, nulls dropped. Bmc.*FromEnv reads the
+                // worker's inherited env (not forwarded). The runtime re-validates the baked config against
+                // the live environment regardless, so this need only be a good-faith capture for cache
+                // correctness, not the soundness guarantee.
+                task.configProperties.set(p.provider {
+                    val m = sortedMapOf<String, String>()
+                    p.tasks.withType(Test::class.java).forEach { t ->
+                        t.systemProperties.forEach { (k, v) -> if (v != null) m[k] = v.toString() }
+                    }
+                    m
+                })
             }
         }
 
@@ -343,9 +382,10 @@ class BmcPlugin : Plugin<Project> {
                 test.systemProperty("bmc.userModels", bmcModel.output.classesDirs.asPath)
 
                 // Hand the runtime the pre-mirrored analysis classpath produced by bmcMirrorClasspath.
-                // The runtime substitutes each entry for its already-desugared counterpart and skips the
-                // six environment-independent passes; it falls back to mirroring in-JVM if the dir is
-                // missing or was produced under a different Bmc4jVersion.IDENTITY (sound either way).
+                // The runtime substitutes each entry for its already-rewritten counterpart and skips the
+                // run-wide passes (6 desugars + Config + KotlinParam + Reachability); it falls back to
+                // rewriting in-JVM if the dir is missing, was produced under a different Bmc4jVersion.IDENTITY
+                // / Kotlin-param flag, or baked a different config than this run resolves (sound either way).
                 test.systemProperty("bmc.gradleMirrorDir",
                         mirrorTask.flatMap { it.outputDir }.get().asFile.absolutePath)
 
