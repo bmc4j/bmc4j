@@ -101,8 +101,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             throw t
         }
         val ms = (System.nanoTime() - started) / 1_000_000
+        // PASS path. On a VERIFIED pass outcome.detail is null (unchanged). On an EXPECTED-match pass
+        // (a pinned expect=REFUTED/UNKNOWN whose actual verdict matched, so the framed error was
+        // swallowed) outcome.detail carries the counterexample/issue text — record it instead of null so
+        // the summary keeps the counterexample on the pass path too. Pure observability: detail never
+        // touched the verdict.
         ProofSummary.record(entryFunction, entryClass, expectedV,
-                outcome.verdict, outcome.cached, true, ms, null, outcome.unknownKind)
+                outcome.verdict, outcome.cached, true, ms, outcome.detail, outcome.unknownKind)
     }
 
     /** The typed UNKNOWN/disqualification kind a thrown bmc failure carries, if any — used as a
@@ -116,12 +121,28 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
     /** Mutable carrier so [runProof] can report the resolved verdict + cache provenance back to
      *  [interceptTestMethod] for the summary record, on both the pass and (pre-throw) fail paths. */
-    private class ProofOutcome {
+    internal class ProofOutcome {
         @JvmField var verdict: Verdict = Verdict.VERIFIED
         @JvmField var cached: Boolean = false
         /** The typed UNKNOWN cause, when this proof resolved (or was demoted) to UNKNOWN; null
          *  otherwise. Surfaced in the proof-results comment so an undecided proof is classifiable. */
         @JvmField var unknownKind: UnknownKind? = null
+        /** The human-readable counterexample / undecided-reason text whenever the ACTUAL verdict was
+         *  REFUTED or UNKNOWN — set even when that verdict is the EXPECTED one (a pinned
+         *  expect=REFUTED/UNKNOWN match that PASSES and swallows the framed error). Pure record data for
+         *  the summary's `detail`: it NEVER influences a verdict or the pass/fail decision. Null on a
+         *  VERIFIED pass. */
+        @JvmField var detail: String? = null
+    }
+
+    /** Record the framed counterexample/issue text on [outcome] (pure observability — see
+     *  [ProofOutcome.detail]) and then judge it against the expectation via the static
+     *  [enforceExpectation]. Capturing the detail HERE, before enforcement swallows or rethrows the
+     *  framed error, is what keeps the counterexample on the expected-match (pass) path too. */
+    internal fun enforce(outcome: ProofOutcome, entryFunction: String, expected: Verdict,
+                         actual: Verdict, framed: BmcVerificationError) {
+        outcome.detail = framed.message
+        enforceExpectation(entryFunction, expected, actual, framed)
     }
 
     @Throws(Throwable::class)
@@ -200,12 +221,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             // other verdict (an engine-INFRASTRUCTURE unknown never satisfies expected-UNKNOWN).
             outcome.verdict = Verdict.UNKNOWN
             outcome.unknownKind = e.kind
-            enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, e)
+            enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, e)
             return
         } catch (e: BmcVerificationError) {
             // A genuine pre-framed refutation — never reclassify; judge against the expectation.
             outcome.verdict = Verdict.REFUTED
-            enforceExpectation(entryFunction, expected, Verdict.REFUTED, e)
+            enforce(outcome, entryFunction, expected, Verdict.REFUTED, e)
             return
         } catch (e: RuntimeException) {
             // Engine-INFRASTRUCTURE failure: the engine couldn't run / produce a verdict (e.g.
@@ -219,13 +240,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             outcome.verdict = Verdict.UNKNOWN
             val infra = engineInfraUndecided(backend.id(), entryFunction, e)
             outcome.unknownKind = infra.kind
-            enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, infra)
+            enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, infra)
             return
         } catch (e: Error) {
             outcome.verdict = Verdict.UNKNOWN
             val infra = engineInfraUndecided(backend.id(), entryFunction, e)
             outcome.unknownKind = infra.kind
-            enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, infra)
+            enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, infra)
             return
         }
 
@@ -261,7 +282,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     outcome.verdict = Verdict.UNKNOWN
                     val err = outOfScopePackageUndecided(backend.id(), entryFunction, outOfScope)
                     outcome.unknownKind = err.kind
-                    enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, err)
+                    enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, err)
                     return
                 }
             }
@@ -281,7 +302,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 outcome.verdict = Verdict.UNKNOWN
                 val err = residualIndyUndecided(backend.id(), entryFunction, residual)
                 outcome.unknownKind = err.kind
-                enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, err)
+                enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, err)
                 return
             }
             // Link-failure demotion (verdict HONESTY): a "refutation" that ran through a nondet stub
@@ -306,7 +327,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     outcome.verdict = Verdict.UNKNOWN
                     val err = linkFailureUndecided(backend.id(), entryFunction, linkFailures)
                     outcome.unknownKind = err.kind
-                    enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, err)
+                    enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, err)
                     return
                 }
             }
@@ -328,7 +349,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     outcome.verdict = Verdict.UNKNOWN
                     val err = unmodelledMemberUndecided(backend.id(), entryFunction, unacked)
                     outcome.unknownKind = err.kind
-                    enforceExpectation(entryFunction, expected, Verdict.UNKNOWN, err)
+                    enforce(outcome, entryFunction, expected, Verdict.UNKNOWN, err)
                     return
                 }
                 // Every reached member is explicitly acknowledged: degrade to a nondet-stub footnote
@@ -361,7 +382,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             if (actual == Verdict.UNKNOWN || actual == Verdict.TIMEOUT) {
                 outcome.unknownKind = result.undecidedKind
             }
-            enforceExpectation(entryFunction, expected, actual,
+            enforce(outcome, entryFunction, expected, actual,
                     toError(backend.id(), entryFunction, result, method))
             return
         }
@@ -525,7 +546,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         if (decisive.verdict == Verdict.UNKNOWN || decisive.verdict == Verdict.TIMEOUT) {
             outcome.unknownKind = decisive.unknownKind
         }
-        enforceExpectation(entryFunction, expected, decisive.verdict, decisive.framed!!)
+        enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
     }
 
     /** A classified result of one derived split run: its [verdict], the framed error/counterexample to
