@@ -98,9 +98,22 @@ abstract class BmcMirrorClasspathTask : DefaultTask() {
             val out = parameters.outputDir.get().asFile.toPath()
             // GradleClasspathMirror.mirror is @JvmStatic — invoke the static directly (null receiver). The
             // class is loaded from the isolated worker classpath (bmc-runtime), never the plugin's own.
-            val cls = Class.forName("org.bmc4j.engine.GradleClasspathMirror")
-            val method = cls.getMethod("mirror", String::class.java, java.nio.file.Path::class.java)
-            method.invoke(null, cp, out)
+            try {
+                val cls = Class.forName("org.bmc4j.engine.GradleClasspathMirror")
+                val method = cls.getMethod("mirror", String::class.java, java.nio.file.Path::class.java)
+                method.invoke(null, cp, out)
+            } catch (e: java.lang.reflect.InvocationTargetException) {
+                // Surface the REAL cause. A Gradle worker failure crosses the worker->daemon boundary by
+                // serialization; the underlying exception (thrown from ASM / IO inside the rewrite) may not
+                // be cleanly serializable, in which case Gradle drops it and prints only the generic
+                // "A failure occurred while executing MirrorWorkAction" with no `Caused by`. Render the full
+                // stack trace into a plain-String RuntimeException message so the actual error always reaches
+                // the build log, even without --stacktrace.
+                val cause = e.targetException ?: e
+                val sw = java.io.StringWriter()
+                cause.printStackTrace(java.io.PrintWriter(sw))
+                throw RuntimeException("bmc4j classpath mirror failed:\n$sw")
+            }
         }
     }
 }
