@@ -97,6 +97,97 @@ internal class StubHarvestFloorTest {
     }
 
     @Test
+    fun classify_maps_a_harvested_stub_to_PROVEN() {
+        // A healthy canary: the probe has no reachability markers, so a clean run is
+        // UNKNOWN[SOLVER_GAVE_UP], yet the parallel harvest still surfaces the canary stub -> PROVEN.
+        val healthy = JbmcResult.unknown(UnknownKind.SOLVER_GAVE_UP, "markers missing", "raw")
+                .withStubbedMethods(listOf(StubHarvestFloor.CANARY_STUB_FQN))
+        assertEquals(StubHarvestFloor.CanaryOutcome.PROVEN, StubHarvestFloor.classify(healthy))
+    }
+
+    @Test
+    fun classify_maps_a_completed_run_without_the_stub_to_BROKEN() {
+        // Format drift: the run COMPLETED to a trustworthy verdict (the markerless SOLVER_GAVE_UP the
+        // probe normally yields, or a clean VERIFIED) but harvested NO stub — the engine's stub
+        // reporting doesn't match the parser. This is the loud failure the floor exists for.
+        val driftedMarkerless = JbmcResult.unknown(UnknownKind.SOLVER_GAVE_UP, "markers missing", "raw")
+        assertEquals(StubHarvestFloor.CanaryOutcome.BROKEN, StubHarvestFloor.classify(driftedMarkerless))
+        val driftedVerified = JbmcResult(true, listOf(), "raw")
+        assertEquals(StubHarvestFloor.CanaryOutcome.BROKEN, StubHarvestFloor.classify(driftedVerified))
+    }
+
+    @Test
+    fun classify_maps_a_non_completing_run_to_INCONCLUSIVE() {
+        // The flake the symptom was: the canary run did NOT complete (timed out / the engine aborted /
+        // its output was truncated). It observed nothing about stub FORMAT, so it must NOT be read as
+        // BROKEN (a false loud "format drift") — it is INCONCLUSIVE and gets re-probed.
+        val timedOut = JbmcResult.unknownTimeout("timed out after 120s", "")
+        assertEquals(StubHarvestFloor.CanaryOutcome.INCONCLUSIVE, StubHarvestFloor.classify(timedOut))
+        val crashed = JbmcResult.unknownEngineCrash("exit 134", "")
+        assertEquals(StubHarvestFloor.CanaryOutcome.INCONCLUSIVE, StubHarvestFloor.classify(crashed))
+        val truncated = JbmcResult.unknownParse("truncated JSON", "[{")
+        assertEquals(StubHarvestFloor.CanaryOutcome.INCONCLUSIVE, StubHarvestFloor.classify(truncated))
+    }
+
+    @Test
+    fun an_inconclusive_canary_fails_distinct_retries_and_is_NOT_memoized(@TempDir home: Path) {
+        // The regression this fix targets: a canary that does NOT complete (timeout / abort /
+        // truncated output) must NOT be read as a broken engine. ensure() throws a DISTINCT infra
+        // UNKNOWN ("did not complete"), retries the trivial probe, and — crucially — does NOT memoize a
+        // false verdict, so the very next probe re-verifies the floor instead of the whole leg sharing
+        // a sticky failure.
+        runWithHome(home) {
+            val prevRunner = StubHarvestFloor.canaryRunner
+            try {
+                val identity = "test-engine-inconclusive-" + System.nanoTime()
+                val before = StubHarvestFloor.CANARY_RUNS.get()
+
+                // Force every canary attempt to report INCONCLUSIVE.
+                StubHarvestFloor.canaryRunner = { StubHarvestFloor.CanaryOutcome.INCONCLUSIVE }
+                val e = assertThrows(BmcUndecidedError::class.java) {
+                    StubHarvestFloor.ensure(home.resolve("no-such-jbmc.exe").toString(), identity)
+                }
+                assertTrue(e.isEngineInfrastructure(), "an inconclusive canary is still an infra UNKNOWN")
+                assertTrue(e.message!!.contains("did not complete"),
+                        "the message must be the DISTINCT 'did not complete' framing, not format drift: "
+                                + e.message)
+
+                // NOT memoized: a now-healthy canary (returns PROVEN) passes on the next probe — proof
+                // the inconclusive verdict never poisoned the (engine, runtime) key.
+                StubHarvestFloor.canaryRunner = { StubHarvestFloor.CanaryOutcome.PROVEN }
+                StubHarvestFloor.ensure(home.resolve("no-such-jbmc.exe").toString(), identity)
+
+                // The real runner ticks CANARY_RUNS, but our stub doesn't; assert it was untouched so the
+                // hook can't accidentally satisfy a count-based assertion elsewhere.
+                assertEquals(before, StubHarvestFloor.CANARY_RUNS.get(),
+                        "the test hook bypasses the real canary, so no real runs occurred")
+            } finally {
+                StubHarvestFloor.canaryRunner = prevRunner
+            }
+        }
+    }
+
+    @Test
+    fun a_proven_canary_passes_and_writes_the_marker(@TempDir home: Path) {
+        // The PROVEN path end to end: ensure() passes (no throw), memoizes, and writes the disk marker
+        // so a later JVM trusts it without re-running. Pairs with disk_marker_from_a_prior_jvm_is_trusted
+        // (which plants the marker) by proving WE write it.
+        runWithHome(home) {
+            val prevRunner = StubHarvestFloor.canaryRunner
+            try {
+                val identity = "test-engine-proven-" + System.nanoTime()
+                val key = identity + '|' + Bmc4jVersion.IDENTITY
+                StubHarvestFloor.canaryRunner = { StubHarvestFloor.CanaryOutcome.PROVEN }
+                StubHarvestFloor.ensure(home.resolve("no-such-jbmc.exe").toString(), identity)
+                assertTrue(Files.isRegularFile(StubHarvestFloor.markerPath(key)),
+                        "a PROVEN floor writes the disk marker for the next JVM")
+            } finally {
+                StubHarvestFloor.canaryRunner = prevRunner
+            }
+        }
+    }
+
+    @Test
     fun disk_marker_from_a_prior_jvm_is_trusted(@TempDir home: Path) {
         runWithHome(home) {
             val identity = "test-engine-marked-" + System.nanoTime()
