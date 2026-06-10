@@ -274,6 +274,90 @@ internal class JbmcOutputParserTest {
     }
 
     @Test
+    fun array_input_is_reconstructed_to_a_bracketed_literal() {
+        // A Java int[] proof input is not a flat value in the trace: the proof-local `a` is only a
+        // POINTER to a heap `dynamic_object$0`, whose `data` member points to a backing store
+        // (`dynamic_array`), whose elements arrive as per-index assignments. The witness collector must
+        // stitch that chain back into `a = [..]`. This mirrors the exact shape jbmc 6.9.0 emits for
+        // `int[] a = Bmc.anyArrayOfInts(4,-3,3); Bmc.check(a[0] <= a[3])` (refuted by [1, 0, 0, 0]).
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"java::pkg.Tests.proof:()V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"dynamic_object${'$'}0.data",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_array","type":"int *"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[0L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"0","type":"int"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[1L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"0","type":"int"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[2L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"0","type":"int"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[3L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"0","type":"int"}},
+                   {"stepType":"assignment","lhs":"a",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}0","type":"struct java::array[int] *"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[0L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"1","type":"int"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        // The whole array renders as one bracketed binding, elements in index order, with the SETTLED
+        // (last-per-index) symbolic values: index 0 = 1 (post-fill), the rest 0.
+        assertEquals(listOf("a = [1, 0, 0, 0]"), r.violations[0].counterexample)
+        val aBinding = r.violations[0].bindings.single { it.name == "a" }
+        assertEquals("int[]", aBinding.kind)
+        assertEquals("[1, 0, 0, 0]", aBinding.data)
+    }
+
+    @Test
+    fun long_array_input_renders_with_a_long_kind() {
+        // The long[] analogue: a `struct java::array[long] *` handle, `long` element type. The element
+        // type drives the binding kind (`long[]`) the replay renderer keys on.
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"java::pkg.Tests.proof:()V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"dynamic_object${'$'}0.data",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_array","type":"long *"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[0L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"7","type":"long"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[1L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"-2","type":"long"}},
+                   {"stepType":"assignment","lhs":"a",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}0","type":"struct java::array[long] *"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals(listOf("a = [7, -2]"), r.violations[0].counterexample)
+        assertEquals("long[]", r.violations[0].bindings.single { it.name == "a" }.kind)
+    }
+
+    @Test
     fun failure_without_trace_falls_back_to_source_location_frame() {
         val json = """
             [

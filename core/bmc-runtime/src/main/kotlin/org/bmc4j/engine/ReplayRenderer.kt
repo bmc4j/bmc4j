@@ -120,6 +120,13 @@ object ReplayRenderer {
             return decl(language, "String", name, stringLiteral(data, language))
         }
 
+        // Primitive-array binding (the parser tags it kind="int[]"/"long[]" with data rendered as
+        // "[e0, e1, …]"). Emit a real array literal so the replay compiles; an unparseable/unknown
+        // element type degrades to the commented form.
+        if (b.kind == "int[]" || b.kind == "long[]") {
+            return arrayDecl(b.kind, name, b.data, language)
+        }
+
         // Primitives. Prefer the declared parameter type when known (so a `long`/`short`/`byte`
         // param renders with the right type + suffix); otherwise infer from the JBMC kind.
         val kind = b.kind
@@ -175,6 +182,31 @@ object ReplayRenderer {
                 Language.JAVA -> "$javaType $name = $literal;"
                 Language.KOTLIN -> "val ${ktName(name)} = $literal"
             }
+
+    /**
+     * A primitive-array binding (`int[]`/`long[]`), whose [data] is the parser's `[e0, e1, …]` display
+     * form. Java emits an array initializer (`int[] a = {1, 0, 0, 0};`); Kotlin uses the factory
+     * (`val a = intArrayOf(1, 0, 0, 0)`). Returns null (degrade to a comment) if [data] is missing or
+     * any element doesn't parse as the element type — never emit non-compiling code.
+     */
+    private fun arrayDecl(kind: String, name: String, data: String?, language: Language): String? {
+        val inner = data?.trim()?.removeSurrounding("[", "]")?.trim() ?: return null
+        val isLong = kind == "long[]"
+        val elements = if (inner.isEmpty()) emptyList() else inner.split(",").map { it.trim() }
+        // Validate every element parses (and append the `L` suffix for long literals).
+        val literals = elements.map { e ->
+            val v = parseLongOrNull(e) ?: return null
+            if (isLong) "${v}L" else v.toString()
+        }
+        val javaType = if (isLong) "long[]" else "int[]"
+        return when (language) {
+            Language.JAVA -> "$javaType $name = {${literals.joinToString(", ")}};"
+            Language.KOTLIN -> {
+                val factory = if (isLong) "longArrayOf" else "intArrayOf"
+                "val ${ktName(name)} = $factory(${literals.joinToString(", ")})"
+            }
+        }
+    }
 
     /**
      * `short`/`byte` bindings. Java casts the literal (`short n = (short) 3;`); Kotlin annotates the
