@@ -9,3 +9,12 @@ cache-soundness-smoke/smoke.sh text eol=lf
 
 # Same for the external-SAT (fast solver) soundness smoke script.
 external-sat-soundness-smoke/smoke.sh text eol=lf
+
+# bmc4j's bundled JDK / kotlin-stdlib MODELS are analysis-time stand-ins: a large, stdlib-mirroring
+# .java surface whose BYTECODE is the product, but as SOURCE it isn't the project's implementation and
+# swamps GitHub's language breakdown (the real bmc4j codebase is Kotlin). Mark the model sources
+# linguist-vendored so the stats reflect the actual code. They stay in diffs/blame/search — only the
+# language bar is affected. NOTE: the audit annotations (bmc-models/src/audit) and the conformance
+# proofs are NOT models and are intentionally left in.
+core/bmc-models/src/main/java/** linguist-vendored
+core/bmc-kotlin-models/src/main/java/** linguist-vendored
