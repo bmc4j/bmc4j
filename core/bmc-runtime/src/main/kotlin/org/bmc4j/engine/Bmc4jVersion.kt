@@ -51,9 +51,14 @@ object Bmc4jVersion {
      * slicing-policy predecessor) must re-verify rather than be served to a sliced run;
      * r9 removes the per-proof `concurrent` flag (and its `--java-threading` emission) from the
      * request and the cache key — the key no longer hashes that component, so a key computed by an
-     * r8 runtime (which folded `concurrent` in) must not be served to an r9 run.
+     * r8 runtime (which folded `concurrent` in) must not be served to an r9 run;
+     * r10 hoists the six environment-independent desugar passes (coroutine-LVT/String/lambda/switch/
+     * residual-indy/Math) into an optional cacheable Gradle mirror task: the mirrored bytecode is
+     * byte-for-byte identical, but when the plugin provides it the contract call-site rewrite now runs
+     * on the already-desugared classpath (order-commutative for disjoint call sites) — re-mirror on
+     * principle, the version-stamped key guarantees a pre-r10 mirror is never served to an r10 run.
      */
-    private const val SEMANTICS_REVISION = "r9"
+    private const val SEMANTICS_REVISION = "r10"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
