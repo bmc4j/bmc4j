@@ -761,6 +761,20 @@ internal class BmcProofExtensionTest {
                 "an unexpected refutation through a present-class stub still demotes to UNKNOWN")
     }
 
+    @Test
+    fun linkFailuresToDemote_demotesAnUnresolvedInterfaceDevirtualization(
+            @org.junit.jupiter.api.io.TempDir dir: java.nio.file.Path) {
+        // Lever (a) safety net: a "no body for callee java.util.List.size()" the parser folds into
+        // linkFailureStubs (an invokeinterface the engine could not bind to its present concrete override)
+        // has owner java.util.List, which IS present (a model) -> the would-be REFUTED demotes to a
+        // member-named UNKNOWN rather than leaking a false refutation on the havoc artifact.
+        writeModelClass(dir, "java.util.List")
+        val refuted = refutedResult().withLinkFailureStubs(listOf("java.util.List.size()"))
+        assertEquals(listOf("java.util.List.size()"),
+                BmcProofExtension.linkFailuresToDemote(org.bmc4j.Verdict.VERIFIED, refuted, dir.toString()),
+                "an unresolved interface devirtualization (owner interface present) demotes to UNKNOWN")
+    }
+
     companion object {
         /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
         private fun writeModelClass(root: java.nio.file.Path, fqn: String) {
