@@ -181,4 +181,38 @@ class KotlinArraysLaws {
         Bmc.check(src.getOrNull(0) == 11 && src.getOrNull(1) == 12 &&
             src.getOrNull(2) == null && src.getOrNull(-1) == null)
     }
+
+    // ---- inline higher-order forms: the lambda body inlines INTO this caller and analyzes over the
+    //      bounded array; the ArraysKt facade JVM method (now an enumerated @BmcUnmodelable, inline)
+    //      is never invoked, so these are NOT a forced loud UNKNOWN. -------------------------------------
+
+    /** map { } over a bounded IntArray: the inlined transform builds the result list element-by-element. */
+    @BmcProof
+    fun map_inline_over_bounded_array() {
+        val src = intArrayOf(1, 2, 3)
+        val out = src.map { it + 1 }
+        Bmc.check(out.size == 3 && out[0] == 2 && out[1] == 3 && out[2] == 4)
+    }
+
+    /** all { } / any { } over a bounded IntArray: inlined predicate folds soundly. */
+    @BmcProof
+    fun all_any_inline_over_bounded_array() {
+        val src = intArrayOf(2, 4, 6)
+        Bmc.check(src.all { it > 0 } && src.any { it == 4 } && !src.all { it > 4 })
+    }
+
+    /** filter { } over a bounded IntArray keeps the matching elements. */
+    @BmcProof
+    fun filter_inline_over_bounded_array() {
+        val src = intArrayOf(1, 2, 3, 4)
+        val out = src.filter { it % 2 == 0 }
+        Bmc.check(out.size == 2 && out[0] == 2 && out[1] == 4)
+    }
+
+    /** fold { } over a bounded IntArray accumulates the inlined combiner. */
+    @BmcProof
+    fun fold_inline_over_bounded_array() {
+        val src = intArrayOf(1, 2, 3, 4)
+        Bmc.check(src.fold(0) { acc, x -> acc + x } == 10)
+    }
 }
