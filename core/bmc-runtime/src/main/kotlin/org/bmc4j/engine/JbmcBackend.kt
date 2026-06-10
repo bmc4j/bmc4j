@@ -127,6 +127,16 @@ class JbmcBackend : VerificationBackend {
             val preMirrored = !mirrorDir.isNullOrBlank()
                     && GradleClasspathMirror.configMatches(unionClasspath(request.classpath, userModels),
                             Path.of(mirrorDir))
+            // Loud guard against a SILENT mirror miss: when the mirror is trusted (config + identity match)
+            // but matches NONE of the analysis classpath, that is almost certainly a path-format mismatch
+            // (e.g. the Windows backslash spelling that silently disabled the mirror for several releases),
+            // not a legitimately-uncovered classpath. Warn once per mirror; the run stays sound either way
+            // (every uncovered entry is still rewritten in-JVM below), so this never fails a run -- it only
+            // makes the degradation visible. Checked over the FULL union the worker baked over.
+            if (preMirrored) {
+                GradleClasspathMirror.warnIfMirrorMatchedNothing(
+                        unionClasspath(request.classpath, userModels), Path.of(mirrorDir))
+            }
             val analysisClasspath =
                     if (preMirrored) {
                         hoistableWithGradleMirror(request.classpath, Path.of(mirrorDir))

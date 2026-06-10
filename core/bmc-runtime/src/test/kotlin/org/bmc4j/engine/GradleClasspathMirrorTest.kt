@@ -175,6 +175,79 @@ internal class GradleClasspathMirrorTest {
     }
 
     /**
+     * The path-format match regression guard. Gradle's test worker can spell a `java.class.path` entry
+     * differently than the task's resolved file path -- notably DOUBLED backslashes on Windows, a forward/
+     * back slash mix, or a trailing separator. The mirror match must collapse all of these (via
+     * [GradleClasspathMirror.canonicalKey]) so coverage is NON-EMPTY and substitution fires; a raw string
+     * compare scored 0 hits and SILENTLY disabled the mirror on Windows for several releases. This pins
+     * that every such re-spelling of a mirrored entry still: (a) is reported covered, (b) is substituted
+     * for its mirror, and (c) does NOT trip the 0-match warning guard.
+     */
+    @Test
+    fun mirror_matches_respelled_classpath_entries(@TempDir tmp: Path) {
+        val srcDir = tmp.resolve("classes")
+        Files.createDirectories(srcDir)
+        Files.write(srcDir.resolve("Sample.class"), sampleClass())
+        val out = tmp.resolve("mirror")
+        GradleClasspathMirror.mirror(srcDir.toString(), out)
+
+        // The "true" entry as the task resolved it, plus the spellings a worker / test JVM can produce for
+        // the SAME location. canonicalKey must collapse every one to the manifest's canonical key.
+        val canonical = srcDir.toString()
+        val respellings = linkedMapOf(
+                "canonical" to canonical,
+                "doubled-backslash" to canonical.replace("\\", "\\\\"),
+                "forward-slash" to canonical.replace(File.separatorChar, '/'),
+                "trailing-separator" to canonical + File.separator,
+                "trailing-dot" to canonical + File.separator + ".")
+
+        for ((label, entry) in respellings) {
+            // (a) coverage is reported for the re-spelled entry.
+            assertTrue(GradleClasspathMirror.canonicalKey(entry) in GradleClasspathMirror.coveredEntries(out),
+                    "$label entry must be reported covered: [$entry]")
+            // (b) substitution swaps it for the mirror, not pass-through.
+            val substituted = GradleClasspathMirror.substitute(entry, out)
+            assertNotEquals(entry, substituted, "$label entry must be SUBSTITUTED, not passed through")
+            assertTrue(Path.of(substituted).resolve("Sample.class").let { Files.isRegularFile(it) },
+                    "$label substituted entry points at the mirrored Sample.class")
+            // (c) the 0-match guard does NOT fire for a matching (re-spelled) classpath.
+            assertEquals(1, GradleClasspathMirror.warnIfMirrorMatchedNothing(entry, out),
+                    "$label entry must match the mirror (no 0-match warning)")
+        }
+    }
+
+    /**
+     * The silent-recurrence guard. The original Windows bug was indistinguishable from a legitimate
+     * "nothing to substitute": a mirror that covers N>0 entries but matches 0 of the live classpath looks
+     * exactly like "all-uncovered". This pins that [GradleClasspathMirror.warnIfMirrorMatchedNothing]
+     * (a) returns 0 (the warned signal) on a total miss against a NON-EMPTY cover, and (b) is a silent
+     * no-op when there is no trusted cover at all (an empty mirror is the honest full-in-JVM path, not a
+     * bug). It never throws -- the guard warns, never fails, so it can't turn a legitimate disjoint
+     * classpath into a false failure.
+     */
+    @Test
+    fun zero_match_against_a_nonempty_cover_is_flagged(@TempDir tmp: Path) {
+        val srcDir = tmp.resolve("classes")
+        Files.createDirectories(srcDir)
+        Files.write(srcDir.resolve("Sample.class"), sampleClass())
+        val out = tmp.resolve("mirror")
+        GradleClasspathMirror.mirror(srcDir.toString(), out)
+        assertFalse(GradleClasspathMirror.coveredEntries(out).isEmpty(),
+                "precondition: the mirror covers a non-empty set")
+
+        // A classpath that shares NO entry with the mirror -> 0 matches against a non-empty cover -> warned.
+        val foreign = tmp.resolve("totally-unrelated-dir").toString()
+        assertEquals(0, GradleClasspathMirror.warnIfMirrorMatchedNothing(foreign, out),
+                "a non-empty cover matched by zero live entries must be flagged (return 0)")
+
+        // No trusted cover (missing mirror dir) -> empty cover -> a 0-match is the honest path, NOT flagged
+        // as a bug. Still returns 0, but takes the empty-cover early-out (no warning side effect).
+        val absent = tmp.resolve("no-mirror-here")
+        assertEquals(0, GradleClasspathMirror.warnIfMirrorMatchedNothing(srcDir.toString(), absent),
+                "an absent/empty mirror is the honest full-in-JVM path, returns 0 without warning")
+    }
+
+    /**
      * The headline soundness proof for the HOISTED set: the bytecode the cacheable Gradle task produces
      * ([GradleClasspathMirror.mirror]) must be byte-for-byte what the in-JVM run-wide pipeline
      * produces — `6-desugar (ClasspathMirror.mirrorAll) -> KotlinParam -> Reachability` — over a

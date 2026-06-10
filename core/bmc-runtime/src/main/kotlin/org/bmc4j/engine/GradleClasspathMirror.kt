@@ -336,6 +336,55 @@ object GradleClasspathMirror {
     @JvmStatic
     fun coveredEntries(outputDir: Path): Set<String> = readMap(outputDir).keys
 
+    /** Mirror dirs already warned about (per JVM), so the guard logs at most ONCE per mirror rather than
+     *  per proof. The string is the mirror dir's normalised path; the set is small (one per Gradle run). */
+    private val warnedMirrors = java.util.Collections.newSetFromMap(
+            java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+
+    /**
+     * Detect the SILENT path-format mismatch that originally disabled the mirror on Windows: the manifest
+     * declares N>0 covered entries (an identity-matched mirror with on-disk targets), yet NONE of the live
+     * [classpath] entries match any covered key. On a normal Gradle run the task covers the WHOLE analysis
+     * classpath, so a total miss is almost never a legitimate "nothing to substitute" -- it is overwhelmingly
+     * a spelling mismatch between the worker's manifest keys and the test JVM's `java.class.path` (the exact
+     * bug [canonicalKey] fixes). Left silent, it degrades to a full in-JVM rewrite that LOOKS like success
+     * (0 hits == "nothing to do"), which is how the Windows regression hid for several releases.
+     *
+     * This is purely a DIAGNOSTIC: the fallback is sound either way (every uncovered entry is rewritten
+     * in-JVM, see [JbmcBackend.hoistableWithGradleMirror]), so the guard only WARNS -- it never fails a run,
+     * so a genuinely-disjoint classpath (the rare legitimate total miss) over-warns at worst and never turns
+     * into a false failure. Warns at most once per mirror dir per JVM. Call once per run over the full union
+     * classpath the worker baked (deps + project + bmcModel); a blank classpath or empty cover is a no-op.
+     *
+     * @return the number of live entries that matched a covered key (0 means the warning fired).
+     */
+    @JvmStatic
+    fun warnIfMirrorMatchedNothing(classpath: String, outputDir: Path): Int {
+        val covered = coveredEntries(outputDir)
+        if (covered.isEmpty()) {
+            // No trusted mirror here (missing / identity- or flag-mismatched): a 0-match is the honest,
+            // expected "full in-JVM rewrite" path, not a path-format bug -- say nothing.
+            return 0
+        }
+        var matched = 0
+        for (entry in classpath.split(File.pathSeparator)) {
+            if (entry.isNotEmpty() && canonicalKey(entry) in covered) {
+                matched++
+            }
+        }
+        if (matched == 0 && warnedMirrors.add(outputDir.toAbsolutePath().normalize().toString())) {
+            System.err.println(
+                    "[bmc4j] WARNING: the Gradle classpath mirror at " + outputDir +
+                            " declares " + covered.size + " covered entries but matched 0 of the " +
+                            "analysis classpath -- almost certainly a path-format mismatch (e.g. Windows " +
+                            "backslash spelling) between the plugin's manifest and the test JVM's " +
+                            "java.class.path, NOT a legitimately-uncovered classpath. The run stays SOUND " +
+                            "(every entry is rewritten in-JVM) but forfeits the mirror's speed-up. Please " +
+                            "report this with your OS + Gradle version.")
+        }
+        return matched
+    }
+
     /**
      * A path entry's canonical key for covered-entry matching: the canonical (symlink/relativity-resolved,
      * case-normalised on Windows) absolute path, or — if that can't be computed — the absolute path, or the
