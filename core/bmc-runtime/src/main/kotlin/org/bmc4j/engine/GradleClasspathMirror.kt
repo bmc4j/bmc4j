@@ -149,18 +149,26 @@ object GradleClasspathMirror {
         // Each pass uses the SAME entry point the test JVM calls, so the mirrored bytecode is byte-for-byte
         // what the in-JVM passes would have produced (modulo the per-proof tail that stays in-JVM).
         val resolvedConfig: String
-        val finalClasspath = withConfigProperties(configProperties) {
-            ClasspathMirror.withCacheRoot(mirrorRoot) {
-                var cp = ClasspathMirror.mirrorAll(classpath)
-                // Config bake — uses the forwarded properties (set on this worker for the scope of the
-                // call) and the worker's inherited env. The runtime re-validates the baked config below.
-                cp = ConfigBytecode.rewrite(cp)
-                // The flag lives in the runtime as a system property (KotlinParamBytecode.rewrite reads
-                // it); the worker is a separate JVM, so set it from the explicit argument for this walk
-                // only. Folded into the mirror cache key below regardless.
-                cp = withKotlinNullableParams(kotlinNullableParams) { KotlinParamBytecode.rewrite(cp) }
-                cp = ReachabilityBytecode.rewrite(cp)
-                cp
+        // Bound the mirror walk's parallelism inside the Gradle worker. The worker runs in (a classloader
+        // of) the Gradle daemon JVM, whose heap is typically smaller than a forked test JVM's; the
+        // per-entry mirror holds a jar's inflated classes resident, so the default fan-out (up to 8) over
+        // large dependency jars can exhaust the daemon heap (observed: OOM in the worker). This task is a
+        // one-time cacheable unit, not latency-critical, so a low fan-out trades irrelevant throughput for
+        // a safe peak. An explicit -Dbmc.mirrorParallelism still wins (the helper honours it).
+        val finalClasspath = withMirrorParallelismDefault(WORKER_MIRROR_PARALLELISM) {
+            withConfigProperties(configProperties) {
+                ClasspathMirror.withCacheRoot(mirrorRoot) {
+                    var cp = ClasspathMirror.mirrorAll(classpath)
+                    // Config bake — uses the forwarded properties (set on this worker for the scope of the
+                    // call) and the worker's inherited env. The runtime re-validates the baked config below.
+                    cp = ConfigBytecode.rewrite(cp)
+                    // The flag lives in the runtime as a system property (KotlinParamBytecode.rewrite reads
+                    // it); the worker is a separate JVM, so set it from the explicit argument for this walk
+                    // only. Folded into the mirror cache key below regardless.
+                    cp = withKotlinNullableParams(kotlinNullableParams) { KotlinParamBytecode.rewrite(cp) }
+                    cp = ReachabilityBytecode.rewrite(cp)
+                    cp
+                }
             }
         }
         // The resolved config the bake just used — recorded in the manifest so the runtime can re-validate
@@ -191,6 +199,26 @@ object GradleClasspathMirror {
             sb.append(originals[i]).append('\t').append(rel).append('\n')
         }
         Files.write(outputDir.resolve(MANIFEST_NAME), sb.toString().toByteArray(StandardCharsets.UTF_8))
+    }
+
+    /** Conservative mirror fan-out for the Gradle worker (see [withMirrorParallelismDefault]). Low enough
+     *  that a few large inflated dependency jars resident at once stay within the Gradle daemon's heap. */
+    private const val WORKER_MIRROR_PARALLELISM = 2
+
+    /** Run [body] with `bmc.mirrorParallelism` defaulted to [value] when the user has NOT set it, so the
+     *  worker's mirror walk uses a low, heap-safe fan-out; an explicit `-Dbmc.mirrorParallelism` is left
+     *  untouched (it still wins). Restores the prior state afterwards. */
+    private inline fun <T> withMirrorParallelismDefault(value: Int, body: () -> T): T {
+        val key = "bmc.mirrorParallelism"
+        val prev = System.getProperty(key)
+        if (prev.isNullOrBlank()) {
+            System.setProperty(key, value.toString())
+        }
+        try {
+            return body()
+        } finally {
+            if (prev.isNullOrBlank()) System.clearProperty(key)
+        }
     }
 
     /** Run [body] with `bmc.kotlinNullableParams` forced to [value], restoring the prior property after.
