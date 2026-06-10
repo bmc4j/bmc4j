@@ -262,24 +262,14 @@ class JbmcBackend : VerificationBackend {
          * this produces.
          */
         fun applyDesugarPasses(classpath: String): String {
-            // Strip the LVT from coroutine methods (JBMC 6.9.0 aborts on multi-suspension state machines).
-            var cp = CoroutineBytecode.strip(classpath)
-            // Sound String content ops (JBMC's own String.equals is unsound).
-            cp = StringBytecode.rewrite(cp)
-            // Desugar lambda / method-reference invokedynamic to generated functional-interface classes.
-            cp = LambdaBytecode.rewrite(cp)
-            // Desugar pattern-matching switch invokedynamic (SwitchBootstraps.typeSwitch) to a sound
-            // instanceof/equals chain (JBMC links the indy to an unconstrained result otherwise).
-            cp = SwitchBytecode.rewrite(cp)
-            // LAST indy pass: any invokedynamic still standing (enumSwitch, an unhandled typeSwitch
-            // label shape, record toString with a reference component, future bootstraps) would be
-            // SILENTLY linked to an unconstrained result by JBMC — no opaque-symbol message, invisible
-            // to the stub policy. Replace each with a call to a deliberately-bodiless marker so the
-            // same trust surfaces through the normal nondet-stub channel (footnote / strictStubs).
-            cp = ResidualIndyBytecode.rewrite(cp)
-            // Redirect the integer Math.* methods JBMC stubs to nondet (floorDiv/floorMod/*Exact/
-            // toIntExact/absExact/abs) to the sound BmcMath; sqrt/pow/trig (modeled) pass through.
-            return MathBytecode.rewrite(cp)
+            // The six passes — coroutine-LVT strip, sound String content ops, lambda/method-ref indy
+            // desugar, pattern-switch (typeSwitch) indy desugar, residual-indy marker, integer Math.*
+            // redirect — run as ONE fused walk: each class is inflated once, run through every pass in
+            // order in-memory (generated lambda classes threaded through their downstream passes), and
+            // deflated once. The fused output is byte-for-byte what the old sequential per-pass mirrors
+            // produced (DesugarFusionEquivalenceTest pins it), so soundness is unchanged; only the cold
+            // codec/I-O cost collapses (six inflate/deflate round-trips per class become one).
+            return ClasspathMirror.mirrorAll(classpath)
         }
 
         /**

@@ -67,16 +67,12 @@ object GradleClasspathMirror {
         val mirrorRoot = outputDir.resolve(MIRRORS_DIR)
         Files.createDirectories(mirrorRoot)
 
-        // Run the six passes in the SAME order JbmcBackend.prepareClasspath runs them, each chaining over
-        // the previous pass's output, with every mirror redirected under the Gradle-owned root.
+        // Run the six passes as ONE fused walk (inflate once -> all passes in order -> deflate once),
+        // byte-for-byte what the sequential per-pass chain produced, with every mirror redirected under
+        // the Gradle-owned root. Fusing here is what collapses the cold mirror-task cost on a real
+        // consumer classpath (six inflate/deflate round-trips per class become one).
         val finalClasspath = ClasspathMirror.withCacheRoot(mirrorRoot) {
-            var cp = CoroutineBytecode.strip(classpath)
-            cp = StringBytecode.rewrite(cp)
-            cp = LambdaBytecode.rewrite(cp)
-            cp = SwitchBytecode.rewrite(cp)
-            cp = ResidualIndyBytecode.rewrite(cp)
-            cp = MathBytecode.rewrite(cp)
-            cp
+            ClasspathMirror.mirrorAll(classpath)
         }
 
         val originals = classpath.split(File.pathSeparator).filter { it.isNotEmpty() }

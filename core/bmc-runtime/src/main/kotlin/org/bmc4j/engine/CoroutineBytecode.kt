@@ -55,6 +55,10 @@ object CoroutineBytecode {
                 ClasspathMirror.Transformed(stripClass(b))
             })
 
+    /** The per-class transform, exposed for the fused walk ([DesugarPasses]). Identical to the bytes
+     *  the standalone [strip] pass produces for one class. */
+    internal fun stripClassForFusion(bytes: ByteArray): ByteArray = stripClass(bytes)
+
     private fun stripClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
         val cw = ClassWriter(0)
