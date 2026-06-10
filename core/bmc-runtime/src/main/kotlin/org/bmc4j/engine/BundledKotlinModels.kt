@@ -51,6 +51,27 @@ object BundledKotlinModels {
             // kotlinx persistent-collection trie nodes) nondet-stubs; this flat model carries copyInto/
             // copyOf/copyOfRange/fill directly (System.arraycopy-backed) so the call resolves soundly.
             "kotlin/collections/ArraysKt.class",
+            // The kotlin.collections.Abstract* skeletal bases that immutable/persistent collections
+            // (kotlinx.collections.immutable) extend. A persistent collection held through the read-only
+            // Set/Map interface inherits its size()/isEmpty() JVM bridge from one of these bases; the real
+            // stdlib base nondet-stubbed that inherited bridge (an unresolved Set.size() devirtualization),
+            // demoting a `persistentSetOf().size`/`isEmpty()` proof to a false UNKNOWN. These models keep
+            // the size primitive (getSize) abstract — so it resolves to the concrete override — and supply
+            // the derived size()/isEmpty()/contains surface over it, so the interface call devirtualizes to
+            // one sound body. The Mutable* bases (extending the java.util.Abstract* models) keep the
+            // persistent-collection BUILDERS non-opaque: PersistentVectorBuilder reads the inherited
+            // java.util.AbstractList.modCount field via a generated accessor, and an opaque base there
+            // crashed JBMC's infer_opaque_type_fields invariant (ENGINE_CRASH) on any proof transitively
+            // loading a builder.
+            "kotlin/collections/AbstractCollection.class",
+            "kotlin/collections/AbstractList.class",
+            "kotlin/collections/AbstractList\$Itr.class",
+            "kotlin/collections/AbstractSet.class",
+            "kotlin/collections/AbstractMap.class",
+            "kotlin/collections/AbstractMutableCollection.class",
+            "kotlin/collections/AbstractMutableList.class",
+            "kotlin/collections/AbstractMutableSet.class",
+            "kotlin/collections/AbstractMutableMap.class",
             // kotlin.math.MathKt — the non-inline math residue (Int/Long.sign, roundTo*, truncate, log/log2);
             // the common abs/min/max/sqrt/pow/ceil/floor are @InlineOnly (inline to java.lang.Math directly).
             "kotlin/math/MathKt.class",

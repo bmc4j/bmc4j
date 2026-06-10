@@ -21,6 +21,15 @@ package java.util;
  */
 public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E> {
 
+    /**
+     * The JDK's structural-modification counter. Modeled (as the JDK declares it here) so a subclass
+     * that reads it through this base resolves the field instead of leaving JBMC to infer it on an
+     * opaque type — e.g. {@code kotlin.collections.AbstractMutableList}'s generated {@code getModCount}
+     * accessor, reached transitively when proving over a kotlinx persistent collection, references this
+     * inherited field; without it JBMC's {@code infer_opaque_type_fields} invariant fails and crashes.
+     */
+    protected transient int modCount = 0;
+
     protected AbstractList() {
     }
 

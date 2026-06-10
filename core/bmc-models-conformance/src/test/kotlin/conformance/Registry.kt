@@ -112,6 +112,21 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.AbstractList" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
     "java.util.AbstractSet" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
     "java.util.AbstractMap" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
+    // The kotlin.collections.Abstract* skeletal bases the Kotlin stdlib's read-only/mutable collections
+    // and library persistent collections (kotlinx.collections.immutable) extend. They keep the size
+    // primitive (getSize) abstract so it resolves to the concrete override, and supply the derived
+    // size()/isEmpty()/contains surface over it (the read-only Mutable* ones extend the java.util.Abstract*
+    // models). No JVM-runnable twin to differentially test — exercised via the kotlinx persistent-collection
+    // structural proofs (size()/isEmpty()/add().size devirt through these bases), like the java.util
+    // Abstract* skeletal-base waivers above.
+    "kotlin.collections.AbstractCollection" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection size/isEmpty devirt proofs",
+    "kotlin.collections.AbstractList" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection size/isEmpty devirt proofs",
+    "kotlin.collections.AbstractSet" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection size/isEmpty devirt proofs",
+    "kotlin.collections.AbstractMap" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection size/isEmpty devirt proofs",
+    "kotlin.collections.AbstractMutableCollection" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection devirt proofs (builders extend it)",
+    "kotlin.collections.AbstractMutableList" to "abstract skeletal base — keeps PersistentVectorBuilder non-opaque (modCount accessor); KotlinAbstractCollectionSubclassLaws + kotlinx devirt proofs",
+    "kotlin.collections.AbstractMutableSet" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection devirt proofs (builders extend it)",
+    "kotlin.collections.AbstractMutableMap" to "abstract skeletal base — exercised via KotlinAbstractCollectionSubclassLaws + the kotlinx persistent-collection devirt proofs (builders extend it)",
     "java.util.ArrayListView" to "internal model helper (no JDK twin) — the live subList/reversed view over the ArrayList model; exercised via ArrayList's subList/reversed conformance + @BmcProof",
     "java.util.BmcSortWitness" to "internal model helper (no JDK twin) — the nondet sorted-permutation witness shared by the comparator-driven sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort SortWitnessLaws)",
     "java.util.BmcNaturalOrder" to "internal model helper (no JDK twin) — the single concrete, devirtualizable natural-order comparison (bit-precise for the builtin Comparables, loud otherwise) that drives the witness for the natural-order sort/sorted models; exercised via the sort surface's @BmcProof (proofs.sort NaturalOrderSortLaws)",
