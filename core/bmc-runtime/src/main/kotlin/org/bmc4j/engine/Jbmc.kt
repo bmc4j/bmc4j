@@ -24,12 +24,13 @@ class Jbmc(private val executable: String) {
     @JvmOverloads
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-            solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = ""): JbmcResult {
+            solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = "",
+            userClasspath: String? = null): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath))
-        return exec(command, entryFunction, timeoutSeconds)
+        return exec(command, entryFunction, timeoutSeconds, userClasspath)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor). */
@@ -255,15 +256,16 @@ class Jbmc(private val executable: String) {
          * solver-gave-up) fails straight through with no wasted re-solve. The retry is LOUD (printed),
          * never silent, and each attempt counts as a real engine launch.
          */
-        internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0): JbmcResult {
-            val first = execOnce(command, entryFunction, timeoutSeconds)
+        internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0,
+                          userClasspath: String? = null): JbmcResult {
+            val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath)
             val kind = first.undecidedKind
             if (kind == null || !kind.retryable) {
                 return first // a real verdict, or a deterministic (non-retryable) UNKNOWN
             }
             println("  bmc4j: $entryFunction came back UNKNOWN[$kind] (retryable)" +
                     " - re-running the engine once")
-            val second = execOnce(command, entryFunction, timeoutSeconds)
+            val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath)
             // Keep the better outcome. The retry recovering a real verdict (VERIFIED/REFUTED) wins; a
             // still-undecided retry stays UNKNOWN (never promoted to a pass), annotated when the SAME
             // retryable kind recurred so a persisted flake is named as such.
@@ -275,7 +277,8 @@ class Jbmc(private val executable: String) {
             return second
         }
 
-        private fun execOnce(command: List<String>, entryFunction: String, timeoutSeconds: Int): JbmcResult {
+        private fun execOnce(command: List<String>, entryFunction: String, timeoutSeconds: Int,
+                             userClasspath: String?): JbmcResult {
             INVOCATIONS.incrementAndGet() // ground-truth engine-launch counter for the verdict cache
             val pb = ProcessBuilder(command)
             pb.redirectErrorStream(false)
@@ -318,7 +321,7 @@ class Jbmc(private val executable: String) {
                     return JbmcResult.unknownEngineCrash(
                             engineErrorReason(command, exit, err.text(), out.text()), out.text())
                 }
-                return JbmcOutputParser.parse(out.text(), entryFunction)
+                return JbmcOutputParser.parse(out.text(), entryFunction, userClasspath)
             } catch (e: IOException) {
                 throw IllegalStateException(
                         "Could not start JBMC process: " + command.joinToString(" "), e)

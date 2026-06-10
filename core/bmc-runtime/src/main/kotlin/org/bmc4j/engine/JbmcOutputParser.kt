@@ -17,7 +17,8 @@ import java.util.ArrayDeque
 object JbmcOutputParser {
 
     @JvmStatic
-    fun parse(json: String, entryFunctionFqn: String?): JbmcResult {
+    @JvmOverloads
+    fun parse(json: String, entryFunctionFqn: String?, userClasspath: String? = null): JbmcResult {
         val root: JsonArray = try {
             JsonParser.parseString(json).asJsonArray
         } catch (e: RuntimeException) {
@@ -32,7 +33,7 @@ object JbmcOutputParser {
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
         // computed verdict below via withStubbedMethods (a no-op when empty).
-        return parseVerdict(root, json, entryFunctionFqn)
+        return parseVerdict(root, json, entryFunctionFqn, WitnessUserCode.from(userClasspath))
                 .withStubbedMethods(harvestStubs(root))
                 .withUnmodelledMembers(harvestUnmodelledMembers(root))
                 // linkFailureStubs carries BOTH fingerprints of a present-class nondet stub a refutation
@@ -44,7 +45,8 @@ object JbmcOutputParser {
                 .withLinkFailureStubs(harvestLinkFailureStubMembers(root) + harvestNoBodyCalleeMembers(root))
     }
 
-    private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?): JbmcResult {
+    private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?,
+                            userCode: WitnessUserCode?): JbmcResult {
         var result: JsonArray? = null
         for (e in root) {
             if (!e.isJsonObject) {
@@ -81,7 +83,7 @@ object JbmcOutputParser {
                         unwindingFailures++
                         continue
                     }
-                    violations.add(toViolation(p, entryFunctionFqn))
+                    violations.add(toViolation(p, entryFunctionFqn, userCode))
                 }
             }
         }
@@ -548,7 +550,8 @@ object JbmcOutputParser {
         return sl != null && BmcReachability.isMarkerLine(intOr(sl, "line", -1))
     }
 
-    private fun toViolation(property: JsonObject, entryFunctionFqn: String?): JbmcResult.Violation {
+    private fun toViolation(property: JsonObject, entryFunctionFqn: String?,
+                            userCode: WitnessUserCode?): JbmcResult.Violation {
         var description = str(property, "description")
         val sl = if (property.has("sourceLocation")) property.getAsJsonObject("sourceLocation") else null
         var file = if (sl != null) str(sl, "file") else null
@@ -560,7 +563,7 @@ object JbmcOutputParser {
 
         if (property.has("trace")) {
             buildStackAndCounterexample(property.getAsJsonArray("trace"), file, line,
-                    entryFunctionFqn, stack, counterexample, bindings)
+                    entryFunctionFqn, userCode, stack, counterexample, bindings)
         }
         if (stack.isEmpty() && file != null) {
             stack.add(frame(if (property.has("sourceLocation"))
@@ -588,7 +591,7 @@ object JbmcOutputParser {
 
     /** Reconstruct the call stack live at the failure, plus input assignments. */
     private fun buildStackAndCounterexample(trace: JsonArray, failFile: String?, failLine: Int,
-                                            entryFunctionFqn: String?,
+                                            entryFunctionFqn: String?, userCode: WitnessUserCode?,
                                             stack: MutableList<StackTraceElement>,
                                             counterexample: MutableList<String>,
                                             bindings: MutableList<JbmcResult.Binding>) {
@@ -618,7 +621,7 @@ object JbmcOutputParser {
                         active.pop()
                     }
                 }
-                "assignment" -> collectCounterexample(step, entryPrefix, inputs, inputKinds)
+                "assignment" -> collectCounterexample(step, entryPrefix, userCode, inputs, inputKinds)
                 "failure" -> {
                     val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
                     if (loc != null) {
@@ -652,17 +655,37 @@ object JbmcOutputParser {
     }
 
     private fun collectCounterexample(step: JsonObject, entryPrefix: String?,
+                                      userCode: WitnessUserCode?,
                                       inputs: MutableMap<String, String>,
                                       inputKinds: MutableMap<String, String>) {
         val lhs = str(step, "lhs")
+        // Cheap synthetic pre-filter ($stack, *tmp, __CPROVER_*, *_return_value) before any class read.
         if (lhs.isNullOrEmpty() || !isUserVariable(lhs)) {
             return
         }
-        // Restrict to variables declared in the proof method itself — these are the
-        // inputs the developer cares about, not compiler/JBMC temporaries.
-        if (entryPrefix != null) {
-            val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
-            val fn = if (loc != null) str(loc, "function") else null
+        // The function this assignment is attributed to (the trace stamps the CALLER's frame here).
+        val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
+        val fn = if (loc != null) str(loc, "function") else null
+        if (userCode != null) {
+            // Frame filter (widened): keep an input declared in ANY of the consumer's OWN methods — the
+            // proof method or a helper it factored symbolic inputs into — while still excluding the
+            // library-under-proof, the bmc4j models, the runtime, and engine frames. "User's own code" is
+            // discriminated by classpath ORIGIN (a directory-compiled, non-reserved class), never a
+            // package-prefix guess; see [WitnessUserCode].
+            if (!userCode.isUserFrame(fn)) {
+                return
+            }
+            // Declared-local filter: require the name to be an actual LocalVariableTable entry of the
+            // method it is attributed to. This drops engine synthetics that share a user frame yet were
+            // declared nowhere — e.g. the nondet symbol jbmc names `i` for a `Bmc.anyInt()` call — while
+            // keeping the developer's real `val x`/helper `val a`. NO_TABLE (compiled -g:none, unreadable,
+            // method absent) degrades to the legacy keep-this-frame behavior rather than dropping inputs.
+            if (userCode.checkLocal(fn, lhs) == WitnessUserCode.LocalCheck.UNDECLARED) {
+                return
+            }
+        } else if (entryPrefix != null) {
+            // Legacy path (no classpath available, e.g. the pure-parser unit tests / engine canary):
+            // restrict to variables attributed to the proof method itself.
             if (fn == null || !fn.startsWith(entryPrefix)) {
                 return
             }
@@ -681,7 +704,11 @@ object JbmcOutputParser {
         inputKinds[lhs] = kind
     }
 
-    /** Reject compiler/JBMC synthetics ($stack, return_tmp, __CPROVER_*, *_return_value). */
+    /**
+     * Reject compiler/JBMC synthetics ($stack, return_tmp, __CPROVER_*, *_return_value). A cheap
+     * name-only PRE-filter; the authoritative "is this a real, user-declared input" test is the
+     * LocalVariableTable check in [collectCounterexample] via [WitnessUserCode].
+     */
     private fun isUserVariable(name: String): Boolean {
         if (!isSimpleName(name)) {
             return false

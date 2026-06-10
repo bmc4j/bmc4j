@@ -57,7 +57,11 @@ class JbmcBackend : VerificationBackend {
                     request.entryClass, request.entryFunction, classpath,
                     request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver,
-                    request.timeoutSeconds, request.externalSatPath)
+                    request.timeoutSeconds, request.externalSatPath,
+                    // The ORIGINAL (un-rewritten) test classpath drives witness rendering: it carries the
+                    // consumer's own class output dirs with full debug info, so the parser can tell the
+                    // user's declared inputs (kept) from engine synthetics / library frames (dropped).
+                    request.classpath)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

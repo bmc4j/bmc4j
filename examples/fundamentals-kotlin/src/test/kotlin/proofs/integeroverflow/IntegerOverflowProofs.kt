@@ -23,4 +23,21 @@ class IntegerOverflowProofs {
         val m = Numbers.max(a, b)
         Bmc.check(m >= a && m >= b)
     }
+
+    /**
+     * FAILS, with the symbolic input declared in a HELPER, not this proof method. The witness must
+     * still name the helper's declared input (`a`) - decomposition support: a developer is free to
+     * factor input construction into a helper and expects to see its real variable in the trace, not
+     * an engine synthetic. Expected verdict: REFUTED at a == Int.MIN_VALUE.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    fun abs_of_a_factored_input_is_never_negative() {
+        Bmc.check(Numbers.abs(makeInput()) >= 0)
+    }
+
+    /** A helper that declares and returns the proof's symbolic input. */
+    private fun makeInput(): Int {
+        val a = Bmc.anyInt()
+        return a
+    }
 }
