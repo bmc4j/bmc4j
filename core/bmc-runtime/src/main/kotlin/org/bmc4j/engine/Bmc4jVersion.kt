@@ -56,9 +56,18 @@ object Bmc4jVersion {
      * residual-indy/Math) into an optional cacheable Gradle mirror task: the mirrored bytecode is
      * byte-for-byte identical, but when the plugin provides it the contract call-site rewrite now runs
      * on the already-desugared classpath (order-commutative for disjoint call sites) — re-mirror on
-     * principle, the version-stamped key guarantees a pre-r10 mirror is never served to an r10 run.
+     * principle, the version-stamped key guarantees a pre-r10 mirror is never served to an r10 run;
+     * r11 extends the cacheable Gradle mirror to hoist the FULL run-wide rewrite prefix — the Config bake,
+     * KotlinParam and Reachability on top of the six desugars — and to cover the consumer's own compiled
+     * output + bmcModel output. A covered entry now reaches the test JVM with `6-desugar + Config +
+     * KotlinParam + Reachability` already applied; the worker bakes Config from the plugin-forwarded run
+     * config and records the resolved config in the manifest, which the runtime re-validates (and falls
+     * back to a full in-JVM rewrite on any mismatch) so a stale config bake is never served. Covered
+     * entries are matched by CANONICAL path (the test worker can spell java.class.path entries differently
+     * — e.g. doubled backslashes on Windows — than the task's file paths). Re-mirror on principle; the
+     * version-stamped key guarantees a pre-r11 mirror is never served to an r11 run.
      */
-    private const val SEMANTICS_REVISION = "r10"
+    private const val SEMANTICS_REVISION = "r11"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
