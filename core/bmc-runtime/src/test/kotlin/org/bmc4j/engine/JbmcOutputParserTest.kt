@@ -206,7 +206,7 @@ internal class JbmcOutputParserTest {
     }
 
     @Test
-    fun counterexample_filters_synthetics_other_functions_and_nonprimitives_last_wins() {
+    fun counterexample_filters_synthetics_other_functions_and_nonprimitives_first_wins() {
         val json = """
             [
               {"result":[
@@ -233,8 +233,44 @@ internal class JbmcOutputParserTest {
               ]}
             ]""".trimIndent()
         val r = JbmcOutputParser.parse(json, ENTRY)
-        // Only the real, primitive, proof-local variable survives, at its LAST value.
-        assertEquals(listOf("amount = 42"), r.violations[0].counterexample)
+        // Only the real, primitive, proof-local variable survives, at its FIRST value — the input
+        // value, before any later same-named reassignment (a tailrec/loop or callee param mutation).
+        assertEquals(listOf("amount = 1"), r.violations[0].counterexample)
+    }
+
+    @Test
+    fun a_reassigned_same_named_input_renders_its_first_value_not_the_mutated_one() {
+        // The tailrec shape: kotlinc lowers `tailrec fun factorial(n, acc)` to a LOOP that reassigns the
+        // `n` param down to its base value. The trace assigns the proof input `n = 13` (the value that
+        // triggers the overflow) and later, in the lowered loop, reassigns `n = 0` (the loop exit value).
+        // Both share the proof frame. First-wins must render the INPUT (13), not the mutated exit (0); the
+        // overflowed `accumulator` is unaffected (single assignment).
+        val json = """
+            [
+              {"result":[
+                {"name":"f.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"java::pkg.Tests.proof:()V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"n",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},"value":{"name":"integer","data":"13"}},
+                   {"stepType":"assignment","lhs":"accumulator",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},"value":{"name":"integer","data":"1932053504"}},
+                   {"stepType":"assignment","lhs":"n",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},"value":{"name":"integer","data":"0"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        // n shows the INPUT 13 (first-wins), NOT the loop-mutated 0; accumulator keeps its overflow value.
+        assertEquals(listOf("n = 13", "accumulator = 1932053504"), r.violations[0].counterexample)
+        // The structured binding the replay renderer uses must agree (first value, kind preserved).
+        val nBinding = r.violations[0].bindings.first { it.name == "n" }
+        assertEquals("13", nBinding.data)
+        assertEquals("integer", nBinding.kind)
     }
 
     @Test

@@ -127,6 +127,31 @@ internal class WitnessUserCodeTest {
     }
 
     @Test
+    fun a_same_named_input_reassigned_in_a_deeper_user_frame_renders_the_first_input_value() {
+        // The factorial/tailrec shape across frames: the proof binds input `n = 13`, then a deeper USER
+        // frame (a helper, here `step`, which also declares an `n`) reassigns `n = 0`. Both frames pass
+        // the user-frame + declared-local filters, so both `n` assignments are collected. First-wins must
+        // keep the proof input (13), not the helper exit value (0).
+        val cp = compile(
+                "Proofs",
+                "package proofs.demo;",
+                "public class Proofs {",
+                "  public void proof() { int n = 0; step(n); if (n < 0) {} }",
+                "  public int step(int n) { return n; }",
+                "}")
+        val proofFn = "java::proofs.demo.Proofs.proof:()V"
+        val helperFn = "java::proofs.demo.Proofs.step:(I)I"
+        val json = traceWith(
+                proofFn,
+                assignment(proofFn, "n", "13"),
+                functionCall(helperFn),
+                assignment(helperFn, "n", "0"))
+        val r = JbmcOutputParser.parse(json, "proofs.demo.Proofs.proof", cp)
+        assertEquals(listOf("n = 13"), r.violations[0].counterexample,
+                "a same-named input reassigned in a deeper user frame must render its FIRST (input) value")
+    }
+
+    @Test
     fun a_null_classpath_preserves_the_legacy_proof_frame_only_behavior() {
         // Sanity: the pure-parser path (no classpath, e.g. the engine canary) is unchanged — a value
         // attributed to a non-entry frame is filtered by the legacy entryPrefix rule.

@@ -700,8 +700,16 @@ object JbmcOutputParser {
             return
         }
         val data = str(value, "data") ?: return
-        inputs[lhs] = data // last assignment wins -> final counterexample value
-        inputKinds[lhs] = kind
+        // First assignment wins: keep the input value, before any in-loop/callee mutation of a
+        // same-named variable. The proof input is bound BEFORE the algorithm-under-test mutates a
+        // same-named param (e.g. a tailrec lowered to a loop that reassigns `n`, or a callee whose
+        // param shares the input name), and a callee param-binding first value is the input too. Guard
+        // BOTH maps on the same "absent" condition so they never diverge; the LinkedHashMap preserves
+        // the insertion order of first-seen names.
+        if (lhs !in inputs) {
+            inputs[lhs] = data
+            inputKinds[lhs] = kind
+        }
     }
 
     /**
