@@ -67,6 +67,186 @@ public final class Bmc {
         return CProver.nondetBoolean();
     }
 
+    // --- symbolic arrays (CONCRETE length) -----------------------------------
+    // anyArrayOfInts/anyArrayOfLongs allocate a real array whose every element is symbolic, so one
+    // proof ranges over EVERY array of that length. Three things to keep in mind:
+    //
+    //   1. CONCRETE length only. `length` must be an ordinary int literal in the proof (e.g. 4, 8) —
+    //      do NOT pass a symbolic/nondet length. Symbolic-size allocation plus a nondet-bounded fill
+    //      loop is a BMC sore spot (the engine cannot statically unwind the fill). To "cover multiple
+    //      sizes", write separate proofs (foo_size4, foo_size8), each with its own literal length.
+    //   2. The fill loop CONSUMES THE UNWIND BUDGET. A length-N array runs N fill iterations, and the
+    //      sortedness assumes below add another N-1 — both count against the proof's `unwind` bound.
+    //      Size your `@BmcProof(unwind = …)` to cover the longest array loop in the proof, not just N.
+    //   3. length == 0 yields an empty array (a valid, if degenerate, proof input).
+
+    /**
+     * A symbolic {@code int[]} of exactly {@code length} elements, each an unconstrained
+     * {@link #anyInt()}. One proof over this array reasons about every {@code int[]} of that length.
+     *
+     * <p><b>Concrete length only:</b> {@code length} must be an ordinary int literal per proof — see
+     * the section comment; symbolic length is unsupported. <b>Budget:</b> the fill loop adds
+     * {@code length} iterations to the proof's unwind budget. {@code length == 0} returns an empty
+     * array.
+     *
+     * @throws IllegalArgumentException if {@code length < 0}
+     */
+    public static int[] anyArrayOfInts(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException("require length >= 0, got " + length);
+        }
+        int[] a = new int[length];
+        for (int i = 0; i < length; i++) {
+            a[i] = anyInt();
+        }
+        return a;
+    }
+
+    /**
+     * A symbolic {@code int[]} of exactly {@code length} elements, each constrained to
+     * {@code [loInclusive, hiInclusive]} via {@link #anyInt(int, int)}. <b>This ranged form is the
+     * one to reach for</b>: bounding the elements keeps the symbolic domain small enough that the
+     * solver stays fast, the way {@link #anyInt(int, int)} does for a scalar.
+     *
+     * <p><b>Concrete length only:</b> {@code length} must be an ordinary int literal per proof — see
+     * the section comment; symbolic length is unsupported. <b>Budget:</b> the fill loop adds
+     * {@code length} iterations to the proof's unwind budget. {@code length == 0} returns an empty
+     * array. {@code anyInt(lo, hi)} enforces {@code lo <= hi}.
+     *
+     * @throws IllegalArgumentException if {@code length < 0}
+     */
+    public static int[] anyArrayOfInts(int length, int loInclusive, int hiInclusive) {
+        if (length < 0) {
+            throw new IllegalArgumentException("require length >= 0, got " + length);
+        }
+        int[] a = new int[length];
+        for (int i = 0; i < length; i++) {
+            a[i] = anyInt(loInclusive, hiInclusive);
+        }
+        return a;
+    }
+
+    /**
+     * A symbolic {@code long[]} of exactly {@code length} elements, each an unconstrained
+     * {@link #anyLong()}. The {@code long} analogue of {@link #anyArrayOfInts(int)}.
+     *
+     * <p><b>Concrete length only:</b> {@code length} must be an ordinary int literal per proof — see
+     * the section comment; symbolic length is unsupported. <b>Budget:</b> the fill loop adds
+     * {@code length} iterations to the proof's unwind budget. {@code length == 0} returns an empty
+     * array.
+     *
+     * @throws IllegalArgumentException if {@code length < 0}
+     */
+    public static long[] anyArrayOfLongs(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException("require length >= 0, got " + length);
+        }
+        long[] a = new long[length];
+        for (int i = 0; i < length; i++) {
+            a[i] = anyLong();
+        }
+        return a;
+    }
+
+    /**
+     * A symbolic {@code long[]} of exactly {@code length} elements, each constrained to
+     * {@code [loInclusive, hiInclusive]} via {@link #anyLong(long, long)}. The {@code long} analogue
+     * of {@link #anyArrayOfInts(int, int, int)} — prefer the ranged form to keep proofs tractable.
+     *
+     * <p><b>Concrete length only:</b> {@code length} must be an ordinary int literal per proof — see
+     * the section comment; symbolic length is unsupported. <b>Budget:</b> the fill loop adds
+     * {@code length} iterations to the proof's unwind budget. {@code length == 0} returns an empty
+     * array. {@code anyLong(lo, hi)} enforces {@code lo <= hi}.
+     *
+     * @throws IllegalArgumentException if {@code length < 0}
+     */
+    public static long[] anyArrayOfLongs(int length, long loInclusive, long hiInclusive) {
+        if (length < 0) {
+            throw new IllegalArgumentException("require length >= 0, got " + length);
+        }
+        long[] a = new long[length];
+        for (int i = 0; i < length; i++) {
+            a[i] = anyLong(loInclusive, hiInclusive);
+        }
+        return a;
+    }
+
+    // --- sortedness assumptions ----------------------------------------------
+    // assumeSorted/assumeStrictlySorted narrow a symbolic array's domain to (strictly) ascending
+    // order — the standard precondition for binary/interpolation search and merge-style algorithms.
+    // Two things to keep in mind:
+    //
+    //   1. The pairwise assume loop CONSUMES THE UNWIND BUDGET: a length-N array adds N-1 iterations,
+    //      on top of whatever the fill loop already cost. Size `@BmcProof(unwind = …)` accordingly.
+    //   2. The `<=` vs `<` choice is LOAD-BEARING. assumeSorted (non-strict, `a[i-1] <= a[i]`) allows
+    //      duplicates; assumeStrictlySorted (`a[i-1] < a[i]`) forces distinct elements. Equal adjacent
+    //      elements are exactly the corner that surfaces interpolation search's divide-by-zero, so
+    //      pick deliberately: use the non-strict form unless your algorithm genuinely requires
+    //      distinct keys, so the proof keeps covering the duplicate case.
+    //
+    // On length 0 or 1 there are no adjacent pairs, so both forms are a vacuous no-op.
+
+    /**
+     * Assume {@code a} is sorted in <b>non-strict ascending</b> order: {@code a[i-1] <= a[i]} for
+     * every adjacent pair. Duplicates are allowed (so the proof still covers equal-key inputs).
+     *
+     * <p><b>Budget:</b> the pairwise loop adds {@code a.length - 1} iterations to the unwind budget.
+     * <b>Length 0/1:</b> no adjacent pairs, so this is a vacuous no-op. <b>{@code <=} vs {@code <}:</b>
+     * this is the non-strict form; use {@link #assumeStrictlySorted(int[])} when you need distinct
+     * elements — the distinction is exactly what surfaces (or hides) equal-element corners such as
+     * interpolation search's divide-by-zero.
+     */
+    public static void assumeSorted(int[] a) {
+        for (int i = 1; i < a.length; i++) {
+            CProver.assume(a[i - 1] <= a[i]);
+        }
+    }
+
+    /**
+     * Assume {@code a} is sorted in <b>strict ascending</b> order: {@code a[i-1] < a[i]} for every
+     * adjacent pair, so all elements are distinct.
+     *
+     * <p><b>Budget:</b> the pairwise loop adds {@code a.length - 1} iterations to the unwind budget.
+     * <b>Length 0/1:</b> no adjacent pairs, so this is a vacuous no-op. <b>{@code <} vs {@code <=}:</b>
+     * this strict form excludes equal adjacent elements; prefer {@link #assumeSorted(int[])} unless
+     * your algorithm genuinely requires distinct keys, so the proof keeps covering the duplicate case.
+     */
+    public static void assumeStrictlySorted(int[] a) {
+        for (int i = 1; i < a.length; i++) {
+            CProver.assume(a[i - 1] < a[i]);
+        }
+    }
+
+    /**
+     * Assume {@code a} is sorted in <b>non-strict ascending</b> order: {@code a[i-1] <= a[i]} for
+     * every adjacent pair (duplicates allowed). The {@code long} analogue of
+     * {@link #assumeSorted(int[])}.
+     *
+     * <p><b>Budget:</b> the pairwise loop adds {@code a.length - 1} iterations to the unwind budget.
+     * <b>Length 0/1:</b> a vacuous no-op. See {@link #assumeStrictlySorted(long[])} for the strict
+     * (distinct) variant; the {@code <=} vs {@code <} choice is load-bearing.
+     */
+    public static void assumeSorted(long[] a) {
+        for (int i = 1; i < a.length; i++) {
+            CProver.assume(a[i - 1] <= a[i]);
+        }
+    }
+
+    /**
+     * Assume {@code a} is sorted in <b>strict ascending</b> order: {@code a[i-1] < a[i]} for every
+     * adjacent pair (all elements distinct). The {@code long} analogue of
+     * {@link #assumeStrictlySorted(int[])}.
+     *
+     * <p><b>Budget:</b> the pairwise loop adds {@code a.length - 1} iterations to the unwind budget.
+     * <b>Length 0/1:</b> a vacuous no-op. Prefer {@link #assumeSorted(long[])} unless you genuinely
+     * require distinct keys; the {@code <} vs {@code <=} choice is load-bearing.
+     */
+    public static void assumeStrictlySorted(long[] a) {
+        for (int i = 1; i < a.length; i++) {
+            CProver.assume(a[i - 1] < a[i]);
+        }
+    }
+
     /** A symbolic {@code short}. */
     public static short anyShort() {
         return CProver.nondetShort();
