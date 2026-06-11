@@ -624,4 +624,24 @@ public final class Bmc {
     public static void slice(boolean __condition) {
         // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
     }
+
+    /**
+     * Witness-tagging sink for a USER symbolic input (SPIKE / counterexample-witness plumbing).
+     *
+     * <p>{@code NondetTagBytecode} injects a call to this method immediately after each marked
+     * {@code Bmc.any*} call site, carrying the destination local's source name and the freshly
+     * minted symbolic value: {@code Bmc.recordNondet("x", x)}. JBMC does not intrinsify this method,
+     * so the call surfaces in the {@code --json-ui} trace as a plain {@code function-call} whose
+     * argument bindings ({@code arg0a} -> the {@code java.lang.String.Literal.<name>} pointer,
+     * {@code arg1l} -> the {@code integer} value) [JbmcOutputParser] harvests as a named input —
+     * robustly, regardless of whether the value is later boxed through a {@code Triple}/carrier or
+     * minted in a helper. It is a no-op at runtime and verification-neutral: an empty body the engine
+     * enters and returns from, never constraining the formula nor changing the verdict.
+     *
+     * <p>The {@code long} parameter is the common widening for every integral symbolic kind
+     * ({@code int}/{@code long}/{@code short}/{@code byte}/{@code char}), so one sink serves them all.
+     */
+    public static void recordNondet(String __name, long __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
 }

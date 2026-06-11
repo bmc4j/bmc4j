@@ -642,6 +642,19 @@ object JbmcOutputParser {
             }
         }
 
+        // Explicit USER-nondet witness tags (NondetTagBytecode): a `Bmc.recordNondet("name", value)`
+        // call site surfaces the input's NAME + VALUE directly from the engine trace, independent of
+        // whether the value was later boxed through a Triple/carrier or minted in a helper (the
+        // flow-fragility the anonlocal/LVT scalar path drops). Harvested first so a tagged input wins
+        // its name; the scalar path's first-wins then skips a same-named local.
+        val tags = harvestNondetTags(trace)
+        tags.forEach { (name, value) ->
+            if (name !in inputs) {
+                inputs[name] = value
+                inputKinds[name] = "integer"
+            }
+        }
+
         inputs.forEach { (k, v) ->
             counterexample.add("$k = $v")
             bindings.add(JbmcResult.Binding(k, inputKinds[k], v))
@@ -671,6 +684,69 @@ object JbmcOutputParser {
             val caller = frames[i + 1]
             stack.add(frame(caller.id, callee.callFile, callee.callLine))
         }
+    }
+
+    /** The JBMC function-id prefix of the explicit witness-tag sink ([NondetTagBytecode] injects calls
+     *  to it). A `function-call` into this id carries the tagged input's name + value as its arguments. */
+    private const val RECORD_NONDET_ID = "java::org.bmc4j.Bmc.recordNondet:"
+
+    /** The `String.Literal.` prefix JBMC stamps on a string-constant pointer's `data` — the tag NAME
+     *  arrives this way (the `Bmc.recordNondet("x", ...)` first argument). */
+    private const val STRING_LITERAL_PREFIX = "java.lang.String.Literal."
+
+    /**
+     * Harvest the explicit USER-nondet witness tags from a FAILURE [trace]: for each `function-call`
+     * into [RECORD_NONDET_ID] (`Bmc.recordNondet(name, value)`), read the two argument bindings the
+     * engine assigns inside that frame — the `String` literal NAME (`arg*a` -> a `pointer` whose `data`
+     * is `java.lang.String.Literal.<name>`) and the integral VALUE (`arg*l`/`arg*i` -> an `integer`) —
+     * and return them as ordered `name -> value` pairs, first-wins per name.
+     *
+     * This is the robust counterexample-input channel: the tag is emitted at the symbolic-input call
+     * site, so its value lands in the trace regardless of how the value later flows (boxed through a
+     * `Triple`/carrier, returned from a helper) — exactly the flow-fragility the anonlocal/LVT scalar
+     * harvest drops. Pure; never throws; empty when no tags are present (an untagged run).
+     */
+    internal fun harvestNondetTags(trace: JsonArray): LinkedHashMap<String, String> {
+        val out = LinkedHashMap<String, String>()
+        var inTag = false
+        var name: String? = null
+        var value: String? = null
+        for (se in trace) {
+            val step = se.asJsonObject
+            when (str(step, "stepType")) {
+                "function-call" -> {
+                    val id = funcId(step)
+                    if (id != null && id.startsWith(RECORD_NONDET_ID)) {
+                        inTag = true; name = null; value = null
+                    }
+                }
+                "function-return" -> {
+                    val id = funcId(step)
+                    if (id != null && id.startsWith(RECORD_NONDET_ID)) {
+                        if (name != null && value != null && name !in out) {
+                            out[name!!] = value!!
+                        }
+                        inTag = false; name = null; value = null
+                    }
+                }
+                "assignment" -> {
+                    if (!inTag || !step.has("value") || !step.get("value").isJsonObject) {
+                        continue
+                    }
+                    val v = step.getAsJsonObject("value")
+                    when (str(v, "name")) {
+                        "pointer" -> {
+                            val d = str(v, "data")
+                            if (d != null && d.startsWith(STRING_LITERAL_PREFIX)) {
+                                name = d.removePrefix(STRING_LITERAL_PREFIX)
+                            }
+                        }
+                        "integer" -> value = str(v, "data")
+                    }
+                }
+            }
+        }
+        return out
     }
 
     private fun collectCounterexample(step: JsonObject, entryPrefix: String?,
