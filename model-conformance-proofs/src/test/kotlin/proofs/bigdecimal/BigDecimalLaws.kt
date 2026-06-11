@@ -41,7 +41,7 @@ class BigDecimalLaws {
         Bmc.check(a.add(b).compareTo(b.add(a)) == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun add_zero_is_identity() {
         val a = anyBd(2)
         Bmc.check(a.add(BigDecimal.ZERO).compareTo(a) == 0)
@@ -70,7 +70,7 @@ class BigDecimalLaws {
 
     // ~88s, the module's slowest division-heavy proof — pinned to shard 1. STAYS RANGE-REDUCED.
     @Shard(1)
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun setScale_widen_then_narrow_round_trips() {
         // Division-heavy (narrowing setScale rounds via roundDiv). The cost is the rounding-DIVIDER
         // CIRCUIT WIDTH, not the interval size — confirmed by the wide-reclaim experiment (2026-06):
@@ -88,19 +88,19 @@ class BigDecimalLaws {
     // divide across rounding modes, concrete cases (fast: cbmc folds the constant division). These
     // pin the trust-critical roundDiv kernel to the expected JDK results under JBMC's own semantics.
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun divide_one_third_half_up_is_0_33() {
         val r = BigDecimal.ONE.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP)
         Bmc.check(r.compareTo(BigDecimal.valueOf(33, 2)) == 0)   // 0.3333.. -> 0.33
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun divide_two_thirds_half_up_is_0_67() {
         val r = BigDecimal.valueOf(2).divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP)
         Bmc.check(r.compareTo(BigDecimal.valueOf(67, 2)) == 0)   // 0.6666.. -> 0.67
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun divide_floor_and_ceiling_bracket_the_quotient() {
         val a = BigDecimal.ONE
         val b = BigDecimal.valueOf(3)
@@ -110,7 +110,7 @@ class BigDecimalLaws {
                 && ceiling.compareTo(BigDecimal.valueOf(34, 2)) == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun divide_negative_down_truncates_toward_zero_floor_goes_lower() {
         val a = BigDecimal.valueOf(-1)
         val b = BigDecimal.valueOf(3)
@@ -118,7 +118,7 @@ class BigDecimalLaws {
         Bmc.check(a.divide(b, 2, RoundingMode.FLOOR).compareTo(BigDecimal.valueOf(-34, 2)) == 0)  // -0.34
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun divide_half_even_rounds_to_even_neighbour() {
         // 2.5 -> 2 (even), 3.5 -> 4 (even)
         Bmc.check(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_EVEN)
@@ -130,7 +130,7 @@ class BigDecimalLaws {
     // Deprecated int-rounding overloads == their RoundingMode siblings. The legacy ROUND_* int (==
     // RoundingMode ordinal) must route through the same kernel. CONCRETE pins keep the rounding divider
     // off the proof; the wide axis is differential (BigDecimalConformanceTest). HALF_UP ordinal == 4.
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun int_rounding_overloads_match_RoundingMode() {
         val a = BigDecimal.ONE
         val b = BigDecimal.valueOf(3L)
@@ -168,7 +168,7 @@ class BigDecimalLaws {
         Bmc.check(a.setScale(4).compareTo(a) == 0)   // widen never rounds, value unchanged
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun setScale_narrow_exact_pins() {
         // 12.300 -> scale 1 is exact (dropped digits zero); the trailing-zero case the JDK allows.
         Bmc.check(BigDecimal.valueOf(12300, 3).setScale(1).compareTo(BigDecimal.valueOf(123, 1)) == 0)
@@ -195,7 +195,7 @@ class BigDecimalLaws {
     // SAT-heavy; the wide axis is differential — the division-cost lesson). Pin the algebra + the
     // q*divisor + r == this reconstruction concretely under JBMC. -----------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun divide_exact_pins() {
         Bmc.check(BigDecimal.ONE.divide(BigDecimal.valueOf(8L))
             .compareTo(BigDecimal.valueOf(125, 3)) == 0)   // 1/8 == 0.125
@@ -233,7 +233,7 @@ class BigDecimalLaws {
     // (2026-06) confirmed even ±10,000 (~14-bit) TIMES OUT at >300s, so this keeps the tight ±100
     // bound. The law holds for every value — the tight range is just as strong, and wide-value
     // confidence lives on the differential (vs-JDK) axis.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pow_two_is_self_times_self() {
         val a = anyBd(1, bound = 100)
         Bmc.check(a.pow(2).compareTo(a.multiply(a)) == 0)    // x^2 == x*x
@@ -245,7 +245,7 @@ class BigDecimalLaws {
         Bmc.check(a.scaleByPowerOfTen(3).scaleByPowerOfTen(-3).compareTo(a) == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun ulp_and_precision_pins() {
         Bmc.check(BigDecimal.valueOf(123, 2).ulp().compareTo(BigDecimal.valueOf(1, 2)) == 0)  // 0.01
         Bmc.check(BigDecimal.valueOf(12L).ulp().compareTo(BigDecimal.ONE) == 0)
@@ -254,7 +254,7 @@ class BigDecimalLaws {
         Bmc.check(BigDecimal.valueOf(100L).precision() == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun valueExact_narrowing_pins() {
         Bmc.check(BigDecimal.valueOf(1200, 2).intValueExact() == 12)     // 12.00 -> 12
         Bmc.check(BigDecimal.valueOf(1200, 2).longValueExact() == 12L)
@@ -264,7 +264,7 @@ class BigDecimalLaws {
 
     // --- toBigIntegerExact: exact-or-throw ----------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toBigIntegerExact_pins() {
         Bmc.check(BigDecimal.valueOf(12300, 2).toBigIntegerExact().toLong() == 123L)   // 123.00 -> 123
         Bmc.check(BigDecimal.valueOf(123).toBigIntegerExact().toLong() == 123L)

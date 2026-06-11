@@ -16,27 +16,27 @@ import org.bmc4j.BmcProof;
  */
 class IntStreamTailLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void limit_truncates() {
         Bmc.check(IntStream.of(1, 2, 3, 4).limit(2).sum() == 3); // 1+2
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void skip_drops_prefix() {
         Bmc.check(IntStream.of(1, 2, 3, 4).skip(2).sum() == 7); // 3+4
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void takeWhile_stops() {
         Bmc.check(IntStream.of(1, 2, 9, 1).takeWhile(x -> x < 5).sum() == 3); // 1+2
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void dropWhile_drops_leading_run() {
         Bmc.check(IntStream.of(1, 2, 9, 1).dropWhile(x -> x < 5).sum() == 10); // 9+1
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void distinct_dedups() {
         Bmc.check(IntStream.of(1, 2, 2, 3).distinct().count() == 3L);
     }
@@ -47,48 +47,48 @@ class IntStreamTailLaws {
         Bmc.check(a.length == 3 && a[0] == 1 && a[1] == 2 && a[2] == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void allMatch_true_when_all() {
         Bmc.check(IntStream.of(2, 4, 6).allMatch(x -> x % 2 == 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void allMatch_false_when_one_fails() {
         Bmc.check(!IntStream.of(2, 3, 6).allMatch(x -> x % 2 == 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void noneMatch_true_when_none() {
         Bmc.check(IntStream.of(1, 3, 5).noneMatch(x -> x % 2 == 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reduce_with_identity_sums() {
         Bmc.check(IntStream.of(1, 2, 3, 4).reduce(0, (a, b) -> a + b) == 10);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reduce_with_identity_product() {
         Bmc.check(IntStream.of(2, 3, 4).reduce(1, (a, b) -> a * b) == 24);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toArray_roundtrips() {
         int[] a = IntStream.of(5, 6, 7).toArray();
         Bmc.check(a.length == 3 && a[0] == 5 && a[2] == 7);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void peek_is_identity() {
         Bmc.check(IntStream.of(1, 2, 3).peek(x -> { }).sum() == 6);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapToLong_widens_and_sums() {
         Bmc.check(IntStream.of(1, 2, 3).mapToLong(x -> (long) x * 2).sum() == 12L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void asLongStream_widens() {
         Bmc.check(IntStream.of(1, 2, 3).asLongStream().sum() == 6L);
     }
@@ -103,19 +103,19 @@ class IntStreamTailLaws {
         Bmc.check(IntStream.empty().sum() == 0 && IntStream.empty().count() == 0L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void concat_appends() {
         Bmc.check(IntStream.concat(IntStream.of(1, 2), IntStream.of(3, 4)).sum() == 10);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void iterate_finite_terminates() {
         // seed 1, while <= 4, next *2 -> [1,2,4] -> sum 7
         Bmc.check(IntStream.iterate(1, x -> x <= 4, x -> x * 2).sum() == 7);
     }
 
     /** Symbolic: skip(1) over a 3-element stream drops exactly the head, for all inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_skip_one() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);
@@ -129,7 +129,7 @@ class IntStreamTailLaws {
     // live (the concrete concat_appends proof constant-folds it away), so these would false-REFUTE on
     // the old-kotlin/symbolic leg if the drain reverted to the interface call.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_concat_appends() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);
@@ -137,7 +137,7 @@ class IntStreamTailLaws {
         Bmc.check(IntStream.concat(IntStream.of(a, b), IntStream.of(c)).sum() == a + b + c);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void symbolic_flatMap_doubles() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);

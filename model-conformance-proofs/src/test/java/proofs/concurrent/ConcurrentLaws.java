@@ -73,7 +73,7 @@ class ConcurrentLaws {
     }
 
     /** accumulateAndGet folds the arg via the binary lambda and returns the NEW value. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void atomicInteger_accumulateAndGet_returns_accumulated() {
         int start = Bmc.anyInt(-100, 100);
         int x = Bmc.anyInt(-100, 100);
@@ -102,7 +102,7 @@ class ConcurrentLaws {
     // observably identical to its plain/strong counterpart. These laws pin that equivalence under JBMC.
 
     /** compareAndExchange returns the WITNESSED value and stores newValue only on a match. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void atomicInteger_compareAndExchange_returns_witnessed() {
         int start = Bmc.anyInt(-50, 50);
         int expected = Bmc.anyInt(-50, 50);
@@ -233,7 +233,7 @@ class ConcurrentLaws {
     }
 
     /** supplyAsync runs the supplier eagerly (single-threaded) and the value reaches get(). */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void completablefuture_supplyAsync_runs_eagerly() throws Exception {
         int v = Bmc.anyInt(-100, 100);
         CompletableFuture<Integer> f = CompletableFuture.supplyAsync(() -> v + 1);
@@ -250,7 +250,7 @@ class ConcurrentLaws {
      * real JVM, which the differential test checks). This is the core short-circuit property a proof
      * relies on: the failure flows past the combinator untouched.
      */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void completablefuture_exceptional_thenApply_short_circuits() {
         CompletableFuture<Integer> f = new CompletableFuture<>();
         f.completeExceptionally(new RuntimeException());
@@ -472,7 +472,7 @@ class ConcurrentLaws {
     }
 
     /** TIMEOUT outcome: an unsettled future's timed get throws TimeoutException (the wait expired). */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void completablefuture_timed_get_unsettled_times_out() {
         CompletableFuture<Integer> f = new CompletableFuture<>();   // never completed
         boolean threw = false;
@@ -508,7 +508,7 @@ class ConcurrentLaws {
     // --- containsAll over the concurrent collections (bounded loop of point membership) -----------
 
     /** ArrayBlockingQueue.containsAll is a bounded loop of contains(): true iff every element is present. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrayqueue_containsAll_is_bulk_membership() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -526,7 +526,7 @@ class ConcurrentLaws {
     }
 
     /** CopyOnWriteArrayList.containsAll is the same bounded bulk-membership loop. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void cow_containsAll_is_bulk_membership() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -569,7 +569,7 @@ class ConcurrentLaws {
      * does not reduce here; they are covered on the differential axis vs the JDK, not on this engine
      * axis — see ConcurrencyConformanceTest.)
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void blockingqueue_toArray_snapshots_fifo() {
         int a = Bmc.anyInt(0, 100);
         int b = Bmc.anyInt(0, 100);
@@ -585,7 +585,7 @@ class ConcurrentLaws {
     // --- CountDownLatch ---------------------------------------------------------------------------
 
     /** Counting down n times from n reaches exactly 0 (and floors there). */
-    @BmcProof
+    @BmcProof(unwind = 16)
     void latch_reaches_zero_after_n_countdowns() {
         int n = Bmc.anyInt(0, 8);
         CountDownLatch latch = new CountDownLatch(n);
@@ -596,7 +596,7 @@ class ConcurrentLaws {
     }
 
     /** countDown floors at 0: extra countDowns past 0 never make the count negative. */
-    @BmcProof
+    @BmcProof(unwind = 16)
     void latch_floors_at_zero() {
         int n = Bmc.anyInt(0, 5);
         int extra = Bmc.anyInt(0, 5);
@@ -608,7 +608,7 @@ class ConcurrentLaws {
     }
 
     /** Before fully counting down, the count is exactly n - k. */
-    @BmcProof
+    @BmcProof(unwind = 16)
     void latch_count_is_n_minus_k() {
         int n = Bmc.anyInt(0, 8);
         int k = Bmc.anyInt(0, 8);
@@ -623,7 +623,7 @@ class ConcurrentLaws {
     // --- Semaphore --------------------------------------------------------------------------------
 
     /** Permits are conserved: r releases then r tryAcquires returns to the starting permit count. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void semaphore_permits_conserved() {
         int init = Bmc.anyInt(0, 6);
         int r = Bmc.anyInt(0, 6);
@@ -665,7 +665,7 @@ class ConcurrentLaws {
     }
 
     /** Acquiring all initial permits leaves exactly zero. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void semaphore_acquire_all_leaves_zero() {
         int init = Bmc.anyInt(0, 6);
         Semaphore s = new Semaphore(init);
@@ -679,7 +679,7 @@ class ConcurrentLaws {
     // --- BlockingQueue (FIFO) ---------------------------------------------------------------------
 
     /** ArrayBlockingQueue is FIFO: offer a,b,c then poll yields a,b,c. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrayqueue_fifo_order() {
         int a = Bmc.anyInt(0, 100);
         int b = Bmc.anyInt(0, 100);
@@ -760,7 +760,7 @@ class ConcurrentLaws {
      * could VERIFY against a branch that is unreachable in production (a silent false green).
      * This law regression-pins the fix on the engine axis.
      */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void default_linkedqueue_is_unbounded_offer_never_rejects() {
         LinkedBlockingQueue<Integer> q = new LinkedBlockingQueue<>();
         int n = Bmc.anyInt(0, 4);
@@ -814,7 +814,7 @@ class ConcurrentLaws {
      * invokeAll runs every submitted task synchronously and returns a completed Future per task, in
      * order. Proves the collection-driving path through the interface-typed reference.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void executor_invokeAll_runs_all_in_order() throws Exception {
         int a = Bmc.anyInt(0, 100);
         int b = Bmc.anyInt(0, 100);
@@ -888,7 +888,7 @@ class ConcurrentLaws {
      * FIFO order and their running sum is preserved — proven over the blocking put()/take() (each
      * assumes room / non-empty and proceeds; no would-block path survives to break the logic).
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void blockingqueue_producer_consumer_fifo_through_put_take() throws Exception {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -927,7 +927,7 @@ class ConcurrentLaws {
      * permit invariant a real mutex/pool relies on. acquire() is assume-prune (assume a permit, then
      * take it), so only feasible interleavings of this single thread's ops survive.
      */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void semaphore_guarded_section_never_exceeds_k() throws Exception {
         int k = Bmc.anyInt(1, 4);
         Semaphore s = new Semaphore(k);
@@ -954,7 +954,7 @@ class ConcurrentLaws {
      * then proceed) — here the count genuinely reaches 0, so the gate is satisfiable and the logic
      * after it is proven.
      */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void latch_gates_a_computed_result() throws Exception {
         int n = Bmc.anyInt(1, 6);
         int seed = Bmc.anyInt(0, 100);

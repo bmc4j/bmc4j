@@ -15,59 +15,59 @@ import org.bmc4j.BmcProof;
  */
 class LongStreamTailLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void limit_truncates() {
         Bmc.check(LongStream.of(1, 2, 3, 4).limit(2).sum() == 3L); // 1+2
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void skip_drops_prefix() {
         Bmc.check(LongStream.of(1, 2, 3, 4).skip(2).sum() == 7L); // 3+4
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void takeWhile_stops() {
         Bmc.check(LongStream.of(1, 2, 9, 1).takeWhile(x -> x < 5).sum() == 3L); // 1+2
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void dropWhile_drops_leading_run() {
         Bmc.check(LongStream.of(1, 2, 9, 1).dropWhile(x -> x < 5).sum() == 10L); // 9+1
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void distinct_dedups() {
         Bmc.check(LongStream.of(1, 2, 2, 3).distinct().count() == 3L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void sorted_orders_ascending() {
         long[] a = LongStream.of(3, 1, 2).sorted().toArray();
         Bmc.check(a.length == 3 && a[0] == 1L && a[1] == 2L && a[2] == 3L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void allMatch_true_when_all() {
         Bmc.check(LongStream.of(2, 4, 6).allMatch(x -> x % 2 == 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void noneMatch_true_when_none() {
         Bmc.check(LongStream.of(1, 3, 5).noneMatch(x -> x % 2 == 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reduce_with_identity_sums() {
         Bmc.check(LongStream.of(1, 2, 3, 4).reduce(0L, (a, b) -> a + b) == 10L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toArray_roundtrips() {
         long[] a = LongStream.of(5, 6, 7).toArray();
         Bmc.check(a.length == 3 && a[0] == 5L && a[2] == 7L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void peek_is_identity() {
         Bmc.check(LongStream.of(1, 2, 3).peek(x -> { }).sum() == 6L);
     }
@@ -87,12 +87,12 @@ class LongStreamTailLaws {
         Bmc.check(LongStream.empty().sum() == 0L && LongStream.empty().count() == 0L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void concat_appends() {
         Bmc.check(LongStream.concat(LongStream.of(1, 2), LongStream.of(3, 4)).sum() == 10L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void iterate_finite_terminates() {
         Bmc.check(LongStream.iterate(1, x -> x <= 4, x -> x * 2).sum() == 7L); // [1,2,4]
     }
@@ -111,7 +111,7 @@ class LongStreamTailLaws {
         Bmc.check(LongStream.concat(LongStream.of(a, b), LongStream.of(c)).sum() == a + b + c);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void symbolic_flatMap_doubles() {
         long a = Bmc.anyLong(0L, 1000L);
         long b = Bmc.anyLong(0L, 1000L);

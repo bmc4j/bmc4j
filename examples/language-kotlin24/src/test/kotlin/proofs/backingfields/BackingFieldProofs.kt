@@ -22,7 +22,7 @@ class BackingFieldProofs {
     }
 
     // PASS: the clamped recorder preserves the invariant for every input.
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun safe_total_time_never_negative() {
         val log = SessionLog()
         log.recordSafe(Bmc.anyInt())

@@ -18,21 +18,21 @@ class KotlinTailBytecodeLaws {
     // ---- RangesKt: until / downTo / step over IntRange, and the non-Int coerceIn overloads. All pure
     // integer/Comparable arithmetic — JBMC's core competence.
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun until_iterates_half_open() {
         var sum = 0
         for (i in 0 until 4) sum += i // 0+1+2+3
         Bmc.check(sum == 6)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun downTo_iterates_descending() {
         val xs = ArrayList<Int>()
         for (i in 3 downTo 1) xs.add(i)
         Bmc.check(xs.size == 3 && xs[0] == 3 && xs[1] == 2 && xs[2] == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun step_strides_the_progression() {
         val xs = ArrayList<Int>()
         for (i in 0..6 step 2) xs.add(i)
@@ -40,7 +40,7 @@ class KotlinTailBytecodeLaws {
     }
 
     /** Symbolic: every element produced by `a until b` lies in [a, b). */
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun symbolic_until_bounds() {
         val a = Bmc.anyInt(0, 5)
         val b = Bmc.anyInt(6, 10)
@@ -75,7 +75,7 @@ class KotlinTailBytecodeLaws {
     }
 
     /** compareBy builds a Comparator; sortedWith routes through it over the bounded list model. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun compareBy_orders_by_selector() {
         val xs = listOf(3, 1, 2).sortedWith(compareBy { it })
         Bmc.check(xs[0] == 1 && xs[1] == 2 && xs[2] == 3)
@@ -91,24 +91,24 @@ class KotlinTailBytecodeLaws {
     // moved out of the @BmcModelTail residue. This suite pins only the families whose real bytecode
     // genuinely analyzes (read-only accessors, RangesKt int arithmetic, ComparisonsKt min/max).
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun indexOf_and_contains() {
         val xs = listOf(10, 20, 30)
         Bmc.check(xs.indexOf(20) == 1 && xs.contains(30) && !xs.contains(99))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun elementAt_reads_position() {
         Bmc.check(listOf(7, 8, 9).elementAt(1) == 8)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun first_last_read_ends() {
         Bmc.check(listOf(1, 2, 3).first() == 1 && listOf(1, 2, 3).last() == 3)
     }
 
     /** Symbolic read-only law: indexOf locates the unique matching element over the bounded model. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_indexOf_locates() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200) // distinct from a

@@ -20,7 +20,7 @@ class KotlinStringsLaws {
 
     // ---- trim / trimStart / trimEnd ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun trim_concrete() {
         Bmc.check("  hi  ".trim() == "hi")
         Bmc.check("  hi".trimStart() == "hi")
@@ -28,7 +28,7 @@ class KotlinStringsLaws {
         Bmc.check("xxhixx".trim('x') == "hi")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pad_start_length_and_suffix() {
         // padStart pads on the LEFT to the target length and keeps the original as the suffix, pinned per
         // index. (Concrete: the StringBuilder pad over a symbolic receiver is budget-fragile under the
@@ -43,7 +43,7 @@ class KotlinStringsLaws {
 
     // ---- take / drop / takeLast / dropLast ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun take_drop_concrete() {
         Bmc.check("hello".take(2) == "he")
         Bmc.check("hello".drop(2) == "llo")
@@ -53,7 +53,7 @@ class KotlinStringsLaws {
         Bmc.check("ab".drop(5) == "")     // n > length -> empty
     }
 
-    @BmcProof(maxStringLength = 3)
+    @BmcProof(maxStringLength = 3, unwind = 4)
     fun take_plus_drop_lengths_and_indices() {
         // take(k) is the first k chars and drop(k) the rest, pinned per index over a symbolic receiver at
         // a CONCRETE split point (a symbolic split blows the string-refinement budget; the symbolic
@@ -73,7 +73,7 @@ class KotlinStringsLaws {
 
     // ---- substring(range) / slice ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun substring_range_concrete() {
         Bmc.check("hello".substring(1..3) == "ell")
         Bmc.check("hello".slice(0..1) == "he")
@@ -81,7 +81,7 @@ class KotlinStringsLaws {
 
     // ---- substringBefore / After / *Last ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun substring_before_after_concrete() {
         Bmc.check("a.b.c".substringBefore('.') == "a")
         Bmc.check("a.b.c".substringAfter('.') == "b.c")
@@ -92,7 +92,7 @@ class KotlinStringsLaws {
 
     // ---- removePrefix / removeSuffix / removeSurrounding ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun remove_prefix_suffix_concrete() {
         Bmc.check("prefoo".removePrefix("pre") == "foo")
         Bmc.check("foobar".removeSuffix("bar") == "foo")
@@ -103,7 +103,7 @@ class KotlinStringsLaws {
 
     // ---- startsWith / endsWith / contains / indexOf (default + ignoreCase) ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun starts_ends_contains_concrete() {
         Bmc.check("hello".startsWith("he"))
         Bmc.check(!"hello".startsWith("lo"))
@@ -116,7 +116,7 @@ class KotlinStringsLaws {
         Bmc.check("hello".indexOf('z') == -1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun ignore_case_ascii_concrete() {
         Bmc.check("Hello".startsWith("hello", ignoreCase = true))
         Bmc.check("Hello".contains("ELL", ignoreCase = true))
@@ -137,7 +137,7 @@ class KotlinStringsLaws {
 
     // ---- replace / replaceFirst ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun replace_concrete() {
         Bmc.check("banana".replace('a', 'o') == "bonono")
         Bmc.check("aXbXc".replace("X", "-") == "a-b-c")
@@ -147,7 +147,7 @@ class KotlinStringsLaws {
 
     // ---- padStart / padEnd ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pad_concrete() {
         Bmc.check("7".padStart(3, '0') == "007")
         Bmc.check("7".padEnd(3, '0') == "700")
@@ -156,14 +156,14 @@ class KotlinStringsLaws {
 
     // ---- reversed / repeat ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun reversed_repeat_concrete() {
         Bmc.check("abc".reversed() == "cba")
         Bmc.check("ab".repeat(3) == "ababab")
         Bmc.check("x".repeat(0) == "")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun reversed_mirrors_by_index() {
         // reversed()[i] == s[len-1-i], pinned per index over a concrete receiver — the model walks the
         // receiver backwards. (Concrete, not symbolic: a symbolic StringBuilder reverse is budget-fragile
@@ -178,7 +178,7 @@ class KotlinStringsLaws {
 
     // ---- isBlank / first / last / single / getOrNull ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun blank_and_element_access_concrete() {
         Bmc.check("   ".isBlank())
         Bmc.check(!"  x ".isBlank())
@@ -193,7 +193,7 @@ class KotlinStringsLaws {
 
     // ---- commonPrefixWith / commonSuffixWith ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun common_prefix_suffix_concrete() {
         Bmc.check("abcde".commonPrefixWith("abxyz") == "ab")
         Bmc.check("hello".commonSuffixWith("yello") == "ello")
@@ -202,7 +202,7 @@ class KotlinStringsLaws {
 
     // ---- toList / toSet / count(predicate) ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun to_collections_concrete() {
         val xs = "abc".toList()
         Bmc.check(xs.size == 3 && xs[0] == 'a' && xs[2] == 'c')
@@ -229,14 +229,14 @@ class KotlinStringsLaws {
 
     // ---- max / min char ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun max_min_concrete() {
         Bmc.check("bca".maxOrNull() == 'c')
         Bmc.check("bca".minOrNull() == 'a')
         Bmc.check("".maxOrNull() == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun max_min_is_a_bound() {
         // maxOrNull/minOrNull bound every char of the receiver, pinned per index over a concrete string.
         // (Concrete: a symbolic char-scan is budget-fragile under the parallel suite; max_min_concrete
@@ -252,7 +252,7 @@ class KotlinStringsLaws {
 
     // ---- indexOfAny / lastIndexOfAny / findAnyOf ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun index_of_any_concrete() {
         Bmc.check("hello".indexOfAny(charArrayOf('l', 'z')) == 2)
         Bmc.check("hello".lastIndexOfAny(charArrayOf('l', 'z')) == 3)
@@ -262,7 +262,7 @@ class KotlinStringsLaws {
 
     // ---- slice(Iterable) / toCollection / toSortedSet / withIndex ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun slice_collection_concrete() {
         // slice(Iterable) returns a CharSequence; pin it per index (CharSequence == String would route
         // through String.equals -> CProverString.equals, which JBMC nondet-stubs).
@@ -274,7 +274,7 @@ class KotlinStringsLaws {
 
     // ---- zip / zipWithNext ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun zip_concrete() {
         val z = "abc".zip("xy")
         Bmc.check(z.size == 2 && z[0].first == 'a' && z[0].second == 'x' && z[1].second == 'y')
@@ -284,7 +284,7 @@ class KotlinStringsLaws {
 
     // ---- chunked / windowed / lines ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun chunked_windowed_lines_concrete() {
         val c = "abcde".chunked(2)
         Bmc.check(c.size == 3 && c[0] == "ab" && c[1] == "cd" && c[2] == "e")
@@ -296,7 +296,7 @@ class KotlinStringsLaws {
 
     // ---- split (char / string delimiter, not regex) ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun split_concrete() {
         val a = "a,b,c".split(",")
         Bmc.check(a.size == 3 && a[0] == "a" && a[2] == "c")
@@ -308,7 +308,7 @@ class KotlinStringsLaws {
 
     // ---- integer parses / toBooleanStrict (no dtoa, no locale) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun parse_int_concrete() {
         Bmc.check("123".toIntOrNull() == 123)
         Bmc.check("-7".toIntOrNull() == -7)
@@ -318,7 +318,7 @@ class KotlinStringsLaws {
         Bmc.check("9".toLongOrNull() == 9L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun parse_boolean_concrete() {
         Bmc.check("true".toBooleanStrictOrNull() == true)
         Bmc.check("false".toBooleanStrictOrNull() == false)
@@ -327,7 +327,7 @@ class KotlinStringsLaws {
 
     // ---- asSequence / asIterable / iterator (concrete backing, never virtual CharIterator) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun as_sequence_iterable_iterator_concrete() {
         Bmc.check("abc".asSequence().toList().size == 3)
         Bmc.check("abc".asIterable().count() == 3)
@@ -337,7 +337,7 @@ class KotlinStringsLaws {
 
     // ---- indent ops ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun indent_concrete() {
         Bmc.check("a\nb".prependIndent(">") == ">a\n>b")
         Bmc.check("  a\n  b".trimIndent() == "a\nb")

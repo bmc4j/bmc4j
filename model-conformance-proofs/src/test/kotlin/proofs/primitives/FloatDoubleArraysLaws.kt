@@ -21,7 +21,7 @@ class FloatDoubleArraysLaws {
 
     // --- sort: total order (NaN last, -0 before +0) ----------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun sort_float_orders_two_finite() {
         val x = Bmc.anyFloat(-1.0e20f, 1.0e20f)
         val y = Bmc.anyFloat(-1.0e20f, 1.0e20f)
@@ -30,7 +30,7 @@ class FloatDoubleArraysLaws {
         Bmc.check(a[0] <= a[1]) // finite inputs: primitive <= matches the total order (sound; avoids the unsound JDK Float.compareTo)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sort_float_puts_nan_last() {
         // NaN is the largest under the total order, so it sorts to the end regardless of start order.
         val a = floatArrayOf(Float.NaN, 1.0f, -1.0f)
@@ -58,7 +58,7 @@ class FloatDoubleArraysLaws {
         Bmc.check(a[0] <= a[1]) // finite inputs: primitive <= matches the total order (sound; avoids the unsound JDK Float.compareTo)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sort_double_puts_nan_last() {
         val a = doubleArrayOf(Double.NaN, 1.0, -1.0)
         Arrays.sort(a)
@@ -124,7 +124,7 @@ class FloatDoubleArraysLaws {
 
     // --- ranged + parallelSort -------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun sort_float_range_orders_only_the_window() {
         val p = Bmc.anyFloat(-1.0e6f, 1.0e6f)
         val x = Bmc.anyFloat(-1.0e6f, 1.0e6f)
@@ -136,7 +136,7 @@ class FloatDoubleArraysLaws {
         Bmc.check(a[1] <= a[2]) // finite inputs: primitive <= matches the total order (sound)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun equals_float_range_compares_only_sub_regions() {
         val x = Bmc.anyFloat(-1.0e20f, 1.0e20f)
         val y = Bmc.anyFloat(-1.0e20f, 1.0e20f)
@@ -145,7 +145,7 @@ class FloatDoubleArraysLaws {
         Bmc.check(Arrays.equals(a, 1, 3, b, 0, 2))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun parallelSort_float_orders_like_sort() {
         val x = Bmc.anyFloat(-1.0e20f, 1.0e20f)
         val y = Bmc.anyFloat(-1.0e20f, 1.0e20f)

@@ -51,7 +51,7 @@ class PatternSwitchProofs {
 
     /** Size dispatches to the arm matching the runtime type: for a symbolic Square the switch must
      *  have taken the Square arm, so size == side*side. Ties the computed value to the real type. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void size_matches_dispatched_arm_for_symbolic_square() {
         int side = Bmc.anyInt(0, 10_000);
         Shape s = new Square(side);
@@ -78,7 +78,7 @@ class PatternSwitchProofs {
 
     /** Guarded switch: the sign classifier is sound for a symbolic int. The {@code when} guards force
      *  {@code restartIndex} re-entry; the desugar honours it, so the result equals the true sign. */
-    @BmcProof
+    @BmcProof(unwind = 2)
     void guarded_switch_computes_true_sign() {
         int n = Bmc.anyInt(-1000, 1000);
         Object o = n;

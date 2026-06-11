@@ -39,7 +39,7 @@ class ReclassifiedNotNeededLaws {
     }
 
     // ---- RangesKt: integer until/downTo/step/rangeTo/reversed + non-FP scalar coerce -------------
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun ranges_until_downTo_step() {
         var s = 0
         for (i in 0 until 4) s += i           // until(int,int)
@@ -50,7 +50,7 @@ class ReclassifiedNotNeededLaws {
         Bmc.check(s == 6 && d == 6 && n == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun ranges_until_downTo_long_mixed() {
         var s = 0L
         for (i in 0L until 3) s += i          // until(long,long)
@@ -59,7 +59,7 @@ class ReclassifiedNotNeededLaws {
         Bmc.check(s == 3L && c == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun ranges_rangeTo_and_reversed() {
         Bmc.check(3 in (1..5) && 0 !in (1..5))    // rangeTo(Comparable)
         val xs = ArrayList<Int>()
@@ -78,7 +78,7 @@ class ReclassifiedNotNeededLaws {
     }
 
     // ---- CollectionsKt read-only accessors: contains/elementAt/indexOf/lastIndexOf/last ----------
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun collections_readonly_accessors() {
         val xs = listOf(10, 20, 30, 20)
         Bmc.check(xs.contains(20) && !xs.contains(99))      // contains(Iterable,Object)
@@ -87,7 +87,7 @@ class ReclassifiedNotNeededLaws {
         Bmc.check(xs.last() == 20)                          // last(Iterable)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun collections_symbolic_indexOf_locates() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200) // distinct from a

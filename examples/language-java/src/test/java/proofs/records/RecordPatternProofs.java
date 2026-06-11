@@ -29,7 +29,7 @@ class RecordPatternProofs {
     }
 
     // PASS: the deconstructing helper computes Manhattan distance correctly over symbolic input.
-    @BmcProof
+    @BmcProof(unwind = 1)
     void manhattan_is_sum_of_absolutes() {
         int a = Bmc.anyInt(-1000, 1000);
         int b = Bmc.anyInt(-1000, 1000);

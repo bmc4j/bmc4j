@@ -20,14 +20,14 @@ class EnumProofTests {
     }
 
     /** PASSES: the fixed classifier covers every suit. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void fixed_classifier_covers_every_suit() {
         Suit s = Bmc.anyOf(Suit.values());
         Bmc.check(Cards.isRed(s) != Cards.isBlackFixed(s));
     }
 
     /** PASSES: a {@code switch} over the enum verifies — JBMC handles it soundly. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void switch_over_enum_is_sound() {
         Suit s = Bmc.anyOf(Suit.values());
         int r = Cards.rank(s);

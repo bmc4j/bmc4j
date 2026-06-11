@@ -19,41 +19,41 @@ private enum class Suit { HEARTS, DIAMONDS, CLUBS, SPADES }
 class EnumEntriesLaws {
 
     /** The headline probe from the issue: size + symbolic-index ordinal correspondence. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_size_and_symbolic_index_ordinal() {
         val i = Bmc.anyInt(0, 3)
         Bmc.check(Suit.entries.size == 4 && Suit.entries[i].ordinal == i)
     }
 
     /** entries has the same size as values(). */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_size_matches_values() {
         Bmc.check(Suit.entries.size == Suit.values().size)
     }
 
     /** entries[i] is the same instance as values()[i], for a symbolic index. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_get_matches_values() {
         val i = Bmc.anyInt(0, 3)
         Bmc.check(Suit.entries[i] === Suit.values()[i])
     }
 
     /** entries[ordinal] round-trips: the entry at an enum value's ordinal is that value. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_indexed_by_ordinal_is_identity() {
         val s = Bmc.anyOf(Suit.values())
         Bmc.check(Suit.entries[s.ordinal] === s)
     }
 
     /** indexOf/contains agree with ordinal for every constant. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_indexOf_is_ordinal() {
         val s = Bmc.anyOf(Suit.values())
         Bmc.check(Suit.entries.indexOf(s) == s.ordinal && Suit.entries.contains(s))
     }
 
     /** Iteration visits the constants in declaration (ordinal) order. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_iterates_in_ordinal_order() {
         var i = 0
         for (s in Suit.entries) {

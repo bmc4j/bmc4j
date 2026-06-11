@@ -229,7 +229,7 @@ class StringLaws {
         Bmc.check(s.toLowerCase().length() == s.length());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toLowerCase_concrete_idempotent() {
         // Idempotence (a second fold is a no-op) is inherently heavy over a FULL symbolic string —
         // it builds and string-equals two whole-string case folds. Pinned concretely here; the
@@ -271,7 +271,7 @@ class StringLaws {
         Bmc.check(s.charAt(0) == 'X' && s.charAt(1) == 'X' && s.charAt(2) == 'X');
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 8)
     void replace_charseq_symbolic_identity_is_noop() {
         // Replacing "a" with "a" leaves every bounded string unchanged: a nondet replace could not.
         String s = Bmc.anyString(4);
@@ -342,7 +342,7 @@ class StringLaws {
         Bmc.check(s.trim().isEmpty() == !anyNonBlank);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void charAt_loop_detects_blank_vs_non_blank_both_directions() {
         // The exact shape @NotBlank lowers to (Constraints.notBlankCharAtLoop): a bounded existential
         // over charAt for a char > ' '. Concrete in both directions.

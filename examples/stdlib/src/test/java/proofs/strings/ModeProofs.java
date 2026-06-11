@@ -13,13 +13,13 @@ import org.bmc4j.Verdict;
 class ModeProofs {
 
     // PASS: "prod" is recognized as prod. (Native JBMC String.equals can't prove this.)
-    @BmcProof
+    @BmcProof(unwind = 8)
     void prod_is_recognized() {
         Bmc.check(Modes.isProd("prod"));
     }
 
     // PASS over every bounded string: anything that isn't "prod" is not prod.
-    @BmcProof
+    @BmcProof(unwind = 8)
     void non_prod_is_not_recognized() {
         String mode = Bmc.anyString(8);
         Bmc.assume(!mode.equals("prod"));
@@ -35,7 +35,7 @@ class ModeProofs {
     }
 
     // PASS: startsWith is sound — an "eu-" prefix is recognized.
-    @BmcProof
+    @BmcProof(unwind = 4)
     void eu_prefix_recognized() {
         Bmc.check(Modes.isEuHost("eu-west-1"));
     }
@@ -48,7 +48,7 @@ class ModeProofs {
     }
 
     // PASS: contains is sound — a "prod" substring is found.
-    @BmcProof
+    @BmcProof(unwind = 8)
     void contains_prod_recognized() {
         Bmc.check(Modes.targetsProd("db.prod.internal"));
     }
@@ -57,7 +57,7 @@ class ModeProofs {
     // ClassCastException inside bmc4j's own stand-in. The non-String-needle path degrades to
     // a nondet result rather than crashing, so this proof — which only requires the call to COMPLETE
     // without that spurious refutation — verifies. (A nondet boolean is trivially true-or-false.)
-    @BmcProof
+    @BmcProof(unwind = 8)
     void contains_with_stringbuilder_needle_does_not_throw() {
         boolean r = Modes.containsBuilt("db.prod.internal", "prod");
         Bmc.check(r || !r);
@@ -73,14 +73,14 @@ class ModeProofs {
     }
 
     // PASS: anyOf varargs picks an element of an explicit value set — every choice is "us" or "eu".
-    @BmcProof
+    @BmcProof(unwind = 4)
     void anyOf_varargs_picks_a_listed_region() {
         String region = Bmc.anyOf("us", "eu");
         Bmc.check(region.equals("us") || region.equals("eu"));
     }
 
     // PASS: anyOf(List) picks an element of a collection-shaped domain.
-    @BmcProof
+    @BmcProof(unwind = 4)
     void anyOf_list_picks_a_listed_region() {
         String region = Bmc.anyOf(java.util.List.of("us", "eu", "ap"));
         Bmc.check(region.equals("us") || region.equals("eu") || region.equals("ap"));

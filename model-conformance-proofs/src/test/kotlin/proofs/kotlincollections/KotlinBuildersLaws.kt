@@ -27,7 +27,7 @@ class KotlinBuildersLaws {
         Bmc.check(xs.size == 3 && xs[0] == 1 && xs[1] == 2 && xs[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun buildList_addAll_and_sum() {
         val xs = buildList {
             add(10)
@@ -59,7 +59,7 @@ class KotlinBuildersLaws {
 
     // ---- buildSet { } ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun buildSet_dedups_and_membership() {
         val s = buildSet {
             add(1)
@@ -70,7 +70,7 @@ class KotlinBuildersLaws {
         Bmc.check(s.size == 3 && s.contains(2) && !s.contains(9))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun buildSet_with_capacity_hint() {
         val s = buildSet(2) {
             add(5)
@@ -112,7 +112,7 @@ class KotlinBuildersLaws {
 
     // ---- buildString { } ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun buildString_append_chars_and_length() {
         val s = buildString {
             append("a")
@@ -122,7 +122,7 @@ class KotlinBuildersLaws {
         Bmc.check(s.length == 3 && s == "abc")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun buildString_append_int_and_char() {
         val s = buildString {
             append(4)
@@ -131,7 +131,7 @@ class KotlinBuildersLaws {
         Bmc.check(s == "4x")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun buildString_with_capacity_hint() {
         val s = buildString(8) {
             append("hi")

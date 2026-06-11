@@ -13,7 +13,7 @@ import org.bmc4j.BmcProof
 class KotlinArraysLaws {
 
     /** copyInto with explicit offsets: dst receives src[startIndex until endIndex] at destinationOffset. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyInto_explicit_range() {
         val src = intArrayOf(10, 20, 30, 40)
         val dst = IntArray(4)
@@ -22,7 +22,7 @@ class KotlinArraysLaws {
     }
 
     /** copyInto with defaulted args (the $default bridge): whole src copied to the start of dst. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyInto_defaults_whole_array() {
         val src = intArrayOf(1, 2, 3)
         val dst = IntArray(3)
@@ -31,7 +31,7 @@ class KotlinArraysLaws {
     }
 
     /** copyInto over an Object[] (the reference-element form persistent collections actually hit). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyInto_object_array_symbolic_element() {
         val x = Bmc.anyInt()
         val src = arrayOf(x, x + 1)
@@ -41,7 +41,7 @@ class KotlinArraysLaws {
     }
 
     /** copyOf returns an independent copy of the same length and contents. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOf_same_contents() {
         val src = intArrayOf(5, 6, 7)
         val c = src.copyOf()
@@ -49,7 +49,7 @@ class KotlinArraysLaws {
     }
 
     /** copyOf(newSize) truncates / zero-pads. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOf_resize_pads_with_zero() {
         val src = intArrayOf(5, 6)
         val c = src.copyOf(4)
@@ -57,7 +57,7 @@ class KotlinArraysLaws {
     }
 
     /** copyOfRange returns the half-open [from, to) slice. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOfRange_half_open_slice() {
         val src = intArrayOf(1, 2, 3, 4, 5)
         val c = src.copyOfRange(1, 4)
@@ -65,7 +65,7 @@ class KotlinArraysLaws {
     }
 
     /** fill writes the value across the half-open [from, to) range, leaving the rest untouched. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun fill_range_in_place() {
         val a = IntArray(4)
         a.fill(9, 1, 3)
@@ -75,7 +75,7 @@ class KotlinArraysLaws {
     // ---- read / convert / transform surface --------------------------------------------------------
 
     /** asList returns a concrete list copy with the same length and contents (the vararg-factory path). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun asList_concrete_copy_contents() {
         val a = Bmc.anyInt()
         val src = intArrayOf(a, a + 1, a + 2)
@@ -84,7 +84,7 @@ class KotlinArraysLaws {
     }
 
     /** asList over an Object[] (the reference-element form the persistent-collection factory hits). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun asList_object_array_copy() {
         val x = Bmc.anyInt()
         val src = arrayOf(x, x + 5)
@@ -93,7 +93,7 @@ class KotlinArraysLaws {
     }
 
     /** toList / toMutableList likewise produce a same-contents copy. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toList_and_toMutableList_copy_contents() {
         val src = intArrayOf(7, 8)
         val a = src.toList()
@@ -102,7 +102,7 @@ class KotlinArraysLaws {
     }
 
     /** toTypedArray boxes each primitive element into a same-length Array<Int>. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toTypedArray_boxes_elements() {
         val src = intArrayOf(3, 4, 5)
         val boxed = src.toTypedArray()
@@ -110,7 +110,7 @@ class KotlinArraysLaws {
     }
 
     /** plus(element) appends one element to a new, one-longer array. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_element_appends() {
         val src = intArrayOf(1, 2)
         val out = src + 9
@@ -118,7 +118,7 @@ class KotlinArraysLaws {
     }
 
     /** plus(array) concatenates two arrays. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_array_concatenates() {
         val a = intArrayOf(1, 2)
         val b = intArrayOf(3, 4, 5)
@@ -128,7 +128,7 @@ class KotlinArraysLaws {
 
     /** plus(element) over an Object[] preserves element references (the reference-element form the
      *  kotlinx vararg factory hits). Identity (===) avoids the FP/String content-equality machinery. */
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun plus_object_element_appends() {
         val p = Any()
         val q = Any()
@@ -138,21 +138,21 @@ class KotlinArraysLaws {
     }
 
     /** contains is a sound linear membership test (true for a present element, false for an absent one). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun contains_present_and_absent() {
         val src = intArrayOf(10, 20, 30)
         Bmc.check(src.contains(20) && !src.contains(25))
     }
 
     /** indexOf returns the first matching index, or -1 when absent. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun indexOf_first_match_or_minus_one() {
         val src = intArrayOf(5, 6, 5, 7)
         Bmc.check(src.indexOf(5) == 0 && src.indexOf(7) == 3 && src.indexOf(99) == -1)
     }
 
     /** lastIndexOf returns the highest matching index, or -1 when absent. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun lastIndexOf_last_match_or_minus_one() {
         val src = intArrayOf(5, 6, 5, 7)
         Bmc.check(src.lastIndexOf(5) == 2 && src.lastIndexOf(99) == -1)
@@ -160,7 +160,7 @@ class KotlinArraysLaws {
 
     /** indexOf over an Object[] uses equals (boxed Integer elements: Integer.equals, modeled soundly —
      *  not the String/CProverString path). A present value matches at its index, an absent one gives -1. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun indexOf_object_array_uses_equals() {
         val src = arrayOf(10, 20, 30)
         Bmc.check(src.indexOf(20) == 1 && src.indexOf(99) == -1)
@@ -187,7 +187,7 @@ class KotlinArraysLaws {
     //      is never invoked, so these are NOT a forced loud UNKNOWN. -------------------------------------
 
     /** map { } over a bounded IntArray: the inlined transform builds the result list element-by-element. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun map_inline_over_bounded_array() {
         val src = intArrayOf(1, 2, 3)
         val out = src.map { it + 1 }
@@ -195,14 +195,14 @@ class KotlinArraysLaws {
     }
 
     /** all { } / any { } over a bounded IntArray: inlined predicate folds soundly. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun all_any_inline_over_bounded_array() {
         val src = intArrayOf(2, 4, 6)
         Bmc.check(src.all { it > 0 } && src.any { it == 4 } && !src.all { it > 4 })
     }
 
     /** filter { } over a bounded IntArray keeps the matching elements. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun filter_inline_over_bounded_array() {
         val src = intArrayOf(1, 2, 3, 4)
         val out = src.filter { it % 2 == 0 }
@@ -210,7 +210,7 @@ class KotlinArraysLaws {
     }
 
     /** fold { } over a bounded IntArray accumulates the inlined combiner. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun fold_inline_over_bounded_array() {
         val src = intArrayOf(1, 2, 3, 4)
         Bmc.check(src.fold(0) { acc, x -> acc + x } == 10)

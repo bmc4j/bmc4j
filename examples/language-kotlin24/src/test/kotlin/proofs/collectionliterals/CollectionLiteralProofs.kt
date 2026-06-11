@@ -23,7 +23,7 @@ class CollectionLiteralProofs {
     }
 
     // PASS: within the literal's actual extent every fee is positive.
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun weekday_fees_are_positive() {
         val day = Bmc.anyInt()
         Bmc.assume(day in 0..4)
@@ -31,7 +31,7 @@ class CollectionLiteralProofs {
     }
 
     // PASS: the fix totalizes the function — weekends are free, weekdays hit the literal.
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun safe_fee_defined_for_every_day() {
         val day = Bmc.anyInt()
         Bmc.assume(day in 0..6)

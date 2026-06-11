@@ -13,7 +13,7 @@ import org.bmc4j.BmcProof
  */
 class TreeMapLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun firstKey_and_lastKey_are_the_min_and_max() {
         val m = TreeMap<Int, Int>()
         m[3] = 30
@@ -22,7 +22,7 @@ class TreeMapLaws {
         Bmc.check(m.firstKey() == 1 && m.lastKey() == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun firstEntry_and_lastEntry_carry_the_min_and_max_mapping() {
         val m = TreeMap<Int, Int>()
         m[5] = 50
@@ -33,7 +33,7 @@ class TreeMapLaws {
         Bmc.check(last.key == 5 && last.value == 50)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun ceilingKey_is_least_key_at_or_above() {
         val m = TreeMap<Int, Int>()
         m[2] = 0
@@ -55,7 +55,7 @@ class TreeMapLaws {
         Bmc.check(m.floorKey(1) == null)  // nothing at or below
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun higherKey_and_lowerKey_are_strict() {
         val m = TreeMap<Int, Int>()
         m[2] = 0
@@ -76,7 +76,7 @@ class TreeMapLaws {
         Bmc.check(m.higherKey(k) == null && m.lowerKey(k) == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun comparator_is_null_for_natural_ordering() {
         val m = TreeMap<Int, Int>()
         Bmc.check(m.comparator() == null)
@@ -84,7 +84,7 @@ class TreeMapLaws {
 
     // The entry-returning navigation family mirrors the *Key family but carries the value too: the
     // navigated key's CURRENT mapping. Same inclusive/exclusive bounds, same null-when-none split.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun ceiling_and_floor_entry_carry_the_navigated_mapping() {
         val m = TreeMap<Int, Int>()
         m[2] = 20
@@ -97,7 +97,7 @@ class TreeMapLaws {
         Bmc.check(m.ceilingEntry(4).key == 4) // inclusive: exact key qualifies
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun higher_and_lower_entry_are_strict_and_null_at_the_ends() {
         val m = TreeMap<Int, Int>()
         m[2] = 20
@@ -118,7 +118,7 @@ class TreeMapLaws {
 
     // pollFirstEntry returns the MIN entry and removes it; pollLastEntry the MAX. After polling both
     // ends of a 3-key map only the middle key remains, and a re-poll sees the new extreme.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pollFirst_and_pollLast_remove_the_extremes() {
         val m = TreeMap<Int, Int>()
         m[1] = 10
@@ -131,7 +131,7 @@ class TreeMapLaws {
         Bmc.check(m.size == 1 && m.firstKey() == 2 && m.lastKey() == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun poll_on_empty_map_is_null() {
         val m = TreeMap<Int, Int>()
         Bmc.check(m.pollFirstEntry() == null && m.pollLastEntry() == null)

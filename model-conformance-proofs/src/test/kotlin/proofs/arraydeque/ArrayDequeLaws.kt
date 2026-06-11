@@ -28,7 +28,7 @@ class ArrayDequeLaws {
     }
 
     // LIFO: push at the head, pop from the head — last in, first out.
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun lifo_push_then_pop_reverses_order() {
         val d = ArrayDeque<Int>()
         val a = Bmc.anyInt()
@@ -38,7 +38,7 @@ class ArrayDequeLaws {
         Bmc.check(d.pop() == b && d.pop() == a && d.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun addFirst_puts_at_head_addLast_at_tail() {
         val d = ArrayDeque<Int>()
         val mid = Bmc.anyInt()
@@ -82,7 +82,7 @@ class ArrayDequeLaws {
         Bmc.check(d.pollFirst() == null && d.peekFirst() == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun forEach_visits_every_element_via_lambda() {
         val d = ArrayDeque<Int>()
         val a = Bmc.anyInt(0, 1000)
@@ -94,7 +94,7 @@ class ArrayDequeLaws {
         Bmc.check(sum[0] == a + b)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeIf_drops_matching_via_lambda() {
         val d = ArrayDeque<Int>()
         val p = Bmc.anyInt(0, 100)

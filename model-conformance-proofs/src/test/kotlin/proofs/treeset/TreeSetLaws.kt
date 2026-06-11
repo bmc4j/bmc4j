@@ -13,13 +13,13 @@ import org.bmc4j.BmcProof
  */
 class TreeSetLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun new_set_is_empty() {
         val s = TreeSet<Int>()
         Bmc.check(s.size == 0 && s.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun add_then_contains() {
         val s = TreeSet<Int>()
         val x = Bmc.anyInt()
@@ -45,7 +45,7 @@ class TreeSetLaws {
         Bmc.check(!s.contains(x) && s.size == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copy_constructor_dedups_the_source() {
         val src = ArrayList<Int>()
         val x = Bmc.anyInt()
@@ -55,7 +55,7 @@ class TreeSetLaws {
         Bmc.check(s.size == 1 && s.contains(x))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun first_and_last_are_the_min_and_max() {
         val s = TreeSet<Int>()
         s.add(3)
@@ -64,7 +64,7 @@ class TreeSetLaws {
         Bmc.check(s.first() == 1 && s.last() == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun ceiling_is_least_element_at_or_above() {
         val s = TreeSet<Int>()
         s.add(2); s.add(4); s.add(6)
@@ -73,7 +73,7 @@ class TreeSetLaws {
         Bmc.check(s.ceiling(7) == null) // nothing at or above
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun floor_is_greatest_element_at_or_below() {
         val s = TreeSet<Int>()
         s.add(2); s.add(4); s.add(6)
@@ -82,7 +82,7 @@ class TreeSetLaws {
         Bmc.check(s.floor(1) == null)   // nothing at or below
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun higher_and_lower_are_strict() {
         val s = TreeSet<Int>()
         s.add(2); s.add(4); s.add(6)
@@ -108,7 +108,7 @@ class TreeSetLaws {
 
     // pollFirst returns the MIN and removes it; pollLast the MAX. After polling both ends of a 3-element
     // set only the middle remains, and a re-poll sees the new extreme.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pollFirst_and_pollLast_remove_the_extremes() {
         val s = TreeSet<Int>()
         s.add(1); s.add(2); s.add(3)
@@ -117,7 +117,7 @@ class TreeSetLaws {
         Bmc.check(s.size == 1 && s.first() == 2 && s.last() == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun containsAll_true_iff_every_element_present() {
         val s = TreeSet<Int>()
         s.add(2); s.add(4); s.add(6)

@@ -55,7 +55,7 @@ class ContainerProofTests {
     }
 
     /** PASSES: the guarded version is safe for every valid Order. */
-    @BmcProof
+    @BmcProof(unwind = 2)
     void element_reciprocal_safe() {
         Order o = orderWithScores(1);
         OrderConstraints.assumeValid(o);
@@ -79,7 +79,7 @@ class ContainerProofTests {
      * Without the cascade, quantity would be free and this would be REFUTED. The green verdict pins
      * the container {@code @Valid} cascade fires.
      */
-    @BmcProof
+    @BmcProof(unwind = 2)
     void container_cascade_makes_the_bucket_index_safe() {
         Order o = orderWithLines(1);
         OrderConstraints.assumeValid(o);

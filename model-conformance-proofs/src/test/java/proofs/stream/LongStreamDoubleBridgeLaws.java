@@ -18,7 +18,7 @@ import org.bmc4j.BmcProof;
  */
 class LongStreamDoubleBridgeLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void average_present_is_exact() {
         OptionalDouble o = LongStream.of(2L, 4L, 6L).average();
         Bmc.check(o.isPresent() && o.getAsDouble() == 4.0);
@@ -29,7 +29,7 @@ class LongStreamDoubleBridgeLaws {
         Bmc.check(LongStream.empty().average().isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapToDouble_then_sum() {
         double s = LongStream.of(1L, 2L, 3L).mapToDouble(x -> x * 1.5).sum();
         Bmc.check(s == 9.0);
@@ -49,7 +49,7 @@ class LongStreamDoubleBridgeLaws {
                 && stats.getMin() == 1L && stats.getMax() == 3L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summaryStatistics_average_exact() {
         LongSummaryStatistics stats = LongStream.of(2L, 4L, 6L).summaryStatistics();
         Bmc.check(stats.getAverage() == 4.0);
@@ -62,7 +62,7 @@ class LongStreamDoubleBridgeLaws {
      * still-symbolic range (crossing zero, both signs) proves the same identity. It ran ~111s fresh
      * over ±100 — close to the slow-CI budget wall — and well under it here.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_asDoubleStream_sum_matches_long_sum() {
         long a = Bmc.anyLong(-32L, 32L);
         long b = Bmc.anyLong(-32L, 32L);

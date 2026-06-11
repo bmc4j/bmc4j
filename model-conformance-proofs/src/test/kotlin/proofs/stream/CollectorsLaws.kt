@@ -18,14 +18,14 @@ class CollectorsLaws {
         return xs
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun collect_toMap_size_and_lookups() {
         val m = listOf3(1, 2, 3).stream()
             .collect(java.util.stream.Collectors.toMap({ k -> k }, { v -> v * 10 }))
         Bmc.check(m.size == 3 && m[1] == 10 && m[2] == 20 && m[3] == 30)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun collect_toMap_distinct_keys_from_value() {
         // key = value, value = value: a faithful identity map over distinct elements.
         val m = listOf3(5, 6, 7).stream()
@@ -33,7 +33,7 @@ class CollectorsLaws {
         Bmc.check(m.size == 3 && m.containsKey(5) && m[7] == 7 && !m.containsKey(8))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun collect_groupingBy_by_parity_group_sizes() {
         // 1,2,4 -> even:{2,4}, odd:{1}
         val m = listOf3(1, 2, 4).stream()
@@ -43,7 +43,7 @@ class CollectorsLaws {
         Bmc.check(m.size == 2 && evens.size == 2 && odds.size == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun collect_groupingBy_preserves_group_contents() {
         // 2,4,6 all even -> single group {2,4,6} in encounter order.
         val m = listOf3(2, 4, 6).stream()
@@ -63,14 +63,14 @@ class CollectorsLaws {
         return xs
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun joining_no_delimiter_concatenates() {
         val s = listOfStr("a", "b", "c").stream()
             .collect(java.util.stream.Collectors.joining())
         Bmc.check(s == "abc")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun joining_with_delimiter_inserts_between() {
         val s = listOfStr("a", "b", "c").stream()
             .collect(java.util.stream.Collectors.joining(","))
@@ -84,7 +84,7 @@ class CollectorsLaws {
         Bmc.check(s == "")
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun joining_single_element_has_no_delimiter() {
         val one = ArrayList<String>()
         one.add("solo")

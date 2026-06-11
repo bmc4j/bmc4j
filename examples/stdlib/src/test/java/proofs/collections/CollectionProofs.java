@@ -15,7 +15,7 @@ import org.bmc4j.Verdict;
 class CollectionProofs {
 
     // PASS: iterating a List and summing is sound.
-    @BmcProof
+    @BmcProof(unwind = 4)
     void total_sums_prices() {
         Cart c = new Cart();
         c.add(10);
@@ -25,7 +25,7 @@ class CollectionProofs {
     }
 
     // PASS over every pair: the model tracks element identity, so the total is exactly a + b.
-    @BmcProof
+    @BmcProof(unwind = 4)
     void total_is_symbolic_sum() {
         Cart c = new Cart();
         int a = Bmc.anyInt(0, 1000);
@@ -52,7 +52,7 @@ class CollectionProofs {
     }
 
     // PASS: an unknown key yields an empty Optional.
-    @BmcProof
+    @BmcProof(unwind = 2)
     void unknown_sku_is_empty() {
         Catalog cat = new Catalog();
         cat.put(1, 100);
@@ -67,7 +67,7 @@ class CollectionProofs {
     }
 
     // PASS: a stream pipeline (list.stream().mapToInt(...).sum()) gives the same total.
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_total_matches() {
         Cart c = new Cart();
         c.add(10);

@@ -13,7 +13,7 @@ import org.bmc4j.BmcProof
  */
 class LinkedHashSetLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun getFirst_and_getLast_are_the_insertion_ends() {
         val s = LinkedHashSet<Int>()
         s.add(3)
@@ -22,7 +22,7 @@ class LinkedHashSetLaws {
         Bmc.check(s.getFirst() == 3 && s.getLast() == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun addFirst_moves_a_present_element_to_the_front() {
         val s = LinkedHashSet<Int>()
         s.add(1)
@@ -34,7 +34,7 @@ class LinkedHashSetLaws {
         Bmc.check(s.getFirst() == 0 && s.size == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun addLast_moves_a_present_element_to_the_back() {
         val s = LinkedHashSet<Int>()
         s.add(1)
@@ -44,7 +44,7 @@ class LinkedHashSetLaws {
         Bmc.check(s.getLast() == 1 && s.size == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeFirst_and_removeLast_pop_the_insertion_ends() {
         val s = LinkedHashSet<Int>()
         s.add(1)

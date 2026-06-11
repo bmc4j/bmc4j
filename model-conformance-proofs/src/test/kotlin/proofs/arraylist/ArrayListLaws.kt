@@ -82,7 +82,7 @@ class ArrayListLaws {
         Bmc.check(l.size == 0 && l.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copy_constructor_preserves_elements_in_order() {
         val src = ArrayList<Int>()
         val a = Bmc.anyInt()
@@ -95,7 +95,7 @@ class ArrayListLaws {
 
     // --- bulk ops: addAll / removeIf / forEach (lambdas through the model) --------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun addAll_appends_in_order() {
         val src = ArrayList<Int>()
         val a = Bmc.anyInt()
@@ -108,7 +108,7 @@ class ArrayListLaws {
         Bmc.check(changed && dst.size == 3 && dst[0] == z && dst[1] == a && dst[2] == b)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeIf_drops_matching_via_lambda() {
         // A real lambda passed through removeIf must devirtualize (bmc4j desugars it). Pin both that
         // the negatives are dropped and that the survivor is the one we kept.
@@ -120,7 +120,7 @@ class ArrayListLaws {
         Bmc.check(changed && l.size == 1 && l[0] == p)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun forEach_visits_every_element_via_lambda() {
         val l = ArrayList<Int>()
         val a = Bmc.anyInt(0, 1000)
@@ -157,7 +157,7 @@ class ArrayListLaws {
         Bmc.check(l.size == 3 && l[0] == a && l[1] == x && l[2] == b)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun addAll_at_index_inserts_in_order() {
         val src = ArrayList<Int>()
         val a = Bmc.anyInt()
@@ -170,7 +170,7 @@ class ArrayListLaws {
         Bmc.check(changed && dst.size == 4 && dst[0] == z && dst[1] == a && dst[2] == b && dst[3] == z + 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun containsAll_true_iff_every_element_present() {
         val l = ArrayList<Int>()
         val a = Bmc.anyInt()
@@ -186,7 +186,7 @@ class ArrayListLaws {
         Bmc.check(l.containsAll(sub) && !l.containsAll(other))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun replaceAll_maps_every_element_via_lambda() {
         val l = ArrayList<Int>()
         val a = Bmc.anyInt(0, 1000)

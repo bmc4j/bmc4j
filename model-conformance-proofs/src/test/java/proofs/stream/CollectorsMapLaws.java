@@ -24,7 +24,7 @@ class CollectorsMapLaws {
         Bmc.check(m.size() == 2 && m.get(0) == 6 && m.get(1) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toMap_merge_distinct_keys() {
         List<Integer> xs = List.of(1, 2, 3);
         Map<Integer, Integer> m = xs.stream().collect(
@@ -32,7 +32,7 @@ class CollectorsMapLaws {
         Bmc.check(m.size() == 3 && m.get(1) == 10 && m.get(3) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toUnmodifiableMap_basic() {
         List<Integer> xs = List.of(1, 2, 3);
         Map<Integer, Integer> m = xs.stream().collect(
@@ -40,7 +40,7 @@ class CollectorsMapLaws {
         Bmc.check(m.size() == 3 && m.get(2) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void toUnmodifiableMap_merge() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         Map<Integer, Integer> m = xs.stream().collect(
@@ -48,7 +48,7 @@ class CollectorsMapLaws {
         Bmc.check(m.get(0) == 6 && m.get(1) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toConcurrentMap_basic() {
         List<Integer> xs = List.of(1, 2, 3);
         Map<Integer, Integer> m = xs.stream().collect(
@@ -56,7 +56,7 @@ class CollectorsMapLaws {
         Bmc.check(m.size() == 3 && m.get(2) == 4 && m.get(3) == 6);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void toConcurrentMap_merge_resolves_duplicates() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         Map<Integer, Integer> m = xs.stream().collect(

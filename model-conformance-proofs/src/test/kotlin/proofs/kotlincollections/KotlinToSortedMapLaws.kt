@@ -35,7 +35,7 @@ class KotlinToSortedMapLaws {
 
     /** ANCHOR: raw TreeMap built from concrete entries — firstKey/lastKey/get read back. Pins that the
      *  bounded TreeMap backing toSortedMap returns over actually works under JBMC. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun anchor_raw_treemap_build_reads_sorted() {
         val t = TreeMap<Int, Int>()
         t[3] = 30
@@ -49,7 +49,7 @@ class KotlinToSortedMapLaws {
 
     /** toSortedMap copies every entry of the receiver, value-for-key preserved (read via the TreeMap). */
     @Suppress("UNCHECKED_CAST")
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toSortedMap_preserves_entries() {
         val sorted = mapOf(3 to 30, 1 to 10, 2 to 20).toSortedMap() as TreeMap<Int, Int>
         Bmc.check(sorted.size == 3)
@@ -57,7 +57,7 @@ class KotlinToSortedMapLaws {
     }
 
     /** The result is sorted by key natural ordering: firstKey is the min, lastKey the max (SortedMap). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toSortedMap_orders_by_key() {
         val sorted = mapOf(3 to 30, 1 to 10, 2 to 20).toSortedMap()
         Bmc.check(sorted.firstKey() == 1 && sorted.lastKey() == 3)
@@ -73,7 +73,7 @@ class KotlinToSortedMapLaws {
 
     /** A single-entry receiver round-trips: that key is both first and last, value preserved. */
     @Suppress("UNCHECKED_CAST")
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun toSortedMap_singleton() {
         val sorted = mapOf(7 to 70).toSortedMap()
         Bmc.check(sorted.firstKey() == 7 && sorted.lastKey() == 7)
@@ -83,7 +83,7 @@ class KotlinToSortedMapLaws {
 
     /** The receiver is left untouched — toSortedMap returns a fresh map. */
     @Suppress("UNCHECKED_CAST")
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toSortedMap_leaves_source_unchanged() {
         val src = mapOf(2 to 20, 1 to 10)
         val sorted = src.toSortedMap() as TreeMap<Int, Int>

@@ -14,29 +14,29 @@ import org.bmc4j.BmcProof;
  */
 class StreamLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void intStream_of_sum() {
         Bmc.check(IntStream.of(1, 2, 3, 4).sum() == 10);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void intStream_range_sum() {
         Bmc.check(IntStream.range(0, 5).sum() == 10); // 0+1+2+3+4
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void intStream_map_filter_sum() {
         // 1,2,3,4 -> *2 -> 2,4,6,8 -> keep >4 -> 6,8 -> 14
         Bmc.check(IntStream.of(1, 2, 3, 4).map(x -> x * 2).filter(x -> x > 4).sum() == 14);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void list_stream_mapToInt_sum() {
         List<Integer> xs = List.of(1, 2, 3);
         Bmc.check(xs.stream().mapToInt(x -> x + 1).sum() == 9); // 2+3+4
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void stream_filter_count() {
         // Use a <=4-arg List.of (explicit overload) so JBMC keeps the concrete ArrayList type and can
         // devirtualize .stream(); List.of(5+) routes to the varargs overload, through which JBMC loses
@@ -45,21 +45,21 @@ class StreamLaws {
         Bmc.check(xs.stream().filter(x -> x % 2 == 1).count() == 2L); // 1,3
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_map_collect_toList() {
         List<Integer> xs = List.of(1, 2, 3);
         List<Integer> ys = xs.stream().map(x -> x * 10).collect(Collectors.toList());
         Bmc.check(ys.size() == 3 && ys.get(0) == 10 && ys.get(2) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     void stream_anyMatch() {
         List<Integer> xs = List.of(1, 2, 3);
         Bmc.check(xs.stream().anyMatch(x -> x == 2));
     }
 
     /** Symbolic law: summing a 2-element stream equals the sum of its elements, for all inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_intStream_sum() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);

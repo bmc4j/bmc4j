@@ -28,19 +28,19 @@ class CollectorsSummingLaws {
         return xs;
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summingInt_concrete() {
         int sum = ints(1, 2, 3).stream().collect(Collectors.summingInt(x -> x));
         Bmc.check(sum == 6);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summingInt_with_mapper() {
         int sum = ints(1, 2, 3).stream().collect(Collectors.summingInt(x -> x * 2));
         Bmc.check(sum == 12);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summingInt_symbolic_is_sum() {
         // Two symbolic ints in a tight range; the collector sum must equal the direct int sum.
         int a = Bmc.anyInt(0, 100);
@@ -59,20 +59,20 @@ class CollectorsSummingLaws {
         Bmc.check(sum == 0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summingLong_concrete() {
         long sum = ints(10, 20, 30).stream().collect(Collectors.summingLong(x -> (long) x));
         Bmc.check(sum == 60L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summarizingInt_count_sum_min_max() {
         IntSummaryStatistics stats = ints(3, 1, 2).stream().collect(Collectors.summarizingInt(x -> x));
         Bmc.check(stats.getCount() == 3L && stats.getSum() == 6L
                 && stats.getMin() == 1 && stats.getMax() == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summarizingLong_count_sum_min_max() {
         LongSummaryStatistics stats =
                 ints(5, 9, 7).stream().collect(Collectors.summarizingLong(x -> (long) x));
@@ -88,7 +88,7 @@ class CollectorsSummingLaws {
         return xs;
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void joining_prefix_suffix_wraps() {
         String s = strs("a", "b", "c").stream().collect(Collectors.joining(",", "[", "]"));
         Bmc.check(s.equals("[a,b,c]"));

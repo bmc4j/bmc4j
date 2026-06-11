@@ -45,7 +45,7 @@ class CharsetProofs {
     // --- anyAsciiString(n): every char is printable ASCII --------------------
 
     // PASS: every character of an anyAsciiString is in [0x20, 0x7E].
-    @BmcProof
+    @BmcProof(unwind = 8)
     void ascii_chars_are_printable() {
         String name = Bmc.anyAsciiString(4);
         for (int i = 0; i < name.length(); i++) {
@@ -85,7 +85,7 @@ class CharsetProofs {
     }
 
     // PASS over every digit-alphabet string: the code-under-proof digit check holds.
-    @BmcProof
+    @BmcProof(unwind = 16)
     void digit_alphabet_string_is_all_digits() {
         String s = Bmc.anyString(3, "0123456789");
         Bmc.check(Charsets.isAllDigits(s));
@@ -104,7 +104,7 @@ class CharsetProofs {
 
     // PASS: a real property of code-under-proof, proven over a charset-bounded input domain —
     // a string of <=3 digits never contains a non-digit, so isAllDigits is always true.
-    @BmcProof
+    @BmcProof(unwind = 16)
     void property_over_constrained_string_verifies() {
         String s = Bmc.anyString(3, "0123456789");
         Bmc.assume(s.length() >= 1);

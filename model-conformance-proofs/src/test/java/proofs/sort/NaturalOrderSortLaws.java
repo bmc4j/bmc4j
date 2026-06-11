@@ -31,7 +31,7 @@ class NaturalOrderSortLaws {
     // ======== Stream.sorted() (no-arg, natural order) over symbolic Integer ========================
 
     /** ORDERED: natural-order sorted() of symbolic ints is non-decreasing. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_natural_integer_ordered() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -42,7 +42,7 @@ class NaturalOrderSortLaws {
     }
 
     /** PERMUTATION: natural-order sorted() preserves the multiset (size + sum + a known element). */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_natural_integer_permutation() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -53,7 +53,7 @@ class NaturalOrderSortLaws {
     }
 
     /** Concrete sanity: the natural order is actually applied. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_natural_integer_concrete() {
         List<Integer> out = List.of(3, 1, 2).stream().sorted().toList();
         Bmc.check(out.get(0) == 1 && out.get(1) == 2 && out.get(2) == 3);
@@ -62,7 +62,7 @@ class NaturalOrderSortLaws {
     // ======== Stream.sorted() (no-arg, natural order) over symbolic String =========================
 
     /** ORDERED: natural-order sorted() of symbolic strings is lexicographically non-decreasing. */
-    @BmcProof(maxStringLength = 2)
+    @BmcProof(maxStringLength = 2, unwind = 4)
     void stream_sorted_natural_string_ordered() {
         String a = Bmc.anyString(2);
         String b = Bmc.anyString(2);
@@ -75,7 +75,7 @@ class NaturalOrderSortLaws {
      * PERMUTATION: natural-order sorted() of symbolic strings preserves the multiset — both inputs are
      * still present after sorting (no element invented/dropped).
      */
-    @BmcProof(maxStringLength = 2)
+    @BmcProof(maxStringLength = 2, unwind = 4)
     void stream_sorted_natural_string_permutation() {
         String a = Bmc.anyString(2);
         String b = Bmc.anyString(2);
@@ -85,7 +85,7 @@ class NaturalOrderSortLaws {
     }
 
     /** Concrete String sanity: lexicographic order is applied. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_natural_string_concrete() {
         List<String> out = List.of("c", "a", "b").stream().sorted().toList();
         Bmc.check(out.get(0).equals("a") && out.get(1).equals("b") && out.get(2).equals("c"));
@@ -93,7 +93,7 @@ class NaturalOrderSortLaws {
 
     // ======== Arrays.sort(Object[]) natural order (full + ranged) ==================================
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_object_natural_ordered_and_permutation() {
         int x = Bmc.anyInt(0, 50);
         int y = Bmc.anyInt(0, 50);
@@ -103,7 +103,7 @@ class NaturalOrderSortLaws {
         Bmc.check(arr[0] + arr[1] == x + y);  // sum preserved => permutation
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_object_natural_concrete() {
         Integer[] arr = {3, 1, 2};
         Arrays.sort(arr);
@@ -111,7 +111,7 @@ class NaturalOrderSortLaws {
     }
 
     /** Ranged natural sort: only [1,3) is ordered; the endpoints are untouched. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_object_natural_ranged_leaves_ends() {
         Integer[] arr = {9, 3, 1, 8};
         Arrays.sort(arr, 1, 3); // sorts indices 1,2 only
@@ -122,7 +122,7 @@ class NaturalOrderSortLaws {
     // ======== Comparator.naturalOrder() ============================================================
 
     /** Comparator.naturalOrder() drives the witness through the BmcNaturalOrder-backed comparator. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void comparator_natural_order_sorts_ascending() {
         Comparator<Integer> nat = Comparator.naturalOrder();
         ArrayList<Integer> m = new ArrayList<>();
@@ -133,7 +133,7 @@ class NaturalOrderSortLaws {
         Bmc.check(m.get(0) == 1 && m.get(1) == 2 && m.get(2) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void comparator_natural_order_symbolic_ordered_and_permutation() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);

@@ -41,7 +41,7 @@ class ReifiedProofs {
     }
 
     // PASS: reified safe-cast returns a non-null, value-preserving result for a matching type.
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun reified_safe_cast_preserves_value() {
         val n = Bmc.anyInt(-1000, 1000)
         val x: Any = n

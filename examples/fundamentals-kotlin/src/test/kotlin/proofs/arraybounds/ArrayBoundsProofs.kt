@@ -36,7 +36,7 @@ class ArrayBoundsProofs {
 
     /** PASSES: gradeBand never throws for a valid Score. `assumeValid` folds the value class's
      *  1..100 range into the proof domain — no separate `assume` restating it. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun `gradeBand never throws for any Score`() {
         val score = assumeValid { Score(anyInt()) }
         gradeBand(score.value)

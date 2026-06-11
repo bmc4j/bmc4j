@@ -29,7 +29,7 @@ class ResidualToStringProofs {
      * PASSES, with the residual-indy stub footnote: the checked property is independent of the
      * havoc'd toString result, so reaching the residual site is visible, not fatal.
      */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void reaching_the_residual_site_is_visible_not_fatal(int x, int y) {
         Box b = new Box(new Point(x, y));
         String ignored = b.toString();

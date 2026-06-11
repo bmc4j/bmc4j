@@ -20,7 +20,7 @@ import org.bmc4j.Verdict
 class WhenProofs {
 
     // enum `when` (compiles to $WhenMappings + tableswitch).
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun enum_rank_is_bounded() {
         val s = Bmc.anyOf(Suit.values())
         Bmc.check(Suits.rank(s) in 1..4)

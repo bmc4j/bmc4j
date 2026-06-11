@@ -20,14 +20,14 @@ class EnumProofs {
     }
 
     /** PASSES: the fixed classifier covers every suit. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun fixed_classifier_covers_every_suit() {
         val s = Bmc.anyOf(Suit.values())
         Bmc.check(Cards.isRed(s) != Cards.isBlackFixed(s))
     }
 
     /** PASSES: an exhaustive `when` over the enum verifies — JBMC handles it soundly. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun when_over_enum_is_sound() {
         val s = Bmc.anyOf(Suit.values())
         val r = Cards.rank(s)
