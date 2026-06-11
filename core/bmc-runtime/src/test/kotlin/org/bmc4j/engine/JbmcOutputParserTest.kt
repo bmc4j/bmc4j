@@ -171,12 +171,16 @@ internal class JbmcOutputParserTest {
     }
 
     @Test
-    fun bmc_check_failure_is_repointed_to_the_user_frame_and_internal_frames_hidden() {
+    fun bmc_check_failure_names_the_assertion_at_the_user_frame_and_hides_internal_frames() {
+        // Bmc.check(false) throws an AssertionError; jbmc lowers that to a propertyClass "assertion"
+        // FAILURE reported against org.bmc4j.Bmc.check. The reason must NAME it as an assertion failure
+        // at the USER's line (not the internal Bmc.java line), no longer the old blanket
+        // "a checked property does not hold". (Shape pinned against a live cbmc 6.9.0 AssertionError throw.)
         val json = """
             [
               {"result":[
                 {"name":"c.1","status":"FAILURE","description":"assertion failed",
-                 "sourceLocation":{"file":"org/bmc4j/Bmc.java","line":"30",
+                 "sourceLocation":{"file":"org/bmc4j/Bmc.java","line":"30","propertyClass":"assertion",
                                    "function":"java::org.bmc4j.Bmc.check:(Z)V"},
                  "trace":[
                    {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
@@ -195,14 +199,225 @@ internal class JbmcOutputParserTest {
         val r = JbmcOutputParser.parse(json, ENTRY)
         val v = r.violations[0]
 
-        // Re-pointed to the user's proof line + given a clean description.
-        assertEquals("a checked property does not hold", v.description)
+        // Re-pointed to the user's proof line + named as a Bmc.check assertion failure there.
+        assertEquals("assertion failed (Bmc.check) at Tests.java:9", v.description)
         assertEquals("Tests.java", v.file)
         assertEquals(9, v.line)
         // Internal Bmc frame is stripped, leaving only the user frame.
         assertEquals(1, v.stack.size)
         assertEquals("pkg.Tests", v.stack[0].className)
         assertEquals(listOf("score = 100"), v.counterexample)
+    }
+
+    @Test
+    fun bmc_check_with_a_constant_message_surfaces_the_message() {
+        // Bmc.check(cond, "msg") / check(cond){ "msg" }: the AssertionError carries a constant String,
+        // which lands in the trace as a recoverable char-array constant. The reason appends it.
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion failed",
+                 "sourceLocation":{"file":"org/bmc4j/Bmc.java","line":"30","propertyClass":"assertion",
+                                   "function":"java::org.bmc4j.Bmc.check:(ZLjava/lang/String;)V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"5"}},
+                   {"stepType":"function-call","function":{"identifier":"java::org.bmc4j.Bmc.check:(ZLjava/lang/String;)V"},
+                    "sourceLocation":{"file":"Tests.java","line":"9"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[0L]","value":{"name":"integer","data":"'t'","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[1L]","value":{"name":"integer","data":"'o'","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[2L]","value":{"name":"integer","data":"'o'","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[3L]","value":{"name":"integer","data":"' '","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[4L]","value":{"name":"integer","data":"'b'","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[5L]","value":{"name":"integer","data":"'i'","type":"char"}},
+                   {"stepType":"assignment","lhs":"too_20big_constarray[6L]","value":{"name":"integer","data":"'g'","type":"char"}},
+                   {"stepType":"function-call","function":{"identifier":"java::java.lang.AssertionError.<init>:(Ljava/lang/Object;)V"},
+                    "sourceLocation":{"file":"org/bmc4j/Bmc.java","line":"30"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::org.bmc4j.Bmc.check:(ZLjava/lang/String;)V",
+                                      "file":"org/bmc4j/Bmc.java","line":"30"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("assertion failed (Bmc.check) at Tests.java:9: too big", r.violations[0].description)
+    }
+
+    // --- failure-reason surfacing: name WHAT failed (the exception / assertion), not just inputs ----
+    // The signal is the FAILURE property's sourceLocation.propertyClass (jbmc's name for a built-in
+    // safety check) for NPE/div-zero/bounds, or a "no uncaught exception" description for an explicit
+    // throw (type recovered from the constructor in the trace). Shapes pinned against live cbmc 6.9.0.
+
+    @Test
+    fun divide_by_zero_refutation_names_the_arithmetic_exception_and_location() {
+        // Real jbmc shape: propertyClass "integer-divide-by-zero", description "Denominator should be
+        // nonzero". The reason must name java.lang.ArithmeticException: / by zero at the source line.
+        val json = """
+            [
+              {"result":[
+                {"name":"d.1","status":"FAILURE","description":"Denominator should be nonzero",
+                 "property":"java::pkg.InterpolationSearch.search:([II)I.integer-divide-by-zero.1",
+                 "sourceLocation":{"file":"InterpolationSearch.java","line":"41",
+                   "propertyClass":"integer-divide-by-zero",
+                   "function":"java::pkg.InterpolationSearch.search:([II)I"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertFalse(r.isVerified)
+        assertEquals("java.lang.ArithmeticException: / by zero at InterpolationSearch.java:41",
+                r.violations[0].description)
+    }
+
+    @Test
+    fun null_pointer_refutation_names_the_npe_and_location() {
+        // Real jbmc shape: propertyClass "null-pointer-exception", description "Null pointer check".
+        val json = """
+            [
+              {"result":[
+                {"name":"n.1","status":"FAILURE","description":"Null pointer check",
+                 "sourceLocation":{"file":"Account.java","line":"18",
+                   "propertyClass":"null-pointer-exception","function":"java::pkg.Account.balance:()I"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("java.lang.NullPointerException at Account.java:18", r.violations[0].description)
+    }
+
+    @Test
+    fun array_bounds_refutation_names_the_array_index_exception_and_location() {
+        // Real jbmc shape: propertyClass "array-index-out-of-bounds-high", description
+        // "Array index should be < length".
+        val json = """
+            [
+              {"result":[
+                {"name":"b.1","status":"FAILURE","description":"Array index should be < length",
+                 "sourceLocation":{"file":"Grades.java","line":"7",
+                   "propertyClass":"array-index-out-of-bounds-high","function":"java::pkg.Grades.label:(I)I"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("java.lang.ArrayIndexOutOfBoundsException at Grades.java:7",
+                r.violations[0].description)
+    }
+
+    @Test
+    fun uncaught_thrown_exception_names_the_type_and_constant_message() {
+        // An explicit `throw` (or Kotlin require/check) that escapes the proof: jbmc's "no uncaught
+        // exception" check FAILS (no propertyClass). The thrown type is recovered from the LAST <init>
+        // before the failure (here IllegalArgumentException), and its constant String message from the
+        // char-array constant the literal materializes as. (Trimmed from a live cbmc 6.9.0 throw trace.)
+        val json = """
+            [
+              {"result":[
+                {"name":"u.1","status":"FAILURE","description":"no uncaught exception",
+                 "sourceLocation":{"file":"Orders.java","line":"5",
+                   "function":"java::pkg.Orders.validate:(I)V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Orders.validate:(I)V"},
+                    "sourceLocation":{"file":"Orders.java","line":"4"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[0L]","value":{"name":"integer","data":"'b'","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[1L]","value":{"name":"integer","data":"'a'","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[2L]","value":{"name":"integer","data":"'d'","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[3L]","value":{"name":"integer","data":"' '","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[4L]","value":{"name":"integer","data":"'q'","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[5L]","value":{"name":"integer","data":"'t'","type":"char"}},
+                   {"stepType":"assignment","lhs":"bad_20qty_constarray[6L]","value":{"name":"integer","data":"'y'","type":"char"}},
+                   {"stepType":"function-call","function":{"identifier":"java::java.lang.IllegalArgumentException.<init>:(Ljava/lang/String;)V"},
+                    "sourceLocation":{"file":"Orders.java","line":"5"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Orders.validate:(I)V","file":"Orders.java","line":"5"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("java.lang.IllegalArgumentException: bad qty at Orders.java:5",
+                r.violations[0].description)
+    }
+
+    @Test
+    fun uncaught_exception_with_an_unrecoverable_type_falls_back_to_a_neutral_reason() {
+        // No constructor in the trace to name the type -> we surface a NEUTRAL framing, never a
+        // guessed type (soundness: a wrong cause is worse than a vague one).
+        val json = """
+            [
+              {"result":[
+                {"name":"u.1","status":"FAILURE","description":"no uncaught exception",
+                 "sourceLocation":{"file":"Orders.java","line":"5",
+                   "function":"java::pkg.Orders.validate:(I)V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Orders.validate:(I)V"},
+                    "sourceLocation":{"file":"Orders.java","line":"4"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Orders.validate:(I)V","file":"Orders.java","line":"5"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("an uncaught exception was thrown at Orders.java:5", r.violations[0].description)
+    }
+
+    @Test
+    fun a_java_assert_failure_is_named_assertion_failed_at_the_line() {
+        // A bare Java `assert` (not via Bmc.check): propertyClass "assertion", no recoverable constant
+        // message -> "assertion failed at <file>:<line>", no internal-check qualifier.
+        val json = """
+            [
+              {"result":[
+                {"name":"a.1","status":"FAILURE",
+                 "description":"assertion at file Example.java line 5 function java::pkg.Example.f:()V",
+                 "sourceLocation":{"file":"Example.java","line":"5","propertyClass":"assertion",
+                   "function":"java::pkg.Example.f:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("assertion failed at Example.java:5", r.violations[0].description)
+    }
+
+    @Test
+    fun a_bare_assertion_without_propertyClass_is_still_named_assertion_failed() {
+        // A check jbmc lowered to a bare `assertion` property (no propertyClass) — e.g. a divide check
+        // merged through the Integer/collection models, which loses both the propertyClass AND the
+        // property's own location. The reason must still read "assertion failed" (with the location from
+        // the violation's resolved frame when available) rather than the cryptic bare "assertion".
+        val json = """
+            [
+              {"result":[
+                {"name":"r.3","status":"FAILURE","description":"assertion",
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"4"}},
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Orders.reciprocal:()I"},
+                    "sourceLocation":{"file":"Tests.java","line":"6"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Orders.reciprocal:()I","file":"Orders.java","line":"20"}}
+                 ]}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("assertion failed at Orders.java:20", r.violations[0].description)
+    }
+
+    @Test
+    fun an_unrecognized_failure_keeps_jbmcs_raw_description() {
+        // A FAILURE shape we don't classify (no propertyClass, not "no uncaught exception") must keep
+        // jbmc's own description — never replaced by a worse generic one.
+        val json = """
+            [
+              {"result":[
+                {"name":"x.1","status":"FAILURE","description":"some engine-specific check",
+                 "sourceLocation":{"file":"Example.java","line":"5","function":"java::pkg.Example.f:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals("some engine-specific check", r.violations[0].description)
     }
 
     @Test

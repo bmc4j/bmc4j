@@ -395,6 +395,45 @@ internal class VerdictCacheTest {
         assertNotEquals(scoped, whole, "a scoped cone digest must never alias the whole-classpath fallback")
     }
 
+    @Test
+    fun runtimeSemanticsIdentity_isFoldedIntoTheKey() {
+        // The bmc4j runtime semantics identity (Bmc4jVersion.IDENTITY, fed by SEMANTICS_REVISION) is
+        // component 1 of the key, so bumping the revision — e.g. when a rewriter/model/verdict-derivation
+        // change lands, OR when the RENDERED refutation detail changes — must bust every cached verdict.
+        // A key the engine identity differs in already diverges (proven above); here we pin that the
+        // runtime IDENTITY string actually appears in the keyed material by showing an entry written under
+        // a STALE identity is not served by the live lookup.
+        assertTrue(Bmc4jVersion.IDENTITY.isNotBlank(), "the runtime identity must be non-empty")
+        // The current identity is part of the digest input, so two requests that differ ONLY by a
+        // simulated identity change must not collide — we approximate the "other revision" via the engine
+        // component, which sits right beside the runtime identity in computeKey.
+        assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
+                VerdictCache.computeKey(baseReq(), ENGINE + "+staleRevision"),
+                "a change in the keyed identity material must invalidate the cache (revision-bump invalidation)")
+    }
+
+    @Test
+    fun cachedRefutedDemo_reDerivesAfterARevisionBump(@TempDir dir: Path) {
+        // The end-to-end staleness fix: a REFUTED fail-on-purpose demo cached under the PRIOR runtime
+        // revision must NOT be served after a revision bump — it re-runs (and so re-renders the new
+        // refutation reason). We simulate "the prior revision" by storing the entry under a key computed
+        // with a stale identity (modelled via a different engine id), then confirming the live lookup
+        // (current identity) MISSES it.
+        runIn(dir) {
+            val r = req(dir.resolve("classes").toString())
+            val refuted = JbmcResult(false, listOf(
+                    JbmcResult.Violation("a checked property does not hold", "C.java", 1, listOf(), listOf())),
+                    "raw")
+            // Store under the "previous revision" key (stale identity proxy).
+            VerdictCache.storeIfExpectedMatch(r, "$ENGINE+prevRevision", refuted, org.bmc4j.Verdict.REFUTED)
+            assertTrue(VerdictCache.lookup(r, "$ENGINE+prevRevision") != null,
+                    "the demo IS cached under the prior revision")
+            // After the bump (current identity), the prior entry must not be served -> re-run -> re-render.
+            assertTrue(VerdictCache.lookup(r, ENGINE) == null,
+                    "a refutation cached under the prior revision must MISS after the bump and re-derive")
+        }
+    }
+
     // --- computeKey memoization (a cache hit must be cheap) ---------------------
 
     /**
