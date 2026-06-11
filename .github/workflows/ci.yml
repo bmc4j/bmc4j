@@ -360,13 +360,15 @@ jobs:
             bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-
             bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-
 
-      # --no-build-cache: Gradle's task cache would REPLAY test results for legs whose
-      # inputs match another leg (it formally deduped the kotlin-2.3-default leg against
-      # jdk21-full on its first run) - but these legs exist to PROVE each version
-      # combination actually works, so the test JVMs must execute. Speed still comes
-      # from the right layer: the per-proof verdict cache (restored above) skips the
-      # SOLVES for anything unchanged, which also keeps that cache continuously
-      # exercised in CI. Dependency caching (setup-gradle) is unaffected.
+      # Build cache stays ON so the expensive bmcMirrorClasspath (@CacheableTask) and the compile
+      # tasks replay FROM-CACHE (setup-gradle persists ~/.gradle/caches/build-cache-1 across runs)
+      # instead of re-mirroring the whole analysis classpath every leg. The reason we previously
+      # passed --no-build-cache - stopping Gradle from REPLAYING test results across legs whose inputs
+      # match (it once deduped a kotlin leg against jdk21-full) - is handled more surgically in the root
+      # build: proof Test tasks are forced always-run + never-cached (outputs.upToDateWhen/cacheIf false),
+      # so every leg still genuinely executes while only the Test task, not the whole build, re-runs.
+      # Speed still comes from the per-proof verdict cache (restored above), which skips the SOLVES for
+      # anything unchanged and stays continuously exercised in CI.
       #
       # -Dbmc.shard.* select this shard's slice of the suite (the bmc-runtime
       # PostDiscoveryFilter keeps 1/N of the proofs); shardCount=1 is a no-op (full suite).
@@ -378,7 +380,7 @@ jobs:
       - name: Proofs (${{ matrix.tasks }})
         shell: bash
         run: |
-          ./gradlew --no-daemon --no-build-cache --stacktrace -Dbmc.timeoutSeconds=300 \
+          ./gradlew --no-daemon --stacktrace -Dbmc.timeoutSeconds=300 \
             -Dbmc.shard.count=${{ matrix.shardCount }} -Dbmc.shard.index=${{ matrix.shardIndex }} \
             -Dbmc.summaryDir="$GITHUB_WORKSPACE/bmc-proof-summary" \
             ${{ matrix.flags }} ${{ matrix.tasks }}
