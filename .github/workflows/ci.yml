@@ -352,7 +352,9 @@ jobs:
       - name: Restore verdict caches
         uses: actions/cache/restore@v5
         with:
-          path: '**/build/bmc4j/verdict-cache'
+          path: |
+            **/build/bmc4j/verdict-cache
+            **/build/bmc4j/unwind-cache
           key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
           restore-keys: |
             bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-
@@ -414,10 +416,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # tar every '<module>/build/bmc4j/verdict-cache' dir (workspace-relative, so it extracts
-          # back to the same layout). Always produce a (possibly empty) tarball so upload never
-          # no-ops away the artifact the merge job expects.
-          find . -type d -path '*/build/bmc4j/verdict-cache' -print0 > dirs.0 || true
+          # tar every '<module>/build/bmc4j/{verdict,unwind}-cache' dir (workspace-relative, so it
+          # extracts back to the same layout). The unwind cache (the AUTO-discovered loop bound per
+          # proof) is a sibling of the verdict cache and must persist too, or every run re-climbs from
+          # scratch. Always produce a (possibly empty) tarball so upload never no-ops away the artifact.
+          find . -type d \( -path '*/build/bmc4j/verdict-cache' -o -path '*/build/bmc4j/unwind-cache' \) -print0 > dirs.0 || true
           if [ -s dirs.0 ]; then
             tar --null -czf verdict-cache-shard.tgz -T dirs.0
           else
@@ -504,7 +507,7 @@ jobs:
             if cp -rn "$tmp/." "$GITHUB_WORKSPACE/" 2>/dev/null; then found=1; fi
             rm -rf "$tmp"
           done
-          entries="$(find "$GITHUB_WORKSPACE" -type f -path '*/build/bmc4j/verdict-cache/*' 2>/dev/null | wc -l | tr -d ' ')"
+          entries="$(find "$GITHUB_WORKSPACE" -type f \( -path '*/build/bmc4j/verdict-cache/*' -o -path '*/build/bmc4j/unwind-cache/*' \) 2>/dev/null | wc -l | tr -d ' ')"
           echo "leg '${{ matrix.leg }}': downloaded $arts shard artifact(s), ${#tgzs[@]} tarball(s); unioned $entries verdict-cache entries (found=$found)"
           # Loud guard so this can't silently regress again: if shard artifacts were present but
           # produced ZERO verdict entries, the union is broken (e.g. another layout change) - the
@@ -520,7 +523,9 @@ jobs:
         if: ${{ steps.union.outputs.entries != '0' }}
         uses: actions/cache/save@v5
         with:
-          path: '**/build/bmc4j/verdict-cache'
+          path: |
+            **/build/bmc4j/verdict-cache
+            **/build/bmc4j/unwind-cache
           key: bmc-verdict-${{ runner.os }}-${{ matrix.leg }}-merged-${{ github.run_id }}
 
   # ── Proof-results report (PR comment on pull_request, job summary otherwise) ────
