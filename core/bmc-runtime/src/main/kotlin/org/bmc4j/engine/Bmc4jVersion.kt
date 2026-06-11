@@ -65,9 +65,17 @@ object Bmc4jVersion {
      * back to a full in-JVM rewrite on any mismatch) so a stale config bake is never served. Covered
      * entries are matched by CANONICAL path (the test worker can spell java.class.path entries differently
      * — e.g. doubled backslashes on Windows — than the task's file paths). Re-mirror on principle; the
-     * version-stamped key guarantees a pre-r11 mirror is never served to an r11 run.
+     * version-stamped key guarantees a pre-r11 mirror is never served to an r11 run;
+     * r12 adds the explicit USER-nondet witness tag (NondetTagBytecode) to the hoisted rewrite chain:
+     * it injects a verification-neutral Bmc.recordNondet("name", value) after each user Bmc.any* store so
+     * a refutation's counterexample carries the input robustly (boxed/helper/model nondets included). The
+     * VERDICT is unchanged (the sink is empty-body, formula-neutral), but the change alters BOTH the
+     * rewritten bytecode (re-mirror) AND the cached counterexample/WITNESS a REFUTED entry stores — a
+     * pre-r12 cached refutation would replay the OLD blank/heuristic witness instead of the new tagged
+     * one, so the verdict cache (which keys on this IDENTITY, component 1 of computeKey) must miss too.
+     * Both caches invalidate on this bump.
      */
-    private const val SEMANTICS_REVISION = "r11"
+    private const val SEMANTICS_REVISION = "r12"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

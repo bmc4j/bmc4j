@@ -27,6 +27,9 @@ import java.nio.file.Path
  *    records as an `@Input` (so flipping it re-mirrors) and folds into the mirror cache key;
  *  - [ReachabilityBytecode] — injects the vacuity marker into `@BmcProof` returns; a pure function of
  *    the bytecode.
+ *  - [NondetTagBytecode] — injects a verification-neutral `Bmc.recordNondet("name", value)` after each
+ *    USER `Bmc.any*` store so a counterexample carries the input robustly; a pure function of the
+ *    bytecode (it only touches user-origin classes' `Bmc.any*` call sites).
  *
  * These are the expensive ones on a real consumer classpath (bmc4j + Spring + Kotlin jars): each is a
  * full ASM walk of every entry, so under cold parallel proof lanes they contend on the per-user
@@ -167,6 +170,11 @@ object GradleClasspathMirror {
                     // only. Folded into the mirror cache key below regardless.
                     cp = withKotlinNullableParams(kotlinNullableParams) { KotlinParamBytecode.rewrite(cp) }
                     cp = ReachabilityBytecode.rewrite(cp)
+                    // The explicit user-nondet witness tag — pure, env-independent bytecode (only touches
+                    // user-origin Bmc.any* sites), so it belongs in the hoisted set exactly like the
+                    // passes above. Same entry point JbmcBackend.applyHoistablePasses calls, so the mirror
+                    // is byte-for-byte what the in-JVM pipeline produces.
+                    cp = NondetTagBytecode.rewrite(cp)
                     cp
                 }
             }

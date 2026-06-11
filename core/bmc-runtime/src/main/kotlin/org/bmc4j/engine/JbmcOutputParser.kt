@@ -609,6 +609,27 @@ object JbmcOutputParser {
         val heap = ArrayHeap()
         val entryPrefix = if (entryFunctionFqn != null) "java::$entryFunctionFqn" else null
 
+        // Explicit USER-nondet witness tags (NondetTagBytecode) are the PRIMARY input channel, so harvest
+        // them BEFORE the scalar/heap trace scan and seed `inputs` with them: a `Bmc.recordNondet("name",
+        // value)` call site surfaces the input's NAME + VALUE + KIND directly from the trace, independent
+        // of whether the value was later boxed through a Triple/carrier or minted in a helper / user model
+        // (the flow-fragility the anonlocal/LVT scalar path drops). Seeding first means a tagged input wins
+        // its name: the scalar path ([collectCounterexample]) and the array heap path both skip a name
+        // already in `inputs`, so they only ADD the un-tagged inputs alongside (the auto-marked @BmcProof
+        // PARAMETER inputs — which carry no call site to tag — and any older-snapshot scalar). Degrades to
+        // a no-op on an untagged run. An OBJECT-handle tag (anyOf / a symbolic array) carries no
+        // displayable scalar (kind+value both null): it is deliberately NOT seeded here, leaving its name
+        // free for the heap reconstruction below to render `name = [..]` (or a name-only object mention).
+        val tags = harvestNondetTags(trace)
+        tags.forEach { (name, tag) ->
+            val value = tag.value
+            if (name !in inputs && value != null) {
+                inputs[name] = value
+                // A tag with a value always carries a kind (only the object-handle tag has both null).
+                inputKinds[name] = tag.kind ?: "integer"
+            }
+        }
+
         for (se in trace) {
             val step = se.asJsonObject
             val type = str(step, "stepType") ?: continue
@@ -671,6 +692,110 @@ object JbmcOutputParser {
             val caller = frames[i + 1]
             stack.add(frame(caller.id, callee.callFile, callee.callLine))
         }
+    }
+
+    /** The JBMC function-id prefix of the explicit witness-tag sink ([NondetTagBytecode] injects calls
+     *  to it). A `function-call` into this id carries the tagged input's name + value as its arguments. */
+    private const val RECORD_NONDET_ID = "java::org.bmc4j.Bmc.recordNondet:"
+
+    /** The `String.Literal.` prefix JBMC stamps on a string-constant pointer's `data` — the tag NAME
+     *  arrives this way (the `Bmc.recordNondet("x", ...)` first argument), and a tagged String VALUE too. */
+    private const val STRING_LITERAL_PREFIX = "java.lang.String.Literal."
+
+    /**
+     * One harvested witness tag: the binding [kind] the replay renderer keys on (`"integer"`,
+     * `"boolean"`, `"float"`, `"double"`, `"string"`, or `null` for an object handle that carries no
+     * displayable scalar) and the displayable [value] (null for an object handle — e.g. an array, whose
+     * elements the heap reconstruction renders, or a bare object input shown by name only).
+     */
+    internal class TagValue(val kind: String?, val value: String?)
+
+    /**
+     * Harvest the explicit USER-nondet witness tags from a FAILURE [trace]: for each `function-call`
+     * into [RECORD_NONDET_ID] (`Bmc.recordNondet(name, value)`), read the argument bindings the engine
+     * assigns inside that frame — the `String` literal NAME (a `pointer` whose `data` is
+     * `java.lang.String.Literal.<name>`, always the FIRST literal-string arg) and the VALUE — and return
+     * them as ordered `name -> TagValue` pairs, first-wins per name.
+     *
+     * The VALUE's kind is taken from the `recordNondet` OVERLOAD the call resolved to (its descriptor in
+     * the frame id): `J` -> integer, `Z` -> boolean, `F` -> float, `D` -> double, a trailing
+     * `Ljava/lang/String;` -> string, a trailing `Ljava/lang/Object;` -> object handle (no scalar value;
+     * the variable is named, and an array's elements are rendered by the heap reconstruction). This is
+     * the robust counterexample-input channel: the tag is emitted at the symbolic-input call site, so its
+     * value lands in the trace regardless of how the value later flows (boxed through a `Triple`/carrier,
+     * returned from a helper, minted in a user model). Pure; never throws; empty on an untagged run.
+     */
+    internal fun harvestNondetTags(trace: JsonArray): LinkedHashMap<String, TagValue> {
+        val out = LinkedHashMap<String, TagValue>()
+        var valueKind: String? = null       // the overload's value kind for the current tag frame
+        var inTag = false
+        var name: String? = null
+        var value: String? = null
+        for (se in trace) {
+            val step = se.asJsonObject
+            when (str(step, "stepType")) {
+                "function-call" -> {
+                    val id = funcId(step)
+                    if (id != null && id.startsWith(RECORD_NONDET_ID)) {
+                        inTag = true; name = null; value = null; valueKind = recordNondetValueKind(id)
+                    }
+                }
+                "function-return" -> {
+                    val id = funcId(step)
+                    if (id != null && id.startsWith(RECORD_NONDET_ID)) {
+                        val resolvedName = name
+                        if (resolvedName != null && resolvedName !in out) {
+                            // An object handle (kind null) records the NAME with no value; the heap path
+                            // (arrays) or a name-only mention renders it. Every other kind needs a value.
+                            if (valueKind == null) {
+                                out[resolvedName] = TagValue(null, null)
+                            } else if (value != null) {
+                                out[resolvedName] = TagValue(valueKind, value)
+                            }
+                        }
+                        inTag = false; name = null; value = null; valueKind = null
+                    }
+                }
+                "assignment" -> {
+                    if (!inTag || !step.has("value") || !step.get("value").isJsonObject) {
+                        continue
+                    }
+                    val v = step.getAsJsonObject("value")
+                    when (str(v, "name")) {
+                        "pointer" -> {
+                            val d = str(v, "data")
+                            if (d != null && d.startsWith(STRING_LITERAL_PREFIX)) {
+                                val literal = d.removePrefix(STRING_LITERAL_PREFIX)
+                                // The FIRST string literal is the NAME (arg0); for a String-valued tag the
+                                // SECOND is the value. For an object tag the value pointer isn't a literal,
+                                // so only the name is captured (value stays null -> object handle).
+                                if (name == null) {
+                                    name = literal
+                                } else if (valueKind == "string" && value == null) {
+                                    value = literal
+                                }
+                            }
+                        }
+                        "integer" -> if (value == null) value = str(v, "data")
+                        "boolean" -> if (value == null) value = str(v, "data")
+                        "float", "double" -> if (value == null) value = str(v, "data")
+                    }
+                }
+            }
+        }
+        return out
+    }
+
+    /** The binding kind for a `recordNondet` overload, from its descriptor in the frame [id]
+     *  (`...recordNondet:(Ljava/lang/String;<X>)V`): `J/Z/F/D` map to the scalar kinds, a trailing
+     *  `String` to `"string"`, and a trailing `Object` to `null` (an object handle, no scalar value). */
+    private fun recordNondetValueKind(id: String): String? = when {
+        id.contains(";J)") -> "integer"
+        id.contains(";Z)") -> "boolean"
+        id.contains(";F)") -> "float"
+        id.contains(";D)") -> "double"
+        id.contains(";Ljava/lang/String;)") -> "string"
+        else -> null // Ljava/lang/Object; -> object handle
     }
 
     private fun collectCounterexample(step: JsonObject, entryPrefix: String?,

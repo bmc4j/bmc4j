@@ -624,4 +624,60 @@ public final class Bmc {
     public static void slice(boolean __condition) {
         // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
     }
+
+    /**
+     * Witness-tagging sink for a USER symbolic input (counterexample-witness plumbing).
+     *
+     * <p>{@code NondetTagBytecode} injects a call to one of these {@code recordNondet} overloads
+     * immediately after each marked {@code Bmc.any*} call site, carrying the destination local's
+     * source name and the freshly minted symbolic value: {@code Bmc.recordNondet("x", x)}. JBMC does
+     * not intrinsify these methods, so the call surfaces in the {@code --json-ui} trace as a plain
+     * {@code function-call} whose argument bindings ({@code arg0a} -> the
+     * {@code java.lang.String.Literal.<name>} pointer, {@code arg1*} -> the value) {@code JbmcOutputParser}
+     * harvests as a named input — robustly, regardless of whether the value is later boxed through a
+     * {@code Triple}/carrier or minted in a helper. They are no-ops at runtime and verification-neutral:
+     * an empty body the engine enters and returns from, never constraining the formula nor changing the
+     * verdict.
+     *
+     * <p>The {@code long} overload is the common widening for every integral symbolic kind
+     * ({@code int}/{@code long}/{@code short}/{@code byte}/{@code char}), so one sink serves them all;
+     * dedicated overloads cover {@code boolean}/{@code float}/{@code double}, {@code String}, and the
+     * object inputs ({@code anyOf}, including symbolic arrays, which carry their handle through the
+     * {@code Object} overload so the heap reconstruction still renders {@code [..]}).
+     */
+    public static void recordNondet(String __name, long __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    /** Witness sink for a {@code boolean} symbolic input. See {@link #recordNondet(String, long)}. */
+    public static void recordNondet(String __name, boolean __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    /** Witness sink for a {@code float} symbolic input. See {@link #recordNondet(String, long)}. */
+    public static void recordNondet(String __name, float __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    /** Witness sink for a {@code double} symbolic input. See {@link #recordNondet(String, long)}. */
+    public static void recordNondet(String __name, double __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    /**
+     * Witness sink for a {@code String} symbolic input. See {@link #recordNondet(String, long)}. The
+     * value surfaces in the trace as a {@code pointer} to a {@code String.Literal} the parser decodes.
+     */
+    public static void recordNondet(String __name, String __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    /**
+     * Witness sink for an OBJECT symbolic input — {@code anyOf}'s chosen element and symbolic ARRAYS
+     * (the array handle rides through here so the trace still carries the variable's NAME, while the
+     * per-element heap reconstruction renders {@code [..]}). See {@link #recordNondet(String, long)}.
+     */
+    public static void recordNondet(String __name, Object __value) {
+        // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
 }
