@@ -558,9 +558,6 @@ jobs:
       # job-summary page and ignores this scope.
       pull-requests: write
     steps:
-      - name: Checkout (for the aggregation script)
-        uses: actions/checkout@v6
-
       - name: Download proof summaries
         uses: actions/download-artifact@v6
         with:
@@ -589,16 +586,12 @@ jobs:
           echo "Unpacked $(find summaries -name '*.jsonl' | wc -l) summary file(s)."
 
       - name: Report the proof results (PR comment or job summary)
-        uses: actions/github-script@v7
-        env:
-          SUMMARY_ROOT: summaries
-          # PR head sha on a pull_request; the pushed commit on a main push.
-          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        uses: bmc4j/github-actions/proof-report@v1
         with:
-          script: |
-            const mod = await import('${{ github.workspace }}/.github/scripts/proof-comment.mjs');
-            await mod.default({ github, context, core });
+          summary-root: summaries
+          # PR head sha on a pull_request; the pushed commit on a main push.
+          head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   smoke:
     name: smoke ${{ matrix.platform }}
