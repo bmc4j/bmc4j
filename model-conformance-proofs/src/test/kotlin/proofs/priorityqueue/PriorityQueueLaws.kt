@@ -36,7 +36,19 @@ class PriorityQueueLaws {
     // Non-decreasing across one poll step: the value polled (the current minimum) is <= the new head
     // after it is removed. Two symbolic elements keep the repeated-scan circuit decidable; this is the
     // adjacent-step form of "successive polls are non-decreasing".
-    @BmcProof
+    //
+    // unwind = 4 (down from the build default of 16) is load-bearing here for the SAME reason as
+    // natural_string_head_is_the_lexicographic_minimum below: this is the only natural-Integer law that
+    // POLLS (removeAt's shift loop on top of leastIndex's scan), so it is the heaviest of the family.
+    // Every model loop it touches is bounded by size, which is at most 2 here (leastIndex's `i<size`
+    // scan and removeAt's `j<size-1` shift), so each closes in <= 1 iteration; unwind = 4 covers them
+    // completely with margin. At the default bound of 16 goto-build unrolled those bounded loops (and
+    // the verification-neutral nondet-tag sink the witness pass injects after each anyInt) far past what
+    // the proof can reach, growing the symbolic state until jbmc exhausted memory and was killed before
+    // emitting any output (empty stdout -> PARSE_FAILURE) under the conformance leg's 4-wide fan-out. A
+    // bound of 4 fully covers every reachable loop, so the proof verifies the SAME law over the SAME two
+    // symbolic integers while fitting the engine's memory.
+    @BmcProof(unwind = 4)
     fun natural_poll_then_peek_is_non_decreasing() {
         val q = PriorityQueue<Int>()
         val a = Bmc.anyInt(-100, 100)
