@@ -1,5 +1,6 @@
 package org.bmc4j.engine
 
+import org.objectweb.asm.AnnotationVisitor
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
@@ -9,51 +10,101 @@ import org.objectweb.asm.Opcodes
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * **SPIKE: explicit user-nondet witness tag.** Emits a named witness tag at every USER symbolic-input
- * call site so a counterexample robustly carries the input's value REGARDLESS of where it later flows
- * (boxed through a `Triple`/carrier, returned from a helper) — the flow-fragility that the LVT-name
- * witness heuristic drops.
+ * Explicit USER-nondet witness tag. Emits a named witness tag at every USER symbolic-input call site so
+ * a counterexample robustly carries the input's value REGARDLESS of where it later flows (boxed through a
+ * `Triple`/carrier, returned from a helper, minted inside a user model) — the flow-fragility the
+ * LVT-name witness heuristic drops.
  *
- * For each `INVOKESTATIC org/bmc4j/Bmc.any{Int,Long,...}` whose integral result is immediately stored
- * to a local slot, this pass injects right after the store:
+ * For each `INVOKESTATIC org/bmc4j/Bmc.any*` whose result is immediately stored to a local slot, this
+ * pass injects right after the store:
  *
  * ```
- * Bmc.recordNondet("<localName>", value)
+ * Bmc.recordNondet("<name>", value)
  * ```
  *
- * where `<localName>` is the destination local's `LocalVariableTable` name (a synthetic
- * `nondet$<slot>` when the class was compiled `-g:none` and carries no table). JBMC does NOT
+ * where `<name>` is the destination local's `LocalVariableTable` name (a synthetic `nondet$<slot>` when
+ * the class was compiled `-g:none`), CLASS-QUALIFIED (`<SimpleClass>.<localName>`) when the nondet
+ * originates OUTSIDE a `@BmcProof` method — i.e. in a helper or a user MODEL — so the counterexample
+ * reads `DbRepoModel.result = 5`; bare (`result = 5`) for a proof's own direct inputs. JBMC does NOT
  * intrinsify `Bmc.recordNondet`, so the call surfaces in the `--json-ui` trace as a plain
  * `function-call` whose argument bindings ([JbmcOutputParser.harvestNondetTags] reads them) are:
  *   - `arg0a` → a `pointer` whose `data` is `java.lang.String.Literal.<name>` (the input NAME), and
- *   - `arg1l` → an `integer` value (the input VALUE).
+ *   - `arg1*` → the input VALUE (an `integer`/`boolean`/`float`/`double`, a `String` pointer, or — for
+ *     an object/array input — the handle whose presence still names the variable).
  *
  * Empirically verified verification-neutral against the bundled cbmc 6.9.0: the engine enters and
- * returns the empty-body sink without constraining the formula — the verdict (and the symbolic value
- * `arg1l` carries) is byte-identical with and without the tag.
+ * returns the empty-body sink without constraining the formula — the verdict (and the symbolic value the
+ * argument carries) is byte-identical with and without the tag.
  *
- * Why a CALL-SITE rewrite (vs tagging inside `Bmc.anyInt`): the destination local's source name is
- * only known at the call site; inside `anyInt` the name is lost. Tagging at the store also captures
- * the value at the moment it is bound to the user's variable, before any boxing.
+ * ## Why a CALL-SITE rewrite
+ * The destination local's source name is only known at the call site; inside `anyInt` the name is lost.
+ * Tagging at the store also captures the value at the moment it is bound to the user's variable, before
+ * any boxing.
  *
- * Scope of the SPIKE: integral scalars stored directly to a local (the `int x = Bmc.anyInt()` shape,
- * including via the boxed-`Triple` helper `val (a,b,c) = ...` lowering). Values consumed straight into
- * an expression without an intervening store are out of scope for this prototype.
+ * ## Two-phase rewrite (preserve ALL metadata)
+ * The destination local's NAME arrives only with the trailing `LocalVariableTable` callbacks, AFTER the
+ * code. Rather than buffer the method (which would force re-emitting every annotation/attribute by hand),
+ * this pass scans each method ONCE up front ([Plan]) to learn its marked-store sites + LVT names +
+ * `@BmcProof` flag, then makes a normal writer-delegating pass that injects the tag after each planned
+ * store. The delegating pass leaves annotations, parameters, the LVT, and frames untouched — only the
+ * tag instructions are added.
+ *
+ * ## User-origin scoping (proofs AND user models, NOT bundled models)
+ * The pass runs over the whole analysis classpath, but a tag is only a USER input when it originates in
+ * code the consumer authored — their proof, a helper, or their own `src/bmcModel` model. bmc4j's own
+ * BUNDLED models (`java.*`/`kotlin.*` stand-ins) and runtime (`org.bmc4j.*`) call `CProver.nondet*`
+ * (and `Bmc.any*`) internally as MODELLING havoc, which is noise, not a user input. So a class in a
+ * [reserved namespace][WitnessUserCode.isReservedNamespace] is never tagged — the same classpath-origin
+ * discrimination [WitnessUserCode] uses for the witness. (Third-party library jars are not reserved but
+ * never call `Bmc.any*`, so the pass is a no-op there regardless.)
  */
 object NondetTagBytecode {
 
     private const val BMC_OWNER = "org/bmc4j/Bmc"
     private const val RECORD_NAME = "recordNondet"
-    private const val RECORD_DESC = "(Ljava/lang/String;J)V"
+    private const val BMC_PROOF_DESC = "Lorg/bmc4j/BmcProof;"
+
+    // The recordNondet overloads, one per witness value kind.
+    private const val RECORD_DESC_LONG = "(Ljava/lang/String;J)V"
+    private const val RECORD_DESC_BOOL = "(Ljava/lang/String;Z)V"
+    private const val RECORD_DESC_FLOAT = "(Ljava/lang/String;F)V"
+    private const val RECORD_DESC_DOUBLE = "(Ljava/lang/String;D)V"
+    private const val RECORD_DESC_STRING = "(Ljava/lang/String;Ljava/lang/String;)V"
+    private const val RECORD_DESC_OBJECT = "(Ljava/lang/String;Ljava/lang/Object;)V"
 
     /** Synthetic source line stamped on the injected tag instructions (kept off real-line collisions,
      *  mirroring [BmcReachability.SENTINEL_LINE]; informational only — the parser keys on the frame id,
      *  not the line). */
     private const val TAG_LINE = 65_534
 
-    /** Marked USER symbolic-input methods: integral-returning `Bmc.any*` (the witness-relevant ones). */
-    private val MARKED_INT = setOf("anyInt", "anyPositiveInt", "anyNonNegativeInt")
-    private val MARKED_LONG = setOf("anyLong")
+    /** The witness VALUE kind a tagged store carries — selects the [RECORD_DESC_*] overload and the
+     *  reload/widen sequence used to feed the sink. */
+    private enum class Kind { LONG, BOOL, FLOAT, DOUBLE, STRING, OBJECT }
+
+    /**
+     * The marked USER symbolic-input methods of [Bmc] → the witness kind their result carries.
+     * EVERY `Bmc.any*` is here: the integral kinds (int/long/short/byte/char + their ranged/positive/
+     * non-negative forms) widen to [Kind.LONG]; boolean/float/double get their own; `anyString*` →
+     * [Kind.STRING]; `anyOf` and the symbolic arrays → [Kind.OBJECT] (the array handle rides through the
+     * Object sink so the variable is still named, while the heap reconstruction renders `[..]`). The
+     * `*FromEnv`/`*FromProperty` config readers are deliberately ABSENT: they are pinned to the run's
+     * real config (a CONSTANT after the Config bake), not a symbolic input to witness.
+     */
+    private val MARKED: Map<String, Kind> = buildMap {
+        for (m in listOf("anyInt", "anyPositiveInt", "anyNonNegativeInt", "anyLong",
+                "anyShort", "anyByte", "anyChar")) {
+            put(m, Kind.LONG)
+        }
+        put("anyBoolean", Kind.BOOL)
+        put("anyFloat", Kind.FLOAT)
+        put("anyDouble", Kind.DOUBLE)
+        for (m in listOf("anyString", "anyAsciiString")) {
+            put(m, Kind.STRING)
+        }
+        for (m in listOf("anyOf", "anyArrayOfInts", "anyArrayOfLongs")) {
+            put(m, Kind.OBJECT)
+        }
+    }
 
     private val CACHE = ConcurrentHashMap<String, String>()
 
@@ -68,61 +119,94 @@ object NondetTagBytecode {
 
     internal fun rewriteClass(bytes: ByteArray): ByteArray {
         val cr = ClassReader(bytes)
-        // COMPUTE_MAXS: the tag pushes (String, long) — extra stack — but adds no new branch targets,
+        // User-origin scoping: a class in a reserved namespace (bundled models / runtime) is never
+        // tagged — its internal nondet havoc is modelling noise, not a user input. Leave its bytes
+        // untouched so the pass is byte-for-byte a no-op there (and the mirror dedups identical content).
+        if (WitnessUserCode.isReservedNamespace(cr.className)) {
+            return bytes
+        }
+        // Phase 1: scan every method for marked-store sites (with their resolved local names + proof
+        // flag). No marked stores anywhere -> nothing to inject; return the original bytes unchanged so
+        // the pass is a byte-for-byte no-op on classes that take no user nondet (every library/JDK class).
+        val plans = scan(cr)
+        if (plans.isEmpty()) {
+            return bytes
+        }
+        val simpleClass = simpleName(cr.className)
+        // Phase 2: a normal writer-delegating pass that splices the tag after each planned store.
+        // COMPUTE_MAXS: the tag pushes (String, value) — extra stack — but adds no new branch targets,
         // so existing stack-map frames stay valid (same rationale as ReachabilityBytecode).
         val cw = ClassWriter(cr, ClassWriter.COMPUTE_MAXS)
         val cv = object : ClassVisitor(Opcodes.ASM9, cw) {
             override fun visitMethod(access: Int, name: String?, desc: String?, sig: String?,
-                                     ex: Array<String>?): MethodVisitor =
-                    TagMethodVisitor(super.visitMethod(access, name, desc, sig, ex))
+                                     ex: Array<String>?): MethodVisitor {
+                val mv = super.visitMethod(access, name, desc, sig, ex)
+                val plan = plans[name + desc] ?: return mv
+                return InjectingMethodVisitor(mv, plan, simpleClass)
+            }
         }
         cr.accept(cv, 0)
         return cw.toByteArray()
     }
 
-    /**
-     * Buffers a method's instructions so the destination-local NAME (delivered only by the trailing
-     * [visitLocalVariable] callbacks) is known before we emit each tag. A pending tag is queued when we
-     * see a marked `Bmc.any*` invoke immediately followed by an integral store; at [visitEnd] every
-     * queued tag's local name is resolved from the harvested table and replayed into the writer.
-     */
-    private class TagMethodVisitor(private val out: MethodVisitor) :
-            MethodVisitor(Opcodes.ASM9, null) {
+    /** `pkg/Outer$Inner` → `Inner` (the simple class name used to qualify a non-proof nondet). */
+    private fun simpleName(internal: String): String =
+            internal.substringAfterLast('/').substringAfterLast('$')
 
-        /** A buffered instruction: re-issues itself against the real writer at visitEnd. */
-        private val buf = ArrayList<(MethodVisitor) -> Unit>()
+    /** One marked store to tag: the 0-based index of the store instruction within its method, the value
+     *  [kind], whether it is a 2-slot long (LSTORE), and the resolved witness NAME (already qualified). */
+    private class Site(val storeIndex: Int, val kind: Kind, val longSlot: Boolean, val name: String)
 
-        /** slot -> first-declared local name, from the LocalVariableTable. */
+    /** A method's injection plan: its [sites] keyed by store-instruction index, and whether it is a
+     *  proof (its inputs are named bare). */
+    private class Plan(val isProof: Boolean) {
+        val sites = HashMap<Int, Site>()
+    }
+
+    /** Phase 1: scan [cr] and build a [Plan] per method that has at least one marked store. */
+    private fun scan(cr: ClassReader): Map<String, Plan> {
+        val out = HashMap<String, Plan>()
+        cr.accept(object : ClassVisitor(Opcodes.ASM9) {
+            override fun visitMethod(access: Int, name: String?, desc: String?, sig: String?,
+                                     ex: Array<String>?): MethodVisitor =
+                    ScanMethodVisitor(name + desc, out)
+        }, 0)
+        return out
+    }
+
+    /** Scans one method: counts instructions (so a store's index is stable across the two passes),
+     *  records marked-store sites with their slot/kind, harvests LVT names, and notes `@BmcProof`. Local
+     *  names arrive AFTER the code, so the slot→name resolution is finished in [visitEnd]. */
+    private class ScanMethodVisitor(private val key: String, private val out: HashMap<String, Plan>) :
+            MethodVisitor(Opcodes.ASM9) {
+
+        private var insnIndex = 0
+        private var isProof = false
+        private var pendingMarked: Kind? = null
         private val localNames = HashMap<Int, String>()
+        // Provisional sites, slot kept so the name can be resolved once the LVT is known.
+        private class Pending(val storeIndex: Int, val slot: Int, val kind: Kind, val longSlot: Boolean)
+        private val pending = ArrayList<Pending>()
 
-        /** Queued (var slot, kind) tags to inject right after the buffered store at [bufIndexAfterStore]. */
-        private data class Tag(val bufIndexAfterStore: Int, val slot: Int, val long: Boolean)
-        private val tags = ArrayList<Tag>()
-
-        /** Was the immediately-preceding instruction a marked Bmc.any* invoke (and of which width)? */
-        private var pendingMarked: Boolean? = null // null=no, false=int, true=long
+        override fun visitAnnotation(descriptor: String?, visible: Boolean): AnnotationVisitor? {
+            if (BMC_PROOF_DESC == descriptor) {
+                isProof = true
+            }
+            return null
+        }
 
         override fun visitMethodInsn(opcode: Int, owner: String?, name: String?, desc: String?, itf: Boolean) {
-            buf.add { it.visitMethodInsn(opcode, owner, name, desc, itf) }
-            pendingMarked = if (opcode == Opcodes.INVOKESTATIC && owner == BMC_OWNER) {
-                when (name) {
-                    in MARKED_INT -> false
-                    in MARKED_LONG -> true
-                    else -> null
-                }
-            } else {
-                null
-            }
+            pendingMarked = if (opcode == Opcodes.INVOKESTATIC && owner == BMC_OWNER) MARKED[name] else null
+            insnIndex++
         }
 
         override fun visitVarInsn(opcode: Int, varIndex: Int) {
-            buf.add { it.visitVarInsn(opcode, varIndex) }
-            val marked = pendingMarked
-            if (marked != null && ((!marked && opcode == Opcodes.ISTORE) || (marked && opcode == Opcodes.LSTORE))) {
-                // Store of a marked nondet into a local: queue a tag to fire right after this store.
-                tags.add(Tag(buf.size, varIndex, marked))
+            val kind = pendingMarked
+            if (kind != null && storeMatches(kind, opcode)) {
+                pending.add(Pending(insnIndex, varIndex, kind, opcode == Opcodes.LSTORE))
             }
             pendingMarked = null
+            insnIndex++
         }
 
         override fun visitLocalVariable(name: String?, descriptor: String?, signature: String?,
@@ -130,72 +214,131 @@ object NondetTagBytecode {
             if (name != null && index !in localNames) {
                 localNames[index] = name
             }
-            super.visitLocalVariable(name, descriptor, signature, start, end, index)
         }
 
-        // Any non-invoke/non-store instruction clears the "immediately followed by store" window.
-        override fun visitInsn(opcode: Int) { buf.add { it.visitInsn(opcode) }; pendingMarked = null }
-        override fun visitIntInsn(o: Int, op: Int) { buf.add { it.visitIntInsn(o, op) }; pendingMarked = null }
-        override fun visitTypeInsn(o: Int, t: String?) { buf.add { it.visitTypeInsn(o, t) }; pendingMarked = null }
-        override fun visitFieldInsn(o: Int, ow: String?, n: String?, d: String?) {
-            buf.add { it.visitFieldInsn(o, ow, n, d) }; pendingMarked = null
+        // Every other instruction advances the counter and clears the "immediately followed by store"
+        // window. (Labels / line numbers / frames are NOT instructions and must NOT advance the index —
+        // the injecting pass counts the same instruction callbacks, so the two indices must align.)
+        override fun visitInsn(opcode: Int) { pendingMarked = null; insnIndex++ }
+        override fun visitIntInsn(o: Int, op: Int) { pendingMarked = null; insnIndex++ }
+        override fun visitTypeInsn(o: Int, t: String?) { pendingMarked = null; insnIndex++ }
+        override fun visitFieldInsn(o: Int, ow: String?, n: String?, d: String?) { pendingMarked = null; insnIndex++ }
+        override fun visitJumpInsn(o: Int, l: Label?) { pendingMarked = null; insnIndex++ }
+        override fun visitLdcInsn(v: Any?) { pendingMarked = null; insnIndex++ }
+        override fun visitIincInsn(v: Int, i: Int) { pendingMarked = null; insnIndex++ }
+        override fun visitTableSwitchInsn(mn: Int, mx: Int, d: Label?, vararg lbls: Label?) { pendingMarked = null; insnIndex++ }
+        override fun visitLookupSwitchInsn(d: Label?, keys: IntArray?, lbls: Array<Label?>?) { pendingMarked = null; insnIndex++ }
+        override fun visitMultiANewArrayInsn(d: String?, dims: Int) { pendingMarked = null; insnIndex++ }
+        override fun visitInvokeDynamicInsn(n: String?, d: String?, h: org.objectweb.asm.Handle?, vararg a: Any?) {
+            pendingMarked = null; insnIndex++
         }
-        override fun visitJumpInsn(o: Int, l: Label?) { buf.add { it.visitJumpInsn(o, l) }; pendingMarked = null }
-        override fun visitLabel(l: Label?) { buf.add { it.visitLabel(l) } }
-        override fun visitLdcInsn(v: Any?) { buf.add { it.visitLdcInsn(v) }; pendingMarked = null }
-        override fun visitIincInsn(v: Int, i: Int) { buf.add { it.visitIincInsn(v, i) }; pendingMarked = null }
-        override fun visitLineNumber(line: Int, s: Label?) { buf.add { it.visitLineNumber(line, s) } }
-        override fun visitFrame(t: Int, nl: Int, l: Array<Any?>?, ns: Int, s: Array<Any?>?) {
-            buf.add { it.visitFrame(t, nl, l, ns, s) }
-        }
-        override fun visitTableSwitchInsn(mn: Int, mx: Int, d: Label?, vararg lbls: Label?) {
-            buf.add { it.visitTableSwitchInsn(mn, mx, d, *lbls) }; pendingMarked = null
-        }
-        override fun visitLookupSwitchInsn(d: Label?, keys: IntArray?, lbls: Array<Label?>?) {
-            buf.add { it.visitLookupSwitchInsn(d, keys, lbls) }; pendingMarked = null
-        }
-        override fun visitMultiANewArrayInsn(d: String?, dims: Int) {
-            buf.add { it.visitMultiANewArrayInsn(d, dims) }; pendingMarked = null
-        }
-
-        override fun visitMaxs(maxStack: Int, maxLocals: Int) {
-            // COMPUTE_MAXS recomputes; pass through.
-            buf.add { it.visitMaxs(maxStack, maxLocals) }
-        }
-
-        override fun visitCode() { buf.add { it.visitCode() } }
 
         override fun visitEnd() {
-            // Resolve each queued tag's local name now that the LocalVariableTable is known, then replay
-            // the buffer, splicing the tag emission right after the store instruction it follows.
-            val byIndex = HashMap<Int, MutableList<Tag>>()
-            for (t in tags) {
-                byIndex.getOrPut(t.bufIndexAfterStore) { ArrayList() }.add(t)
+            if (pending.isEmpty()) {
+                return
             }
-            for (i in buf.indices) {
-                buf[i](out)
-                byIndex[i + 1]?.forEach { emitTag(out, it) }
+            val plan = Plan(isProof)
+            for (p in pending) {
+                val local = localNames[p.slot] ?: "nondet\$${p.slot}"
+                // Bare for a proof's own direct input; class-qualified for a helper/model nondet. The
+                // simple class name is prepended by the injecting pass (it knows the class); here we only
+                // store the LOCAL name and let the injector qualify, so the same Plan works regardless.
+                plan.sites[p.storeIndex] = Site(p.storeIndex, p.kind, p.longSlot, local)
             }
-            // visitMaxs/visitEnd: the buffered visitMaxs already ran above; finalize the delegate.
-            out.visitEnd()
+            out[key] = plan
+        }
+    }
+
+    /** Phase 2: re-emit a method through the writer unchanged, but splice the tag instructions right
+     *  after each planned store (identified by the same instruction index the scan computed). */
+    private class InjectingMethodVisitor(mv: MethodVisitor, private val plan: Plan,
+                                         private val simpleClass: String) :
+            MethodVisitor(Opcodes.ASM9, mv) {
+
+        private var insnIndex = 0
+
+        override fun visitMethodInsn(opcode: Int, owner: String?, name: String?, desc: String?, itf: Boolean) {
+            super.visitMethodInsn(opcode, owner, name, desc, itf)
+            afterInsn()
         }
 
-        /** Emit `Bmc.recordNondet("<name>", value)`: reload the value from its slot, ldc the name,
-         *  widen an int to long, and invoke the sink. Reading the slot back (rather than dup-before-store)
-         *  keeps the rewrite a clean post-store splice with no stack juggling. */
-        private fun emitTag(mv: MethodVisitor, tag: Tag) {
-            val name = localNames[tag.slot] ?: "nondet\$${tag.slot}"
-            val l = Label()
-            mv.visitLabel(l)
-            mv.visitLineNumber(TAG_LINE, l)
-            mv.visitLdcInsn(name)
-            if (tag.long) {
-                mv.visitVarInsn(Opcodes.LLOAD, tag.slot)
-            } else {
-                mv.visitVarInsn(Opcodes.ILOAD, tag.slot)
-                mv.visitInsn(Opcodes.I2L)
+        override fun visitVarInsn(opcode: Int, varIndex: Int) {
+            super.visitVarInsn(opcode, varIndex)
+            // A planned store at this index: emit the tag right after it (the value is in [varIndex]).
+            val site = plan.sites[insnIndex]
+            if (site != null) {
+                emitTag(site, varIndex)
             }
-            mv.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC, false)
+            afterInsn()
         }
+
+        override fun visitInsn(opcode: Int) { super.visitInsn(opcode); afterInsn() }
+        override fun visitIntInsn(o: Int, op: Int) { super.visitIntInsn(o, op); afterInsn() }
+        override fun visitTypeInsn(o: Int, t: String?) { super.visitTypeInsn(o, t); afterInsn() }
+        override fun visitFieldInsn(o: Int, ow: String?, n: String?, d: String?) { super.visitFieldInsn(o, ow, n, d); afterInsn() }
+        override fun visitJumpInsn(o: Int, l: Label?) { super.visitJumpInsn(o, l); afterInsn() }
+        override fun visitLdcInsn(v: Any?) { super.visitLdcInsn(v); afterInsn() }
+        override fun visitIincInsn(v: Int, i: Int) { super.visitIincInsn(v, i); afterInsn() }
+        override fun visitTableSwitchInsn(mn: Int, mx: Int, d: Label?, vararg lbls: Label?) { super.visitTableSwitchInsn(mn, mx, d, *lbls); afterInsn() }
+        override fun visitLookupSwitchInsn(d: Label?, keys: IntArray?, lbls: Array<Label?>?) { super.visitLookupSwitchInsn(d, keys, lbls); afterInsn() }
+        override fun visitMultiANewArrayInsn(d: String?, dims: Int) { super.visitMultiANewArrayInsn(d, dims); afterInsn() }
+        override fun visitInvokeDynamicInsn(n: String?, d: String?, h: org.objectweb.asm.Handle?, vararg a: Any?) {
+            super.visitInvokeDynamicInsn(n, d, h, *a); afterInsn()
+        }
+
+        private fun afterInsn() {
+            insnIndex++
+        }
+
+        /** Emit `Bmc.recordNondet("<name>", value)` after the store: ldc the (class-qualified-when-not-a-
+         *  proof) name, reload the value from [slot] (widening an integral to long), and invoke the
+         *  matching sink. */
+        private fun emitTag(site: Site, slot: Int) {
+            val name = if (plan.isProof) site.name else "$simpleClass.${site.name}"
+            val l = Label()
+            super.visitLabel(l)
+            super.visitLineNumber(TAG_LINE, l)
+            super.visitLdcInsn(name)
+            when (site.kind) {
+                Kind.LONG -> {
+                    if (site.longSlot) {
+                        super.visitVarInsn(Opcodes.LLOAD, slot)
+                    } else {
+                        super.visitVarInsn(Opcodes.ILOAD, slot)
+                        super.visitInsn(Opcodes.I2L)
+                    }
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_LONG, false)
+                }
+                Kind.BOOL -> {
+                    super.visitVarInsn(Opcodes.ILOAD, slot)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_BOOL, false)
+                }
+                Kind.FLOAT -> {
+                    super.visitVarInsn(Opcodes.FLOAD, slot)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_FLOAT, false)
+                }
+                Kind.DOUBLE -> {
+                    super.visitVarInsn(Opcodes.DLOAD, slot)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_DOUBLE, false)
+                }
+                Kind.STRING -> {
+                    super.visitVarInsn(Opcodes.ALOAD, slot)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_STRING, false)
+                }
+                Kind.OBJECT -> {
+                    super.visitVarInsn(Opcodes.ALOAD, slot)
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_OWNER, RECORD_NAME, RECORD_DESC_OBJECT, false)
+                }
+            }
+        }
+    }
+
+    /** Does [opcode] store a value of [kind] (so the marked nondet was bound to a local)? */
+    private fun storeMatches(kind: Kind, opcode: Int): Boolean = when (kind) {
+        Kind.LONG -> opcode == Opcodes.ISTORE || opcode == Opcodes.LSTORE
+        Kind.BOOL -> opcode == Opcodes.ISTORE // boolean is an int on the stack
+        Kind.FLOAT -> opcode == Opcodes.FSTORE
+        Kind.DOUBLE -> opcode == Opcodes.DSTORE
+        Kind.STRING, Kind.OBJECT -> opcode == Opcodes.ASTORE
     }
 }

@@ -211,7 +211,7 @@ internal class WitnessUserCode private constructor(private val dirRoots: List<Pa
          * includeBuild layout these ship as directory entries, so the directory-origin test alone would
          * admit them; excluding by namespace closes that gap soundly (none can be consumer-authored).
          */
-        private fun isReservedNamespace(internal: String): Boolean {
+        internal fun isReservedNamespace(internal: String): Boolean {
             val dotted = internal.replace('/', '.')
             return RESERVED_PREFIXES.any { dotted == it.trimEnd('.') || dotted.startsWith(it) }
         }

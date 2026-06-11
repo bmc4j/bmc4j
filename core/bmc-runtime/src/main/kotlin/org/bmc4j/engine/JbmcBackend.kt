@@ -107,7 +107,8 @@ class JbmcBackend : VerificationBackend {
             // normal Gradle run every entry is covered; an entry the task did NOT cover (e.g. a non-standard
             // class dir, or a stale / identity- / config-mismatched mirror falling back) is rewritten here
             // so it is never analysed unsound. The work is split so every entry is rewritten exactly once
-            // (plugin OR in-JVM). The hoisted set is `6-desugar + Config + KotlinParam + Reachability`:
+            // (plugin OR in-JVM). The hoisted set is `6-desugar + Config + KotlinParam + Reachability +
+            // NondetTag`:
             // the desugars + Reachability are pure functions of the bytecode, KotlinParam reads one run-wide
             // flag (a task @Input), and the Config bake's resolved values are recorded in the manifest and
             // re-validated here, so a stale mirror is never trusted. request.classpath itself (the
@@ -308,20 +309,29 @@ class JbmcBackend : VerificationBackend {
         }
 
         /**
-         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain — `6-desugar -> KotlinParam ->
-         * Config -> KotlinParam -> Reachability` — in the SAME order, with the SAME pass entry points,
+         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain — `6-desugar -> Config ->
+         * KotlinParam -> Reachability -> NondetTag` — in the SAME order, with the SAME pass entry points,
          * that [GradleClasspathMirror.mirror] runs in the plugin worker. So the bytecode this produces
          * in-JVM (for an uncovered entry, or with no plugin mirror at all) is byte-for-byte what the
-         * cacheable task produces for a covered one. The six desugars + Reachability are pure functions of
-         * the bytecode; KotlinParam additionally reads the run-wide `bmc.kotlinNullableParams` flag; Config
-         * additionally bakes the run's env/property config — but all are run-wide (not per-proof), which is
-         * why they can be hoisted into the cacheable task (Config keyed by the manifest config re-validation).
+         * cacheable task produces for a covered one. The six desugars + Reachability + NondetTag are pure
+         * functions of the bytecode; KotlinParam additionally reads the run-wide `bmc.kotlinNullableParams`
+         * flag; Config additionally bakes the run's env/property config — but all are run-wide (not
+         * per-proof), which is why they can be hoisted into the cacheable task (Config keyed by the manifest
+         * config re-validation).
          */
         fun applyHoistablePasses(classpath: String): String {
             var cp = applyDesugarPasses(classpath)
             cp = ConfigBytecode.rewrite(cp)
             cp = KotlinParamBytecode.rewrite(cp)
-            return ReachabilityBytecode.rewrite(cp)
+            cp = ReachabilityBytecode.rewrite(cp)
+            // Explicit USER-nondet witness tag: inject a verification-neutral Bmc.recordNondet("name",
+            // value) after each user Bmc.any* store so a counterexample carries the input robustly. Pure
+            // bytecode (no env/property/per-proof state), env-independent like the rest of this chain, so
+            // it is hoisted into the cacheable Gradle mirror too (GradleClasspathMirror.mirror). It only
+            // touches user-origin classes' Bmc.any* call sites — disjoint from Config (Bmc.*From* sites),
+            // KotlinParam (the non-null prologue) and Reachability (returns) — so it commutes with them
+            // and is byte-identical whether run here or in the mirror.
+            return NondetTagBytecode.rewrite(cp)
         }
 
         /**

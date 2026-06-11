@@ -19,7 +19,7 @@ import java.util.ArrayList
 
 /**
  * The Gradle mirror task and its runtime consumer. [GradleClasspathMirror.mirror] pre-applies the
- * run-wide passes (the six desugars + Config bake + KotlinParam + Reachability) into a Gradle-owned dir
+ * run-wide passes (the six desugars + Config bake + KotlinParam + Reachability + NondetTag) into a Gradle-owned dir
  * + manifest; [GradleClasspathMirror.substitute] swaps the original entries for the mirrored ones in the
  * test JVM. These tests pin the round trip (mirrored bytecode is really rewritten), the manifest's
  * relocatability, BYTE-IDENTITY against the in-JVM pipeline over a representative classpath including a
@@ -250,7 +250,8 @@ internal class GradleClasspathMirrorTest {
     /**
      * The headline soundness proof for the HOISTED set: the bytecode the cacheable Gradle task produces
      * ([GradleClasspathMirror.mirror]) must be byte-for-byte what the in-JVM run-wide pipeline
-     * produces — `6-desugar (ClasspathMirror.mirrorAll) -> KotlinParam -> Reachability` — over a
+     * produces — `6-desugar (ClasspathMirror.mirrorAll) -> Config -> KotlinParam -> Reachability ->
+     * NondetTag` — over a
      * representative classpath that INCLUDES a project class dir carrying a `@BmcProof` method (so
      * Reachability fires) with a kotlinc non-null parameter prologue (so KotlinParam fires), alongside a
      * String/concat/lambda/Math class (so the desugars fire). A divergence here is a soundness
@@ -272,14 +273,16 @@ internal class GradleClasspathMirrorTest {
             val classpath = deps.toString() + File.pathSeparator + proj.toString()
 
             // IN-JVM reference: the exact chain JbmcBackend.applyHoistablePasses runs (same entry points,
-            // same order: 6-desugar -> Config -> KotlinParam -> Reachability). Lands under ~/.cache via the
-            // default ClasspathMirror root. The samples have no Bmc.*From* call sites, so Config is a no-op
-            // here — but including it keeps the reference faithful to the worker's pipeline.
+            // same order: 6-desugar -> Config -> KotlinParam -> Reachability -> NondetTag). Lands under
+            // ~/.cache via the default ClasspathMirror root. The samples have no Bmc.*From* / Bmc.any* call
+            // sites, so Config and NondetTag are no-ops here — but including them keeps the reference
+            // faithful to the worker's pipeline.
             val inJvm = run {
                 var cp = ClasspathMirror.mirrorAll(classpath)
                 cp = ConfigBytecode.rewrite(cp)
                 cp = KotlinParamBytecode.rewrite(cp)
-                ReachabilityBytecode.rewrite(cp)
+                cp = ReachabilityBytecode.rewrite(cp)
+                NondetTagBytecode.rewrite(cp)
             }
             // HOISTED: the cacheable task's worker entry point (default Kotlin-param flag = what the
             // in-JVM reference uses with no honest-JVM property set).
