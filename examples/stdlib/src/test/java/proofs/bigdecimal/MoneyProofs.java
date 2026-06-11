@@ -13,14 +13,14 @@ import org.bmc4j.Verdict;
 class MoneyProofs {
 
     // PASS: decimal addition is exact — 0.10 + 0.20 is exactly 0.30 (double gets this wrong).
-    @BmcProof
+    @BmcProof(unwind = 8)
     void exact_decimal_addition() {
         BigDecimal r = new BigDecimal("0.10").add(new BigDecimal("0.20"));
         Bmc.check(r.compareTo(new BigDecimal("0.30")) == 0);
     }
 
     // PASS: 8% tax on $12.50 is exactly $13.50.
-    @BmcProof
+    @BmcProof(unwind = 8)
     void tax_is_exact() {
         BigDecimal r = Money.withTax(new BigDecimal("12.50"), new BigDecimal("0.08"));
         Bmc.check(r.compareTo(new BigDecimal("13.50")) == 0);

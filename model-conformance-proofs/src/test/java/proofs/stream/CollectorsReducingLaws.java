@@ -18,7 +18,7 @@ class CollectorsReducingLaws {
     // explicit desugared comparator over the unboxed int — never Comparator.naturalOrder()
     private static final Comparator<Integer> ASC = (a, b) -> a.intValue() - b.intValue();
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reducing_no_identity_present() {
         List<Integer> xs = List.of(2, 3, 4);
         Optional<Integer> p = xs.stream().collect(Collectors.reducing((a, b) -> a * b));
@@ -32,21 +32,21 @@ class CollectorsReducingLaws {
         Bmc.check(p.isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reducing_with_identity() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         int sum = xs.stream().collect(Collectors.reducing(0, (a, b) -> a + b));
         Bmc.check(sum == 10);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reducing_with_identity_empty_returns_identity() {
         List<Integer> xs = List.of(1, 2, 3);
         int r = xs.stream().filter(x -> x > 100).collect(Collectors.reducing(7, (a, b) -> a + b));
         Bmc.check(r == 7);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reducing_with_mapper_and_identity() {
         List<Integer> xs = List.of(1, 2, 3);
         // map each *10, then sum -> 60
@@ -54,21 +54,21 @@ class CollectorsReducingLaws {
         Bmc.check(sum == 60);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void minBy_picks_smallest() {
         List<Integer> xs = List.of(3, 1, 2);
         Optional<Integer> m = xs.stream().collect(Collectors.minBy(ASC));
         Bmc.check(m.isPresent() && m.get() == 1);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void maxBy_picks_largest() {
         List<Integer> xs = List.of(3, 1, 2);
         Optional<Integer> m = xs.stream().collect(Collectors.maxBy(ASC));
         Bmc.check(m.isPresent() && m.get() == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void minBy_empty_is_empty() {
         List<Integer> xs = List.of(1, 2);
         Optional<Integer> m = xs.stream().filter(x -> x > 100).collect(Collectors.minBy(ASC));

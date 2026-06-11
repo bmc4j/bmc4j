@@ -56,7 +56,7 @@ class AbstractCollectionSubclassLaws {
         Bmc.check(l.get(0) == x);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void abstractList_subclass_not_empty_via_interface() {
         int x = Bmc.anyInt();
         List<Integer> l = new SingletonList(x);
@@ -166,7 +166,7 @@ class AbstractCollectionSubclassLaws {
         Bmc.check(m.size() == 1 && !m.isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void abstractMap_subclass_get_via_interface() {
         int k = Bmc.anyInt();
         int v = Bmc.anyInt();

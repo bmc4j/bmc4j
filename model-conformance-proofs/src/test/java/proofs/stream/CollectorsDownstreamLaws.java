@@ -17,7 +17,7 @@ import org.bmc4j.BmcProof;
  */
 class CollectorsDownstreamLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void groupingBy_with_counting_downstream() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // group by parity, count each: {1(odd): 1,3 -> 2 ; 0(even): 2,4 -> 2}
@@ -26,7 +26,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(m.get(1) == 2L && m.get(0) == 2L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void groupingBy_with_mapping_downstream() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // group by parity, map each *10 into a list: {0: [20,40], 1: [10,30]}
@@ -36,7 +36,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(m.get(1).get(0) == 10 && m.get(1).get(1) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void partitioningBy_with_counting_downstream() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         Map<Boolean, Long> m = xs.stream().collect(
@@ -44,7 +44,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(m.get(Boolean.TRUE) == 2L && m.get(Boolean.FALSE) == 2L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void collectingAndThen_finishes() {
         List<Integer> xs = List.of(1, 2, 3);
         // collect to list, then take its size
@@ -53,7 +53,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(size == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void filtering_keeps_only_matching() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // keep evens, collect to list -> [2,4]
@@ -62,7 +62,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(out.size() == 2 && out.get(0) == 2 && out.get(1) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void filtering_into_grouping_counts_kept_only() {
         List<Integer> xs = List.of(2, 3, 6);
         // group by parity, but only count multiples of 3 within each group:
@@ -73,7 +73,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(m.get(1) == 1L && m.get(0) == 1L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMapping_flattens_into_downstream() {
         List<Integer> xs = List.of(1, 2);
         // each x -> [x, x*10]; flatten into a list -> [1,10,2,20]
@@ -82,7 +82,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(out.size() == 4 && out.get(0) == 1 && out.get(1) == 10 && out.get(3) == 20);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void teeing_merges_two_downstreams() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // count and sum-via-reducing, then combine into average-ish (sum / count, integer)
@@ -93,7 +93,7 @@ class CollectorsDownstreamLaws {
         Bmc.check(avg == 2L); // (1+2+3+4)/4 = 10/4 = 2
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toCollection_into_arraylist() {
         List<Integer> xs = List.of(3, 1, 2);
         ArrayList<Integer> out = xs.stream().collect(Collectors.toCollection(ArrayList::new));

@@ -58,7 +58,7 @@ class CoroutineProofTests {
 
     // PASSES: logic through `coroutineScope { }` (modeled as immediate drive).
     @Shard(1)
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun scoped_adds_two() = runBlocking {
         val x = Bmc.anyInt(0, 1000)
         Bmc.check(Work.scoped(x) == x + 2)
@@ -73,7 +73,7 @@ class CoroutineProofTests {
     }
 
     // PASSES: logic through `withContext(Dispatchers.IO) { }` (dispatcher ignored).
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun onIo_adds_one() = runBlocking {
         val x = Bmc.anyInt(0, 1000)
         Bmc.check(Work.onIo(x) == x + 1)
@@ -89,7 +89,7 @@ class CoroutineProofTests {
 
     // PASSES: logic through `launch { }` in a structured scope (runs before return).
     @Shard(1)
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun launching_adds_one() = runBlocking {
         val x = Bmc.anyInt(0, 1000)
         Bmc.check(Work.launching(x) == x + 1)

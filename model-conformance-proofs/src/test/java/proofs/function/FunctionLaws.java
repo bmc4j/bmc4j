@@ -22,7 +22,7 @@ class FunctionLaws {
         Bmc.check(plus1.andThen(times2).apply(3) == 8);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void compose_applies_in_order() {
         Function<Integer, Integer> plus1 = x -> x + 1;
         Function<Integer, Integer> times2 = x -> x * 2;
@@ -30,7 +30,7 @@ class FunctionLaws {
         Bmc.check(plus1.compose(times2).apply(3) == 7);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void andThen_compose_are_mirror() {
         Function<Integer, Integer> plus1 = x -> x + 1;
         Function<Integer, Integer> times2 = x -> x * 2;

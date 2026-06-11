@@ -13,20 +13,20 @@ import org.bmc4j.BmcProof
 class EnumEntriesProofs {
 
     /** `entries.size` and a symbolic `entries[i].ordinal` are sound. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun entries_size_and_index() {
         val i = Bmc.anyInt(0, 3)
         Bmc.check(Planet.entries.size == 4 && Planet.entries[i].ordinal == i)
     }
 
     /** Iterating `entries` and summing a property is sound (bounded by the enum's size). */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun total_gravity_is_bounded() {
         Bmc.check(Planets.totalGravity() == 27)
     }
 
     /** `entries[ordinal]` round-trips for every constant. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun at_ordinal_round_trips() {
         val p = Bmc.anyOf(Planet.values())
         Bmc.check(Planets.at(p.ordinal) === p)

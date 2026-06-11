@@ -89,7 +89,7 @@ class HashMapLaws {
         Bmc.check(m.keys.size == 1 && m.keys.contains(k) && m.values.contains(v))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun entrySet_iterates_the_mappings() {
         val m = HashMap<Int, Int>()
         m[1] = 10
@@ -101,7 +101,7 @@ class HashMapLaws {
         Bmc.check(sum == 30)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun copy_constructor_preserves_mappings() {
         val src = HashMap<Int, Int>()
         val k = Bmc.anyInt()
@@ -206,7 +206,7 @@ class HashMapLaws {
         Bmc.check(!m.containsKey(k) && m.size == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun replaceAll_remaps_every_value_via_lambda() {
         val m = HashMap<Int, Int>()
         // The law is about remapping VALUES through the BiFunction; the keys are irrelevant to it.
@@ -220,7 +220,7 @@ class HashMapLaws {
         Bmc.check(m[k1] == 11 && m[k2] == 21 && m.size == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun forEach_visits_every_mapping_via_lambda() {
         val m = HashMap<Int, Int>()
         m[1] = 10

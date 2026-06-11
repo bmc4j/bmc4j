@@ -77,7 +77,7 @@ class CascadeProofTests {
      * recursive assume is bounded by JBMC's unwind. After the cascade, the head node's value bound
      * holds; the chain is explored to the unwind depth.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void self_referential_cascade_compiles_and_bounds(Node n) {
         NodeConstraints.assumeValid(n);
         Bmc.check(n.value >= 0);

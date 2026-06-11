@@ -30,7 +30,7 @@ class ConfigProofs {
     }
 
     // PASS: with debug=true, quiet=false the verbosity is the expected 2.
-    @BmcProof
+    @BmcProof(unwind = 1)
     void verbosity_matches_flags() {
         boolean debug = Bmc.boolFromProperty("app.debug");
         boolean quiet = Bmc.boolFromProperty("app.quiet");
@@ -45,7 +45,7 @@ class ConfigProofs {
     }
 
     // PASS: the configured mode string is exactly "production" (sound string equality).
-    @BmcProof
+    @BmcProof(unwind = 16)
     void mode_is_production() {
         String mode = Bmc.stringFromProperty("app.mode");
         Bmc.check(mode.equals("production"));

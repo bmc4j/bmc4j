@@ -24,7 +24,7 @@ class ArrayListSequencedLaws {
         Bmc.check(l.getFirst() == b && l.getLast() == c)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeFirst_and_removeLast_take_the_ends() {
         val l = ArrayList<Int>()
         val a = Bmc.anyInt()
@@ -43,7 +43,7 @@ class ArrayListSequencedLaws {
     // returned view's identity, exactly like the LinkedHashMap sequenced-view artifact — so it is pinned
     // on the differential axis (ArrayListConformanceTest), not as a @BmcProof.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun reversed_reads_the_backing_in_reverse_order() {
         val l = ArrayList<Int>()
         val a = Bmc.anyInt()

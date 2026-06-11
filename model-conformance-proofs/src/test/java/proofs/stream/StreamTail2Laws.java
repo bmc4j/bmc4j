@@ -19,7 +19,7 @@ import org.bmc4j.BmcProof;
  */
 class StreamTail2Laws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void toArray_roundtrips() {
         List<Integer> xs = List.of(5, 6, 7);
         Object[] a = xs.stream().toArray();
@@ -33,7 +33,7 @@ class StreamTail2Laws {
         Bmc.check(a.length == 3 && a[0] == 1 && a[2] == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void forEachOrdered_visits_all_in_order() {
         List<Integer> xs = List.of(1, 2, 3);
         int[] sum = {0};
@@ -47,7 +47,7 @@ class StreamTail2Laws {
         Bmc.check(sum[0] == 6 && first[0] == 1);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void collect_mutable_into_list() {
         List<Integer> xs = List.of(1, 2, 3);
         ArrayList<Integer> out = xs.stream().collect(
@@ -57,7 +57,7 @@ class StreamTail2Laws {
         Bmc.check(out.size() == 3 && out.get(0) == 10 && out.get(2) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reduce_three_arg_sums() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // identity 0, accumulate adding, combiner unused in sequential
@@ -65,7 +65,7 @@ class StreamTail2Laws {
         Bmc.check(sum == 10);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reduce_three_arg_counts_via_accumulator() {
         List<Integer> xs = List.of(7, 8, 9);
         // map-then-fold shape: accumulate +1 per element regardless of value
@@ -73,7 +73,7 @@ class StreamTail2Laws {
         Bmc.check(n == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void mapMulti_duplicates_each() {
         List<Integer> xs = List.of(1, 2, 3);
         // each x -> emit x and x*10
@@ -84,7 +84,7 @@ class StreamTail2Laws {
         Bmc.check(out.size() == 6 && out.get(0) == 1 && out.get(1) == 10 && out.get(5) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void mapMulti_can_drop() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // emit only even elements
@@ -96,7 +96,7 @@ class StreamTail2Laws {
         Bmc.check(n == 2L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void mapMultiToInt_flattens_and_sums() {
         List<Integer> xs = List.of(1, 2, 3);
         IntStream s = xs.stream().mapMultiToInt((x, sink) -> {
@@ -106,7 +106,7 @@ class StreamTail2Laws {
         Bmc.check(s.sum() == 12); // (1+1)+(2+2)+(3+3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void mapMultiToLong_flattens_and_sums() {
         List<Integer> xs = List.of(1, 2, 3);
         LongStream s = xs.stream().mapMultiToLong((x, sink) -> {
@@ -117,7 +117,7 @@ class StreamTail2Laws {
     }
 
     /** Symbolic: a 3-arg sequential reduce equals the plain sum, for all inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_reduce_three_arg_equals_sum() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);

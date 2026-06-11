@@ -36,7 +36,7 @@ class DurationProofs {
     }
 
     /** The example helper computes a sound budget in whole seconds. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun budget_seconds_is_sound() {
         val base = Bmc.anyInt(0, 100)
         val retries = Bmc.anyInt(0, 10)

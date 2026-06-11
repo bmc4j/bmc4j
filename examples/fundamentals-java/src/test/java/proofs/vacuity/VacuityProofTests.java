@@ -44,7 +44,7 @@ class VacuityProofTests {
      * PASSES: a satisfiable sibling — there are values of {@code x} in {@code [1, 9]}, so the end is
      * reachable and the property genuinely holds. The vacuity check leaves real proofs green.
      */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void satisfiable_assumptions_still_verify() {
         int x = Bmc.anyInt();
         Bmc.assume(x > 0);

@@ -23,7 +23,7 @@ import java.util.HashSet;
  */
 class JarModelLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void arraylist_model_loads_from_jar_and_roundtrips() {
         ArrayList<Integer> l = new ArrayList<>();
         int x = Bmc.anyInt();
@@ -31,7 +31,7 @@ class JarModelLaws {
         Bmc.check(l.size() == 1 && l.get(0) == x);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void string_equals_shim_is_sound_over_jar_classpath() {
         // String.equals is rewritten to BmcStrings.equals; with a literal both sides this must hold.
         String a = "bmc";
@@ -39,7 +39,7 @@ class JarModelLaws {
         Bmc.check(!a.equals("BMC"));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void concat_desugar_reaches_through_jar_classpath() {
         // The "+" emits a StringConcatFactory indy, desugared to a sound StringBuilder helper.
         String s = "x" + "y";
@@ -71,7 +71,7 @@ class JarModelLaws {
         }
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void hashmap_string_key_get_is_sound() {
         // m.put(a, 42); then m.get(b) where b has the same content as a must return 42 — a property the
         // native (unconstrained) String.equals could not guarantee for distinct references.
@@ -85,7 +85,7 @@ class JarModelLaws {
         Bmc.check(m.containsKey(b));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void hashset_string_dedup_is_sound() {
         // Adding two content-equal Strings must dedup to a single element, and contains(b) must hit.
         String a = Bmc.anyAsciiString(3);
@@ -99,7 +99,7 @@ class JarModelLaws {
         Bmc.check(set.contains(b));      // and contains finds it
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arraylist_string_indexof_is_sound() {
         // list.indexOf(b) must find the content-equal element a at position 0.
         String a = Bmc.anyAsciiString(3);

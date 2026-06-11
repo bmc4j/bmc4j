@@ -331,7 +331,7 @@ class TimeLaws {
 
     // getMonth (modeled Month enum) / getEra (modeled IsoEra) decode the date part; driven from a CONCRETE
     // date (dateOf) so the wide-divisor ymd() decode stays a tracked circuit, like the clamp laws above.
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun localdate_getMonth_getEra_match_fields() {
         val ce = dateOf(2024, 6, 15)
         Bmc.check(ce.month == Month.JUNE)
@@ -351,7 +351,7 @@ class TimeLaws {
 
     // toEpochSecond(time, offset) is pure int arithmetic over the modeled epoch-day / second-of-day /
     // offset-total-seconds — no zone DB. Pin its decomposition from a concrete date+time+offset.
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun localdate_toEpochSecond_decomposes() {
         val d = dateOf(2024, 6, 15)
         val secOfDay = Bmc.anyInt(0, 86_399)
@@ -424,7 +424,7 @@ class TimeLaws {
     }
 
     // getMonth (modeled Month enum) of the date part; getDayOfWeek round-trips through the LocalDate model.
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun localdatetime_getMonth_matches_value() {
         val dt = LocalDateTime.of(2024, 6, 15, 10, 30, 0)
         Bmc.check(dt.month == Month.JUNE)
@@ -438,7 +438,7 @@ class TimeLaws {
     // narrow window proves it just as soundly, and the symbolic floorDiv/floorMod-by-86400 + civil-date
     // decomposition cost scales with the dividend (es + offSec) bit-width — keeping both small keeps the
     // proof well inside the budget (the wide ±18h offset was the dominant term in localSecond's width).
-    @BmcProof
+    @BmcProof(unwind = 1)
     fun localdatetime_ofEpochSecond_toEpochSecond_round_trips() {
         val es = Bmc.anyInt(-10_000, 10_000).toLong()
         val offSec = Bmc.anyInt(-3600, 3600)
@@ -550,34 +550,34 @@ class TimeLaws {
         Bmc.check(DayOfWeek.of(v).value == v)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun dayofweek_plus_then_minus_round_trips() {
         val d = DayOfWeek.of(Bmc.anyInt(1, 7))
         val n = Bmc.anyInt(-100, 100).toLong()
         Bmc.check(d.plus(n).minus(n) == d)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun dayofweek_plus7_is_identity() {
         val d = DayOfWeek.of(Bmc.anyInt(1, 7))
         Bmc.check(d.plus(7) == d)
         Bmc.check(d.plus(0) == d)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun month_of_getValue_round_trips() {
         val v = Bmc.anyInt(1, 12)
         Bmc.check(Month.of(v).value == v)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun month_plus_then_minus_round_trips() {
         val m = Month.of(Bmc.anyInt(1, 12))
         val n = Bmc.anyInt(-100, 100).toLong()
         Bmc.check(m.plus(n).minus(n) == m)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun month_plus12_is_identity_and_length_in_range() {
         val m = Month.of(Bmc.anyInt(1, 12))
         Bmc.check(m.plus(12) == m)

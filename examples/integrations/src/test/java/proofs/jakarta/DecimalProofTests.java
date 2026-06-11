@@ -53,7 +53,7 @@ class DecimalProofTests {
     }
 
     /** PASSES: the cap is inclusive — every valid amount is at most 1000.00. */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void amount_is_at_most_the_inclusive_cap() {
         Money m = withAmount();
         MoneyConstraints.assumeValid(m);
@@ -64,7 +64,7 @@ class DecimalProofTests {
      * PASSES: @DecimalMin(value="0", inclusive=false) makes the fee STRICTLY positive — 0 is ruled
      * out. Pins the strict (inclusive=false) translation.
      */
-    @BmcProof
+    @BmcProof(unwind = 8)
     void strict_min_rules_out_the_boundary() {
         Money m = withFee();
         MoneyConstraints.assumeValid(m);

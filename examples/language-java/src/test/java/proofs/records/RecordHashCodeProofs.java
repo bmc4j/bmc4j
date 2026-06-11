@@ -38,7 +38,7 @@ class RecordHashCodeProofs {
     }
 
     // PASS: hashCode is consistent across repeated calls on the same instance (no nondet inside).
-    @BmcProof
+    @BmcProof(unwind = 1)
     void hashCode_is_consistent_across_calls() {
         Point p = new Point(Bmc.anyInt(-1000, 1000), Bmc.anyInt(-1000, 1000));
         Bmc.check(p.hashCode() == p.hashCode());

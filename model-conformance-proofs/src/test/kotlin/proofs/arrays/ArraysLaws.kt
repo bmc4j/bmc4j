@@ -14,7 +14,7 @@ class ArraysLaws {
 
     // --- copyOf ---------------------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOf_same_length_preserves_elements() {
         val a = intArrayOf(Bmc.anyInt(), Bmc.anyInt())
         val c = Arrays.copyOf(a, 2)
@@ -35,7 +35,7 @@ class ArraysLaws {
         Bmc.check(c.size == 1 && c[0] == a[0])
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOf_long_preserves_elements() {
         val a = longArrayOf(Bmc.anyLong(), Bmc.anyLong())
         val c = Arrays.copyOf(a, 2)
@@ -44,7 +44,7 @@ class ArraysLaws {
 
     // --- copyOfRange ----------------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOfRange_interior_slice() {
         val a = intArrayOf(Bmc.anyInt(), Bmc.anyInt(), Bmc.anyInt())
         val c = Arrays.copyOfRange(a, 1, 3)
@@ -60,7 +60,7 @@ class ArraysLaws {
 
     // --- fill -----------------------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun fill_sets_every_element() {
         val a = intArrayOf(0, 0, 0)
         val v = Bmc.anyInt()
@@ -68,7 +68,7 @@ class ArraysLaws {
         Bmc.check(a[0] == v && a[1] == v && a[2] == v)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun fill_range_sets_only_the_range() {
         val a = intArrayOf(0, 0, 0, 0)
         val v = Bmc.anyInt()
@@ -85,7 +85,7 @@ class ArraysLaws {
         Bmc.check(Arrays.equals(a, a))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun equals_true_iff_elementwise_equal() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -94,7 +94,7 @@ class ArraysLaws {
         Bmc.check(Arrays.equals(a, b))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun equals_differing_element_is_false() {
         val x = Bmc.anyInt()
         val a = intArrayOf(x, x)
@@ -110,7 +110,7 @@ class ArraysLaws {
 
     // --- hashCode -------------------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun hashCode_matches_the_31_polynomial() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -118,7 +118,7 @@ class ArraysLaws {
         Bmc.check(Arrays.hashCode(intArrayOf(x, y)) == expected)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun hashCode_equal_arrays_have_equal_hash() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -138,7 +138,7 @@ class ArraysLaws {
         Bmc.check(a[0] == minOf(x, y) && a[1] == maxOf(x, y))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sort_three_elements_is_nondecreasing() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -159,7 +159,7 @@ class ArraysLaws {
         Bmc.check(Arrays.binarySearch(a, x + 1) == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun binarySearch_absent_key_returns_negative_insertion_point() {
         val x = Bmc.anyInt(-1000, 1000)
         val a = intArrayOf(x, x + 2, x + 4)
@@ -169,7 +169,7 @@ class ArraysLaws {
 
     // --- stream / setAll ------------------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun stream_sum_equals_element_sum() {
         val x = Bmc.anyInt(-1000, 1000)
         val y = Bmc.anyInt(-1000, 1000)
@@ -177,7 +177,7 @@ class ArraysLaws {
         Bmc.check(Arrays.stream(intArrayOf(x, y, z)).sum() == x + y + z)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun setAll_applies_generator_at_each_index() {
         val a = intArrayOf(0, 0, 0)
         Arrays.setAll(a) { i -> i * 2 }
@@ -186,21 +186,21 @@ class ArraysLaws {
 
     // --- mechanical primitive clones (byte/short/float copy/store; integral sort/search) --------
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun copyOf_byte_preserves_and_zero_pads() {
         val a = byteArrayOf(Bmc.anyByte())
         val c = Arrays.copyOf(a, 2)
         Bmc.check(c.size == 2 && c[0] == a[0] && c[1].toInt() == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun copyOfRange_short_interior_slice() {
         val a = shortArrayOf(Bmc.anyShort(), Bmc.anyShort(), Bmc.anyShort())
         val c = Arrays.copyOfRange(a, 1, 3)
         Bmc.check(c.size == 2 && c[0] == a[1] && c[1] == a[2])
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun fill_byte_sets_every_element() {
         val a = byteArrayOf(0, 0, 0)
         val v = Bmc.anyByte()
@@ -235,21 +235,21 @@ class ArraysLaws {
         Bmc.check(Arrays.mismatch(a, b) == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun mismatch_equal_arrays_is_minus_one() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
         Bmc.check(Arrays.mismatch(intArrayOf(x, y), intArrayOf(x, y)) == -1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun mismatch_prefix_returns_shorter_length() {
         val x = Bmc.anyInt()
         // [x] is a proper prefix of [x, x] -> mismatch at the shorter length, 1.
         Bmc.check(Arrays.mismatch(intArrayOf(x), intArrayOf(x, x)) == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun compare_equal_arrays_is_zero() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -263,7 +263,7 @@ class ArraysLaws {
         Bmc.check(Arrays.compare(intArrayOf(x, x), intArrayOf(x, x + 1)) < 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun compare_prefix_is_shorter_minus_longer() {
         val x = Bmc.anyInt()
         // [x] vs [x, x]: prefix -> a.length - b.length == 1 - 2 == -1.
@@ -272,7 +272,7 @@ class ArraysLaws {
 
     // --- range-bounded overloads ----------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun fill_range_is_the_modeled_ranged_fill() {
         // already covered by fill_range_sets_only_the_range above; this pins sort/search ranged below.
         val a = intArrayOf(7, 7, 7, 7)
@@ -312,7 +312,7 @@ class ArraysLaws {
         Bmc.check(Arrays.binarySearch(a, 1, 3, x) == -2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun equals_range_compares_only_the_sub_regions() {
         // a[1,3) == b[0,2) elementwise even though the arrays differ elsewhere.
         val x = Bmc.anyInt()
@@ -338,7 +338,7 @@ class ArraysLaws {
         Bmc.check(Arrays.mismatch(a, 1, 3, b, 0, 2) == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun compare_range_orders_by_first_difference() {
         val x = Bmc.anyInt(-1000, 1000)
         // a[1,3) = [x, x]; b[0,2) = [x, x+1] -> first diff at idx 1, x < x+1 -> negative.
@@ -347,7 +347,7 @@ class ArraysLaws {
         Bmc.check(Arrays.compare(a, 1, 3, b, 0, 2) < 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun stream_range_sum_equals_window_sum() {
         val x = Bmc.anyInt(-1000, 1000)
         val y = Bmc.anyInt(-1000, 1000)
@@ -358,7 +358,7 @@ class ArraysLaws {
 
     // --- parallel-as-sequential -----------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun parallelSort_orders_like_sort() {
         val x = Bmc.anyInt()
         val y = Bmc.anyInt()
@@ -368,14 +368,14 @@ class ArraysLaws {
         Bmc.check(a[0] <= a[1] && a[1] <= a[2])
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun parallelSetAll_applies_generator_at_each_index() {
         val a = intArrayOf(0, 0, 0)
         Arrays.parallelSetAll(a) { i -> i * 2 }
         Bmc.check(a[0] == 0 && a[1] == 2 && a[2] == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun parallelPrefix_is_an_inclusive_scan() {
         val x = Bmc.anyInt(-1000, 1000)
         val y = Bmc.anyInt(-1000, 1000)
@@ -386,7 +386,7 @@ class ArraysLaws {
         Bmc.check(a[0] == x && a[1] == x + y && a[2] == x + y + z)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun parallelPrefix_range_scans_only_the_window() {
         val p = Bmc.anyInt(-1000, 1000)
         val x = Bmc.anyInt(-1000, 1000)

@@ -20,7 +20,7 @@ class LongStreamOptionalLaws {
         Bmc.check(o.isPresent() && o.getAsLong() == 1L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void max_of_present() {
         OptionalLong o = LongStream.of(3, 1, 2).max();
         Bmc.check(o.isPresent() && o.getAsLong() == 3L);
@@ -32,7 +32,7 @@ class LongStreamOptionalLaws {
         Bmc.check(LongStream.empty().max().isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reduce_no_identity_sums_when_present() {
         OptionalLong o = LongStream.of(1, 2, 3, 4).reduce((a, b) -> a + b);
         Bmc.check(o.isPresent() && o.getAsLong() == 10L);
@@ -62,7 +62,7 @@ class LongStreamOptionalLaws {
     }
 
     /** Symbolic: min over three symbolic values is <= each element and equals one of them. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_min_is_a_lower_bound() {
         long a = Bmc.anyLong(-1000, 1000);
         long b = Bmc.anyLong(-1000, 1000);
@@ -72,7 +72,7 @@ class LongStreamOptionalLaws {
     }
 
     /** Symbolic: reduce(+) without identity equals the sum of the three elements. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_reduce_sum() {
         long a = Bmc.anyLong(-1000, 1000);
         long b = Bmc.anyLong(-1000, 1000);

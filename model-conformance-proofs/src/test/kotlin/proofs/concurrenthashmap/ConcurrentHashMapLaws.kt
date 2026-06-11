@@ -21,7 +21,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(m.contains(10) && !m.contains(99))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun mappingCount_is_size() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -29,7 +29,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(m.mappingCount() == 2L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun forEach_visits_every_mapping() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -39,7 +39,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(sum[0] == 30)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun forEachValue_visits_every_value() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -49,7 +49,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(sum[0] == 30)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun search_returns_first_non_null_hit() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -68,7 +68,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(hit == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun reduceValues_folds_over_the_values() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -84,7 +84,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(m.reduceValues(1L) { a, b -> a + b } == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun reduceValuesToInt_accumulates_from_the_basis() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10
@@ -93,7 +93,7 @@ class ConcurrentHashMapLaws {
         Bmc.check(total == 130)   // basis 100 + 10 + 20
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun reduceToInt_folds_a_per_entry_projection() {
         val m = ConcurrentHashMap<Int, Int>()
         m[1] = 10

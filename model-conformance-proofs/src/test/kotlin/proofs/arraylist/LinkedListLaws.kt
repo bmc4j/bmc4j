@@ -41,7 +41,7 @@ class LinkedListLaws {
         Bmc.check(l.poll() == a && l.poll() == b && l.poll() == null)   // FIFO, then empty -> null
     }
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun push_pop_is_lifo() {
         val l = LinkedList<Int>()
         val a = Bmc.anyInt()
@@ -51,7 +51,7 @@ class LinkedListLaws {
         Bmc.check(l.pop() == b && l.pop() == a && l.size == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeFirst_removeLast_round_trip() {
         val l = LinkedList<Int>()
         val a = Bmc.anyInt()
@@ -69,7 +69,7 @@ class LinkedListLaws {
 
     // removeFirstOccurrence drops the FIRST element equal to the arg (head->tail); with a duplicate
     // present, the later copy survives and the earlier one is gone — the index shifts down by one.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun removeFirstOccurrence_removes_the_earliest_match() {
         val l = LinkedList<Int>()
         val x = Bmc.anyInt()

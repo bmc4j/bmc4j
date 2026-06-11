@@ -22,7 +22,7 @@ class PriorityQueueLaws {
 
     // --- natural order, symbolic Integer ---------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun natural_poll_returns_the_minimum() {
         val q = PriorityQueue<Int>()
         val a = Bmc.anyInt(-100, 100)
@@ -64,7 +64,7 @@ class PriorityQueueLaws {
 
     // Head-is-the-minimum over THREE elements via a single scan (peek does not remove, so this is one
     // bounded scan rather than three poll/shift rounds — decidable while still exercising 3 elements).
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun natural_peek_is_the_minimum_of_three() {
         val q = PriorityQueue<Int>()
         val a = Bmc.anyInt(-50, 50)

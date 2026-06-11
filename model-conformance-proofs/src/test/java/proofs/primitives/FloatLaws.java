@@ -55,7 +55,7 @@ class FloatLaws {
 
     // ---- commutativity ----------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void add_is_commutative() {
         float a = Bmc.anyFloat(-1.0e18f, 1.0e18f);
         float b = Bmc.anyFloat(-1.0e18f, 1.0e18f);
@@ -84,7 +84,7 @@ class FloatLaws {
 
     // ---- primitive comparison laws ----------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void negative_zero_equals_positive_zero() {
         // Primitive == follows IEEE: -0.0f == +0.0f (distinct from the total order Float.compare uses).
         float negZero = -0.0f;

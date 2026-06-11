@@ -25,7 +25,7 @@ class StringShimLaws {
 
     // ---- equals (shim) -----------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void equals_concrete_true_and_false() {
         Bmc.check("abc".equals("abc"));     // true: a nondet result could be false
         Bmc.check(!"abc".equals("abd"));    // false: a nondet result could be true
@@ -33,13 +33,13 @@ class StringShimLaws {
         Bmc.check(!"abc".equals((Object) Integer.valueOf(1)));  // non-String -> false
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 8)
     void equals_symbolic_reflexive() {
         String s = Bmc.anyString(4);
         Bmc.check(s.equals(s));             // reflexive over every bounded string
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 4)
     void equals_symbolic_agrees_with_charAt_scan() {
         // equals(t) must agree, in BOTH directions, with "same length AND every charAt matches" —
         // the exact relation BmcStrings.equals rebuilds. A nondet shim could refute this. Both
@@ -59,14 +59,14 @@ class StringShimLaws {
 
     // ---- startsWith (shim) -------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void startsWith_concrete_true_and_false() {
         Bmc.check("hello".startsWith("he"));    // true
         Bmc.check(!"hello".startsWith("lo"));   // false (wrong position)
         Bmc.check(!"hi".startsWith("hello"));   // false (prefix longer than receiver)
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 8)
     void startsWith_symbolic_self_and_empty() {
         // Every string starts with itself and with the empty prefix: a nondet shim could refute.
         String s = Bmc.anyString(4);
@@ -76,14 +76,14 @@ class StringShimLaws {
 
     // ---- endsWith (shim) ---------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void endsWith_concrete_true_and_false() {
         Bmc.check("hello".endsWith("lo"));      // true
         Bmc.check(!"hello".endsWith("he"));     // false
         Bmc.check(!"hi".endsWith("hello"));     // false (suffix longer than receiver)
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 8)
     void endsWith_symbolic_self_and_empty() {
         String s = Bmc.anyString(4);
         Bmc.check(s.endsWith(s));
@@ -92,7 +92,7 @@ class StringShimLaws {
 
     // ---- contains (shim) ---------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void contains_concrete_true_and_false() {
         Bmc.check("hello".contains("ell"));     // true: substring present
         Bmc.check("hello".contains("hello"));   // true: whole string
@@ -100,7 +100,7 @@ class StringShimLaws {
         Bmc.check(!"hi".contains("hello"));     // false: needle longer than receiver
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 8)
     void contains_symbolic_self_and_empty() {
         // Every string contains itself and the empty needle: a nondet shim could refute.
         String s = Bmc.anyString(4);

@@ -41,14 +41,14 @@ class SortWitnessLaws {
 
     // ---- Stream.sorted(Comparator) -----------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_orders_ascending() {
         List<Integer> xs = List.of(3, 1, 2);
         List<Integer> out = xs.stream().sorted(ASC).toList();
         Bmc.check(out.size() == 3 && out.get(0) == 1 && out.get(1) == 2 && out.get(2) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_reverse_comparator() {
         List<Integer> xs = List.of(1, 3, 2);
         List<Integer> out = xs.stream().sorted(DESC).toList();
@@ -56,7 +56,7 @@ class SortWitnessLaws {
     }
 
     /** ORDERED + PERMUTATION over symbolic distinct inputs: {b,a} with a<b sorts to {a,b}. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void stream_sorted_symbolic_two() {
         int a = Bmc.anyInt(0, 100);
         int b = Bmc.anyInt(101, 200); // strictly greater than a
@@ -66,7 +66,7 @@ class SortWitnessLaws {
 
     // ---- ArrayList.sort(Comparator) ----------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arraylist_sort_orders_ascending() {
         ArrayList<Integer> m = new ArrayList<>();
         m.add(3);
@@ -77,7 +77,7 @@ class SortWitnessLaws {
     }
 
     /** PERMUTATION: the sorted multiset still sums the same and is the same size. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arraylist_sort_preserves_multiset() {
         int a = Bmc.anyInt(0, 50);
         int b = Bmc.anyInt(0, 50);
@@ -94,7 +94,7 @@ class SortWitnessLaws {
 
     // ---- LinkedList.sort(Comparator) ---------------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void linkedlist_sort_orders_ascending() {
         LinkedList<Integer> m = new LinkedList<>();
         m.add(2);
@@ -106,7 +106,7 @@ class SortWitnessLaws {
 
     // ---- Collections.sort(List, Comparator) --------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void collections_sort_orders_ascending() {
         ArrayList<Integer> m = new ArrayList<>();
         m.add(4);
@@ -117,7 +117,7 @@ class SortWitnessLaws {
         Bmc.check(m.get(0) == 1 && m.get(1) == 2 && m.get(2) == 3 && m.get(3) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void collections_sort_preserves_known_element() {
         ArrayList<Integer> m = new ArrayList<>();
         m.add(7);
@@ -131,14 +131,14 @@ class SortWitnessLaws {
 
     // ---- Arrays.sort(T[], Comparator) (full + ranged) ----------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_orders_ascending() {
         Integer[] a = {3, 1, 2};
         Arrays.sort(a, ASC);
         Bmc.check(a[0] == 1 && a[1] == 2 && a[2] == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_symbolic_ordered_and_permutation() {
         int x = Bmc.anyInt(0, 50);
         int y = Bmc.anyInt(0, 50);
@@ -149,7 +149,7 @@ class SortWitnessLaws {
     }
 
     /** Ranged sort: only [1,3) is ordered; the endpoints are left untouched. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void arrays_sort_ranged_leaves_ends_untouched() {
         Integer[] a = {9, 3, 1, 8};
         Arrays.sort(a, 1, 3, ASC); // sorts indices 1,2 only

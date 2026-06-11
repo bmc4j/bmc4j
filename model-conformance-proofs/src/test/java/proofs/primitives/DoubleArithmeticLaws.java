@@ -24,7 +24,7 @@ class DoubleArithmeticLaws {
 
     // ---- arithmetic identities --------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void add_zero_identity() {
         double a = Bmc.anyDouble(-1.0e6, 1.0e6);
         Bmc.check(a + 0.0 == a);
@@ -44,7 +44,7 @@ class DoubleArithmeticLaws {
 
     // ---- commutativity ----------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void add_is_commutative() {
         double a = Bmc.anyDouble(-1.0e6, 1.0e6);
         double b = Bmc.anyDouble(-1.0e6, 1.0e6);
@@ -79,7 +79,7 @@ class DoubleArithmeticLaws {
         Bmc.check(negZero == posZero);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nan_is_not_equal_to_itself() {
         double nan = Double.NaN;
         Bmc.check(nan != nan);

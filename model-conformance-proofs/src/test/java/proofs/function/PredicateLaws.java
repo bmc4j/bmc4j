@@ -12,7 +12,7 @@ import org.bmc4j.BmcProof;
  */
 class PredicateLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void and_is_conjunction() {
         Predicate<Integer> positive = x -> x > 0;
         Predicate<Integer> even = x -> x % 2 == 0;
@@ -35,7 +35,7 @@ class PredicateLaws {
         Bmc.check(positive.negate().test(x) == !(x > 0));
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void de_morgan() {
         Predicate<Integer> positive = x -> x > 0;
         Predicate<Integer> even = x -> x % 2 == 0;
@@ -56,7 +56,7 @@ class PredicateLaws {
         Bmc.check(positive.and(even).or(big).negate().test(x) == expected);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void not_static_is_negate() {
         Predicate<Integer> even = x -> x % 2 == 0;
         int x = Bmc.anyInt(-100, 100);

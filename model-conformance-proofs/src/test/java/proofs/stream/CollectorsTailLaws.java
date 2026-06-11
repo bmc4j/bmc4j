@@ -22,14 +22,14 @@ class CollectorsTailLaws {
         Bmc.check(n == 4L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void counting_after_filter() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         long n = xs.stream().filter(x -> x % 2 == 0).collect(Collectors.counting());
         Bmc.check(n == 2L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapping_to_list() {
         List<Integer> xs = List.of(1, 2, 3);
         // map each *10, collect to list
@@ -37,7 +37,7 @@ class CollectorsTailLaws {
         Bmc.check(out.size() == 3 && out.get(0) == 10 && out.get(2) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapping_to_counting() {
         List<Integer> xs = List.of(1, 2, 3);
         long n = xs.stream().collect(Collectors.mapping(x -> x + 1, Collectors.counting()));

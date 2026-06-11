@@ -32,19 +32,19 @@ class IntStreamDoubleBridgeLaws {
         Bmc.check(IntStream.empty().average().isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapToDouble_then_sum() {
         double s = IntStream.of(1, 2, 3).mapToDouble(x -> x * 1.5).sum();
         Bmc.check(s == 9.0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void asDoubleStream_widens_and_sums() {
         double s = IntStream.of(3, 4, 5).asDoubleStream().sum();
         Bmc.check(s == 12.0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summaryStatistics_count_sum_min_max() {
         // IntSummaryStatistics min/max are INTEGER comparison (sound) — unlike the double summary's wall.
         IntSummaryStatistics stats = IntStream.of(3, 1, 2).summaryStatistics();
@@ -52,7 +52,7 @@ class IntStreamDoubleBridgeLaws {
                 && stats.getMin() == 1 && stats.getMax() == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void summaryStatistics_average_exact() {
         IntSummaryStatistics stats = IntStream.of(2, 4, 6).summaryStatistics();
         Bmc.check(stats.getAverage() == 4.0);
@@ -65,7 +65,7 @@ class IntStreamDoubleBridgeLaws {
      * symbolic window (crossing zero, both signs) proves the same identity. It ran ~135s fresh over
      * ±100 — right at the slow-CI budget wall — and well under it here.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_asDoubleStream_sum_matches_int_sum() {
         int a = Bmc.anyInt(-32, 32);
         int b = Bmc.anyInt(-32, 32);

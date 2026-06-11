@@ -14,21 +14,21 @@ private enum class Planet { MERCURY, VENUS, EARTH, MARS }
  */
 class EnumSetLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun of_single_contains_only_that_element() {
         val e = Bmc.anyOf(Planet.values())
         val s = EnumSet.of(e)
         Bmc.check(s.contains(e) && s.size == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun of_two_dedups_equal_elements() {
         val e = Bmc.anyOf(Planet.values())
         val s = EnumSet.of(e, e)   // duplicate
         Bmc.check(s.size == 1 && s.contains(e))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun of_two_distinct_holds_both() {
         val a = Bmc.anyOf(Planet.values())
         val b = Bmc.anyOf(Planet.values())
@@ -37,7 +37,7 @@ class EnumSetLaws {
         Bmc.check(s.size == 2 && s.contains(a) && s.contains(b))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun add_then_contains_then_remove() {
         val s = EnumSet.of(Planet.EARTH)
         val e = Bmc.anyOf(Planet.values())
@@ -47,20 +47,20 @@ class EnumSetLaws {
         Bmc.check(!s.contains(e))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun add_is_idempotent_for_equal_elements() {
         val s = EnumSet.of(Planet.MARS)
         val addedAgain = s.add(Planet.MARS)   // duplicate: rejected
         Bmc.check(!addedAgain && s.size == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun of_five_with_duplicates_dedups() {
         val s = EnumSet.of(Planet.MERCURY, Planet.VENUS, Planet.EARTH, Planet.MARS, Planet.MERCURY)
         Bmc.check(s.size == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun copyOf_collection_holds_distinct_elements() {
         val src = ArrayList<Planet>()
         val e = Bmc.anyOf(Planet.values())
@@ -70,7 +70,7 @@ class EnumSetLaws {
         Bmc.check(s.size == 1 && s.contains(e))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun varargs_of_first_plus_rest() {
         val a = Bmc.anyOf(Planet.values())
         val b = Bmc.anyOf(Planet.values())

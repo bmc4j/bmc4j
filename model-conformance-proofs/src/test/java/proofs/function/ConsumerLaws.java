@@ -21,7 +21,7 @@ class ConsumerLaws {
         Bmc.check(acc[0] == 15);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 1)
     void andThen_order_is_observable() {
         // Record the order: first consumer writes 1 at index 0 iff it ran first.
         int[] log = new int[2];

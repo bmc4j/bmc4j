@@ -25,7 +25,7 @@ import org.bmc4j.BmcProof;
  */
 class TaxPolicyProofTests {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void exempt_region_pays_no_tax() {
         long amount = Bmc.anyLong(0, 1_000_000);
         long tax = new TaxPolicy().taxOn(amount, "EXEMPT");
@@ -40,7 +40,7 @@ class TaxPolicyProofTests {
         Bmc.check(tax >= 0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     void region_matches_itself() {
         // A SYMBOLIC region: the self-equality inside the model holds for every value only when the
         // model's String.equals is soundly rewritten.

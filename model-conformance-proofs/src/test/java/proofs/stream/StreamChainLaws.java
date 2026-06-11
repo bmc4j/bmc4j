@@ -19,7 +19,7 @@ import org.bmc4j.BmcProof;
  */
 class StreamChainLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMap_flattens() {
         List<Integer> xs = List.of(1, 2, 3);
         // each x -> [x, x*10]; flatten -> [1,10,2,20,3,30], count 6
@@ -29,7 +29,7 @@ class StreamChainLaws {
         Bmc.check(out.size() == 6 && out.get(0) == 1 && out.get(1) == 10 && out.get(5) == 30);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void map_filter_flatMap_reduce_chain() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         // *2 -> 2,4,6,8 ; keep >4 -> 6,8 ; flatMap each -> [n,n] ; reduce + -> 28
@@ -42,7 +42,7 @@ class StreamChainLaws {
         Bmc.check(sum.isPresent() && sum.get().intValue() == 28);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reduce_no_identity_empty_is_empty() {
         // filter everything out -> empty -> reduce returns Optional.empty()
         List<Integer> xs = List.of(1, 2, 3);
@@ -50,14 +50,14 @@ class StreamChainLaws {
         Bmc.check(r.isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reduce_no_identity_product() {
         List<Integer> xs = List.of(2, 3, 4);
         Optional<Integer> p = xs.stream().reduce((a, b) -> a * b);
         Bmc.check(p.isPresent() && p.get() == 24);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void distinct_dedups() {
         // <=4-arg List.of (explicit overload) so JBMC keeps the concrete ArrayList type and
         // devirtualizes .stream(); 5+ args route to varargs (a loud "no body for callee").
@@ -67,14 +67,14 @@ class StreamChainLaws {
         Bmc.check(out.size() == 3 && out.get(0) == 1 && out.get(1) == 2 && out.get(2) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void skip_drops_prefix() {
         List<Integer> xs = List.of(10, 20, 30, 40);
         List<Integer> out = xs.stream().skip(2).toList();
         Bmc.check(out.size() == 2 && out.get(0) == 30 && out.get(1) == 40);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     void skip_then_count() {
         Bmc.check(IntStream.range(0, 10).boxed().skip(7).count() == 3L);
     }
@@ -88,7 +88,7 @@ class StreamChainLaws {
         Bmc.check(out.size() == 3 && out.get(0) == 2 && out.get(2) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void partitioningBy_splits_total() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         Map<Boolean, List<Integer>> parts = xs.stream()
@@ -100,7 +100,7 @@ class StreamChainLaws {
         Bmc.check(parts.get(Boolean.FALSE).get(0) == 1 && parts.get(Boolean.FALSE).get(1) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void partitioningBy_empty_bucket_present() {
         List<Integer> xs = List.of(1, 3, 5);
         Map<Boolean, List<Integer>> parts = xs.stream()

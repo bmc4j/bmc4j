@@ -21,19 +21,19 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.plus (element + collection) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_element_appends() {
         val xs = listOf(1, 2) + 3
         Bmc.check(xs.size == 3 && xs[0] == 1 && xs[1] == 2 && xs[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_collection_concatenates() {
         val xs = listOf(1, 2) + listOf(3, 4)
         Bmc.check(xs.size == 4 && xs[0] == 1 && xs[2] == 3 && xs[3] == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_leaves_source_unchanged() {
         val src = listOf(1, 2)
         val xs = src + 9
@@ -41,7 +41,7 @@ class KotlinCollectionResidueLaws {
     }
 
     /** Symbolic plus law: `xs + e` carries every source element in order then the appended element. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_plus_element() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)
@@ -52,20 +52,20 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.minus (element + collection) ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun minus_element_removes_first_occurrence() {
         val xs = listOf(1, 2, 1, 3) - 1
         Bmc.check(xs.size == 3 && xs[0] == 2 && xs[1] == 1 && xs[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun minus_collection_removes_all_matches() {
         val xs = listOf(1, 2, 3, 2, 1) - listOf(1, 2)
         Bmc.check(xs.size == 1 && xs[0] == 3)
     }
 
     /** Symbolic minus law: removing the unique element b leaves a, in order. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_minus_element() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200) // distinct from a
@@ -80,7 +80,7 @@ class KotlinCollectionResidueLaws {
         Bmc.check(listOf(42).single() == 42)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun singleOrNull_null_when_not_one() {
         Bmc.check(listOf(1, 2).singleOrNull() == null && emptyList<Int>().singleOrNull() == null)
     }
@@ -99,14 +99,14 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.reversed ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun reversed_flips_order() {
         val xs = listOf(1, 2, 3).reversed()
         Bmc.check(xs.size == 3 && xs[0] == 3 && xs[1] == 2 && xs[2] == 1)
     }
 
     /** Symbolic reversed law: index i maps to source index (n-1-i); source untouched. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_reversed() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)
@@ -117,20 +117,20 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.toList / toMutableList / toMutableSet (Iterable overloads) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toList_snapshots_in_order() {
         val xs = (listOf(1, 2, 3) as Iterable<Int>).toList()
         Bmc.check(xs.size == 3 && xs[0] == 1 && xs[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toMutableList_copies_and_is_mutable() {
         val m = (listOf(1, 2) as Iterable<Int>).toMutableList()
         m.add(3)
         Bmc.check(m.size == 3 && m[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun toMutableSet_dedups() {
         val s = (listOf(1, 2, 2, 3) as Iterable<Int>).toMutableSet()
         Bmc.check(s.size == 3 && s.contains(2) && !s.contains(9))
@@ -138,19 +138,19 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.union / intersect / subtract ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun union_combines_distinct() {
         val s = listOf(1, 2, 3).union(listOf(3, 4))
         Bmc.check(s.size == 4 && s.contains(1) && s.contains(4) && !s.contains(9))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun intersect_keeps_common() {
         val s = listOf(1, 2, 3).intersect(listOf(2, 3, 4))
         Bmc.check(s.size == 2 && s.contains(2) && s.contains(3) && !s.contains(1) && !s.contains(4))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun subtract_removes_other() {
         val s = listOf(1, 2, 3).subtract(listOf(2, 3))
         Bmc.check(s.size == 1 && s.contains(1) && !s.contains(2))
@@ -169,12 +169,12 @@ class KotlinCollectionResidueLaws {
 
     // ---- CollectionsKt.average (Int / Long) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun averageOfInt_is_mean() {
         Bmc.check(listOf(2, 4, 6).average() == 4.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun averageOfLong_is_mean() {
         Bmc.check(listOf(10L, 20L).average() == 15.0)
     }

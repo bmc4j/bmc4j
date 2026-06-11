@@ -13,43 +13,43 @@ import org.bmc4j.BmcProof
  */
 class KotlinCollectionLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun listOf_size_index_and_sum() {
         val xs = listOf(1, 2, 3)
         Bmc.check(xs.size == 3 && xs[0] == 1 && xs[2] == 3 && xs.sum() == 6)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun map_then_sum() {
         val xs = listOf(1, 2, 3)
         Bmc.check(xs.map { it + 1 }.sum() == 9)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun filter_then_sum() {
         val xs = listOf(1, 2, 3, 4)
         Bmc.check(xs.filter { it % 2 == 0 }.sum() == 6)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun fold_sums() {
         val xs = listOf(1, 2, 3, 4)
         Bmc.check(xs.fold(0) { acc, e -> acc + e } == 10)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun first_and_last() {
         val xs = listOf(5, 6, 7)
         Bmc.check(xs.first() == 5 && xs.last() == 7)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun setOf_dedups_and_membership() {
         val s = setOf(1, 2, 2, 3)
         Bmc.check(s.size == 3 && s.contains(2) && !s.contains(9))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun mapOf_lookup() {
         val m = mapOf(1 to 10, 2 to 20)
         Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
@@ -103,7 +103,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic law: map-then-sum distributes, for every pair of inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_map_then_sum() {
         val a = Bmc.anyInt(0, 1000)
         val b = Bmc.anyInt(0, 1000)
@@ -114,12 +114,12 @@ class KotlinCollectionLaws {
     // list; the Kotlin compiler routes List<Int>.maxOrNull/minOrNull through the generic
     // Iterable overload CollectionsKt.maxOrNull/minOrNull:(Ljava/lang/Iterable;)Ljava/lang/Comparable;).
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun maxOrNull_picks_largest() {
         Bmc.check(listOf(3, 1, 2).maxOrNull() == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun minOrNull_picks_smallest() {
         Bmc.check(listOf(3, 1, 2).minOrNull() == 1)
     }
@@ -135,7 +135,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic law: maxOrNull/minOrNull bracket the inputs and the max dominates the min. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_max_min_bounds() {
         val a = Bmc.anyInt(-1000, 1000)
         val b = Bmc.anyInt(-1000, 1000)
@@ -156,33 +156,33 @@ class KotlinCollectionLaws {
     // bounded list model directly with no CollectionsKt facade method. Concrete + symbolic proofs
     // confirm the inlined iteration is sound against the model.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun count_is_size() {
         Bmc.check(listOf(1, 2, 3).count() == 3 && emptyList<Int>().count() == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun count_predicate() {
         Bmc.check(listOf(1, 2, 3, 4).count { it % 2 == 0 } == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun any_finds_match() {
         Bmc.check(listOf(1, 2, 3).any { it == 2 } && !listOf(1, 3, 5).any { it == 2 })
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun all_holds() {
         Bmc.check(listOf(2, 4, 6).all { it % 2 == 0 } && !listOf(2, 3, 6).all { it % 2 == 0 })
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun none_holds() {
         Bmc.check(listOf(1, 3, 5).none { it % 2 == 0 } && !listOf(1, 2, 5).none { it % 2 == 0 })
     }
 
     /** Symbolic law: any/all/none are consistent and count{p} is bounded by size. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_predicate_consistency() {
         // Tight domain (0..3 fully exercises even/odd) + only the any/none pair: each inlined
         // collection traversal is costly, and count{} (with its overflow path) blew this proof past
@@ -198,7 +198,7 @@ class KotlinCollectionLaws {
     // LinkedHashMap + ArrayList (both modeled): Map.get/put + List.add. No CollectionsKt facade
     // method is involved, so this exercises the bounded map+list models directly.
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun groupBy_partitions_by_key() {
         val g = listOf(1, 2, 3, 4, 5).groupBy { it % 2 }
         val odd = g[1]!!
@@ -211,7 +211,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic groupBy law: every element lands in exactly its key's bucket, order preserved. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_groupBy_buckets() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(0, 100)
@@ -223,26 +223,26 @@ class KotlinCollectionLaws {
     // over a LinkedHashMap (sized via MapsKt.mapCapacity + RangesKt.coerceAtLeast + LinkedHashMap(int)
     // ctor — all modeled so the capacity isn't nondet) with the put loop over the bounded map model.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun associateBy_keys_map_to_elements() {
         val m = listOf(1, 2, 3).associateBy { it * 10 }
         Bmc.check(m.size == 3 && m[10] == 1 && m[20] == 2 && m[30] == 3 && m[99] == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun associateWith_elements_map_to_values() {
         val m = listOf(1, 2, 3).associateWith { it * it }
         Bmc.check(m.size == 3 && m[1] == 1 && m[2] == 4 && m[3] == 9)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun associate_builds_pairs() {
         val m = listOf(1, 2, 3).associate { it to it + 100 }
         Bmc.check(m.size == 3 && m[1] == 101 && m[2] == 102 && m[3] == 103)
     }
 
     /** Symbolic associateWith law: lookup recovers the selector applied to each key. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_associateWith_lookup() {
         val a = Bmc.anyInt(0, 1000)
         val b = Bmc.anyInt(1001, 2000)   // distinct keys (disjoint ranges)
@@ -252,7 +252,7 @@ class KotlinCollectionLaws {
 
     // ---- zip(other) -> List<Pair>, truncated to the shorter input (CollectionsKt.zip facade model).
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun zip_pairs_elementwise() {
         val z = listOf("a", "b", "c").zip(listOf(1, 2, 3))
         Bmc.check(
@@ -263,14 +263,14 @@ class KotlinCollectionLaws {
         )
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun zip_truncates_to_shorter() {
         val z = listOf(1, 2, 3, 4).zip(listOf(10, 20))
         Bmc.check(z.size == 2 && z[0].second == 10 && z[1].second == 20)
     }
 
     /** Symbolic zip law: each pair carries the corresponding elements of the two inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_zip_corresponds() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)
@@ -281,20 +281,20 @@ class KotlinCollectionLaws {
     // ---- sorted() / sortedBy { } -> a NEW sorted list (CollectionsKt.sorted / sortedWith facade
     // models: bounded insertion sort; sortedBy's keySelector is desugared into a Comparator).
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sorted_orders_ascending() {
         val s = listOf(3, 1, 2).sorted()
         Bmc.check(s.size == 3 && s[0] == 1 && s[1] == 2 && s[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sorted_leaves_source_unchanged() {
         val src = listOf(3, 1, 2)
         val s = src.sorted()
         Bmc.check(src[0] == 3 && src[1] == 1 && src[2] == 2 && s[0] == 1 && s[2] == 3)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sortedBy_orders_by_selector() {
         // sortedBy with a numeric selector: sort by descending magnitude via negation, so the
         // result order differs from natural order (proving the Comparator from the desugared
@@ -310,7 +310,7 @@ class KotlinCollectionLaws {
      * is near-budget on the slow kotlin-2.0.21 leg at a wide range (times out once the verdict cache is
      * invalidated and it re-proves live), and a narrow bit-width keeps it comfortably decidable.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_sorted_is_ordered_permutation() {
         val a = Bmc.anyInt(-16, 16)
         val b = Bmc.anyInt(-16, 16)
@@ -327,7 +327,7 @@ class KotlinCollectionLaws {
      * pair of inputs. Pins ComparisonsKt.compareValues — a nondet stub could not satisfy this for
      * all symbolic a, b.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_sortedBy_descending() {
         val a = Bmc.anyInt(-1000, 1000)
         val b = Bmc.anyInt(-1000, 1000)
@@ -338,31 +338,31 @@ class KotlinCollectionLaws {
     // ---- take(n) / drop(n) -> a NEW list of the first / all-but-first n elements
     // (CollectionsKt.take / drop facade models, bounded; negative n throws).
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun take_keeps_prefix() {
         val t = listOf(1, 2, 3, 4).take(2)
         Bmc.check(t.size == 2 && t[0] == 1 && t[1] == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun take_more_than_size_is_whole() {
         val t = listOf(1, 2).take(5)
         Bmc.check(t.size == 2 && t[0] == 1 && t[1] == 2)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun drop_skips_prefix() {
         val d = listOf(1, 2, 3, 4).drop(2)
         Bmc.check(d.size == 2 && d[0] == 3 && d[1] == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun drop_more_than_size_is_empty() {
         Bmc.check(listOf(1, 2).drop(5).isEmpty())
     }
 
     /** Symbolic take/drop law: take(k)+drop(k) partition the source and concatenate to it. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_take_drop_partition() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)
@@ -379,14 +379,14 @@ class KotlinCollectionLaws {
     // ---- distinct() -> NEW list of distinct elements in first-occurrence order
     // (CollectionsKt.distinct facade model via a bounded LinkedHashSet).
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun distinct_dedups_preserving_order() {
         val d = listOf(3, 1, 3, 2, 1).distinct()
         Bmc.check(d.size == 3 && d[0] == 3 && d[1] == 1 && d[2] == 2)
     }
 
     /** Symbolic distinct law: two equal elements collapse to one; a distinct one is kept, in order. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_distinct_collapses_duplicates() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200) // b != a (disjoint ranges)
@@ -396,14 +396,14 @@ class KotlinCollectionLaws {
 
     // ---- toSet() -> NEW Set (LinkedHashSet model) deduping via equals.
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun toSet_dedups() {
         val s = listOf(1, 2, 2, 3, 1).toSet()
         Bmc.check(s.size == 3 && s.contains(1) && s.contains(2) && s.contains(3) && !s.contains(9))
     }
 
     /** Symbolic toSet law: a duplicate is absorbed; membership reflects the inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_toSet_membership() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200)
@@ -413,7 +413,7 @@ class KotlinCollectionLaws {
 
     // ---- toMutableList() -> NEW ArrayList snapshot (CollectionsKt.toMutableList facade model).
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toMutableList_copies_and_is_mutable() {
         val src = listOf(1, 2, 3)
         val m = src.toMutableList()
@@ -423,7 +423,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic toMutableList law: the copy carries every element in order, independent of source. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_toMutableList_is_faithful_copy() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)
@@ -435,29 +435,29 @@ class KotlinCollectionLaws {
     // bounded Iterable/Iterator/ArrayList (flatMap additionally via the modeled CollectionsKt.addAll).
     // No dedicated facade method — these exercise the bounded list model directly.
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun fold_accumulates() {
         Bmc.check(listOf(1, 2, 3, 4).fold(10) { acc, e -> acc + e } == 20)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun reduce_combines() {
         Bmc.check(listOf(1, 2, 3, 4).reduce { acc, e -> acc + e } == 10)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun sumOf_selector() {
         Bmc.check(listOf(1, 2, 3).sumOf { it * 2 } == 12)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun flatMap_concatenates() {
         val f = listOf(1, 2, 3).flatMap { listOf(it, it * 10) }
         Bmc.check(f.size == 6 && f[0] == 1 && f[1] == 10 && f[2] == 2 && f[3] == 20 && f[4] == 3 && f[5] == 30)
     }
 
     /** Symbolic fold law: folding (+) from 0 equals the sum, for every pair of inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_fold_is_sum() {
         val a = Bmc.anyInt(0, 1000)
         val b = Bmc.anyInt(0, 1000)
@@ -465,7 +465,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic reduce law: reduce(+) equals the sum and (for these inputs) equals fold-from-first. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_reduce_is_sum() {
         val a = Bmc.anyInt(0, 1000)
         val b = Bmc.anyInt(0, 1000)
@@ -474,7 +474,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic sumOf law: sumOf{*3} triples the sum — only true if the selector is applied. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_sumOf_selector() {
         val a = Bmc.anyInt(0, 1000)
         val b = Bmc.anyInt(0, 1000)
@@ -482,7 +482,7 @@ class KotlinCollectionLaws {
     }
 
     /** Symbolic flatMap law: each element expands to a pair (e, e+1), in order. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_flatMap_expands() {
         val a = Bmc.anyInt(-100, 100)
         val b = Bmc.anyInt(-100, 100)

@@ -16,13 +16,13 @@ import org.bmc4j.BmcProof;
  */
 class IntStreamOptionalLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void min_of_present() {
         OptionalInt o = IntStream.of(3, 1, 2).min();
         Bmc.check(o.isPresent() && o.getAsInt() == 1);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void max_of_present() {
         OptionalInt o = IntStream.of(3, 1, 2).max();
         Bmc.check(o.isPresent() && o.getAsInt() == 3);
@@ -34,7 +34,7 @@ class IntStreamOptionalLaws {
         Bmc.check(IntStream.empty().max().isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void reduce_no_identity_sums_when_present() {
         OptionalInt o = IntStream.of(1, 2, 3, 4).reduce((a, b) -> a + b);
         Bmc.check(o.isPresent() && o.getAsInt() == 10);
@@ -64,7 +64,7 @@ class IntStreamOptionalLaws {
     }
 
     /** Symbolic: min over three symbolic values is <= each element and equals one of them. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_min_is_a_lower_bound() {
         int a = Bmc.anyInt(-1000, 1000);
         int b = Bmc.anyInt(-1000, 1000);

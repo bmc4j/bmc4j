@@ -26,37 +26,37 @@ class DoubleStreamLaws {
         return xs
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_of_sum() {
         Bmc.check(DoubleStream.of(10.0, 20.0, 5.0).sum() == 35.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_of_count() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 3.0).count() == 3L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_map_sum() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 3.0).map { it * 2.0 }.sum() == 12.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_filter_count() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 4.0).filter { it >= 2.0 }.count() == 2L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_filter_sum() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 4.0).filter { it >= 2.0 }.sum() == 6.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_reduce_identity_sum() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 3.0).reduce(0.0) { a, b -> a + b } == 6.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun doublestream_reduce_no_identity_present() {
         val o = DoubleStream.of(1.0, 2.0, 3.0, 4.0).reduce { a, b -> a + b }
         Bmc.check(o.isPresent && o.asDouble == 10.0)
@@ -67,7 +67,7 @@ class DoubleStreamLaws {
         Bmc.check(DoubleStream.empty().reduce { a, b -> a + b }.isEmpty)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_average_present() {
         // 2+4+6 = 12, /3 = 4.0 — exact in binary FP. Tight range keeps the division cheap.
         val o = DoubleStream.of(2.0, 4.0, 6.0).average()
@@ -79,7 +79,7 @@ class DoubleStreamLaws {
         Bmc.check(DoubleStream.empty().average().isEmpty)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_findFirst_head() {
         val o = DoubleStream.of(7.0, 8.0, 9.0).findFirst()
         Bmc.check(o.isPresent && o.asDouble == 7.0)
@@ -90,22 +90,22 @@ class DoubleStreamLaws {
         Bmc.check(DoubleStream.empty().findFirst().isEmpty)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun stream_mapToObj_then_count() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 5.0).mapToObj { it }.count() == 3L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun doublestream_boxed_count() {
         Bmc.check(DoubleStream.of(1.0, 2.0).boxed().count() == 2L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun doublestream_takeWhile_count() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 9.0, 3.0).takeWhile { it < 5.0 }.count() == 2L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun doublestream_dropWhile_sum() {
         Bmc.check(DoubleStream.of(1.0, 2.0, 9.0, 3.0).dropWhile { it < 5.0 }.sum() == 12.0)
     }
@@ -117,7 +117,7 @@ class DoubleStreamLaws {
      * adder's variable-shift exponent alignment) is SAT-pathological and times out, whereas integer-valued
      * doubles keep the bit-vector FP adder tractable while still proving the identity for all such values.
      */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_sum() {
         val a = Bmc.anyInt(-100, 100).toDouble()
         val b = Bmc.anyInt(-100, 100).toDouble()
@@ -128,13 +128,13 @@ class DoubleStreamLaws {
     // ---- DoubleSummaryStatistics: the SOUND surface (accept/getCount/getSum/getAverage) ------------
     // getMin/getMax are loud @BmcUnmodelable (FP total order) — deliberately NOT asserted here.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun summarystatistics_count_and_sum() {
         val stats = DoubleStream.of(1.0, 2.0, 3.0).summaryStatistics()
         Bmc.check(stats.count == 3L && stats.sum == 6.0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun summarystatistics_average() {
         // 2+4+6 = 12, /3 = 4.0 exactly.
         val stats = DoubleStream.of(2.0, 4.0, 6.0).summaryStatistics()

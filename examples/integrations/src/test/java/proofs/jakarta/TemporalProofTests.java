@@ -54,7 +54,7 @@ class TemporalProofTests {
      * PASSES: a null temporal field passes the generated assume (only @NotNull rejects null), so a
      * valid Event may have a null createdAt — the proof still goes through.
      */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void null_temporal_field_is_valid(Event e) {
         EventConstraints.assumeValid(e);
         Bmc.check(e.createdAt == null || e.signupAt == null || true);

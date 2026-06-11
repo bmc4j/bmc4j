@@ -14,14 +14,14 @@ class KotlinMapSetResidueLaws {
 
     // ---- MapsKt.getValue ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun getValue_returns_present() {
         val m = mapOf(1 to 10, 2 to 20)
         Bmc.check(m.getValue(1) == 10 && m.getValue(2) == 20)
     }
 
     /** Symbolic getValue law: getValue recovers the value stored under each distinct key. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_getValue() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200)
@@ -43,7 +43,7 @@ class KotlinMapSetResidueLaws {
         Bmc.check(m.size == 1 && m[1] == 99)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun plus_map_merges() {
         val m = mapOf(1 to 10) + mapOf(2 to 20, 3 to 30)
         Bmc.check(m.size == 3 && m[1] == 10 && m[2] == 20 && m[3] == 30)
@@ -57,7 +57,7 @@ class KotlinMapSetResidueLaws {
     }
 
     /** Symbolic plus law: adding (b,vb) to {a:va} (distinct keys) yields both, source untouched. */
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun symbolic_plus_pair() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200)
@@ -67,13 +67,13 @@ class KotlinMapSetResidueLaws {
 
     // ---- MapsKt.minus (key) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun minus_key_removes_entry() {
         val m = mapOf(1 to 10, 2 to 20) - 1
         Bmc.check(m.size == 1 && m[2] == 20 && m[1] == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun minus_keys_removes_all() {
         val m = mapOf(1 to 10, 2 to 20, 3 to 30) - listOf(1, 3)
         Bmc.check(m.size == 1 && m[2] == 20)
@@ -95,31 +95,31 @@ class KotlinMapSetResidueLaws {
 
     // ---- SetsKt.plus / minus ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun set_plus_element() {
         val s = setOf(1, 2) + 3
         Bmc.check(s.size == 3 && s.contains(3) && s.contains(1))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun set_plus_dedups() {
         val s = setOf(1, 2) + 2
         Bmc.check(s.size == 2 && s.contains(1) && s.contains(2))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun set_plus_collection() {
         val s = setOf(1, 2) + listOf(2, 3, 4)
         Bmc.check(s.size == 4 && s.contains(4) && !s.contains(9))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun set_minus_element() {
         val s = setOf(1, 2, 3) - 2
         Bmc.check(s.size == 2 && s.contains(1) && s.contains(3) && !s.contains(2))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun set_minus_collection() {
         val s = setOf(1, 2, 3, 4) - listOf(2, 4)
         Bmc.check(s.size == 2 && s.contains(1) && s.contains(3))
@@ -130,7 +130,7 @@ class KotlinMapSetResidueLaws {
      * symbolic circuit small; the plus-then-minus round-trip blew the proof budget — the SAT-
      * pathological case the protocol says to skip. The concrete set_minus_* proofs cover removal.)
      */
-    @BmcProof
+    @BmcProof(unwind = 2)
     fun symbolic_set_plus() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200)
@@ -140,7 +140,7 @@ class KotlinMapSetResidueLaws {
 
     // ---- MapsKt.toMap / toMutableMap / toSortedMap (models/kotlin-collections-2 pass) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toMap_copies_entries() {
         val m = mapOf(1 to 10, 2 to 20).toMap()
         Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
@@ -153,7 +153,7 @@ class KotlinMapSetResidueLaws {
         Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toMap_from_pair_list() {
         val m = listOf(1 to 10, 2 to 20).toMap()
         Bmc.check(m.size == 2 && m[1] == 10 && m[2] == 20)
@@ -165,7 +165,7 @@ class KotlinMapSetResidueLaws {
 
     // ---- SetsKt.setOfNotNull / hashSetOf / linkedSetOf (models/kotlin-collections-2 pass) ----
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun setOfNotNull_filters_nulls() {
         val s = setOfNotNull(1, null, 2, null, 2)
         Bmc.check(s.size == 2 && s.contains(1) && s.contains(2))
@@ -177,20 +177,20 @@ class KotlinMapSetResidueLaws {
         Bmc.check(s.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun hashSetOf_dedups() {
         val s = hashSetOf(1, 2, 2, 3)
         Bmc.check(s.size == 3 && s.contains(2) && !s.contains(9))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun linkedSetOf_dedups() {
         val s = linkedSetOf(1, 2, 2, 3)
         Bmc.check(s.size == 3 && s.contains(1) && s.contains(3))
     }
 
     /** Symbolic setOfNotNull law: for distinct a,b — setOfNotNull(a, null, b) has exactly {a,b}. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun symbolic_setOfNotNull() {
         val a = Bmc.anyInt(0, 100)
         val b = Bmc.anyInt(101, 200)

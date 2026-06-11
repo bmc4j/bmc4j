@@ -22,7 +22,7 @@ import org.bmc4j.Verdict;
 class JavaRandomLaws {
 
     /** The classic dice idiom — {@code nextInt(6) + 1} lands in {@code 1..6} for EVERY outcome. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nextInt6_plus1_always_in_1_to_6() {
         Random r = new Random();
         int roll = r.nextInt(6) + 1;
@@ -30,7 +30,7 @@ class JavaRandomLaws {
     }
 
     /** {@code nextInt(bound)} is always within {@code [0, bound)} — proven for a symbolic bound. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nextInt_bound_in_range_for_every_bound() {
         int bound = Bmc.anyInt(1, 1000);
         int v = new Random().nextInt(bound);
@@ -46,14 +46,14 @@ class JavaRandomLaws {
     }
 
     /** {@code nextLong(bound)} is always within {@code [0, bound)}. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nextLong_bound_in_range() {
         long v = new Random().nextLong(100L);
         Bmc.check(v >= 0 && v < 100L);
     }
 
     /** {@code nextBoolean()} is true or false — both outcomes are considered (trivially total). */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nextBoolean_is_true_or_false() {
         boolean b = new Random().nextBoolean();
         Bmc.check(b || !b);
@@ -95,7 +95,7 @@ class JavaRandomLaws {
     }
 
     /** A non-positive {@code nextDouble(bound)} throws {@link IllegalArgumentException}, like the JDK. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void nextDouble_nonpositive_bound_throws() {
         Random r = new Random();
         boolean threw = false;

@@ -48,7 +48,7 @@ class BigIntegerLaws {
     // The symbolic/garbage axis is covered differentially (BigIntegerConformanceTest); these pin the
     // parse semantics concretely under JBMC so the model's own parse path is verified, not stubbed.
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun parse_round_trips_via_longValue() {
         Bmc.check(BigInteger("123").toLong() == 123L)
         Bmc.check(BigInteger("-456").toLong() == -456L)
@@ -57,7 +57,7 @@ class BigIntegerLaws {
         Bmc.check(BigInteger("000").toLong() == 0L)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun parse_agrees_with_valueOf() {
         Bmc.check(BigInteger("1000") == BigInteger.valueOf(1000L))
         Bmc.check(BigInteger("-1000") == BigInteger.valueOf(-1000L))
@@ -68,7 +68,7 @@ class BigIntegerLaws {
     // the division/loop lesson. The wide symbolic axis + sign-agnosticism + the loud overflow boundary
     // are covered differentially in BigIntegerConformanceTest; these pin the algebra concretely.) ----
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun gcd_pins() {
         Bmc.check(BigInteger.valueOf(12).gcd(BigInteger.valueOf(18)) == BigInteger.valueOf(6))
         Bmc.check(BigInteger.valueOf(-12).gcd(BigInteger.valueOf(18)) == BigInteger.valueOf(6))  // sign-agnostic
@@ -77,7 +77,7 @@ class BigIntegerLaws {
         Bmc.check(BigInteger.valueOf(7).gcd(BigInteger.valueOf(7)) == BigInteger.valueOf(7))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 16)
     fun pow_pins() {
         Bmc.check(BigInteger.valueOf(2).pow(10) == BigInteger.valueOf(1024))
         Bmc.check(BigInteger.valueOf(-3).pow(3) == BigInteger.valueOf(-27))
@@ -152,7 +152,7 @@ class BigIntegerLaws {
 
     // shift round-trip: (a << k) >> k == a for a small fixed shift that stays in-bound (concrete count
     // keeps the shift loop unwound cheaply; the wide axis is differential).
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun shift_left_then_right_round_trips() {
         val a = BigInteger.valueOf(Bmc.anyInt(-100_000, 100_000).toLong())
         Bmc.check(a.shiftLeft(3).shiftRight(3) == a)
@@ -160,7 +160,7 @@ class BigIntegerLaws {
 
     // modPow / sqrt: concrete pins (the square-and-multiply loop + Newton iteration are over a symbolic
     // count → SAT-pathological if symbolic; the wide axis is differential). Pin the algebra here.
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun modPow_pins() {
         Bmc.check(BigInteger.valueOf(2L).modPow(BigInteger.valueOf(10L), BigInteger.valueOf(1000L))
             == BigInteger.valueOf(24L))                                  // 1024 mod 1000
@@ -189,7 +189,7 @@ class BigIntegerLaws {
     // modInverse: the defining round-trip a·a⁻¹ ≡ 1 (mod m). CONCRETE pins keep the extended-Euclid
     // loop (over a symbolic count) off the proof — the symbolic axis + non-invertible/non-positive
     // boundaries are covered differentially (BigIntegerConformanceTest). Pins the algebra under JBMC.
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun modInverse_round_trips() {
         // 3·inv ≡ 1 (mod 11): inv == 4 (3*4 = 12 ≡ 1).
         val inv = BigInteger.valueOf(3L).modInverse(BigInteger.valueOf(11L))
@@ -203,7 +203,7 @@ class BigIntegerLaws {
 
     // toByteArray: minimal two's-complement big-endian encoding — concrete pins under JBMC (the array
     // build is over a symbolic length if value-symbolic; the wide byte-for-byte axis is differential).
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun toByteArray_pins() {
         Bmc.check(BigInteger.ZERO.toByteArray().let { it.size == 1 && it[0].toInt() == 0 })       // {0}
         Bmc.check(BigInteger.valueOf(127L).toByteArray().let { it.size == 1 && it[0].toInt() == 127 })

@@ -14,21 +14,21 @@ import org.bmc4j.BmcProof;
  */
 class IntStreamTail2Laws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMap_flattens_and_sums() {
         // each x -> IntStream.of(x, x*10) -> [1,10,2,20,3,30] -> sum 66
         int sum = IntStream.of(1, 2, 3).flatMap(x -> IntStream.of(x, x * 10)).sum();
         Bmc.check(sum == 66);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void flatMap_can_empty() {
         // each x -> empty -> total empty -> count 0
         long n = IntStream.of(1, 2, 3).flatMap(x -> IntStream.empty()).count();
         Bmc.check(n == 0L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void forEachOrdered_visits_all_in_order() {
         int[] sum = {0};
         int[] first = {-1};
@@ -41,7 +41,7 @@ class IntStreamTail2Laws {
         Bmc.check(sum[0] == 15 && first[0] == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void collect_mutable_into_list() {
         ArrayList<Integer> out = IntStream.of(1, 2, 3).collect(
                 ArrayList::new,
@@ -51,7 +51,7 @@ class IntStreamTail2Laws {
     }
 
     /** Symbolic: flatMap with a singleton mapper is identity on the sum, for all inputs. */
-    @BmcProof
+    @BmcProof(unwind = 4)
     void symbolic_flatMap_singleton_is_identity() {
         int a = Bmc.anyInt(0, 1000);
         int b = Bmc.anyInt(0, 1000);

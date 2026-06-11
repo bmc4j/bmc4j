@@ -18,32 +18,32 @@ import org.bmc4j.BmcProof;
  */
 class StreamDoubleBridgeLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapToDouble_then_sum() {
         double s = Stream.of(1, 2, 3).mapToDouble(x -> x * 2.0).sum();
         Bmc.check(s == 12.0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void mapToDouble_then_count() {
         long n = Stream.of("a", "bb", "ccc").mapToDouble(x -> x.length()).count();
         Bmc.check(n == 3L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMapToDouble_flattens_and_sums() {
         // each x -> [x, x*10] -> [1,10,2,20] -> sum 33
         double s = Stream.of(1, 2).flatMapToDouble(x -> DoubleStream.of(x, x * 10.0)).sum();
         Bmc.check(s == 33.0);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void flatMapToDouble_can_empty() {
         long n = Stream.of(1, 2, 3).flatMapToDouble(x -> DoubleStream.empty()).count();
         Bmc.check(n == 0L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void mapMultiToDouble_emits_per_element() {
         // each x emits x and x+0.5 -> [1,1.5,2,2.5] -> sum 7.0
         double s = Stream.of(1, 2).mapMultiToDouble((x, sink) -> {

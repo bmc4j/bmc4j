@@ -21,20 +21,20 @@ import org.bmc4j.BmcProof;
  */
 class StreamTailLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void limit_truncates() {
         List<Integer> xs = List.of(1, 2, 3, 4);
         List<Integer> out = xs.stream().limit(2).toList();
         Bmc.check(out.size() == 2 && out.get(0) == 1 && out.get(1) == 2);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void limit_past_end_is_identity() {
         List<Integer> xs = List.of(1, 2);
         Bmc.check(xs.stream().limit(10).count() == 2L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void takeWhile_stops_at_first_false() {
         List<Integer> xs = List.of(1, 2, 3, 1);
         // take while < 3 -> [1,2], stops at 3 even though a later 1 would pass
@@ -42,7 +42,7 @@ class StreamTailLaws {
         Bmc.check(out.size() == 2 && out.get(0) == 1 && out.get(1) == 2);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void dropWhile_drops_leading_run() {
         List<Integer> xs = List.of(1, 2, 3, 1);
         // drop while < 3 -> [3,1] (the trailing 1 is kept)
@@ -50,13 +50,13 @@ class StreamTailLaws {
         Bmc.check(out.size() == 2 && out.get(0) == 3 && out.get(1) == 1);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void peek_is_identity_on_elements() {
         List<Integer> xs = List.of(1, 2, 3);
         Bmc.check(xs.stream().peek(x -> { }).count() == 3L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void noneMatch_true_when_none() {
         List<Integer> xs = List.of(1, 2, 3);
         Bmc.check(xs.stream().noneMatch(x -> x > 100));
@@ -75,7 +75,7 @@ class StreamTailLaws {
         Bmc.check(f.isPresent() && f.get() == 7);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void findFirst_empty_is_empty() {
         List<Integer> xs = List.of(1, 2, 3);
         Bmc.check(xs.stream().filter(x -> x > 100).findFirst().isEmpty());
@@ -92,34 +92,34 @@ class StreamTailLaws {
     // the same pattern the Kotlin sortedWith proofs use (a desugared keySelector Comparator).
     private static final Comparator<Integer> ASC = (a, b) -> a.intValue() - b.intValue();
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void min_picks_smallest() {
         List<Integer> xs = List.of(3, 1, 2);
         Optional<Integer> m = xs.stream().min(ASC);
         Bmc.check(m.isPresent() && m.get() == 1);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void max_picks_largest() {
         List<Integer> xs = List.of(3, 1, 2);
         Optional<Integer> m = xs.stream().max(ASC);
         Bmc.check(m.isPresent() && m.get() == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void min_empty_is_empty() {
         List<Integer> xs = List.of(1, 2);
         Bmc.check(xs.stream().filter(x -> x > 100).min(ASC).isEmpty());
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void sorted_orders_ascending() {
         List<Integer> xs = List.of(3, 1, 2);
         List<Integer> out = xs.stream().sorted(ASC).toList();
         Bmc.check(out.size() == 3 && out.get(0) == 1 && out.get(1) == 2 && out.get(2) == 3);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMapToInt_flattens_and_sums() {
         List<Integer> xs = List.of(1, 2, 3);
         // each x -> IntStream.of(x, x) -> [1,1,2,2,3,3] -> sum 12
@@ -127,7 +127,7 @@ class StreamTailLaws {
         Bmc.check(sum == 12);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMapToLong_flattens_and_sums() {
         List<Integer> xs = List.of(1, 2, 3);
         long sum = xs.stream().flatMapToLong(x -> LongStream.of(x, x)).sum();
@@ -154,7 +154,7 @@ class StreamTailLaws {
         Bmc.check(Stream.ofNullable("x").count() == 1L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void concat_appends() {
         Stream<Integer> a = Stream.of(1, 2);
         Stream<Integer> b = Stream.of(3, 4);
@@ -162,7 +162,7 @@ class StreamTailLaws {
         Bmc.check(out.size() == 4 && out.get(0) == 1 && out.get(3) == 4);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void iterate_finite_terminates() {
         // seed 1, while <= 4, next *2 -> [1,2,4] (8 stops the predicate)
         List<Integer> out = Stream.iterate(1, x -> x <= 4, x -> x * 2).toList();
@@ -186,7 +186,7 @@ class StreamTailLaws {
         Bmc.check(out.size() == 3 && out.get(0) == a && out.get(1) == b && out.get(2) == c);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void symbolic_flatMap_expands() {
         int a = Bmc.anyInt(-100, 100);
         int b = Bmc.anyInt(-100, 100);

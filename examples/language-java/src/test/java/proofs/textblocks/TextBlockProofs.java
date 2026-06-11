@@ -34,7 +34,7 @@ class TextBlockProofs {
     }
 
     // PASS: a single-line text block is exactly its bare content — no quotes, no trailing newline.
-    @BmcProof
+    @BmcProof(unwind = 8)
     void single_line_block_is_bare_content() {
         Bmc.check(Banner.word().equals("prod"));
         Bmc.check(Banner.word().length() == 4);

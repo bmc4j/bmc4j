@@ -14,7 +14,7 @@ import org.bmc4j.BmcProof;
  */
 class LongStreamTail2Laws {
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     void flatMap_flattens_and_sums() {
         long sum = LongStream.of(1, 2, 3).flatMap(x -> LongStream.of(x, x * 10)).sum();
         Bmc.check(sum == 66L);
@@ -39,7 +39,7 @@ class LongStreamTail2Laws {
         Bmc.check(sum[0] == 15L && first[0] == 4L);
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void collect_mutable_into_list() {
         ArrayList<Long> out = LongStream.of(1, 2, 3).collect(
                 ArrayList::new,

@@ -19,7 +19,7 @@ import org.bmc4j.BmcProof
  */
 class LinkedHashMapLaws {
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun firstEntry_and_lastEntry_are_the_insertion_ends() {
         val m = LinkedHashMap<Int, Int>()
         m[3] = 30
@@ -37,7 +37,7 @@ class LinkedHashMapLaws {
         Bmc.check(m.firstEntry() == null && m.lastEntry() == null)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun pollFirst_and_pollLast_remove_the_insertion_ends() {
         val m = LinkedHashMap<Int, Int>()
         m[1] = 10
@@ -57,7 +57,7 @@ class LinkedHashMapLaws {
         Bmc.check(m.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun putFirst_moves_a_present_key_to_the_front() {
         val m = LinkedHashMap<Int, Int>()
         m[1] = 10
@@ -70,7 +70,7 @@ class LinkedHashMapLaws {
         Bmc.check(m.firstEntry().key == 0 && m.size == 4)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     fun putLast_moves_a_present_key_to_the_back() {
         val m = LinkedHashMap<Int, Int>()
         m[1] = 10

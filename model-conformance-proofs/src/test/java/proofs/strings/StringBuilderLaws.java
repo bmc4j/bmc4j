@@ -18,14 +18,14 @@ class StringBuilderLaws {
 
     // ---- reverse() --------------------------------------------------------
 
-    @BmcProof
+    @BmcProof(unwind = 4)
     void reverse_concrete() {
         String r = new StringBuilder("abc").reverse().toString();
         Bmc.check(r.length() == 3);
         Bmc.check(r.charAt(0) == 'c' && r.charAt(1) == 'b' && r.charAt(2) == 'a');
     }
 
-    @BmcProof(maxStringLength = 4)
+    @BmcProof(maxStringLength = 4, unwind = 4)
     void reverse_concrete_two_chars_swap() {
         // Symbolic reverse is SAT-pathological (solver memory blow-up observed on CI and locally);
         // the reverse surface is pinned concretely here and in reverse_concrete() above — a nondet

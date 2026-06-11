@@ -18,7 +18,7 @@ class EnumMapLaws {
         Bmc.check(m.size == 0 && m.isEmpty())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun put_then_get_over_symbolic_key() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())
@@ -27,7 +27,7 @@ class EnumMapLaws {
         Bmc.check(m[k] == v && m.size == 1 && m.containsKey(k))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun put_overwrites_same_key_and_returns_old() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())
@@ -38,14 +38,14 @@ class EnumMapLaws {
         Bmc.check(old == a && m[k] == b && m.size == 1)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun get_absent_key_is_null() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())
         Bmc.check(m[k] == null && !m.containsKey(k))
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun remove_deletes_the_mapping() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())
@@ -55,7 +55,7 @@ class EnumMapLaws {
         Bmc.check(removed == v && !m.containsKey(k) && m.size == 0)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun getOrDefault_falls_back_when_absent() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())
@@ -75,7 +75,7 @@ class EnumMapLaws {
         Bmc.check(threw)
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun keyset_iterates_in_ordinal_order() {
         val m = EnumMap<Day, Int>(Day::class.java)
         // insert out of ordinal order; keySet must come back ordinal-sorted (WED < FRI by ordinal)
@@ -85,7 +85,7 @@ class EnumMapLaws {
         Bmc.check(it.next() == Day.WED && it.next() == Day.FRI && !it.hasNext())
     }
 
-    @BmcProof
+    @BmcProof(unwind = 8)
     fun containsValue_finds_a_put_value() {
         val m = EnumMap<Day, Int>(Day::class.java)
         val k = Bmc.anyOf(Day.values())

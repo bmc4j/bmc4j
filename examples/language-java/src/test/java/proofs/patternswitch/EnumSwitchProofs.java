@@ -31,7 +31,7 @@ class EnumSwitchProofs {
     }
 
     /** PASSES: each constant routes to its own arm — the branch tracks the symbolic subject. */
-    @BmcProof
+    @BmcProof(unwind = 1)
     void each_constant_routes_to_its_own_arm(Status s) {
         Bmc.assume(s != null);
         int c = EnumRouting.code(s);
