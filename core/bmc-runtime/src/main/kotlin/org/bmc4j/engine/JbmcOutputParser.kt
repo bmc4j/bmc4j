@@ -608,10 +608,21 @@ object JbmcOutputParser {
         // store. So we harvest the three links across the whole trace and stitch them together after.
         val heap = ArrayHeap()
         val entryPrefix = if (entryFunctionFqn != null) "java::$entryFunctionFqn" else null
+        // Tracks whether the value about to land in the next user local came from a nondet source —
+        // a `function-return` of Bmc.any*/CProver.nondet* or a parameter `input` step (see [NondetTracker]).
+        // GATED: enabled only when the trace actually carries nondet evidence. A real refuting proof always
+        // does (every @BmcProof input is an any*/nondet* call or a parameter `input` step), so the gate
+        // engages and derived locals are dropped. A trace with NO such evidence (an engine that doesn't
+        // emit the markers, the simplified pure-parser fixtures) degrades to legacy "keep every user local"
+        // rather than dropping real inputs — honoring "prefer over-showing an input to dropping one".
+        val nondet = NondetTracker(traceHasNondetEvidence(trace))
 
         for (se in trace) {
             val step = se.asJsonObject
             val type = str(step, "stepType") ?: continue
+            if (type != "assignment") {
+                nondet.observe(step, type)
+            }
             when (type) {
                 "function-call" -> {
                     val id = funcId(step)
@@ -628,8 +639,11 @@ object JbmcOutputParser {
                     }
                 }
                 "assignment" -> {
-                    collectCounterexample(step, entryPrefix, userCode, inputs, inputKinds)
-                    heap.observe(step, entryPrefix, userCode)
+                    collectCounterexample(step, entryPrefix, userCode, nondet, inputs, inputKinds)
+                    heap.observe(step, entryPrefix, userCode, nondet)
+                    // A non-synthetic assignment CONSUMES the armed nondet value: the next user local is
+                    // no longer sourced from it (e.g. `present = false` right after `key` picks up anyInt).
+                    nondet.consumeAssignment(str(step, "lhs"))
                 }
                 "failure" -> {
                     val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
@@ -674,7 +688,7 @@ object JbmcOutputParser {
     }
 
     private fun collectCounterexample(step: JsonObject, entryPrefix: String?,
-                                      userCode: WitnessUserCode?,
+                                      userCode: WitnessUserCode?, nondet: NondetTracker,
                                       inputs: MutableMap<String, String>,
                                       inputKinds: MutableMap<String, String>) {
         val lhs = str(step, "lhs")
@@ -686,6 +700,14 @@ object JbmcOutputParser {
         val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
         val fn = if (loc != null) str(loc, "function") else null
         if (!isUserDeclaredLocal(fn, lhs, entryPrefix, userCode)) {
+            return
+        }
+        // The witness is "the symbolic inputs you'd set to reproduce", so keep only NONDET-SOURCED user
+        // locals — those whose value flowed straight from a Bmc.any*/CProver.nondet* return or a
+        // parameter `input` step — and drop DERIVED/COMPUTED locals (a `present` flag, a loop variable, a
+        // callee's mutated internals), which are not inputs. See [NondetTracker]. Pre-existing inputs
+        // already bound under this name (first-wins) are retained.
+        if (lhs !in inputs && !nondet.armed) {
             return
         }
         if (!step.has("value") || !step.get("value").isJsonObject) {
@@ -708,6 +730,108 @@ object JbmcOutputParser {
             inputs[lhs] = data
             inputKinds[lhs] = kind
         }
+    }
+
+    /**
+     * Tracks, across a single failure trace, whether the value about to land in the next **user local**
+     * is NONDET-SOURCED — i.e. a genuine symbolic INPUT — versus DERIVED/COMPUTED by the proof. This is
+     * the gate that collapses the witness to "just the inputs you'd set to reproduce", dropping a
+     * `boolean present = false` flag, loop variables (`v`, `i`), and a callee's mutated internals.
+     *
+     * ## The discriminator (found empirically from real jbmc `--json-ui` traces)
+     * A symbolic input reaches its user local through one of two shapes, and ONLY these:
+     *  1. **A nondet CALL** — `Bmc.anyInt(…)`, `Bmc.anyArrayOfInts(…)`, a bare `Bmc.anyInt()` (which is
+     *     `CProver.nondetInt()`), etc. The trace is: a `function-return` from the nondet method, then the
+     *     return value flows through synthetic temporaries (`return_tmp*`, `*#return_value`), and finally
+     *     lands in the user's `val key`/`val a`. The nearest `function-return` before that user-local
+     *     assignment, skipping only synthetic steps, is the nondet method.
+     *  2. **A `@BmcProof` PARAMETER** — jbmc treats a proof method's own parameter as nondet and emits an
+     *     `input` trace step for it, immediately followed by the `param = …` assignment in the user frame.
+     *
+     * A DERIVED local (`present = false`, a loop `v`, a mutated callee `start`/`end`) has NEITHER: no
+     * nondet return and no `input` step precedes it; it is assigned from a constant or an expression. The
+     * tell is that the nondet "armed" state set by (1)/(2) is CONSUMED by the first real user-local
+     * assignment, so the very next user local (`present`, right after `key` picks up `anyInt`) sees it
+     * disarmed.
+     *
+     * ## Mechanics (a forward state machine over the ordered trace)
+     * [armed] is set by a nondet `function-return` or an `input` step. It survives the intervening
+     * synthetic-temp assignments and `location-only`/`loop-head` steps (which is how the nondet value
+     * threads through `return_tmp*` to the user local), and is cleared by [consumeAssignment] the moment a
+     * **non-synthetic** (real user-named) assignment fires — that assignment is the nondet sink, and
+     * anything after it is no longer sourced from the same nondet value. The collectors read [armed]
+     * BEFORE calling [consumeAssignment], so a nondet-armed user local is kept and the next one is not.
+     *
+     * Conservative by construction: when a nondet source can't be told from a computed local (no nondet
+     * return / no `input` precedes), the local is dropped only because it is genuinely not an input; a
+     * REAL input always arrives through one of the two pinned shapes, so this never drops one. The nondet
+     * method set is pinned against the bundled engine by [JbmcOutputParserTest] (engine identity is in the
+     * verdict-cache key — a bump forces re-validation), the same discipline as the rest of the parser.
+     */
+    internal class NondetTracker(private val enabled: Boolean) {
+        private var armedState: Boolean = false
+
+        /** True when the value about to reach the next user local came from a nondet source. When the
+         *  gate is DISABLED (no nondet evidence in this trace) this is always true — every user local is
+         *  kept (legacy behavior), never dropped on ambiguous input. */
+        val armed: Boolean
+            get() = !enabled || armedState
+
+        /** Fold one NON-assignment trace step: a nondet `function-return` or a parameter `input` arms. */
+        fun observe(step: JsonObject, type: String) {
+            when (type) {
+                "input" -> armedState = true
+                "function-return" -> {
+                    val id = funcId(step)
+                    if (isNondetSource(id)) {
+                        armedState = true
+                    }
+                }
+                // location-only / loop-head / function-call / failure: pass through, preserving `armed`
+                // so a nondet return threads across them to the user local that consumes it.
+                else -> {
+                }
+            }
+        }
+
+        /** A real (non-synthetic) user-named assignment CONSUMES the armed nondet value; synthetic temps
+         *  (`return_tmp*`, `*#return_value`, `$stack*`, …) are transparent and leave `armed` intact. */
+        fun consumeAssignment(lhs: String?) {
+            if (lhs != null && isUserVariable(lhs)) {
+                armedState = false
+            }
+        }
+
+        companion object {
+            /** True if [funcId] is a bmc4j/CProver nondet input source whose return value seeds an input:
+             *  `org.bmc4j.Bmc.any*` (anyInt/anyArrayOfInts/anyOf/…) or `org.cprover.CProver.nondet*`. */
+            internal fun isNondetSource(funcId: String?): Boolean {
+                if (funcId == null || !funcId.startsWith("java::")) {
+                    return false
+                }
+                val cls = WitnessUserCode.internalClassOf(funcId)?.replace('/', '.')
+                val method = WitnessUserCode.methodNameOf(funcId) ?: return false
+                return (cls == "org.bmc4j.Bmc" && method.startsWith("any"))
+                        || (cls == "org.cprover.CProver" && method.startsWith("nondet"))
+            }
+        }
+    }
+
+    /**
+     * True if [trace] carries any NONDET evidence — at least one `function-return` from a nondet source
+     * ([NondetTracker.isNondetSource]) or a parameter `input` step. The nondet gate engages only then; a
+     * trace with none (an engine that doesn't emit the markers, the simplified pure-parser fixtures)
+     * degrades to the legacy "keep every user-frame declared local" path rather than dropping real inputs.
+     */
+    private fun traceHasNondetEvidence(trace: JsonArray): Boolean {
+        for (se in trace) {
+            val step = se.asJsonObject
+            when (str(step, "stepType")) {
+                "input" -> return true
+                "function-return" -> if (NondetTracker.isNondetSource(funcId(step))) return true
+            }
+        }
+        return false
     }
 
     /**
@@ -764,17 +888,19 @@ object JbmcOutputParser {
         private val backingType = HashMap<String, String>()
 
         /** Folds one `assignment` step into the heap maps. Pure bookkeeping; never throws. */
-        fun observe(step: JsonObject, entryPrefix: String?, userCode: WitnessUserCode?) {
+        fun observe(step: JsonObject, entryPrefix: String?, userCode: WitnessUserCode?, nondet: NondetTracker) {
             val lhs = str(step, "lhs")
             if (lhs.isNullOrEmpty()
                     || !step.has("value") || !step.get("value").isJsonObject) {
                 return
             }
             val value = step.getAsJsonObject("value")
-            // (1) a user-declared array variable: an array-typed pointer in the user's own frame.
+            // (1) a user-declared array variable: an array-typed pointer in the user's own frame, whose
+            //     value came straight from a Bmc.anyArrayOf*/CProver.nondet* return (the nondet gate, same
+            //     as the scalar path) — never a derived array local the proof computed itself.
             if (isUserVariable(lhs) && str(value, "name") == "pointer" && isArrayPointerType(str(value, "type"))) {
                 val obj = str(value, "data")
-                if (obj != null && obj != "null" && lhs !in arrayVars) {
+                if (obj != null && obj != "null" && lhs !in arrayVars && nondet.armed) {
                     val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
                     val fn = if (loc != null) str(loc, "function") else null
                     if (isUserDeclaredLocal(fn, lhs, entryPrefix, userCode)) {

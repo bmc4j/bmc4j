@@ -324,6 +324,131 @@ internal class JbmcOutputParserTest {
     }
 
     @Test
+    fun only_the_nondet_sourced_input_renders_not_a_derived_local() {
+        // The witness must collapse to "the symbolic inputs you'd set to reproduce". This mirrors the
+        // exact real-engine chain (verified against jbmc 6.9.0): a Bmc.anyInt() value flows through a
+        // `function-return` + a synthetic `return_tmp*` and lands in the user's `key`; the DERIVED
+        // `present = false` flag that follows it (a computed local, not an input) carries no nondet
+        // return and must be DROPPED — even though it is a primitive, user-frame, declared local.
+        val proofFn = "java::pkg.Tests.proof:()V"
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"$proofFn"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"$proofFn"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"function-return","function":{"identifier":"java::org.bmc4j.Bmc.anyInt:(II)I"}},
+                   {"stepType":"assignment","lhs":"return_tmp1",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"0"}},
+                   {"stepType":"assignment","lhs":"key",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"0"}},
+                   {"stepType":"assignment","lhs":"present",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"false","type":"boolean"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"$proofFn","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals(listOf("key = 0"), r.violations[0].counterexample,
+                "only the nondet-sourced input `key` may render; the derived `present` flag is not an input")
+    }
+
+    @Test
+    fun a_nondet_sourced_array_input_renders_but_a_derived_array_local_is_dropped() {
+        // The array analogue: an `anyArrayOfInts` value flows through a `function-return` + a synthetic
+        // `return_tmp*` into the user's `a` (kept, reconstructed to a bracketed literal), while a SECOND
+        // array variable `b` assigned with no preceding nondet return is a derived local and is dropped.
+        val proofFn = "java::pkg.Tests.proof:()V"
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"$proofFn"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"$proofFn"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"dynamic_object${'$'}0.data",
+                    "sourceLocation":{"function":"$proofFn"},
+                    "value":{"name":"pointer","data":"dynamic_array","type":"int *"}},
+                   {"stepType":"assignment","lhs":"dynamic_array[0L]",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"5","type":"int"}},
+                   {"stepType":"function-return","function":{"identifier":"java::org.bmc4j.Bmc.anyArrayOfInts:(III)[I"}},
+                   {"stepType":"assignment","lhs":"return_tmp0",
+                    "sourceLocation":{"function":"$proofFn"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}0","type":"struct java::array[int] *"}},
+                   {"stepType":"assignment","lhs":"a",
+                    "sourceLocation":{"function":"$proofFn"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}0","type":"struct java::array[int] *"}},
+                   {"stepType":"assignment","lhs":"b",
+                    "sourceLocation":{"function":"$proofFn"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}0","type":"struct java::array[int] *"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"$proofFn","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals(listOf("a = [5]"), r.violations[0].counterexample,
+                "only the nondet-sourced array `a` may render; the derived array local `b` is dropped")
+    }
+
+    @Test
+    fun a_proof_parameter_input_step_is_kept() {
+        // jbmc treats a @BmcProof method's own parameter as nondet and emits an `input` trace step right
+        // before the `param = …` assignment (no function-return). The `input` step is the nondet signal,
+        // so the parameter must be kept.
+        val proofFn = "java::pkg.Tests.proof:(I)V"
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"$proofFn"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"$proofFn"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"input","inputID":"p","sourceLocation":{"function":"$proofFn"}},
+                   {"stepType":"assignment","lhs":"p",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"42"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"$proofFn","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, "pkg.Tests.proof")
+        assertEquals(listOf("p = 42"), r.violations[0].counterexample,
+                "a @BmcProof parameter (marked by an `input` step) is a nondet input and must be kept")
+    }
+
+    @Test
+    fun a_trace_with_no_nondet_evidence_keeps_every_user_local_legacy_fallback() {
+        // Defensive: if a trace carries NO nondet markers at all (an engine that doesn't emit them), the
+        // gate must DEGRADE to the legacy "keep every user-frame declared local" behavior rather than
+        // dropping real inputs — "prefer over-showing an input to dropping one".
+        val proofFn = "java::pkg.Tests.proof:()V"
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"$proofFn"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"$proofFn"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"x",
+                    "sourceLocation":{"function":"$proofFn"},"value":{"name":"integer","data":"7"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"$proofFn","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY)
+        assertEquals(listOf("x = 7"), r.violations[0].counterexample,
+                "with no nondet evidence in the trace, the gate degrades to keeping user locals")
+    }
+
+    @Test
     fun long_array_input_renders_with_a_long_kind() {
         // The long[] analogue: a `struct java::array[long] *` handle, `long` element type. The element
         // type drives the binding kind (`long[]`) the replay renderer keys on.
