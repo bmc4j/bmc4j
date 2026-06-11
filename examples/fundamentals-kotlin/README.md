@@ -42,7 +42,8 @@ proof then fails precisely on the missing-parent case, while the null-safe `pare
 with only the lower bound, `i == size` slips through. *(1 pass + 1 fail.)*
 
 ## `loopsunwinding`
-`Sums.sumTo` is a plain counted `while` loop (no range object) checked against `n*(n+1)/2`.
+`Sums.sumTo` is a plain counted `while` loop (no range object) checked against `n*(n+1)/2`. bmc4j
+auto-discovers the bound by default; these proofs pin it to show the mechanism.
 `@BmcProof(unwind = 12)` covers n ≤ 10 and passes; `unwind = 4` is too small and is reported by
 the unwinding assertion. *(1 pass + 1 fail.)*
 

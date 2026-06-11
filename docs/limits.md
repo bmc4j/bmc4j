@@ -11,8 +11,9 @@ boundary — it's a scaling cost with a [toolbox](performance.md) of levers (ran
 domain splitting, contracts, parallelism, sharding, caching). Where a limit
 below is really a scaling cost, it points at the lever.
 
-- **Bounded, not unbounded.** Loops/recursion are unwound to `unwind`. Proofs pass
-  `--unwinding-assertions` by default, so an insufficient bound is reported rather
+- **Bounded, not unbounded.** Loops/recursion are unwound to `unwind` — auto-discovered by
+  default (bmc4j climbs to the smallest sufficient bound; pin `@BmcProof(unwind = N)` to fix it).
+  Proofs pass `--unwinding-assertions` by default, so an insufficient bound is reported rather
   than silently trusted - as **UNKNOWN** (incompleteness: exploration was truncated,
   nothing was proven wrong), never as a refutation. This is a *property* of BMC, not a
   dead end: when a recursive or deeply-nested callee is what's pushing the bound, a

@@ -204,8 +204,9 @@ verification (see the note below).
 Bounded model checking is a power tool with a real contract. The short version:
 
 - **Bounded, not unbounded.** Loops unwind to `unwind`; proofs hold *within* the bound.
-  An insufficient bound is **reported as UNKNOWN, not silently trusted** and never
-  mislabeled a refutation (`--unwinding-assertions` is on by default).
+  By default `unwind` is `AUTO` — bmc4j auto-discovers the smallest sufficient bound; pin
+  `@BmcProof(unwind = N)` to fix it. An insufficient bound is **reported as UNKNOWN, not
+  silently trusted** and never mislabeled a refutation (`--unwinding-assertions` is on by default).
 - **Three-way verdict.** A proof is **verified**, **refuted** (with a counterexample),
   or **UNKNOWN** — undecided within budget. UNKNOWN fails the test but says so
   distinctly: a solver timeout is not "your code is wrong."
