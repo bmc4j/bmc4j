@@ -565,22 +565,39 @@ object JbmcOutputParser {
             buildStackAndCounterexample(property.getAsJsonArray("trace"), file, line,
                     entryFunctionFqn, userCode, stack, counterexample, bindings)
         }
+        // When the property carries no location of its own (jbmc sometimes omits it on a model-lowered
+        // assertion — e.g. a divide check merged through the Integer/collection models), recover it from
+        // the failure step in the trace so the reason and stack still point at the offending line.
+        if (file == null && property.has("trace")) {
+            failureStepLocation(property.getAsJsonArray("trace"))?.let { (f, l) ->
+                file = f
+                line = l
+            }
+        }
         if (stack.isEmpty() && file != null) {
             stack.add(frame(if (property.has("sourceLocation"))
                     str(property.getAsJsonObject("sourceLocation"), "function") else null, file, line))
         }
 
         // A Bmc.check(...) failure surfaces as an assertion inside our own code.
-        // Re-point it at the proof line and give it a clean description before we
-        // drop the internal frames.
+        // Re-point it at the proof line (the user's frame) before we drop the internal frames.
         val internalCheck = isInternalFile(file)
         val userFrame = stack.firstOrNull { !isInternalFrame(it) }
-        if (internalCheck) {
-            description = "a checked property does not hold"
-            if (userFrame != null) {
-                file = userFrame.fileName
-                line = userFrame.lineNumber
-            }
+        if (internalCheck && userFrame != null) {
+            file = userFrame.fileName
+            line = userFrame.lineNumber
+        }
+
+        // Surface WHAT failed, not just the counterexample inputs. Replaces the old blanket
+        // "a checked property does not hold" with a GENUINE reason derived from the failing
+        // property's nature: a named exception (NPE / divide-by-zero / array-bounds / an explicit
+        // uncaught throw) with its source location and a recoverable constant message, or — for an
+        // assertion / Bmc.check / require — an "assertion failed at <user line>" framing. Soundness:
+        // when the trace can't reliably name the cause we fall back to a neutral framing, never a
+        // guessed type (see [deriveFailureReason]). The witness/counterexample is unchanged (additive).
+        val reason = deriveFailureReason(property, sl, internalCheck, file, line)
+        if (reason != null) {
+            description = reason
         }
 
         // Hide bmc-runtime / CProver plumbing from the reported stack trace.
@@ -588,6 +605,258 @@ object JbmcOutputParser {
 
         return JbmcResult.Violation(description, file, line, stack, counterexample, bindings)
     }
+
+    /**
+     * Derive the GENUINE failure reason for a refuted property, or `null` to keep JBMC's raw
+     * description. Three shapes, all keyed off signals pinned against the bundled engine (jbmc 6.9.0;
+     * the engine identity is in the verdict-cache key, so a bump re-validates — same discipline as the
+     * witness path). This is DISPLAY-ONLY: it never affects the verdict.
+     *
+     *  1. **A built-in safety check** (NPE / integer-divide-by-zero / array-bounds): the FAILURE
+     *     property's `sourceLocation.propertyClass` names the kind directly (`null-pointer-exception`,
+     *     `integer-divide-by-zero`, `array-index-out-of-bounds-{high,low}`). We render the Java
+     *     exception that kind corresponds to plus the source location — e.g.
+     *     `java.lang.ArithmeticException: / by zero at InterpolationSearch.java:41`.
+     *  2. **An explicit uncaught throw** (the `require`/`check`/hand-thrown case): JBMC's
+     *     `"no uncaught exception"` check FAILED (`propertyClass` is absent and the description is
+     *     exactly that phrase). The THROWN TYPE is recovered from the trace — the class the last
+     *     `<init>` constructed before the failure — and a constant message from that constructor's
+     *     String argument when present. Renders `<type>[: <msg>] at <file>:<line>`.
+     *  3. **An assertion** (`propertyClass == "assertion"`: a Java `assert`, or our own `Bmc.check`,
+     *     which throws an `AssertionError`): rendered as `assertion failed at <user file>:<line>`,
+     *     with the recovered constant `check(...) { "msg" }` message appended when present. For a
+     *     `Bmc.check` ([internalCheck]) the location is already re-pointed at the user's line.
+     *
+     * Falls through to `null` (keep the raw description) for any FAILURE shape we don't recognize — so
+     * a description we can't improve is never replaced by a worse, generic one.
+     */
+    private fun deriveFailureReason(property: JsonObject, sl: JsonObject?, internalCheck: Boolean,
+                                    file: String?, line: Int): String? {
+        val rawDescription = str(property, "description")
+        val propertyClass = if (sl != null) str(sl, "propertyClass") else null
+        val at = locationSuffix(file, line)
+
+        // (1) A built-in safety check names its kind in propertyClass.
+        builtinExceptionType(propertyClass)?.let { return it + at }
+
+        // (2) An explicit uncaught throw: JBMC's "no uncaught exception" check failed. Recover the
+        //     thrown type (and a constant message) from the construction in the trace.
+        if (propertyClass == null && rawDescription == NO_UNCAUGHT_EXCEPTION) {
+            val thrown = recoverThrownException(property)
+            if (thrown != null) {
+                val msg = if (thrown.message != null) ": " + thrown.message else ""
+                return thrown.type + msg + at
+            }
+            // Genuinely could not name the thrown type — neutral framing, never a guess.
+            return "an uncaught exception was thrown" + at
+        }
+
+        // (3) An assertion: a Java `assert`, our own Bmc.check (an AssertionError throw), or any check
+        //     jbmc lowered to a bare `assertion` property — identified by propertyClass "assertion" OR a
+        //     bare/leading "assertion" description (the model-lowered shape carries no propertyClass and
+        //     sometimes no location, e.g. a divide check merged through the Integer/collection models).
+        if (propertyClass == "assertion" || isBareAssertionDescription(rawDescription)) {
+            val base = if (internalCheck) "assertion failed (Bmc.check)" else "assertion failed"
+            val msg = recoverAssertionMessage(property)
+            return base + at + if (msg != null) ": $msg" else ""
+        }
+
+        return null
+    }
+
+    /** True for jbmc's bare assertion description — exactly `"assertion"`, or the
+     *  `"assertion at file <f> line <n> function <fn> bytecode-index <i>"` long form it stamps on a
+     *  Java `assert`. Used to name an assertion failure even when no propertyClass is present (the
+     *  model-lowered shape). Deliberately NOT matched for richer descriptions we'd rather keep verbatim. */
+    private fun isBareAssertionDescription(description: String?): Boolean =
+            description == "assertion" || (description != null && description.startsWith("assertion at file "))
+
+    /** ` at <file>:<line>` when a usable location is known, else empty. */
+    private fun locationSuffix(file: String?, line: Int): String {
+        if (file.isNullOrBlank()) {
+            return ""
+        }
+        val name = shortFileName(file)
+        return if (line > 0) " at $name:$line" else " at $name"
+    }
+
+    private fun shortFileName(file: String): String {
+        val slash = maxOf(file.lastIndexOf('/'), file.lastIndexOf('\\'))
+        return if (slash >= 0) file.substring(slash + 1) else file
+    }
+
+    /** JBMC's FAILURE description for a thrown-but-uncaught exception (its `no uncaught exception`
+     *  check, which FAILS when an exception escapes). The thrown type is recovered from the trace. */
+    private const val NO_UNCAUGHT_EXCEPTION = "no uncaught exception"
+
+    /**
+     * Map a built-in safety-check [propertyClass] to the Java exception the JVM would throw at that
+     * point. Only the kinds whose Java exception type is UNAMBIGUOUS are mapped (so the named type is
+     * always genuine); an unknown class returns null and the caller keeps JBMC's raw description.
+     */
+    private fun builtinExceptionType(propertyClass: String?): String? = when (propertyClass) {
+        "null-pointer-exception" -> "java.lang.NullPointerException"
+        "integer-divide-by-zero" -> "java.lang.ArithmeticException: / by zero"
+        "array-index-out-of-bounds-high", "array-index-out-of-bounds-low" ->
+            "java.lang.ArrayIndexOutOfBoundsException"
+        "array-create-negative-size" -> "java.lang.NegativeArraySizeException"
+        "class-cast-exception" -> "java.lang.ClassCastException"
+        else -> null
+    }
+
+    /** A recovered thrown exception: its fully-qualified [type] and a constant [message] when one
+     *  was cleanly present in the constructor's String argument (else null). */
+    private class ThrownException(val type: String, val message: String?)
+
+    /**
+     * Recover the exception a `"no uncaught exception"` FAILURE actually threw: the MOST-DERIVED
+     * Throwable `<init>` constructor called in the trace (its `function.identifier` is
+     * `java::<type>.<init>:(<desc>)V`). Each `new X(...)` emits X's own `<init>` first, then nested
+     * super-ctors — so we prefer a non-base type over the `Throwable`/`Exception`/`Error`/`RuntimeException`
+     * base ctors it chains into (taking the bare base only when nothing more specific appears). The
+     * constant message is recovered ONLY when that ctor took a single `String` and a literal for it is
+     * present, SCOPED to the chars built just before that ctor call (so an unrelated constant elsewhere in
+     * the trace is never picked up). Returns null when no Throwable ctor is recoverable — the caller then
+     * falls back to a neutral framing, never a guess.
+     */
+    private fun recoverThrownException(property: JsonObject): ThrownException? {
+        if (!property.has("trace")) {
+            return null
+        }
+        val trace = property.getAsJsonArray("trace")
+        var bestType: String? = null      // most-derived Throwable type seen
+        var bestIdx = -1                  // trace index of its <init> call (to scope the message)
+        var bestTakesString = false
+        trace.forEachIndexed { i, se ->
+            val step = se.asJsonObject
+            if (str(step, "stepType") == "function-call") {
+                val id = funcId(step)
+                if (id != null && id.startsWith("java::") && id.contains(".<init>:(")) {
+                    val internal = id.removePrefix("java::").substringBefore(".<init>:(")
+                    if (isThrowableName(internal) && preferType(bestType, internal)) {
+                        bestType = internal
+                        bestIdx = i
+                        bestTakesString = id.contains(".<init>:(Ljava/lang/String;)V")
+                    }
+                }
+            }
+        }
+        val type = bestType ?: return null
+        val message = if (bestTakesString) constStringBefore(trace, bestIdx) else null
+        return ThrownException(type, message)
+    }
+
+    /** Should [candidate] replace the currently-chosen [current] thrown type? Yes when nothing is chosen
+     *  yet, or when [current] is a generic base (the super-ctor a `new SubException` chained into) and
+     *  [candidate] is more specific. Keeps the first most-derived type otherwise (stable). */
+    private fun preferType(current: String?, candidate: String): Boolean {
+        if (current == null) {
+            return true
+        }
+        return isBaseThrowable(current) && !isBaseThrowable(candidate)
+    }
+
+    /** The Throwable base classes a `new SubException(...)`'s `<init>` chains into — too generic to name
+     *  as the cause when a concrete subtype is also constructed. */
+    private fun isBaseThrowable(internal: String): Boolean = internal in BASE_THROWABLES
+
+    private val BASE_THROWABLES = setOf(
+            "java.lang.Throwable", "java.lang.Exception", "java.lang.RuntimeException", "java.lang.Error")
+
+    /** True for a class name that is plausibly a Throwable (so we never mislabel an ordinary object
+     *  construction as the thrown cause). */
+    private fun isThrowableName(internal: String): Boolean {
+        val simple = internal.substringAfterLast('.')
+        return simple.endsWith("Exception") || simple.endsWith("Error") || simple == "Throwable"
+    }
+
+    /**
+     * Recover the constant message of an assertion FAILURE — ONLY when the trace carries a genuine
+     * `AssertionError` (our `Bmc.check` throws one) construction taking a `String`. The message is the
+     * literal built just before that `<init>` call. This scoping is what keeps a model-lowered bare
+     * `assertion` (no AssertionError ctor in its trace, but plenty of unrelated baked-in constants) from
+     * yielding a FABRICATED message — soundness: we surface only a message we can tie to the throw.
+     */
+    private fun recoverAssertionMessage(property: JsonObject): String? {
+        if (!property.has("trace")) {
+            return null
+        }
+        val trace = property.getAsJsonArray("trace")
+        var ctorIdx = -1
+        trace.forEachIndexed { i, se ->
+            val id = funcId(se.asJsonObject)
+            if (str(se.asJsonObject, "stepType") == "function-call" && id != null
+                    && id.startsWith("java::java.lang.AssertionError.<init>:(")
+                    && id.contains("Ljava/lang/")) { // a message-bearing AssertionError ctor (Object/String arg)
+                ctorIdx = i // last such ctor wins (the actually-thrown one)
+            }
+        }
+        if (ctorIdx < 0) {
+            return null
+        }
+        return constStringBefore(trace, ctorIdx)
+    }
+
+    /**
+     * Recover the constant String message ARGUMENT of the exception ctor at trace index [before] — but
+     * ONLY when it is UNAMBIGUOUS. JBMC lays a String literal down as `<name>_constarray[<i>L]` per-char
+     * `integer`(char) assignments; we stitch every distinct contiguous such array that completes before
+     * [before]. A model-heavy trace bakes in MANY unrelated String constants (type names, descriptors),
+     * so the closest-preceding array is NOT reliably the message — picking it yielded fabrications like
+     * `: void` / `: java.math.BigDecimal`. To stay SOUND we surface a message ONLY when exactly ONE
+     * recoverable literal exists in the window (the simple hand-throw / `Bmc.check(cond, "msg")` shape);
+     * otherwise we return null and the caller shows the cause with no message. A wrong message is worse
+     * than none. Pure; never throws.
+     */
+    private fun constStringBefore(trace: JsonArray, before: Int): String? {
+        // base name -> (index -> char), only from assignment steps strictly before `before`.
+        val arrays = LinkedHashMap<String, MutableMap<Int, Char>>()
+        trace.forEachIndexed { i, se ->
+            if (i >= before) {
+                return@forEachIndexed
+            }
+            val step = se.asJsonObject
+            if (str(step, "stepType") != "assignment") {
+                return@forEachIndexed
+            }
+            val lhs = str(step, "lhs") ?: return@forEachIndexed
+            val m = CONST_CHAR_RE.matchEntire(lhs) ?: return@forEachIndexed
+            if (!step.has("value") || !step.get("value").isJsonObject) {
+                return@forEachIndexed
+            }
+            val v = step.getAsJsonObject("value")
+            if (str(v, "name") != "integer" || str(v, "type") != "char") {
+                return@forEachIndexed
+            }
+            val ch = parseCharData(str(v, "data")) ?: return@forEachIndexed
+            val idx = m.groupValues[2].toIntOrNull() ?: return@forEachIndexed
+            arrays.getOrPut(m.groupValues[1]) { LinkedHashMap() }[idx] = ch
+        }
+        // Collect every fully-contiguous literal in the window. Surface one ONLY when it is the SOLE
+        // candidate — more than one and we cannot tell the message from a baked-in type/descriptor string.
+        val literals = arrays.values.mapNotNull { chars ->
+            if (chars.isEmpty()) {
+                return@mapNotNull null
+            }
+            val max = chars.keys.max()
+            if ((0..max).all { it in chars }) (0..max).map { chars[it] }.joinToString("") else null
+        }
+        return if (literals.size == 1) literals[0] else null
+    }
+
+    /** Parse a JBMC char value `data` — either a quoted char literal (`'m'`) or a numeric code. */
+    private fun parseCharData(data: String?): Char? {
+        val d = data?.trim() ?: return null
+        if (d.length >= 3 && d.first() == '\'' && d.last() == '\'') {
+            val inner = d.substring(1, d.length - 1)
+            return if (inner.length == 1) inner[0] else null
+        }
+        val code = d.toIntOrNull() ?: return null
+        return if (code in 0..0xFFFF) code.toChar() else null
+    }
+
+    /** `<name>_constarray[<i>L]` — JBMC's backing char array for a String literal. */
+    private val CONST_CHAR_RE = Regex("""^(.+)_constarray\[(\d+)L?]$""")
 
     /** Reconstruct the call stack live at the failure, plus input assignments. */
     private fun buildStackAndCounterexample(trace: JsonArray, failFile: String?, failLine: Int,
@@ -1008,6 +1277,29 @@ object JbmcOutputParser {
             return str(step.getAsJsonObject("function"), "identifier")
         }
         return null
+    }
+
+    /**
+     * Recover a `(file, line)` for a property that carries no location of its own: prefer the `failure`
+     * step's own sourceLocation, else the LAST trace step before/at the failure that bears a `file` (the
+     * offending line — e.g. the divide site). Returns null when no trace step carries a location. Pure.
+     */
+    private fun failureStepLocation(trace: JsonArray): Pair<String, Int>? {
+        var last: Pair<String, Int>? = null
+        for (se in trace) {
+            val step = se.asJsonObject
+            val type = str(step, "stepType")
+            val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
+            val f = if (loc != null) str(loc, "file") else null
+            if (f != null) {
+                last = f to (if (loc != null) intOr(loc, "line", 0) else 0)
+            }
+            if (type == "failure") {
+                // The failure's own location wins when present; otherwise the most recent located step.
+                return if (f != null) (f to (if (loc != null) intOr(loc, "line", 0) else 0)) else last
+            }
+        }
+        return last
     }
 
     private fun locFile(loc: JsonObject?): String? = if (loc != null) str(loc, "file") else null

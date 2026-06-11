@@ -74,8 +74,16 @@ object Bmc4jVersion {
      * pre-r12 cached refutation would replay the OLD blank/heuristic witness instead of the new tagged
      * one, so the verdict cache (which keys on this IDENTITY, component 1 of computeKey) must miss too.
      * Both caches invalidate on this bump.
+     * r13 surfaces the genuine REFUTATION REASON in the rendered detail (JbmcOutputParser.toViolation):
+     * a refuted property now names WHAT failed — the thrown exception type + source location + a
+     * recoverable constant message (ArithmeticException / NPE / array-bounds / an explicit throw), or an
+     * "assertion failed at <user line>" framing — instead of the old blanket "a checked property does not
+     * hold". The VERDICT is unchanged (display-only), but the verdict cache STORES that rendered detail,
+     * so a pre-r13 cached REFUTED would replay the OLD generic reason; the cache (which keys on this
+     * IDENTITY) must miss and re-derive. The rewrite-mirror cache re-mirrors incidentally on the IDENTITY
+     * bump even though no bytecode changed — harmless over-invalidation.
      */
-    private const val SEMANTICS_REVISION = "r12"
+    private const val SEMANTICS_REVISION = "r13"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
