@@ -11,9 +11,10 @@
 
 A unit test checks the inputs you thought of. A property-based test samples a few
 hundred more. A `@BmcProof` covers **all of them at once**: apply one Gradle plugin,
-write a test-shaped method, and [JBMC](https://www.cprover.org/jbmc/) *proves* (within
-an explicit bound) that no input breaks your code — or fails the test with a real stack
-trace and the exact input that does.
+write a test-shaped method, and bmc4j either *proves* that no input can break your code
+(within a bound it discovers for you), *fails* the test with a real stack trace and the
+exact input that does, or returns *UNKNOWN* when it can neither prove nor refute (the bound
+wasn't enough, the engine timed out or crashed) — never a silent pass. (Powered by [JBMC](https://www.cprover.org/jbmc/).)
 
 bmc4j targets the **JVM**: **Kotlin** (2.0–2.4) and **Java** (17–25) are the verified,
 first-class languages — it analyses the bytecode, so your build doesn't change beyond
