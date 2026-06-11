@@ -206,9 +206,12 @@ memory, they don't conjure it.
   bounded time instead of hanging the build (CI runs `-Dbmc.timeoutSeconds=300`). UNKNOWN is the
   tool saying "tune this proof", never "your code is broken" — see
   [configuration → Timeout](configuration.md#timeout).
-- Tune the **unwind** bound down per-proof (`@BmcProof(unwind = 6)`) when a proof's loops
-  genuinely need fewer iterations — formula size drops fast, and too low is *safe*
-  (`--unwinding-assertions` reports an insufficient bound rather than trusting it).
+- **Pin the unwind bound** per-proof (`@BmcProof(unwind = N)`) on perf-sensitive proofs. By
+  default `unwind` is `AUTO` — bmc4j climbs to the smallest sufficient bound, which is convenient
+  but pays for the search (several solves per proof on a cold run). Pinning the bound it reports
+  runs a single solve at that bound; too low is *safe* (`--unwinding-assertions` reports an
+  insufficient bound rather than trusting it). For a large, repeatedly-verified suite that's the
+  difference, not a micro-optimization.
 - Symbolic-by-symbolic **multiply / divide / modulo** over wide values is the most common single
   culprit — check there first ([coverage](coverage.md) notes the known-expensive areas).
 

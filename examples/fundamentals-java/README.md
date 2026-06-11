@@ -41,8 +41,9 @@ assumed, the access is provably safe; drop the upper bound and `i == length` sli
 This is how you state a precondition. *(1 pass + 1 fail.)*
 
 ## `loopsunwinding` — the unwind bound, and the safety net
-`Sums.sumTo` is checked against the closed form `n*(n+1)/2`. At `unwind = 12` the loop (n ≤ 10)
-is fully covered and the proof passes; at `unwind = 4` the bound is too small — and
+`Sums.sumTo` is checked against the closed form `n*(n+1)/2`. By default bmc4j would
+**auto-discover** the bound; here we pin it to show the mechanism. At `unwind = 12` the loop
+(n ≤ 10) is fully covered and the proof passes; at `unwind = 4` the bound is too small — and
 `--unwinding-assertions` (on by default) **reports** that instead of silently "proving" an
 under-explored loop. *(1 pass + 1 fail.)*
 
