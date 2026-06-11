@@ -38,16 +38,18 @@ class PriorityQueueLaws {
     // adjacent-step form of "successive polls are non-decreasing".
     //
     // unwind = 4 (down from the build default of 16) is load-bearing here for the SAME reason as
-    // natural_string_head_is_the_lexicographic_minimum below: this is the only natural-Integer law that
-    // POLLS (removeAt's shift loop on top of leastIndex's scan), so it is the heaviest of the family.
-    // Every model loop it touches is bounded by size, which is at most 2 here (leastIndex's `i<size`
-    // scan and removeAt's `j<size-1` shift), so each closes in <= 1 iteration; unwind = 4 covers them
-    // completely with margin. At the default bound of 16 goto-build unrolled those bounded loops (and
-    // the verification-neutral nondet-tag sink the witness pass injects after each anyInt) far past what
-    // the proof can reach, growing the symbolic state until jbmc exhausted memory and was killed before
-    // emitting any output (empty stdout -> PARSE_FAILURE) under the conformance leg's 4-wide fan-out. A
-    // bound of 4 fully covers every reachable loop, so the proof verifies the SAME law over the SAME two
-    // symbolic integers while fitting the engine's memory.
+    // natural_string_head_is_the_lexicographic_minimum below (lightened in #246): this is the only
+    // natural-Integer law that POLLS (removeAt's shift loop on top of leastIndex's scan), so it is the
+    // heaviest of the family. Every model loop it touches is bounded by size, which is at most 2 here
+    // (leastIndex's `i<size` scan and removeAt's `j<size-1` shift), so each closes in <= 1 iteration;
+    // unwind = 4 covers them completely with margin. At the default bound of 16, goto-build unrolls those
+    // bounded loops far past what the proof can reach, and under the conformance leg's 4-wide fan-out on
+    // the memory-tightest jdk17 floor leg jbmc exhausted memory and was killed before emitting any output
+    // (empty stdout -> PARSE_FAILURE); 21/25 have the headroom to absorb the default bound. This heaviness
+    // was latent — the verdict cache held a VERIFIED, so CI never re-derived it live on 17 — until a
+    // SEMANTICS_REVISION bump invalidated the cache and forced the first fresh 17 derivation in a while.
+    // A bound of 4 fully covers every reachable loop, so the proof verifies the SAME law over the SAME two
+    // symbolic integers while fitting the engine's memory, independent of cache state.
     @BmcProof(unwind = 4)
     fun natural_poll_then_peek_is_non_decreasing() {
         val q = PriorityQueue<Int>()
