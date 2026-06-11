@@ -28,6 +28,10 @@ private const val JUNIT_VERSION = "5.10.2"
 private const val JUNIT_PLATFORM_LAUNCHER_VERSION = "1.10.2"
 private const val GROUP = "org.bmc4j"
 
+/** The unwind AUTO sentinel — mirrors `org.bmc4j.BmcProof.AUTO` (the runtime isn't on the plugin's
+ *  compile classpath, so the value is duplicated; the runtime owns the canonical constant). */
+private const val UNWIND_AUTO = -1
+
 /**
  * Wires bounded model checking into a JVM project. Applying it is all a consumer
  * needs:
@@ -50,7 +54,12 @@ class BmcPlugin : Plugin<Project> {
         project.pluginManager.apply(JavaPlugin::class.java)
 
         val ext = project.extensions.create("bmc", BmcExtensionConfig::class.java)
-        ext.unwind.convention(16)
+        // AUTO by default: a proof with no explicit bound auto-discovers its unwind (the runtime climbs
+        // up to the cap). Set `bmc { unwind = N }` to PIN a fixed project-wide bound (the opt-out).
+        // AUTO is the org.bmc4j.BmcProof.AUTO sentinel (-1); the runtime isn't on the plugin's compile
+        // classpath, so the literal is used (the runtime owns the canonical constant).
+        ext.unwind.convention(UNWIND_AUTO)
+        ext.unwindCap.convention(16)
         ext.parallelism.convention(Runtime.getRuntime().availableProcessors())
         ext.progress.convention(true)
         ext.cache.convention(true)
@@ -198,7 +207,12 @@ class BmcPlugin : Plugin<Project> {
             test.doFirst {
                 if (ext.progress.getOrElse(true)) {
                     val note = buildString {
-                        append("unwind=").append(ext.unwind.get())
+                        val u = ext.unwind.get()
+                        if (u <= UNWIND_AUTO) {
+                            append("unwind=auto (cap ").append(ext.unwindCap.get()).append(')')
+                        } else {
+                            append("unwind=").append(u)
+                        }
                         append(", parallelism=").append(ext.parallelism.get())
                         if (!System.getProperty("bmc.externalSat").isNullOrBlank()) {
                             append(", externalSat")
@@ -342,8 +356,12 @@ class BmcPlugin : Plugin<Project> {
                 }
                 // unwind: a command-line -Dbmc.unwind wins over the build default (same CLI-over-build
                 // precedence as timeoutSeconds), so a one-off bound change reaches the test JVM and (via
-                // the verdict-cache key) invalidates cached verdicts without editing the build.
+                // the verdict-cache key) invalidates cached verdicts without editing the build. The build
+                // default is AUTO (-1); a positive value PINS a project-wide bound (the runtime treats a
+                // negative/AUTO value as "discover"). The climb CAP is forwarded separately so a default
+                // (AUTO) -Dbmc.unwind never pollutes it.
                 forwardCli(test, "bmc.unwind", ext.unwind.get().toString())
+                forwardCli(test, "bmc.unwindCap", ext.unwindCap.get().toString())
                 // maxStringLength is read by the runtime from system properties; forward a
                 // command-line override so the documented -D flag actually reaches the forked test JVM
                 // (which doesn't inherit the Gradle JVM's properties) and busts the verdict cache.

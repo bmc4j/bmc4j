@@ -33,8 +33,27 @@ import java.lang.annotation.Target;
 @ExtendWith(BmcProofExtension.class)
 public @interface BmcProof {
 
-    /** Loop/recursion unwinding bound. {@code 0} uses the build-configured default. */
-    int unwind() default 0;
+    /**
+     * Loop/recursion unwinding bound.
+     *
+     * <p>By DEFAULT ({@link #AUTO}) bmc4j <b>auto-discovers</b> the bound: it runs the engine at
+     * increasing bounds (with {@code --unwinding-assertions} on throughout, so an under-unwind is a
+     * fail-closed UNKNOWN, never a false VERIFIED) and stops at the first conclusive verdict — the
+     * minimal covering bound. A beginner never has to understand loop unwinding or decode an OOM. The
+     * discovered bound is reported and cached, so steady-state runs skip the search.
+     *
+     * <p>A <b>positive</b> {@code N} opts out and PINS the bound (the expert override) — exactly the
+     * pre-AUTO behaviour. {@code 0} uses the build-configured default ({@code -Dbmc.unwind}, else the
+     * cap, currently 16).
+     */
+    int unwind() default AUTO;
+
+    /**
+     * The sentinel {@link #unwind()} value selecting automatic unwind discovery (the default). A
+     * positive bound opts out and pins it; {@code 0} pins the build default. Public so a proof can
+     * write {@code @BmcProof(unwind = BmcProof.AUTO)} to request auto-discovery explicitly.
+     */
+    int AUTO = -1;
 
     /**
      * Bound on the length of symbolic ({@link org.bmc4j.Bmc#anyString} / parameter) strings for this

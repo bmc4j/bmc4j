@@ -2,7 +2,9 @@
 
 ```kotlin
 bmc {
-    unwind = 16                       // default loop bound
+    // unwind defaults to AUTO: each proof auto-discovers its loop bound (no tuning needed).
+    // unwind = 12                    // PIN one fixed bound for every proof (the expert opt-out)
+    // unwindCap = 16                 // highest bound auto-discovery climbs to before UNKNOWN (default 16)
     parallelism = 8                   // proofs verified concurrently (default: CPU count; 1 = serial)
     timeoutSeconds = 120              // default per-proof budget (default: 0 = no timeout)
     cache = true                      // skip re-verifying unchanged green proofs (default: true)
@@ -30,6 +32,23 @@ bmc {
 
 `jbmcPath` skips the bundled engine entirely — point it at an internal mirror, a
 custom build, or a binary placed on an air-gapped machine.
+
+## Automatic unwind discovery
+
+By default a proof with no explicit `unwind` **auto-discovers** its loop bound: bmc4j runs the engine
+at increasing bounds and stops at the smallest one that yields a conclusive verdict, so a beginner
+never has to understand loop unwinding or decode a cryptic out-of-memory. `--unwinding-assertions`
+stays on throughout, so an under-unwind can only fail closed to `UNKNOWN`, never a false `VERIFIED`.
+When it lands, the discovered bound is reported in the log and the structured summary —
+`auto-unwind: discovered unwind=N — pin with @BmcProof(unwind = N) to skip the search.` — and cached,
+so steady-state runs go straight to that bound with no extra solves.
+
+- **Opt out per proof:** `@BmcProof(unwind = N)` pins `N` (no search) — the expert override.
+- **Opt out project-wide:** `bmc { unwind = N }` (or `-Dbmc.unwind=N`) pins one fixed bound for every
+  proof.
+- **Cap:** `bmc { unwindCap = N }` (default 16) bounds the climb; reaching it without a conclusive
+  verdict reports a clear `UNKNOWN` ("this proof may have an unbounded / too-deep loop — set an
+  explicit `unwind`") instead of climbing forever.
 
 ## Solver
 
