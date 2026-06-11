@@ -82,8 +82,15 @@ object Bmc4jVersion {
      * so a pre-r13 cached REFUTED would replay the OLD generic reason; the cache (which keys on this
      * IDENTITY) must miss and re-derive. The rewrite-mirror cache re-mirrors incidentally on the IDENTITY
      * bump even though no bytecode changed — harmless over-invalidation.
+     * r14 makes automatic unwind discovery the DEFAULT (@BmcProof unwind = AUTO): a proof with no
+     * explicit bound is now run at the smallest bound that yields a conclusive verdict, not the fixed
+     * default 16. The VERDICT is unchanged (same VERIFIED/REFUTED/VACUOUS; --unwinding-assertions stays
+     * on so under-unwinding fails closed to UNKNOWN) — but a default proof's verdict-cache key now carries
+     * the DISCOVERED bound (e.g. 5) rather than 16, so a pre-r14 entry keyed at the old fixed bound must
+     * not satisfy an r14 lookup. Bumping re-derives every cached verdict on the soundness-safe side
+     * (over-invalidation). Explicit `unwind = N` proofs are unaffected (their key already carried N).
      */
-    private const val SEMANTICS_REVISION = "r13"
+    private const val SEMANTICS_REVISION = "r14"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

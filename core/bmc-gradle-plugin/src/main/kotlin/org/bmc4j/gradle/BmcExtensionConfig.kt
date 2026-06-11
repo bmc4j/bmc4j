@@ -10,7 +10,9 @@ import org.gradle.api.tasks.Nested
  *
  * ```
  * bmc {
- *     unwind = 16                       // default loop bound for proofs
+ *     // unwind defaults to AUTO: each proof auto-discovers its loop bound (climbs up to unwindCap).
+ *     // unwind = 12                    // PIN one fixed bound for every proof (the expert opt-out)
+ *     // unwindCap = 16                 // highest bound auto-discovery climbs to (default 16)
  *     // jbmcPath = "/opt/cbmc/bin/jbmc" // use a local binary instead of the bundled engine
  * }
  * ```
@@ -24,8 +26,23 @@ abstract class BmcExtensionConfig {
      */
     abstract val jbmcPath: Property<String>
 
-    /** Default loop/recursion unwinding bound for proofs that don't override it. */
+    /**
+     * Default loop/recursion unwinding bound for proofs that don't override it.
+     *
+     * Defaults to `AUTO` (auto-discovery): a proof with no explicit bound runs at the smallest unwind
+     * that yields a conclusive verdict (the runtime climbs low→high up to [unwindCap]), so a beginner
+     * never tunes loop unwinding. Set a POSITIVE value to PIN one fixed bound for every proof in the
+     * project (the expert opt-out). A `@BmcProof(unwind = N)` always overrides this per-proof.
+     */
     abstract val unwind: Property<Int>
+
+    /**
+     * The CAP (highest bound) auto-unwind discovery climbs to before giving up with a clear UNKNOWN
+     * ("this proof may have an unbounded / too-deep loop — set an explicit `unwind`"). Defaults to 16.
+     * Only consulted when [unwind] is left on AUTO; pinning [unwind] to a positive value runs every
+     * proof at exactly that bound with no climb.
+     */
+    abstract val unwindCap: Property<Int>
 
     /**
      * Default per-proof wall-clock budget in seconds. When a proof doesn't reach a verdict

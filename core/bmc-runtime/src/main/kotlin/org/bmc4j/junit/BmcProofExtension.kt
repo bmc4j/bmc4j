@@ -2,6 +2,7 @@ package org.bmc4j.junit
 
 import org.bmc4j.BmcProof
 import org.bmc4j.Verdict
+import org.bmc4j.engine.AutoUnwind
 import org.bmc4j.engine.BmcReachability
 import org.bmc4j.engine.BmcRequest
 import org.bmc4j.engine.BmcUndecidedError
@@ -15,6 +16,7 @@ import org.bmc4j.engine.ReplayTestWriter
 import org.bmc4j.engine.ResidualIndyBytecode
 import org.bmc4j.engine.StubPolicy
 import org.bmc4j.engine.UnknownKind
+import org.bmc4j.engine.UnwindCache
 import org.bmc4j.engine.UserModel
 import org.bmc4j.engine.VerdictCache
 import org.bmc4j.engine.VerificationBackends
@@ -166,7 +168,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         val splitPlan = org.bmc4j.engine.DomainSplitBytecode.analyze(
                 request.classpath, entryClass, method.name)
         if (splitPlan.isSplit) {
-            runSplitProof(method, entryFunction, config, request, backend, splitPlan, outcome)
+            // Auto-unwind discovery is not (yet) composed with domainSplit's N+1 fan-out, so an AUTO
+            // split pins to the build-default cap for its derived runs — the pre-AUTO behaviour. (A
+            // split proof's derived runs each need a concrete bound; climbing every slice is a separate
+            // optimization.) An explicit per-proof bound is honored unchanged.
+            val splitBase = if (request.unwind == BmcProof.AUTO) pinUnwind(request, autoUnwindCap())
+                    else request
+            runSplitProof(method, entryFunction, config, splitBase, backend, splitPlan, outcome)
             return
         }
 
@@ -182,9 +190,25 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // -Dbmc.solver) so a -Dbmc.solver change invalidates even with unchanged bytecode (cf.
         // unwind/maxStringLength, which are already effective on the request).
         val engineIdentity = backend.engineIdentity() + solverEnvSuffix()
-        val cacheRequest = cacheKeyRequest(request, config)
         val expected = config?.expect ?: Verdict.VERIFIED
-        val hit = VerdictCache.lookup(cacheRequest, engineIdentity)
+
+        // AUTO unwind (no explicit bound): resolve the effective bound. The discovered-bound cache
+        // records which bound the climb last won at — on a hit we go STRAIGHT to that bound (which then
+        // hits the verdict cache below for zero extra solves); on a miss we climb. A NON-AUTO request
+        // (explicit `unwind = N`, or `0`/`-Dbmc.unwind` pinning the default) passes through untouched, so
+        // the expert opt-out and every hand-tuned bound behave exactly as before.
+        val isAuto = request.unwind == BmcProof.AUTO
+        val discoveredBound: Int? = if (isAuto) UnwindCache.lookup(request, engineIdentity) else null
+        // The request the verdict cache + engine run see: pinned to the discovered (or explicit) bound.
+        // When AUTO with no recorded bound, it stays AUTO and we skip the bound-specific short-circuit.
+        val effectiveRequest = if (discoveredBound != null) pinUnwind(request, discoveredBound)
+                else request
+        val haveConcreteBound = effectiveRequest.unwind > 0
+
+        val cacheRequest = cacheKeyRequest(effectiveRequest, config)
+        // Verdict-cache short-circuit only with a concrete bound (an un-discovered AUTO has no single
+        // bound to look up — it climbs, and each rung consults the cache itself).
+        val hit = if (haveConcreteBound) VerdictCache.lookup(cacheRequest, engineIdentity) else null
         if (hit != null && hit.verdict == expected) {
             outcome.verdict = hit.verdict
             outcome.cached = true
@@ -194,6 +218,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 // strictStubs / editing allowStubs re-decides without an engine re-run. A strict-mode
                 // unacknowledged stub still turns a cached green into UNKNOWN.
                 println("  bmc4j: $entryFunction -> VERIFIED (cached)")
+                if (isAuto) {
+                    // Surface the cached discovered bound too, so the user can still pin it.
+                    println(AutoUnwind.discoveredNote(entryFunction, effectiveRequest.unwind))
+                    outcome.detail = autoUnwindDetail(effectiveRequest.unwind)
+                }
                 applyModelPolicy(entryFunction)
                 applyStubPolicy(entryFunction, config, hit.stubbedMethods)
             } else {
@@ -201,13 +230,40 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 // file is NOT regenerated on a cached pass — it was written by the live run that
                 // stored this entry (delete the cache entry or run -Dbmc.noCache=true to re-render).
                 println("  bmc4j: $entryFunction -> ${hit.verdict} (cached, as expected)")
+                if (isAuto) {
+                    println(AutoUnwind.discoveredNote(entryFunction, effectiveRequest.unwind))
+                    outcome.detail = autoUnwindDetail(effectiveRequest.unwind)
+                }
             }
             return
         }
 
         val result: JbmcResult
+        // The bound the result was actually produced at (for AUTO's discovered-bound surfacing + cache).
+        var resolvedBound = effectiveRequest.unwind
+        // The verdict-cache request to STORE under — rebuilt below if the climb lands on a bound other
+        // than the one effectiveRequest carried (a cache miss that re-climbed to a different bound).
+        var storeRequest = cacheRequest
         try {
-            result = backend.verify(request)
+            if (isAuto && !haveConcreteBound) {
+                // No recorded bound: climb low→high (live runs; intermediate rungs are UNKNOWN and never
+                // cached anyway), and record the WINNING bound in the unwind cache so the next unchanged
+                // run skips the climb and hits the verdict cache at that bound. Surfaces the discovered
+                // bound on a conclusive verdict.
+                val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome)
+                result = climbed.result
+                storeRequest = cacheKeyRequest(pinUnwind(request, climbed.bound), config)
+            } else {
+                // Concrete bound (explicit, or a discovered-bound hit whose verdict cache missed): a
+                // single run. A discovered-bound hit that lands here (rare: classpath changed) still
+                // surfaces the bound; if it turns out non-conclusive the next run will re-climb.
+                result = backend.verify(effectiveRequest)
+                if (isAuto && isConclusive(result)) {
+                    UnwindCache.store(request, engineIdentity, resolvedBound)
+                    println(AutoUnwind.discoveredNote(entryFunction, resolvedBound))
+                    outcome.detail = autoUnwindDetail(resolvedBound)
+                }
+            }
         } catch (e: org.bmc4j.engine.ContractPurityError) {
             // A contracted target's body is not provably pure (a side effect a contract would
             // silently drop at every redirected call site). This is a contract-CONFIGURATION error,
@@ -376,7 +432,9 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // unchanged run can skip the engine. Failures are never stored — a mismatch always re-runs live
         // — and TIMEOUT/UNKNOWN are never stored even when expected (machine-dependent). Fail-open: a
         // write error never affects the verdict.
-        VerdictCache.storeIfExpectedMatch(cacheRequest, engineIdentity, result, expected)
+        // Store under the bound the result was actually produced at (storeRequest tracks the climb's
+        // landing bound; identical to cacheRequest for a non-climbed run).
+        VerdictCache.storeIfExpectedMatch(storeRequest, engineIdentity, result, expected)
 
         if (actual != Verdict.VERIFIED) {
             if (actual == Verdict.UNKNOWN || actual == Verdict.TIMEOUT) {
@@ -621,9 +679,37 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff)
 
+    /**
+     * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
+     * engine at increasing bounds via [AutoUnwind], stopping at the first conclusive verdict. On a
+     * conclusive landing the discovered bound is recorded in [UnwindCache] (so the next unchanged run
+     * skips the climb) and surfaced in the log + the structured summary [ProofOutcome.detail], pairing
+     * with the cached-bound record so the user can pin it. Returns the chosen [AutoUnwind.Outcome] so the
+     * caller stores the verdict under the right bound and runs the downstream demotions on it.
+     *
+     * The climb keeps `--unwinding-assertions` on at every rung (it's on the request throughout), so a
+     * too-small bound can only fail closed to UNKNOWN, never a false VERIFIED — see [AutoUnwind].
+     */
+    private fun climbUnwind(request: BmcRequest,
+                            backend: org.bmc4j.engine.VerificationBackend, engineIdentity: String,
+                            entryFunction: String, outcome: ProofOutcome): AutoUnwind.Outcome {
+        val cap = autoUnwindCap()
+        val seed = autoUnwindSeed()
+        val out = AutoUnwind.climb(seed, cap) { bound -> backend.verify(pinUnwind(request, bound)) }
+        if (out.discovered && isConclusive(out.result)) {
+            UnwindCache.store(request, engineIdentity, out.bound)
+            println(AutoUnwind.discoveredNote(entryFunction, out.bound))
+            outcome.detail = autoUnwindDetail(out.bound)
+        }
+        return out
+    }
+
     companion object {
 
         private const val UNWIND_PROP = "bmc.unwind"
+        /** The auto-unwind climb CAP (highest bound), separate from the `bmc.unwind` PIN — see
+         *  [autoUnwindCap]. The plugin forwards `bmc { unwind }` here when it is left on AUTO. */
+        private const val UNWIND_CAP_PROP = "bmc.unwindCap"
         private const val MAX_STRING_PROP = "bmc.maxStringLength"
         private const val TIMEOUT_PROP = "bmc.timeoutSeconds"
         private const val DEFAULT_UNWIND = 16
@@ -1314,12 +1400,73 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return if (prop.isNullOrBlank()) "" else prop.trim()
         }
 
+        /**
+         * The unwind bound a proof will actually run under, OR the [BmcProof.AUTO] sentinel when it
+         * should be auto-discovered (the default). Precedence:
+         *  - a POSITIVE per-proof `@BmcProof(unwind = N)` pins N (the expert opt-out);
+         *  - per-proof `unwind = 0` pins the build cap ([autoUnwindCap]) — the legacy explicit-default;
+         *  - otherwise the build-wide `-Dbmc.unwind` wins when it names a POSITIVE pin (so a project can
+         *    fix one global bound), or `0` to pin the cap; an UNSET or AUTO-sentinel (`-1`) `-Dbmc.unwind`
+         *    leaves the proof on AUTO;
+         *  - else AUTO — carry the sentinel downstream; [climbUnwind] discovers the bound.
+         */
         internal fun resolveUnwind(config: BmcProof?): Int {
             if (config != null && config.unwind > 0) {
                 return config.unwind
             }
-            return intProp(UNWIND_PROP, DEFAULT_UNWIND)
+            if (config != null && config.unwind == 0) {
+                return autoUnwindCap() // legacy "use the build default": pin the cap
+            }
+            // AUTO (the annotation default, an explicit unwind = AUTO, or no annotation at all): a
+            // build-wide -Dbmc.unwind PIN (a positive value, or 0 for the cap) wins; otherwise discover.
+            val prop = System.getProperty(UNWIND_PROP)?.trim()
+            if (!prop.isNullOrBlank()) {
+                val n = prop.toIntOrNull()
+                        ?: throw IllegalArgumentException(
+                                "Invalid value for -D$UNWIND_PROP: \"$prop\" is not an integer")
+                if (n > 0) {
+                    return n
+                }
+                if (n == 0) {
+                    return autoUnwindCap()
+                }
+                // n < 0 (the AUTO sentinel): the project default-forwards AUTO — discover.
+            }
+            return BmcProof.AUTO
         }
+
+        /**
+         * The cap (highest bound) the auto-unwind climb tries — the build default. Read from
+         * `-Dbmc.unwindCap` (the plugin forwards `bmc { unwind }` here when it is left on AUTO), else
+         * [DEFAULT_UNWIND] (16). Deliberately SEPARATE from `-Dbmc.unwind`: a positive `-Dbmc.unwind` is
+         * a project-wide PIN (no climb at all), not a cap raise, so the cap can't be polluted by the
+         * AUTO sentinel a default-forwarding plugin may place in `-Dbmc.unwind`.
+         */
+        internal fun autoUnwindCap(): Int = intProp(UNWIND_CAP_PROP, DEFAULT_UNWIND).coerceAtLeast(1)
+
+        /**
+         * The bound the auto-unwind climb STARTS at. Defaults to 1 (climb from low) — a clean,
+         * always-correct seed; a bytecode-scan seed (array lengths, maxStringLength, collection-op
+         * counts) is a future optimization that only ever reduces rungs, never changes correctness.
+         * `-Dbmc.unwindSeed` overrides it (clamped into `1..cap` by the climb).
+         */
+        internal fun autoUnwindSeed(): Int = intProp("bmc.unwindSeed", 1).coerceAtLeast(1)
+
+        /** [request] with its unwind bound pinned to [bound] (every other field unchanged). */
+        internal fun pinUnwind(request: BmcRequest, bound: Int): BmcRequest =
+                BmcRequest(request.entryClass, request.entryFunction, request.classpath, bound,
+                        request.unwindingAssertions, request.maxStringLength, request.solver,
+                        request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
+                        request.stringRefinementOff)
+
+        /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
+         *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */
+        internal fun isConclusive(result: JbmcResult): Boolean = !result.isUnknown
+
+        /** The structured-summary `detail` for an auto-discovered bound (mirrors the logged note). */
+        internal fun autoUnwindDetail(bound: Int): String =
+                "auto-unwind: discovered unwind=$bound — pin with @BmcProof(unwind = $bound)" +
+                        " to skip the search."
 
         /**
          * The symbolic-string length bound a proof will actually run under: its per-proof

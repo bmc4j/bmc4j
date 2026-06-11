@@ -21,10 +21,12 @@ class BmcPluginTest {
     }
 
     @Test
-    fun registers_the_bmc_extension_with_default_unwind_16() {
+    fun registers_the_bmc_extension_with_auto_unwind_and_cap_16() {
         val ext = applied().extensions.findByType(BmcExtensionConfig::class.java)
         assertNotNull(ext, "bmc extension")
-        assertEquals(16, ext!!.unwind.get())
+        // AUTO by default (auto-discovery); the climb cap defaults to 16. A positive unwind PINS instead.
+        assertEquals(-1, ext!!.unwind.get(), "unwind defaults to AUTO (-1)")
+        assertEquals(16, ext.unwindCap.get(), "the climb cap defaults to 16")
     }
 
     @Test
