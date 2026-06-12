@@ -104,6 +104,57 @@ object StringBytecode {
             "([C)V" to "([C)Ljava/lang/String;",
             "([CII)V" to "([CII)Ljava/lang/String;")
 
+    /**
+     * `String(byte[], ...)` charset-decode constructor descriptors, mapped to the [BmcStrings.ofBytes]
+     * factory of the SAME parameter shape (`(P...)V` -> `(P...)Ljava/lang/String;`). JBMC links native
+     * byte[] decode to a nondet string (a charset-decoding library's `bytes -> String` accessor boils
+     * down to exactly `new String(byte[],Charset)`); the factory decodes soundly for the charsets it recognizes
+     * (UTF-8, ISO-8859-1/US-ASCII) and falls through to nondet (conservatively UNKNOWN) otherwise. The
+     * same `NEW;DUP`-dropping stack surgery as the char[] ctor redirect applies — these share
+     * [STRING_FROMARRAY_CTOR_REDIRECTS] in the construction-region matcher.
+     */
+    private val STRING_BYTES_CTOR_REDIRECTS: Map<String, String> = mapOf(
+            "([B)V" to "([B)Ljava/lang/String;",
+            "([BII)V" to "([BII)Ljava/lang/String;",
+            "([BLjava/nio/charset/Charset;)V" to "([BLjava/nio/charset/Charset;)Ljava/lang/String;",
+            "([BLjava/lang/String;)V" to "([BLjava/lang/String;)Ljava/lang/String;",
+            "([BIILjava/nio/charset/Charset;)V" to "([BIILjava/nio/charset/Charset;)Ljava/lang/String;",
+            "([BIILjava/lang/String;)V" to "([BIILjava/lang/String;)Ljava/lang/String;")
+
+    /** All `new String(<array>, ...)` ctor descriptors we redirect, mapped to `(factory-name, factory-desc)`. */
+    private val STRING_FROMARRAY_CTOR_REDIRECTS: Map<String, Pair<String, String>> =
+            (STRING_CTOR_REDIRECTS.mapValues { (_, d) -> "ofChars" to d }
+                    + STRING_BYTES_CTOR_REDIRECTS.mapValues { (_, d) -> "ofBytes" to d })
+
+    /**
+     * `"owner fieldName"` of the well-known `Charset` singletons -> a charset TAG (`"utf8"` /
+     * `"latin1"`). JBMC can't reason about a `Charset` object's identity or `name()` at runtime (the
+     * singletons come from a static initializer it havocs), so a `new String(byte[], <one of these>)`
+     * is recognized by the `getstatic` field that feeds it AT REWRITE TIME and retargeted to the
+     * monomorphic [BmcStrings] decoder for that tag — the Charset object never reaches the analysis.
+     * Both the JDK `StandardCharsets` and Kotlin `kotlin.text.Charsets` singletons are covered (Kotlin
+     * charset-decode sites load `kotlin/text/Charsets.UTF_8`). US-ASCII shares the Latin-1 decoder (identity on
+     * its 0x00..0x7F domain). A Charset from any other source (a variable, an unrecognized field) is
+     * left on the generic [BmcStrings.ofBytes] path, which falls through to nondet — conservative.
+     */
+    private val CHARSET_FIELD_TAGS: Map<String, String> = mapOf(
+            "java/nio/charset/StandardCharsets UTF_8" to "utf8",
+            "kotlin/text/Charsets UTF_8" to "utf8",
+            "java/nio/charset/StandardCharsets ISO_8859_1" to "latin1",
+            "kotlin/text/Charsets ISO_8859_1" to "latin1",
+            "java/nio/charset/StandardCharsets US_ASCII" to "latin1",
+            "kotlin/text/Charsets US_ASCII" to "latin1")
+
+    /** Charset tag -> the monomorphic [BmcStrings] decoder name (no `Charset` parameter). */
+    private val CHARSET_TAG_FACTORY: Map<String, String> = mapOf(
+            "utf8" to "ofBytesUtf8",
+            "latin1" to "ofBytesLatin1")
+
+    /** `(byte[],Charset)` / `(byte[],int,int,Charset)` ctor desc -> the monomorphic factory desc (Charset dropped). */
+    private val CHARSET_CTOR_TO_MONO_DESC: Map<String, String> = mapOf(
+            "([BLjava/nio/charset/Charset;)V" to "([B)Ljava/lang/String;",
+            "([BIILjava/nio/charset/Charset;)V" to "([BII)Ljava/lang/String;")
+
     private val CACHE = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /** Rewrite directory AND jar entries of [classpath], returning the new classpath. Memoized
@@ -204,6 +255,14 @@ object StringBytecode {
                     private var recording = false
                     private var sawDup = false
 
+                    // For a `new String(byte[], <charset-getstatic>)`: the charset tag ("utf8"/"latin1")
+                    // of a recognized `getstatic <Charsets>.X` IF it is the LAST recorded action when the
+                    // ctor is reached. `trailingCharsetIndex` pins it to that trailing position — set when
+                    // such a getstatic is recorded, and only honoured if no further action was recorded
+                    // after it (so a Charset that isn't the immediate ctor operand is not mis-claimed).
+                    private var trailingCharsetTag: String? = null
+                    private var trailingCharsetIndex = -1
+
                     /** Replay the buffered `NEW String` (and DUP, if seen) and recorded args verbatim,
                      *  then stop recording — the conservative fallback for any non-redirect shape. */
                     private fun flushRecording() {
@@ -214,6 +273,8 @@ object StringBytecode {
                         val actions = ArrayList(recorded)
                         recording = false
                         sawDup = false
+                        trailingCharsetTag = null
+                        trailingCharsetIndex = -1
                         recorded.clear()
                         super.visitTypeInsn(Opcodes.NEW, STRING)
                         if (hadDup) {
@@ -238,6 +299,8 @@ object StringBytecode {
                         if (op == Opcodes.NEW && STRING == type) {
                             recording = true
                             sawDup = false
+                            trailingCharsetTag = null
+                            trailingCharsetIndex = -1
                             recorded.clear()
                             return
                         }
@@ -267,7 +330,21 @@ object StringBytecode {
                     }
 
                     override fun visitFieldInsn(op: Int, o: String?, nm: String?, d: String?) {
-                        if (recording) { recorded.add { super.visitFieldInsn(op, o, nm, d) }; return }
+                        if (recording) {
+                            recorded.add { super.visitFieldInsn(op, o, nm, d) }
+                            // Remember a recognized Charset-singleton getstatic at its position, so the
+                            // ctor can drop it and route to the monomorphic decoder iff it is the trailing
+                            // operand. (No-op for any other field access — trailingCharsetIndex stays put
+                            // and the next non-charset recorded action leaves it behind the tail.)
+                            if (op == Opcodes.GETSTATIC) {
+                                val tag = CHARSET_FIELD_TAGS["$o $nm"]
+                                if (tag != null) {
+                                    trailingCharsetTag = tag
+                                    trailingCharsetIndex = recorded.size - 1
+                                }
+                            }
+                            return
+                        }
                         super.visitFieldInsn(op, o, nm, d)
                     }
 
@@ -324,23 +401,44 @@ object StringBytecode {
                     override fun visitMethodInsn(op: Int, mOwner: String?, name: String?,
                                                  desc: String?, itf: Boolean) {
                         val nd = name + " " + desc
-                        // The matching from-chars constructor for a recorded `NEW String; DUP; args`: drop
-                        // the NEW;DUP, replay the arg-building (which leaves [char[](, int, int)] on the
-                        // stack), then call the sound BmcStrings.ofChars factory in place of the ctor. No
-                        // uninitialized-ref ever reaches a frame, so JVM verification stays valid and the
-                        // stack is one ref shallower than the original.
+                        // The matching from-array constructor for a recorded `NEW String; DUP; args`: drop
+                        // the NEW;DUP, replay the arg-building (which leaves [array(, int, int)(, charset)]
+                        // on the stack), then call the sound BmcStrings factory (ofChars for char[],
+                        // ofBytes for byte[]) in place of the ctor. No uninitialized-ref ever reaches a
+                        // frame, so JVM verification stays valid and the stack is one ref shallower.
+                        val fromArray = if (desc != null) STRING_FROMARRAY_CTOR_REDIRECTS[desc] else null
                         if (op == Opcodes.INVOKESPECIAL && STRING == mOwner && "<init>" == name
-                                && STRING_CTOR_REDIRECTS.containsKey(desc)
+                                && fromArray != null
                                 && recording && sawDup && BMC_STRINGS != owner[0]) {
+                            // A `new String(byte[], <recognized Charset getstatic>)` whose Charset operand
+                            // is the TRAILING recorded action: drop that getstatic and route to the
+                            // monomorphic decoder (utf8/latin1) — JBMC can't reason about a Charset object,
+                            // so the decoder must not take one. Otherwise replay all recorded args and call
+                            // the descriptor-matched factory (generic ofBytes -> nondet for an unrecognized
+                            // charset; ofChars for char[]).
+                            val monoDesc = if (desc != null) CHARSET_CTOR_TO_MONO_DESC[desc] else null
+                            val trailing = trailingCharsetTag
+                            val useMono = monoDesc != null && trailing != null
+                                    && trailingCharsetIndex == recorded.size - 1
                             val actions = ArrayList(recorded)
+                            if (useMono) {
+                                actions.removeAt(actions.size - 1)   // drop the trailing charset getstatic
+                            }
                             recorded.clear()
                             recording = false
                             sawDup = false
+                            trailingCharsetTag = null
+                            trailingCharsetIndex = -1
                             for (act in actions) {
                                 act()    // replay only the argument-building instructions (NEW;DUP dropped)
                             }
-                            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, "ofChars",
-                                    STRING_CTOR_REDIRECTS[desc]!!, false)
+                            if (useMono) {
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS,
+                                        CHARSET_TAG_FACTORY[trailing]!!, monoDesc, false)
+                            } else {
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, fromArray.first,
+                                        fromArray.second, false)
+                            }
                             return
                         }
                         if (recording) {

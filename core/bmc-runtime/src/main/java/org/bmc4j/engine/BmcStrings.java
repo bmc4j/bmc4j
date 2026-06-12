@@ -1,5 +1,8 @@
 package org.bmc4j.engine;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 import org.cprover.CProverString;
 
 /**
@@ -217,5 +220,261 @@ public final class BmcStrings {
             }
         }
         return false;
+    }
+
+    // === byte[] -> String charset decode (Rung 1) ===========================================
+    //
+    // JBMC links `new String(byte[], Charset)` / `new String(byte[], String)` (a charset-decoding
+    // library's `bytes -> String` accessor boils down to exactly that ctor) to a nondet native decode
+    // path, so a String decoded from symbolic bytes otherwise has nondet length()/charAt — the same
+    // engine blindspot as native String construction. `StringBytecode` redirects the byte[] String
+    // constructors here. We decode
+    // soundly in plain bytecode for the charsets whose byte->char relation is unambiguous and bounded:
+    //
+    //   * US-ASCII / ISO-8859-1 (Latin-1): char = byte & 0xFF, a trivially-sound identity. (ASCII's
+    //     0x80..0xFF map to U+FFFD in the JDK, but those bytes are excluded from a bounded ASCII
+    //     domain by construction; for the in-range bytes the two charsets agree, so we treat the
+    //     ASCII path as Latin-1, sound over its 0x00..0x7F domain.)
+    //   * UTF-8: the standard 1/2/3/4-byte decode state machine, code points appended to a
+    //     StringBuilder (the one construction primitive JBMC models soundly). Malformed sequences
+    //     decode to the U+FFFD replacement char, matching the JDK's default (REPLACE) action.
+    //
+    // Charset recognition is by reference identity against the JDK singletons AND name, so an
+    // unrecognized charset falls through to {@link #ofBytesNondet} (the engine's original nondet
+    // behaviour — conservatively UNKNOWN, never a false VERIFY). Bounded by design: the decode loop
+    // unwinds to the byte count, so keep symbolic byte arrays small.
+
+    // --- charset-specific decoders (no Charset object on the operand stack) ---------------------
+    //
+    // JBMC can't reason about `Charset` object identity or `Charset.name()` (the singletons come from
+    // a static initializer it havocs), so a runtime branch on the Charset routes nondet. Instead,
+    // `StringBytecode` recognizes the `getstatic <Charsets>.UTF_8|ISO_8859_1|US_ASCII` that feeds the
+    // ctor AT REWRITE TIME and retargets straight to one of these monomorphic factories (dropping the
+    // getstatic), so no Charset object ever reaches the decode and the relation is concrete.
+
+    /** UTF-8 decode of the whole array. */
+    public static String ofBytesUtf8(byte[] data) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        return decodeUtf8(data, 0, data.length);
+    }
+
+    /** UTF-8 decode of {@code [offset, offset+length)}. */
+    public static String ofBytesUtf8(byte[] data, int offset, int length) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new StringIndexOutOfBoundsException();
+        }
+        return decodeUtf8(data, offset, length);
+    }
+
+    /** ISO-8859-1 / US-ASCII decode of the whole array. */
+    public static String ofBytesLatin1(byte[] data) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        return decodeLatin1(data, 0, data.length);
+    }
+
+    /** ISO-8859-1 / US-ASCII decode of {@code [offset, offset+length)}. */
+    public static String ofBytesLatin1(byte[] data, int offset, int length) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new StringIndexOutOfBoundsException();
+        }
+        return decodeLatin1(data, offset, length);
+    }
+
+    /** Sound stand-in for {@code new String(byte[], Charset)} (whole array). */
+    public static String ofBytes(byte[] data, Charset cs) {
+        if (data == null || cs == null) {
+            throw new NullPointerException();
+        }
+        return ofBytes(data, 0, data.length, cs);
+    }
+
+    /** Sound stand-in for {@code new String(byte[], int, int, Charset)}. */
+    public static String ofBytes(byte[] data, int offset, int length, Charset cs) {
+        if (data == null || cs == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new StringIndexOutOfBoundsException();  // matches String(byte[],int,int,*) bounds checking
+        }
+        if (isUtf8(cs)) {
+            return decodeUtf8(data, offset, length);
+        }
+        if (isLatin1OrAscii(cs)) {
+            return decodeLatin1(data, offset, length);
+        }
+        return ofBytesNondet(data, offset, length);  // unrecognized charset: original nondet behaviour
+    }
+
+    /** Sound stand-in for {@code new String(byte[], String)} (charset by name). */
+    public static String ofBytes(byte[] data, String charsetName) {
+        if (data == null || charsetName == null) {
+            throw new NullPointerException();
+        }
+        return ofBytes(data, 0, data.length, charsetName);
+    }
+
+    /** Sound stand-in for {@code new String(byte[], int, int, String)} (charset by name). */
+    public static String ofBytes(byte[] data, int offset, int length, String charsetName) {
+        if (data == null || charsetName == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new StringIndexOutOfBoundsException();
+        }
+        if (isUtf8Name(charsetName)) {
+            return decodeUtf8(data, offset, length);
+        }
+        if (isLatin1OrAsciiName(charsetName)) {
+            return decodeLatin1(data, offset, length);
+        }
+        return ofBytesNondet(data, offset, length);
+    }
+
+    /**
+     * Sound stand-in for {@code new String(byte[])} (whole array, the JVM default charset). The
+     * platform default is UTF-8 on every modern JVM (JEP 400, Java 18+), which is also bmc4j's
+     * supported floor; decode as UTF-8.
+     */
+    public static String ofBytes(byte[] data) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        return decodeUtf8(data, 0, data.length);
+    }
+
+    /** Sound stand-in for {@code new String(byte[], int, int)} (the JVM default charset, UTF-8). */
+    public static String ofBytes(byte[] data, int offset, int length) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new StringIndexOutOfBoundsException();
+        }
+        return decodeUtf8(data, offset, length);
+    }
+
+    private static boolean isUtf8(Charset cs) {
+        return cs == StandardCharsets.UTF_8 || isUtf8Name(cs.name());
+    }
+
+    private static boolean isLatin1OrAscii(Charset cs) {
+        return cs == StandardCharsets.ISO_8859_1 || cs == StandardCharsets.US_ASCII
+                || isLatin1OrAsciiName(cs.name());
+    }
+
+    private static boolean isUtf8Name(String name) {
+        return "UTF-8".equals(name) || "UTF8".equals(name);
+    }
+
+    private static boolean isLatin1OrAsciiName(String name) {
+        return "ISO-8859-1".equals(name) || "ISO8859-1".equals(name) || "latin1".equals(name)
+                || "US-ASCII".equals(name) || "ASCII".equals(name);
+    }
+
+    /** Latin-1 / ASCII decode: char = byte &amp; 0xFF, one byte to one char. Trivially sound. */
+    private static String decodeLatin1(byte[] data, int offset, int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append((char) (data[offset + i] & 0xFF));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * UTF-8 decode state machine over a bounded byte range. 1-byte ASCII fast path; 2/3/4-byte
+     * lead + continuation bytes assembled into a code point and appended (as one char, or a
+     * surrogate pair for astral code points). Malformed lead/continuation bytes append the U+FFFD
+     * replacement char and resync, matching the JDK's default REPLACE decode action. The append loop
+     * unwinds to the byte count, so this is sound and cheap for bounded byte arrays.
+     */
+    private static String decodeUtf8(byte[] data, int offset, int length) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < length) {
+            int b0 = data[offset + i] & 0xFF;
+            if (b0 < 0x80) {                 // 0xxxxxxx: 1-byte ASCII
+                sb.append((char) b0);
+                i += 1;
+            } else if (b0 < 0xC0) {          // 10xxxxxx: stray continuation byte -> replacement
+                sb.append('�');
+                i += 1;
+            } else if (b0 < 0xE0) {          // 110xxxxx: 2-byte sequence
+                if (i + 1 < length && isCont(data[offset + i + 1])) {
+                    int cp = ((b0 & 0x1F) << 6) | (data[offset + i + 1] & 0x3F);
+                    if (cp < 0x80) {          // overlong encoding -> replacement
+                        sb.append('�');
+                        i += 1;
+                    } else {
+                        sb.append((char) cp);
+                        i += 2;
+                    }
+                } else {
+                    sb.append('�');
+                    i += 1;
+                }
+            } else if (b0 < 0xF0) {          // 1110xxxx: 3-byte sequence
+                if (i + 2 < length && isCont(data[offset + i + 1]) && isCont(data[offset + i + 2])) {
+                    int cp = ((b0 & 0x0F) << 12) | ((data[offset + i + 1] & 0x3F) << 6)
+                            | (data[offset + i + 2] & 0x3F);
+                    if (cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF)) {  // overlong or surrogate -> replacement
+                        sb.append('�');
+                        i += 1;
+                    } else {
+                        sb.append((char) cp);
+                        i += 3;
+                    }
+                } else {
+                    sb.append('�');
+                    i += 1;
+                }
+            } else if (b0 < 0xF8) {          // 11110xxx: 4-byte sequence (astral, surrogate pair)
+                if (i + 3 < length && isCont(data[offset + i + 1]) && isCont(data[offset + i + 2])
+                        && isCont(data[offset + i + 3])) {
+                    int cp = ((b0 & 0x07) << 18) | ((data[offset + i + 1] & 0x3F) << 12)
+                            | ((data[offset + i + 2] & 0x3F) << 6) | (data[offset + i + 3] & 0x3F);
+                    if (cp < 0x10000 || cp > 0x10FFFF) {  // overlong or out of range -> replacement
+                        sb.append('�');
+                        i += 1;
+                    } else {
+                        int v = cp - 0x10000;
+                        sb.append((char) (0xD800 + (v >> 10)));    // high surrogate
+                        sb.append((char) (0xDC00 + (v & 0x3FF)));  // low surrogate
+                        i += 4;
+                    }
+                } else {
+                    sb.append('�');
+                    i += 1;
+                }
+            } else {                          // 0xF8..0xFF: invalid lead byte -> replacement
+                sb.append('�');
+                i += 1;
+            }
+        }
+        return sb.toString();
+    }
+
+    /** A UTF-8 continuation byte: top two bits {@code 10xxxxxx}. */
+    private static boolean isCont(byte b) {
+        return (b & 0xC0) == 0x80;
+    }
+
+    /**
+     * Nondet decode for an unrecognized charset: an unconstrained (non-null) String, exactly the
+     * engine's ORIGINAL behaviour for a native byte[] decode. This is a deliberate fall-through — a
+     * charset bmc4j can't decode soundly stays conservatively UNKNOWN, never a false VERIFY.
+     */
+    @SuppressWarnings("unused")
+    private static String ofBytesNondet(byte[] data, int offset, int length) {
+        return org.cprover.CProver.nondetWithoutNull();
     }
 }

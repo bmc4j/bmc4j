@@ -98,8 +98,14 @@ object Bmc4jVersion {
      * now redirect to the sound BmcStrings.ofChars where they previously fell back to JBMC's nondet native
      * construction, so their rewritten bytecode CHANGES (re-mirror) and the verdict cache (keyed on this
      * IDENTITY) must miss and re-derive.
+     * r16 extends the from-array construction redirect to the `new String(byte[], ...)` charset-decode
+     * constructors — `(byte[])`, `(byte[],int,int)`, and the `(...,Charset)` / `(...,String charsetName)`
+     * shapes (a charset-decoding library's `bytes -> String` accessor boils down to `new String(byte[],Charset)`). They now retarget
+     * to the sound BmcStrings.ofBytes decoder (UTF-8 + ISO-8859-1/US-ASCII sound, other charsets nondet)
+     * where they previously fell back to JBMC's nondet native byte[] decode, so their rewritten bytecode
+     * CHANGES (re-mirror) and the verdict cache (keyed on this IDENTITY) must miss and re-derive.
      */
-    private const val SEMANTICS_REVISION = "r15"
+    private const val SEMANTICS_REVISION = "r16"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
