@@ -48,4 +48,14 @@ class BmcRequest @JvmOverloads constructor(
          * verdict-cache identity (over-keying is always sound; under-keying would serve a refinement-off
          * verdict for a refinement-on request, a soundness bug).
          */
-        @get:JvmName("stringRefinementOff") val stringRefinementOff: Boolean = false)
+        @get:JvmName("stringRefinementOff") val stringRefinementOff: Boolean = false,
+        /**
+         * Exception-message elision control for this proof (see [ExceptionMessageElision]). [AUTO][
+         * ExceptionMessageElision.Mode.AUTO] (the default) elides an unobserved exception message iff the
+         * coarse observability gate clears; `ON` forces elision (a user-asserted override, surfaced on the
+         * verdict); `OFF` never elides. Part of the verdict-cache identity — a verdict proven with a
+         * message elided is not interchangeable with one proven without (over-keying is sound;
+         * under-keying could serve an elided verdict for a non-eliding request).
+         */
+        @get:JvmName("elideMessages") val elideMessages: org.bmc4j.ElideMessages =
+                org.bmc4j.ElideMessages.AUTO)

@@ -477,6 +477,24 @@ class BmcPlugin : Plugin<Project> {
                     }
                 }
 
+                // Exception-message elision default (auto|on|off). A command-line -Dbmc.elideMessages
+                // wins over the build default (so flipping it also invalidates the verdict cache, since
+                // the mode is in the cache key). `auto` is the runtime default; only forward an explicit
+                // override. Validated loudly — only auto|on|off accepted.
+                val elideMessages = System.getProperty("bmc.elideMessages")?.takeUnless { it.isBlank() }
+                        ?: ext.elideMessages.orNull
+                if (!elideMessages.isNullOrBlank()) {
+                    val normalized = elideMessages.trim().lowercase()
+                    if (normalized !in setOf("auto", "on", "off")) {
+                        throw GradleException(
+                                "bmc { elideMessages } / -Dbmc.elideMessages must be one of " +
+                                        "auto|on|off, was \"$elideMessages\".")
+                    }
+                    if (normalized != "auto") {
+                        test.systemProperty("bmc.elideMessages", normalized)
+                    }
+                }
+
                 // SAT/SMT backend (default = built-in MiniSat). A command-line -Dbmc.solver wins over
                 // the build default (so e.g. swapping the solver also invalidates the verdict cache).
                 val cliSolver = System.getProperty("bmc.solver")
