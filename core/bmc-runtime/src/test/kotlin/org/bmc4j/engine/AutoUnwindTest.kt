@@ -2,6 +2,7 @@ package org.bmc4j.engine
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -19,6 +20,11 @@ internal class AutoUnwindTest {
     private fun vacuous() = JbmcResult(false, emptyList(), null, true)
     private fun tooSmall() = JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION, "bound too small", null)
     private fun timedOut() = JbmcResult.unknownTimeout("out of time", null)
+
+    /** An UNWINDING_ASSERTION rung that NAMES the offending loop (as the parser does for a real firing). */
+    private fun tooSmallAtLoop() = JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION, "bound too small", null)
+            .withUnwindingLoops(listOf(JbmcResult.UnwindingLoop("okio.Buffer.readDecimalLong",
+                    "Buffer.kt", 882)))
 
     @Test
     fun discovers_the_minimal_bound_and_stops() {
@@ -62,6 +68,37 @@ internal class AutoUnwindTest {
                 "the message tells the user to set an explicit bound")
         // Doubling lands exactly on the cap (never overshoots) and stops: 1,2,4,8,16.
         assertEquals(listOf(1, 2, 4, 8, 16), tried)
+    }
+
+    @Test
+    fun a_data_dependent_loop_climbs_to_the_cap_and_is_named_as_data_dependent() {
+        // The crux: the SAME unwinding assertion fires at EVERY bound 1..cap (a symbolic trip count never
+        // converges). The capped UNKNOWN must call it out as data-dependent, say raising unwind won't
+        // help, and name the offending loop the last rung reported.
+        val out = AutoUnwind.climb(seed = 1, cap = 16) { tooSmallAtLoop() }
+        assertTrue(out.result.isUnknown)
+        assertFalse(out.discovered)
+        assertEquals(UnknownKind.UNWINDING_ASSERTION, out.result.undecidedKind)
+        val reason = out.result.undecidedReason!!
+        assertTrue(reason.contains("DATA-DEPENDENT"), "names the cause: $reason")
+        assertTrue(reason.contains("will NOT help"), "tells the user raising unwind is futile: $reason")
+        assertTrue(reason.contains("okio.Buffer.readDecimalLong"), "names the loop: $reason")
+        assertTrue(reason.contains("Buffer.kt:882"), "names the location: $reason")
+        // The loops travel onward on the result for downstream rendering.
+        assertEquals(listOf("okio.Buffer.readDecimalLong (Buffer.kt:882)"),
+                out.result.unwindingLoops.map { it.describe() })
+    }
+
+    @Test
+    fun a_loop_that_converges_under_climb_is_never_labelled_data_dependent() {
+        // The control: a loop that just needs a bigger FINITE bound. It is too small at 1,2,4 but the
+        // unwinding assertion CONVERGES (verifies) at 8 — auto-unwind lands there. This must verify, with
+        // NO data-dependent diagnostic (and no capped UNKNOWN at all).
+        val out = AutoUnwind.climb(seed = 1, cap = 16) { b -> if (b >= 8) verified() else tooSmallAtLoop() }
+        assertTrue(out.result.isVerified, "a convergent loop verifies, never mislabelled data-dependent")
+        assertTrue(out.discovered)
+        assertEquals(8, out.bound)
+        assertNull(out.result.undecidedReason)
     }
 
     @Test

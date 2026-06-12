@@ -510,6 +510,39 @@ internal class BmcProofExtensionTest {
                 "a real counterexample reads as refuted: " + err.message)
     }
 
+    @Test
+    fun pinnedUnwindingFiring_getsTentativeDataDependentHint_namingTheLoop() {
+        // A PINNED under-unwind that names a loop can't be told apart from a symbolic bound without the
+        // AUTO climb, so toError hedges: it names the loop and says raising unwind MIGHT help, but if the
+        // trip count is data-dependent no unwind ever will — drop the pin and let auto-unwind decide.
+        val pinned = org.bmc4j.engine.JbmcResult.unknown(
+                org.bmc4j.engine.UnknownKind.UNWINDING_ASSERTION, "unwind bound is too small ...", "{}")
+                .withUnwindingLoops(listOf(org.bmc4j.engine.JbmcResult.UnwindingLoop(
+                        "okio.Buffer.readDecimalLong", "Buffer.kt", 882)))
+        val err = BmcProofExtension.toError("jbmc", "pkg.P.p", pinned, null)
+        val msg = err.message!!
+        assertTrue(msg.contains("okio.Buffer.readDecimalLong (Buffer.kt:882)"), "names the loop: $msg")
+        assertTrue(msg.contains("DATA-DEPENDENT"), "raises the data-dependent possibility: $msg")
+        assertTrue(msg.contains("auto-unwind"), "advises dropping the pin: $msg")
+    }
+
+    @Test
+    fun cappedAutoDiagnostic_isNotDoubledByTheTentativeHint() {
+        // When the reason is ALREADY the decisive AUTO diagnostic (it says DATA-DEPENDENT), the tentative
+        // pinned hint must NOT be appended on top of it — no double "DATA-DEPENDENT" block.
+        val capped = org.bmc4j.engine.AutoUnwind.cappedUnknown(16, listOf(
+                org.bmc4j.engine.JbmcResult.UnwindingLoop("okio.Buffer.readDecimalLong", "Buffer.kt", 882)))
+        assertEquals(null, BmcProofExtension.tentativeDataDependentNote(capped, capped.undecidedReason),
+                "the decisive AUTO diagnostic already covers it — no tentative double-up")
+    }
+
+    @Test
+    fun nonUnwindingUnknown_getsNoDataDependentHint() {
+        val timeout = org.bmc4j.engine.JbmcResult.unknownTimeout("out of time", "{}")
+        assertEquals(null, BmcProofExtension.tentativeDataDependentNote(timeout, timeout.undecidedReason),
+                "a timeout is not an unwinding firing — no loop to name")
+    }
+
     // --- expected-verdict assertions (expect = REFUTED/UNKNOWN/VACUOUS) -----------------------
 
     @Test
