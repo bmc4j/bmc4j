@@ -164,6 +164,41 @@ internal class StringBytecodeTest {
         assertEquals("hi", f.invoke(null, "hi"))
     }
 
+    @Test
+    fun new_String_from_char_array_with_intervening_label_still_redirects() {
+        // The construction region carries a LABEL + line number between the arg load and the ctor — the
+        // shape kotlinc/javac emit for a multi-line `new String(chars)` (LineNumberTable anchors mid
+        // expression). The redirect must NOT abandon on that intervening label (it has no stack effect);
+        // it must still drop NEW;DUP, emit BmcStrings.ofChars, and run. (Regression for the visitLabel /
+        // visitLineNumber recording fix: a flush-on-label would leave the native ctor and lose the redirect.)
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorLbl", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([C)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        val mid = org.objectweb.asm.Label()
+        mv.visitLabel(mid)                 // line-number anchor inside the construction region
+        mv.visitLineNumber(42, mid)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>", "([C)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([C)Ljava/lang/String;"),
+                "an intervening label must not defeat the from-chars redirect: $calls")
+        assertFalse(calls.any { it.contains("java/lang/String.<init>") },
+                "the original String.<init>([C)V must be gone even with an intervening label: $calls")
+        val c = define("CtorLbl", rewritten)
+        val f = c.getMethod("f", CharArray::class.java)
+        assertEquals("hi", f.invoke(null, charArrayOf('h', 'i')))
+    }
+
     // ---- #18: Object-typed equals() call sites redirect to BmcStrings.objEquals ----
 
     @Test

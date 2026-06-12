@@ -284,8 +284,21 @@ object StringBytecode {
                     }
 
                     override fun visitLabel(label: org.objectweb.asm.Label?) {
-                        flushRecording()
+                        // A label inside the construction region is, in practice, only a line-number
+                        // anchor: kotlinc/javac place one between an argument load and the next arg of a
+                        // multi-line/multi-arg `new String(bytes, charset)` (LineNumberTable line 60: 33 in
+                        // the byte[]+charset shape), with NO stack effect. Record it (replayed in-place
+                        // before the factory) rather than abandoning the redirect — a real control-flow
+                        // join is already excluded because [visitJumpInsn]/the switch visitors flush, so a
+                        // recorded label can only be such a forward anchor. (The char[] shape has no such
+                        // intervening label, which is why it redirected and byte[]+charset did not.)
+                        if (recording) { recorded.add { super.visitLabel(label) }; return }
                         super.visitLabel(label)
+                    }
+
+                    override fun visitLineNumber(line: Int, start: org.objectweb.asm.Label?) {
+                        if (recording) { recorded.add { super.visitLineNumber(line, start) }; return }
+                        super.visitLineNumber(line, start)
                     }
 
                     override fun visitIincInsn(varIdx: Int, increment: Int) {
