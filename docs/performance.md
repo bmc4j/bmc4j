@@ -42,6 +42,45 @@ long-string blow-up seen from the RAM side, and the toolbox has levers for that 
 
 They are not mutually exclusive — the last two examples below stack levers on one proof.
 
+## Diagnosing — `@BmcProfile`
+
+Before reaching for a lever, find out *where the time actually goes*. Annotate a slow or
+timing-out proof with **`@BmcProfile`** (alongside `@BmcProof`) and bmc4j prints a per-stage
+performance breakdown to the test's output — no second engine run, it summarizes the verbose
+stream it already captures:
+
+```java
+@BmcProof(unwind = 64, timeoutSeconds = 4, expect = Verdict.TIMEOUT)
+@BmcProfile
+void heavy_proof() { ... }
+```
+
+```
+  bmc4j[profile]: ...heavy_proof -> TIMEOUT - engine performance breakdown
+  bmc4j[profile]:   phases (where the engine spent wall-time):
+  bmc4j[profile]:       (no phase timings captured - did not reach the solver)
+  bmc4j[profile]:       reached SAT/SMT solver: NO  (time was spent BEFORE solving - in symbolic execution / formula construction)
+  bmc4j[profile]:   top unwound loops (method x iterations):
+  bmc4j[profile]:       example.timeout.Heavy.quadraticMix  x2069
+```
+
+It is purely additive — it never changes the verdict, only emits extra output — and it works on
+a **timed-out** proof (it profiles what was captured up to the kill, the most useful case). Read
+it like this:
+
+- **`reached SAT/SMT solver: NO`** → the time went into *symbolic execution / formula
+  construction*, not solving. The formula never even reached the solver. Reach for the levers
+  that shrink the formula *before* SAT: **range reduction**, **domain splitting**, **contracts**
+  for a deep callee, a lower **unwind** bound.
+- **`reached SAT/SMT solver: YES`** with a large `Solver` phase and big SAT `variables/clauses` →
+  the formula is built but hard to *solve*. Reach for the **fast solver** (numeric/boolean
+  proofs) or shrink the symbolic operations driving the clause count.
+- The **top unwound loops** list pinpoints the hot method — the one whose loop body dominates
+  unwinding (e.g. `…quadraticMix ×2069`). That is where range reduction / a contract pays off
+  most.
+
+Default off: only `@BmcProfile`-annotated proofs produce it, so the normal run is unaffected.
+
 ### 1. Verdict caching — *skip the engine entirely on unchanged proofs*
 
 **What it does.** A proof that passed with a deterministic verdict (`VERIFIED`, or the

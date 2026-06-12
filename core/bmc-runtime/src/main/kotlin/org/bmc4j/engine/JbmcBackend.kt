@@ -61,7 +61,11 @@ class JbmcBackend : VerificationBackend {
                     // The ORIGINAL (un-rewritten) test classpath drives witness rendering: it carries the
                     // consumer's own class output dirs with full debug info, so the parser can tell the
                     // user's declared inputs (kept) from engine synthetics / library frames (dropped).
-                    request.classpath)
+                    request.classpath,
+                    // @BmcProfile: when on, the driver parses a per-stage performance breakdown from the
+                    // verbose stream it already captures and attaches it to the result (additive; the
+                    // verdict is unchanged).
+                    request.profile)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

@@ -35,7 +35,15 @@ class JbmcResult private constructor(
         @get:JvmName("undecidedKind") val undecidedKind: UnknownKind?,
         stubbedMethods: List<String>?,
         unmodelledMembers: List<String>?,
-        linkFailureStubs: List<String>?) {
+        linkFailureStubs: List<String>?,
+        /**
+         * The per-stage PERFORMANCE BREAKDOWN of this run (phase timings, loop-unwinding offenders,
+         * formula size, whether SAT was reached), or null when the run was not profiled. Purely
+         * diagnostic — produced only for a proof annotated [org.bmc4j.BmcProfile] and never consulted by
+         * the verdict logic. Parsed from the same verbose stream the verdict comes from (see
+         * [JbmcProfile]); on a timeout it carries whatever was captured up to the kill.
+         */
+        @get:JvmName("profile") val profile: JbmcProfile? = null) {
 
     init {
         if (verdict == Verdict.UNKNOWN) {
@@ -128,7 +136,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubs, unmodelledMembers, linkFailureStubs)
+                stubs, unmodelledMembers, linkFailureStubs, profile)
     }
 
     /**
@@ -141,7 +149,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, members, linkFailureStubs)
+                stubbedMethods, members, linkFailureStubs, profile)
     }
 
     /**
@@ -155,7 +163,21 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, members)
+                stubbedMethods, unmodelledMembers, members, profile)
+    }
+
+    /**
+     * Return a copy carrying the parsed performance [profile] (a parallel diagnostic FACT, like
+     * [withStubbedMethods]). The verdict and every other field are unchanged — the profile never
+     * influences a verdict; it is rendered to the report by [org.bmc4j.junit.BmcProofExtension] only
+     * for a `@BmcProfile`-annotated proof. Returns `this` when [profile] is null.
+     */
+    fun withProfile(profile: JbmcProfile?): JbmcResult {
+        if (profile == null) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, unmodelledMembers, linkFailureStubs, profile)
     }
 
     companion object {

@@ -58,4 +58,13 @@ class BmcRequest @JvmOverloads constructor(
          * under-keying could serve an elided verdict for a non-eliding request).
          */
         @get:JvmName("removeExceptionMessages") val removeExceptionMessages: org.bmc4j.RemoveExceptionMessages =
-                org.bmc4j.RemoveExceptionMessages.AUTO)
+                org.bmc4j.RemoveExceptionMessages.AUTO,
+        /**
+         * Whether to emit a per-stage PERFORMANCE BREAKDOWN for this run (the [org.bmc4j.BmcProfile]
+         * capability). Purely additive output: it makes the engine driver parse the verbose stream into a
+         * [JbmcProfile] and attach it to the result, and it is DELIBERATELY EXCLUDED from the verdict-cache
+         * key — a profiled and an unprofiled run produce the same verdict, so a profiled run must not be a
+         * cache miss on that account (instead the extension bypasses the cache short-circuit so a live run
+         * actually happens to profile). Defaults to off, so the normal path is unaffected.
+         */
+        @get:JvmName("profile") val profile: Boolean = false)
