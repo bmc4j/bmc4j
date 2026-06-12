@@ -85,6 +85,28 @@ class ExceptionMessageElisionProofs {
         Bmc.check(label.length() <= 2);                // the carried symbolic string. NPE here without the fix.
     }
 
+    // EFFECTIVENESS, the okio shape: renderOrThrowWithProbe matches okio Buffer.readDecimalLong's overflow
+    // path FAITHFULLY - the fresh-object builder chain lands in a local, a DISCARDED side-effect-only
+    // self-call (materializer.probe(), the readByte() analogue) reads it OUTSIDE the message, and the
+    // message reads materializer.render(). Eliding the message removes render(), but that out-of-region
+    // probe() read kept the local live under the prior dead-LOCAL rule, so the expensive grow chain stayed
+    // in the cone and the proof TIMED OUT. Dead-ALLOCATION elimination sees the object is fully dead (fresh,
+    // escapes nowhere, probe() result discarded) and drops its whole lifetime - chain AND probe() - so the
+    // engine never unwinds grow and the proof VERIFIES. Without elision (-Dbmc.removeExceptionMessages=off)
+    // it is UNKNOWN:TIMEOUT - the UNKNOWN->VERIFIED flip dead-allocation elimination delivers.
+    @BmcProof
+    void okio_shape_dead_object_with_a_discarded_self_call_is_sliced_away() {
+        int n = Bmc.anyInt(0, 2_000_000);
+        try {
+            int r = SlowMessage.renderOrThrowWithProbe(n);
+            Bmc.check(r == 2 * n); // reached only for n <= 1_000_000
+        } catch (IllegalArgumentException e) {
+            // The overflow branch fires for large n; we observe NOTHING about the exception, so eliding the
+            // message - and slicing away the fully-dead materializer (chain AND the discarded probe()) -
+            // is sound here.
+        }
+    }
+
     // SOUNDNESS: this proof reads e.getMessage(), so it observes an exception message — AUTO must NOT
     // elide. requirePositive throws "not positive" for a non-positive input; we prove that the thrown
     // message is exactly that. If the gate WRONGLY elided, getMessage() would be null and contains()

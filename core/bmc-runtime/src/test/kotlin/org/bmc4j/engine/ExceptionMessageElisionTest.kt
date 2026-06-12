@@ -203,6 +203,48 @@ internal class ExceptionMessageElisionTest {
                 "a static-call-built local is conservatively kept (static effects are opaque): $calls")
     }
 
+    // ---- dead-OBJECT lifetime (the okio shape: a discarded self-call OUTSIDE the message) ----------
+
+    @Test
+    fun okio_shape_discarded_self_call_outside_the_message_is_sliced_with_the_chain() {
+        // The faithful okio Buffer.readDecimalLong overflow shape:
+        //   Buffer b = new Buffer().writeDecimalLong(n).writeByte(n);   // fresh object, local 1
+        //   b.readByte();                                               // DISCARDED self-call OUTSIDE msg
+        //   throw new ThrowDL(b.readUtf8());                            // read INSIDE the (elided) message
+        // local 1 is FULLY dead (fresh, escapes nowhere, the readByte() result discarded) — so its whole
+        // lifetime, the builder chain AND the discarded readByte(), must be sliced. The prior rule kept it
+        // because readByte() is an out-of-region read.
+        val rewritten = ExceptionMessageElision.rewriteClass(okioShapeClass(), buildersAreNotThrowable)
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.any { it.contains("ThrowDL.<init>(Ljava/lang/String;)V") },
+                "the exception is still constructed: $calls")
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is elided to null")
+        assertFalse(calls.any { it.contains("okio/Buffer") },
+                "the whole dead Buffer lifetime — chain AND the discarded readByte() — is sliced: $calls")
+    }
+
+    @Test
+    fun a_self_call_whose_result_is_consumed_keeps_the_lifetime() {
+        // Same fresh Buffer, but the out-of-region self-call's result is CONSUMED (stored to another local),
+        // not discarded — a live use. The object is not fully dead, so KEEP (fail-safe).
+        val rewritten = ExceptionMessageElision.rewriteClass(
+                okioShapeClass(selfCallResultConsumed = true), buildersAreNotThrowable)
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is still elided")
+        assertTrue(methodCalls(rewritten).any { it.contains("okio/Buffer.<init>") },
+                "a self-call whose result is consumed keeps the object lifetime")
+    }
+
+    @Test
+    fun an_object_passed_as_an_argument_keeps_the_lifetime() {
+        // The fresh object is passed as an ARGUMENT to a sink call (an escape), as well as read by the
+        // elided message. Escaping anywhere live ⇒ KEEP.
+        val rewritten = ExceptionMessageElision.rewriteClass(
+                okioShapeClass(escapesAsArgument = true), buildersAreNotThrowable)
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is still elided")
+        assertTrue(methodCalls(rewritten).any { it.contains("okio/Buffer.<init>") },
+                "an object passed as a call argument escapes and must NOT be sliced")
+    }
+
     // ---- observability gate -----------------------------------------------------------------------
 
     @Test
@@ -311,6 +353,61 @@ internal class ExceptionMessageElisionTest {
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "ThrowDL", "<init>", "(Ljava/lang/String;)V", false)
         mv.visitInsn(Opcodes.ATHROW)
         mv.visitMaxs(4, 2)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
+
+    /**
+     * The FAITHFUL okio `Buffer.readDecimalLong` overflow shape — a fresh object in a local with a
+     * discarded side-effect-only self-call OUTSIDE the message AND a read inside the message:
+     * ```
+     * static void f(int n) {
+     *   okio/Buffer b = new Buffer().writeDecimalLong(n).writeByte(n);   // local 1, fresh-object chain
+     *   b.readByte();                                                    // DISCARDED self-call (POP'd)
+     *   throw new ThrowDL(b.readUtf8());                                 // sole in-message read of local 1
+     * }
+     * ```
+     *  - [selfCallResultConsumed]: the `b.readByte()` result is STORED (consumed) rather than POP'd — a
+     *    live use, so the object stays live and must NOT be sliced.
+     *  - [escapesAsArgument]: `b` is also passed as an ARGUMENT to a sink call — an escape, must NOT slice.
+     */
+    private fun okioShapeClass(selfCallResultConsumed: Boolean = false,
+                               escapesAsArgument: Boolean = false): ByteArray {
+        val cw = ClassWriter(0)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ThrowDL", null, "java/lang/RuntimeException", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f", "(I)V", null, null)
+        mv.visitCode()
+        // local 1 = new Buffer().writeDecimalLong(n).writeByte(n)
+        mv.visitTypeInsn(Opcodes.NEW, "okio/Buffer")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "okio/Buffer", "<init>", "()V", false)
+        mv.visitVarInsn(Opcodes.ILOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "okio/Buffer", "writeDecimalLong",
+                "(I)Lokio/Buffer;", false)
+        mv.visitVarInsn(Opcodes.ILOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "okio/Buffer", "writeByte", "(I)Lokio/Buffer;", false)
+        mv.visitVarInsn(Opcodes.ASTORE, 1)
+        // The OUT-OF-MESSAGE self-call on b: discarded (readByte()B then POP) by default.
+        mv.visitVarInsn(Opcodes.ALOAD, 1)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "okio/Buffer", "readByte", "()B", false)
+        when {
+            selfCallResultConsumed -> mv.visitVarInsn(Opcodes.ISTORE, 2) // result CONSUMED, not discarded
+            else -> mv.visitInsn(Opcodes.POP)                            // result DISCARDED
+        }
+        if (escapesAsArgument) {
+            // b passed as an ARGUMENT to a sink (escape) — not as a self-call receiver.
+            mv.visitVarInsn(Opcodes.ALOAD, 1)
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, "Sink", "consume", "(Lokio/Buffer;)V", false)
+        }
+        // throw new ThrowDL(b.readUtf8())
+        mv.visitTypeInsn(Opcodes.NEW, "ThrowDL")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 1)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "okio/Buffer", "readUtf8", "()Ljava/lang/String;", false)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "ThrowDL", "<init>", "(Ljava/lang/String;)V", false)
+        mv.visitInsn(Opcodes.ATHROW)
+        mv.visitMaxs(4, 3)
         mv.visitEnd()
         cw.visitEnd()
         return cw.toByteArray()

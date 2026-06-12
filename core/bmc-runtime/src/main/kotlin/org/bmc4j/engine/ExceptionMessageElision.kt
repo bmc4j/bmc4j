@@ -400,20 +400,22 @@ internal object ExceptionMessageElision {
      *     the SAME region-buffering discipline as [StringBytecode]'s char-array ctor redirect (its `#296`
      *     `visitLabel` fix: a label inside the region is a line-number anchor with no stack effect, so it
      *     is recorded, not abandoned).
-     *  2. **The dead-local slice** (this extension): when the elided message region read a value from a
-     *     LOCAL that was produced by a PRIOR statement and is read nowhere else, that prior statement is
-     *     now dead — its result has no remaining reader. Its construction is dropped too, so the engine
-     *     never analyses it (the okio `Buffer.readDecimalLong` overflow shape: the message reads
-     *     `buffer.readUtf8()` where `buffer` was built one statement earlier; once the `readUtf8()` is
-     *     elided the whole `buffer` build is dead, but it internally unwinds 465× and sinks the proof
-     *     unless dropped). See [DeadLocalSlicer] for the conservative escape/liveness boundary that keeps
-     *     this sound.
+     *  2. **The dead-object lifetime** (this extension): when the elided message read a freshly-allocated,
+     *     non-escaping object from a LOCAL, that object's WHOLE lifetime is dropped — its defining builder
+     *     chain AND any now-dead discarded side-effect-only self-calls on it — so the engine never analyses
+     *     it. The okio `Buffer.readDecimalLong` overflow shape: `val buffer =
+     *     Buffer().writeDecimalLong(v).writeByte(b)` (a fresh object), `if (!negative) buffer.readByte()`
+     *     (a discarded self-call), `throw NFE("…${buffer.readUtf8()}")`. The `writeDecimalLong → writeUtf8`
+     *     chain unwinds deeply and sinks the proof; once the message is elided `buffer` is fully dead — the
+     *     `readByte()` result is discarded and it escapes nowhere — so both the chain and the discarded
+     *     `readByte()` are dropped. See [DeadLocalSlicer] for the conservative fresh/escape/dead-use
+     *     boundary that keeps this sound.
      *
      * Implemented as a WHOLE-METHOD buffering pass: every visit is recorded into an ordered [Step] list
      * (with the structured metadata the slicer needs), then on [visitEnd] the regions are matched and the
      * dead steps are computed and skipped during a single verbatim replay. Buffering the whole method
-     * (rather than the streaming NEW-rooted window of PR #301) is what lets the dead-local slice reach the
-     * defining statement that PRECEDES the `NEW T` — the streaming form could only see forward of the NEW.
+     * (rather than a streaming NEW-rooted window) is what lets the slice reach the defining statement that
+     * PRECEDES the `NEW T` and the discarded self-calls that FOLLOW it.
      */
     private class ElidingMethodVisitor(
             private val out: MethodVisitor,
@@ -697,68 +699,203 @@ internal object ExceptionMessageElision {
             Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE)
 
     /**
-     * Removes the **dead backward slice** an elided message leaves behind: a value produced by a prior
-     * straight-line statement, stored to a LOCAL, that the (now-removed) message build was its SOLE reader
-     * of. The motivating case is okio `Buffer.readDecimalLong`'s overflow path — `val buffer =
-     * Buffer().writeDecimalLong(v).writeByte(b)` one statement, `throw NFE("…${buffer.readUtf8()}")` the
-     * next: eliding the message drops `readUtf8()`, leaving `buffer` dead; but `writeDecimalLong` unwinds
-     * 465× and sinks the proof unless `buffer`'s construction is dropped too.
+     * Removes the **dead object lifetime** an elided message leaves behind: a freshly-allocated,
+     * non-escaping object held in a LOCAL whose EVERY use is dead once the message is gone — its whole
+     * lifetime (the defining builder chain AND any now-dead discarded self-calls on it) is dropped, not
+     * just the def whose reads are all in-region. The motivating case is okio `Buffer.readDecimalLong`'s
+     * overflow path:
+     * ```
+     * val buffer = Buffer().writeDecimalLong(v).writeByte(b)   // local: a fresh object
+     * if (!negative) buffer.readByte()                         // discarded side-effect-only self-call
+     * throw NFE("…${buffer.readUtf8()}")                       // read inside the (elided) message
+     * ```
+     * `buffer` is read by `readUtf8()` INSIDE the message AND by the discarded `readByte()` OUTSIDE it.
+     * Eliding the message drops `readUtf8()`; the out-of-region `readByte()` read kept the slot alive
+     * under the prior (in-region-reads-only) rule, so `writeDecimalLong → writeUtf8` (nested loops) stayed
+     * in the cone and the proof timed out. `buffer` is in fact FULLY dead — fresh, escapes nowhere, the
+     * `readByte()` result is discarded — so removing its whole lifetime is sound.
      *
      * ## The soundness boundary (fail-safe = KEEP)
-     * A slot's defining statement is dropped ONLY when ALL hold — each check fails toward keeping it:
-     *  - **Dead after elision**: every read of the slot (`xLOAD` / `IINC`) in the WHOLE method lies inside
-     *    a removed message-build region. If any LIVE read remains, the value is still observed — keep.
+     * A slot's object lifetime is dropped ONLY when ALL hold — each check fails toward keeping it:
+     *  - **Fresh & non-escaping**: the slot holds a value from a `NEW …; <init>` allocation (proven by the
+     *    isolated-statement scan of its def below) and escapes NOWHERE: every `xLOAD`/`IINC` of the slot is
+     *    either (a) inside a removed message region, or (b) the RECEIVER of a discarded self-call (below).
+     *    A read used as a call argument, a return/throw operand, a field/array source, or any other live
+     *    expression is an escape — keep. (`ASTORE` to the slot is its single def, not a read.)
+     *  - **Every use is dead**: each read is in a removed region OR is the receiver of an
+     *    `INVOKE{VIRTUAL,SPECIAL,INTERFACE}` whose result is **discarded** — a side-effect-only self-call
+     *    standing alone as a straight-line statement (`ALOAD slot; <args>; INVOKE …; (POP|POP2)?`, the
+     *    `readByte()` analogue), removed along with its trailing `POP`/`POP2`. Any read whose result is
+     *    consumed by live code — keep.
      *  - **Single straight-line definition**: the slot has exactly one `xSTORE`, and the run of steps from
-     *    the prior stack-empty point up to that store is BRANCH-FREE (no jump/switch target or source, no
-     *    frame, no label that is a control-flow join). A value merged from multiple paths, or whose build
-     *    spans a loop with its own back-edge, is NOT a simple isolated statement — keep.
-     *  - **Stack-isolated** (net stack delta 0, starting and ending empty): the statement consumes only
-     *    what it itself produced plus pre-existing locals/constants, and leaves exactly the stored value —
-     *    so removing it cannot unbalance the surrounding stack.
-     *  - **Effect-isolated**: the only writes the statement makes are to its own slot and to objects it
-     *    freshly ALLOCATED within itself. Concretely every `INVOKE{VIRTUAL,SPECIAL,INTERFACE}` receiver
-     *    must be a value produced WITHIN the slice (a `NEW` here, or a prior in-slice call's result —
-     *    traced over the operand stack), never a pre-existing local/field; and the statement makes no
-     *    field write, array store, or `INVOKESTATIC` (a static call can mutate global state we can't see).
-     *    This is exactly the freshly-allocated-and-escapes-only-here object: its mutations are unobservable
-     *    once it is dead. Anything that could touch state observable outside the dead sub-object — keep.
+     *    the prior stack-empty point up to that store is BRANCH-FREE (no jump/switch, no frame, no label).
+     *    A value merged from multiple paths is not a simple isolated def — keep.
+     *  - **Stack- & effect-isolated** (both the def and each removed self-call): net stack delta 0; no
+     *    field write, array store, `INVOKESTATIC`, or `INVOKEDYNAMIC`; and every method-call receiver is a
+     *    value produced WITHIN the slice (a `NEW` here or a prior in-slice call's result) — for a self-call
+     *    statement the receiver is the dead slot itself. **Self-confined effects**: the analysis operates
+     *    at the slice level and does NOT recurse into callees; removing such calls is sound because the
+     *    object is dead — its mutations, and any shared-but-unobservable state they touch (e.g. okio's
+     *    `SegmentPool` recycling, which bmc4j models as constants), cannot change what the proof observes.
      *
      * Conservative by construction: an unrecognized shape, an ambiguous def, any possible live escape, or
      * any stack/effect doubt all fall through to KEEP (the pre-extension behaviour — elide the message but
-     * leave the slice), so the worst case is a missed speed-up, never an unsound drop.
+     * leave the lifetime), so the worst case is a missed speed-up, never an unsound drop.
      */
     private class DeadLocalSlicer(private val steps: List<Step>) {
 
         fun sliceDeadDefs(elidedReads: Set<Int>, removed: MutableSet<Int>) {
             for (slot in elidedReads) {
-                if (!isDeadAfterElision(slot, removed)) {
-                    continue
-                }
+                // Classify every use of the slot: an in-region read is already dead; a discarded self-call
+                // statement on the slot is dead too (and gets removed with it); anything else is a live
+                // escape that aborts the slice. `null` => not fully dead, keep.
+                val deadSelfCalls = deadSelfCallStatements(slot, removed) ?: continue
                 val storeIdx = soleStoreIndex(slot) ?: continue
                 val sliceStart = statementStart(storeIdx) ?: continue
                 if (sliceStart > storeIdx) {
                     continue
                 }
-                if (isIsolatedStatement(sliceStart, storeIdx)) {
-                    for (k in sliceStart..storeIdx) {
+                if (!isFreshAllocatingStatement(sliceStart, storeIdx)) {
+                    continue
+                }
+                // Commit: drop the def slice AND every dead self-call statement (with its POP/POP2).
+                for (k in sliceStart..storeIdx) {
+                    removed.add(k)
+                }
+                for (range in deadSelfCalls) {
+                    for (k in range) {
                         removed.add(k)
                     }
                 }
             }
         }
 
-        /** True iff EVERY read (`xLOAD`/`IINC`) of [slot] in the method is already in [removed] (i.e. lies
-         *  inside an elided message region). A single surviving read means the value is still observed. */
-        private fun isDeadAfterElision(slot: Int, removed: Set<Int>): Boolean {
+        /**
+         * Classify every read of [slot]; return the index ranges of the discarded self-call statements to
+         * remove, or `null` if the slot is NOT fully dead (a live escape — keep). A read is dead when it is
+         * either (a) already in [removed] (inside an elided message region) or (b) the receiver `ALOAD` of
+         * a discarded side-effect-only self-call statement on the slot. Any other read aborts (null).
+         */
+        private fun deadSelfCallStatements(slot: Int, removed: Set<Int>): List<IntRange>? {
+            val selfCalls = ArrayList<IntRange>()
             for (i in steps.indices) {
                 val s = steps[i]
-                val reads = (s.opcode in LOAD_OPS && s.localSlot == slot) ||
+                val readsSlot = (s.opcode in LOAD_OPS && s.localSlot == slot) ||
                         (s.opcode == Opcodes.IINC && s.localSlot == slot)
-                if (reads && i !in removed) {
-                    return false
+                if (!readsSlot || i in removed) {
+                    continue
                 }
+                // A surviving read outside any elided region: it is dead ONLY if it is the receiver load of
+                // a discarded self-call statement. IINC (an in-place int update) is never that — keep.
+                if (s.opcode != Opcodes.ALOAD) {
+                    return null
+                }
+                val range = discardedSelfCallAt(i, slot) ?: return null
+                selfCalls.add(range)
             }
-            return true
+            return selfCalls
+        }
+
+        /**
+         * If the `ALOAD [slot]` at [loadIdx] is the receiver of a stand-alone discarded self-call statement
+         * — `ALOAD slot; <pushes>; INVOKE{VIRTUAL,SPECIAL,INTERFACE} slot.m(...); (POP|POP2)?` occupying a
+         * whole straight-line statement, with [slot] used ONLY as the receiver — return its full step range
+         * (including the trailing `POP`/`POP2`). Else null. The statement must START stack-empty (the
+         * `ALOAD` is the first non-meta step of its statement) and END stack-empty after the discard, and
+         * be branch-free and effect-isolated by the same rules as a def slice.
+         */
+        private fun discardedSelfCallAt(loadIdx: Int, slot: Int): IntRange? {
+            // The receiver ALOAD must open a statement: the prior non-meta step leaves the stack empty.
+            if (precedingNonMeta(loadIdx)?.let { stackDeltaUpTo(it) != 0 } == true) {
+                return null
+            }
+            // Walk forward over an isolated run rooted at the dead slot as receiver; it must be consumed by
+            // an instance INVOKE whose result is void OR explicitly discarded (POP/POP2), ending stack-empty.
+            val sliceAllocated = ArrayDeque<Boolean>()
+            sliceAllocated.push(true) // the dead object (slice-owned receiver) pushed by the receiver ALOAD
+            var sawInvoke = false
+            var i = loadIdx + 1
+            while (i < steps.size) {
+                val s = steps[i]
+                if (s.isMeta || s.isLabel) {
+                    i++
+                    continue
+                }
+                if (s.isBranch || s.isFrame || s.opcode == Opcodes.ATHROW || s.opcode in RETURN_OPS) {
+                    return null
+                }
+                // Forbid the same global effects as a def slice (field/array write, static/indy call).
+                if (s.opcode in FIELD_WRITE_OPS || s.opcode in ARRAY_STORE_OPS ||
+                        s.opcode == Opcodes.INVOKESTATIC || s.opcode == Opcodes.INVOKEDYNAMIC) {
+                    return null
+                }
+                // A second read of the slot WITHIN this statement (the slot passed as an argument to itself)
+                // is an escape — only the receiver load at loadIdx may reference it.
+                if (s.opcode in LOAD_OPS && s.localSlot == slot) {
+                    return null
+                }
+                if (s.opcode == Opcodes.POP || s.opcode == Opcodes.POP2) {
+                    // The discard of a non-void self-call result; the statement is now complete.
+                    if (!sawInvoke) return null
+                    val slots = if (s.opcode == Opcodes.POP2) 2 else 1
+                    if (sliceAllocated.size != slots) return null
+                    return loadIdx..i
+                }
+                if (!applyStackEffect(s, sliceAllocated)) {
+                    return null
+                }
+                if (s.opcode in INVOKE_INSTANCE_OPS) {
+                    sawInvoke = true
+                    // A void self-call leaves the stack empty — the statement ends here, no discard needed.
+                    if (sliceAllocated.isEmpty()) {
+                        return loadIdx..i
+                    }
+                }
+                i++
+            }
+            return null
+        }
+
+        /** Index of the nearest non-meta/non-label step before [idx], or null. */
+        private fun precedingNonMeta(idx: Int): Int? {
+            var i = idx - 1
+            while (i >= 0) {
+                val s = steps[i]
+                if (!s.isMeta && !s.isLabel) return i
+                i--
+            }
+            return null
+        }
+
+        /**
+         * The net operand-stack depth at the boundary AFTER the step at [idx] — used only to confirm a
+         * candidate self-call statement opens at a stack-empty point. Sums [stackDelta] from the last
+         * stack-empty boundary; returns the running balance at [idx] (treating an unmodeled step as a
+         * non-zero "not empty" so the caller fails safe). Cheap and local: it walks back at most to a
+         * branch/label/frame, the same statement-boundary markers [statementStart] uses.
+         */
+        private fun stackDeltaUpTo(idx: Int): Int {
+            // Walk backward to the most recent statement boundary, then forward summing deltas to idx.
+            var start = idx
+            while (start >= 0) {
+                val s = steps[start]
+                if (s.isBranch || s.isFrame || s.isLabel) {
+                    start++
+                    break
+                }
+                if (start == 0) break
+                start--
+            }
+            if (start < 0) start = 0
+            var bal = 0
+            for (k in start..idx) {
+                val s = steps[k]
+                if (s.isMeta || s.isLabel || s.isFrame) continue
+                val d = stackDelta(s)
+                if (d == UNMODELED_DELTA) return Int.MAX_VALUE // unknown => "not empty", fail safe
+                bal += d
+            }
+            return bal
         }
 
         /** The index of the SOLE `xSTORE [slot]`, or null when there are zero or several (a value merged or
@@ -824,20 +961,27 @@ internal object ExceptionMessageElision {
         }
 
         /**
-         * True iff the statement [start]..[storeIdx] is stack- and effect-isolated per the boundary doc:
-         * net stack delta 0; no field/array write; no INVOKESTATIC; and every method-call receiver is a
-         * value produced WITHIN the slice (a NEW here or a prior in-slice call result), traced over a small
-         * symbolic operand stack of "is this value slice-allocated?" booleans.
+         * True iff the statement [start]..[storeIdx] FRESHLY ALLOCATES the value it stores and is stack- &
+         * effect-isolated per the boundary doc: it contains a `NEW`; net stack delta 0; no field/array
+         * write, static, or indy call; and every method-call receiver is a value produced WITHIN the slice
+         * (a NEW here or a prior in-slice call result), traced over a small symbolic operand stack of "is
+         * this value slice-allocated?" booleans. Requiring the def to allocate fresh is what makes the
+         * whole-lifetime drop sound: a non-fresh value (an in-scope object reborrowed) could be observed
+         * elsewhere.
          */
-        private fun isIsolatedStatement(start: Int, storeIdx: Int): Boolean {
+        private fun isFreshAllocatingStatement(start: Int, storeIdx: Int): Boolean {
             // Symbolic stack of "value was allocated within this slice" flags.
             val sliceAllocated = ArrayDeque<Boolean>()
+            var allocated = false
             var i = start
             while (i <= storeIdx) {
                 val s = steps[i]
                 if (s.isMeta || s.isLabel) {
                     i++
                     continue
+                }
+                if (s.opcode == Opcodes.NEW) {
+                    allocated = true
                 }
                 when {
                     // Disallowed effects: any field/array write, or a static call (opaque global effect).
@@ -853,8 +997,9 @@ internal object ExceptionMessageElision {
                 }
                 i++
             }
-            // After the store, the slice's operand stack must be empty (balanced statement).
-            return sliceAllocated.isEmpty()
+            // After the store, the slice's operand stack must be empty (balanced statement), and the value
+            // stored must have come from a fresh allocation within the slice.
+            return allocated && sliceAllocated.isEmpty()
         }
 
         /**
@@ -866,9 +1011,14 @@ internal object ExceptionMessageElision {
         private fun applyStackEffect(s: Step, stack: ArrayDeque<Boolean>): Boolean {
             when (s.opcode) {
                 Opcodes.NEW -> stack.push(true) // a freshly-allocated object: slice-owned
-                Opcodes.ISTORE, Opcodes.FSTORE, Opcodes.ASTORE -> {
+                Opcodes.ASTORE -> {
+                    // The terminal store of the produced reference: it MUST be the slice's own fresh value
+                    // (a stored pre-existing reference would mean the def didn't actually allocate it).
+                    if (stack.isEmpty() || !stack.pop()) return false
+                }
+                Opcodes.ISTORE, Opcodes.FSTORE -> {
                     if (stack.isEmpty()) return false
-                    stack.pop() // the terminal store of the produced value (slice slot)
+                    stack.pop() // a primitive terminal store
                 }
                 Opcodes.LSTORE, Opcodes.DSTORE -> {
                     if (stack.size < 2) return false
@@ -1003,6 +1153,8 @@ internal object ExceptionMessageElision {
             val RETURN_OPS = setOf(
                     Opcodes.IRETURN, Opcodes.LRETURN, Opcodes.FRETURN, Opcodes.DRETURN,
                     Opcodes.ARETURN, Opcodes.RETURN)
+            val INVOKE_INSTANCE_OPS = setOf(
+                    Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE)
         }
     }
 
