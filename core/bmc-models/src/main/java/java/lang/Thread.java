@@ -9,12 +9,12 @@ import org.bmc4j.models.audit.BmcModelConforms;
  * <p>A bmc4j proof verifies ONE symbolic thread of execution; there is no second thread to interleave
  * with (interleavings are out of scope — that is Lincheck's job). On that single thread the value of
  * {@code Thread.currentThread().getId()} / {@code threadId()} is an opaque, fixed sharding key — its only
- * legitimate use is as a hash/bucket selector (e.g. {@code okio.SegmentPool}'s per-thread free-list
- * bucket {@code threadId & mask}). Returning a fixed positive constant is therefore FAITHFUL for that
- * single thread, and — crucially — keeps the bucket index CONCRETE so a symbolic id can't turn a
- * deterministic computation (a static-array read) into a conservative nondet/REFUTED. Without this model
- * {@code currentThread()} stubs to a nondet {@code Thread} and {@code getId()} to a nondet {@code long},
- * which is the documented root cause of the okio.Buffer false-REFUTED.
+ * legitimate use is as a hash/bucket selector (e.g. a per-thread free-list bucket {@code threadId & mask}).
+ * Returning a fixed positive constant is therefore FAITHFUL for that single thread, and — crucially —
+ * keeps the bucket index CONCRETE so a symbolic id can't turn a deterministic computation (a static-array
+ * read) into a conservative nondet/REFUTED. Without this model {@code currentThread()} stubs to a nondet
+ * {@code Thread} and {@code getId()} to a nondet {@code long}, which is enough to false-REFUTE an
+ * otherwise-deterministic thread-sharded data structure.
  *
  * <p>The model is deliberately tiny: only {@code currentThread()}, {@code getId()}, and {@code threadId()}
  * are modeled. Every other member of the real {@code Thread} surface (start/join/interrupt/state/naming/
@@ -34,16 +34,16 @@ public class Thread {
     private Thread() {
     }
 
-    @BmcModelConforms("@BmcProof (proofs.environment EnvironmentBucketLaws — symbolic-bucket regression)")
+    @BmcModelConforms("constant environmental stand-in — deterministic representative on one symbolic thread; no behavioral surface to differentially test")
     public static Thread currentThread() {
         return CURRENT;
     }
 
     /**
      * A fixed positive id. On one symbolic thread the id is an opaque sharding key; pinning it keeps any
-     * {@code id & mask} bucket index concrete (the okio.SegmentPool false-REFUTED fix).
+     * {@code id & mask} bucket index concrete (so a thread-sharded structure's read stays deterministic).
      */
-    @BmcModelConforms("@BmcProof (proofs.environment EnvironmentBucketLaws — symbolic-bucket regression)")
+    @BmcModelConforms("constant environmental stand-in — deterministic representative on one symbolic thread; no behavioral surface to differentially test")
     public long getId() {
         return 1L;
     }
@@ -53,7 +53,7 @@ public class Thread {
      * the Java 17 floor toolchain (where {@code Thread.threadId()} does not yet exist), exactly as the
      * post-17 SequencedCollection head/tail members are carried on the collection models. Same fixed id.
      */
-    @BmcModelConforms("@BmcProof (proofs.environment EnvironmentBucketLaws — symbolic-bucket regression)")
+    @BmcModelConforms("constant environmental stand-in — deterministic representative on one symbolic thread; no behavioral surface to differentially test")
     public final long threadId() {
         return 1L;
     }

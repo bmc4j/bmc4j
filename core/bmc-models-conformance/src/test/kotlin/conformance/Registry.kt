@@ -43,15 +43,6 @@ val COVERED: Set<String> = setOf(
     // (model proofs proofs.primitives.FloatDoubleArraysLaws + differential conformance.OptionalArraysConformanceTest).
     // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
     "java.util.Random",
-    // Environmental-value models (java.lang.Thread / java.lang.Runtime) — the identity/processor-count
-    // accessors a single-threaded proof reaches as fixed environment values, so a nondet thread id /
-    // processor count stops poisoning otherwise-deterministic logic (the okio.SegmentPool symbolic-bucket
-    // false-REFUTED). Each models only currentThread()/getId()/threadId() resp. getRuntime()/
-    // availableProcessors() (constants); the rest of each class's surface is its class-level @BmcModelTail.
-    // Covered at class level here via the model proofs in proofs.environment (EnvironmentBucketLaws); kept
-    // OUT of PER_MEMBER_ENFORCED — their full lifecycle/scheduling resp. process/memory-control surface is
-    // the open, deliberately-unmodeled remainder absorbed (loud) by the tail, not a whole-surface model.
-    "java.lang.Thread", "java.lang.Runtime",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",
     "java.util.concurrent.CompletableFuture", "java.util.concurrent.ConcurrentHashMap",
@@ -158,6 +149,14 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.concurrent.ScheduledFuture" to "interface — via ImmediateScheduledExecutorService's completed future",
     "java.util.concurrent.TimeUnit" to "enum — ignored time arg on sequential models (no behavior)",
     "java.math.RoundingMode" to "enum — exercised via BigDecimal divide/setScale",
+    // Constant environmental stand-ins: a single-threaded proof reaches these as fixed environment, so
+    // currentThread()/getId()/threadId() and getRuntime()/availableProcessors() return fixed representative
+    // values (stopping a nondet thread id / processor count from poisoning otherwise-deterministic logic).
+    // Constant accessors with no behavioral surface to differentially test; the rest of each class's
+    // lifecycle/scheduling resp. process/memory-control surface is the open remainder absorbed (loud) by
+    // its class-level @BmcModelTail.
+    "java.lang.Thread" to "constant environmental stand-in — fixed representative thread id; no behavioral surface to differentially test (remainder is the class-level @BmcModelTail)",
+    "java.lang.Runtime" to "constant environmental stand-in — fixed representative processor count; no behavioral surface to differentially test (remainder is the class-level @BmcModelTail)",
     "java.time.ZoneId" to "abstract base — exercised via the concrete ZoneOffset model (per-member-enforced)",
     "java.util.stream.Collector" to "interface — via Collectors",
     "kotlin.ResultKt" to "coroutine Result plumbing — exercised by the coroutines example",
