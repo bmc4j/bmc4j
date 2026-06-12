@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
@@ -77,6 +78,13 @@ class ContractSymbolProcessor(
         val contracts = mutableListOf<ContractStubGenerator.Contract>()
         val contractRecords = mutableListOf<String>()
 
+        // When the contract host is a Kotlin `object` (a singleton), its un-`@JvmStatic` predicate
+        // `fun`s compile to INSTANCE methods reached through the synthetic `<Owner>.INSTANCE` field —
+        // so the generated Java must invoke them on that receiver, not statically. This is additive:
+        // an `interface`/`class` host with `@JvmStatic`-companion (or top-level/static) predicates is
+        // unaffected (predicateOnObject = false, the unchanged static-call shape).
+        val predicateOnObject = contractType.classKind == ClassKind.OBJECT
+
         for (mirror in contractType.getDeclaredFunctions()) {
             val requires = annotationValue(mirror, REQUIRES)
             val ensures = annotationValue(mirror, ENSURES)
@@ -129,7 +137,8 @@ class ContractSymbolProcessor(
             val expectEnforce = expectEnforceOf(mirror) ?: typeExpectEnforce(contractType)
             contracts.add(ContractStubGenerator.Contract(targetFqn, contractFqn, name,
                     declaredReturn, params,
-                    requires, ensures, expectEnforce, receiverType, suspendBoxedReturn))
+                    requires, ensures, expectEnforce, receiverType, suspendBoxedReturn,
+                    predicateOnObject))
             // SOUNDNESS: only a VERIFIED contract publishes a reusable redirect (a non-VERIFIED
             // contract's __stub would summarize callers against a postcondition the framework knows is
             // not discharged). The __BmcEnforce proof is still generated for every contract.
@@ -164,15 +173,23 @@ class ContractSymbolProcessor(
     }
 
     /**
-     * The method on [target] (or a supertype) whose name and erased parameter descriptors match the
-     * contract [mirror], or `null` if none does. Binding is by signature, exactly like the javac path,
-     * so an orphaned mirror resolves to `null`. The match determines static vs pure-instance.
+     * The method on [target] (or a supertype, or its `companion object`) whose name and erased
+     * parameter descriptors match the contract [mirror], or `null` if none does. Binding is by
+     * signature, exactly like the javac path, so an orphaned mirror resolves to `null`. The match
+     * determines static vs pure-instance.
+     *
+     * A `companion object`'s `@JvmStatic fun` is the idiomatic way to expose a *static* method on a
+     * normal Kotlin `class` (the JVM emits it as a static method on the outer class). KSP does NOT
+     * surface companion members through the outer class's [getAllFunctions], so they are searched
+     * explicitly here — otherwise a `class C { companion object { @JvmStatic fun f() } }` target would
+     * (wrongly) bind no contract. An `object` target's own `@JvmStatic fun`s already appear directly.
      */
     private fun resolveTargetMethod(target: KSClassDeclaration, mirror: KSFunctionDeclaration):
             KSFunctionDeclaration? {
         val name = mirror.simpleName.asString()
         val want = mirror.parameters.map { erasedDescriptor(it.type.resolve()) }
-        for (candidate in target.getAllFunctions()) {
+        val candidates = target.getAllFunctions() + companionFunctions(target)
+        for (candidate in candidates) {
             if (candidate.simpleName.asString() != name) {
                 continue
             }
@@ -183,6 +200,19 @@ class ContractSymbolProcessor(
         }
         return null
     }
+
+    /** The `@JvmStatic` declared functions of [target]'s `companion object` (empty if it has none).
+     *  These are not returned by [getAllFunctions] on the outer class, yet a `@JvmStatic` companion
+     *  `fun` is emitted as a *static* method of the outer class on the JVM — the idiomatic Kotlin way
+     *  to give a normal `class` a contractable static method. A non-`@JvmStatic` companion `fun` is
+     *  NOT a static method of the outer class (it lives on the companion singleton), so it is excluded
+     *  here and a mirror naming it still resolves to an orphan, as before. */
+    private fun companionFunctions(target: KSClassDeclaration): Sequence<KSFunctionDeclaration> =
+            target.declarations
+                    .filterIsInstance<KSClassDeclaration>()
+                    .filter { it.isCompanionObject }
+                    .flatMap { it.getDeclaredFunctions() }
+                    .filter { hasAnnotation(it, JVM_STATIC) }
 
     /** True if [fn] compiles to a static method (top-level / `object` `@JvmStatic` / companion
      *  `@JvmStatic`): the contract then binds the static shape and threads no receiver. Otherwise the

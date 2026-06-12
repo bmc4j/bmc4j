@@ -10,6 +10,11 @@ package example.basics
  * is unexpressible from Kotlin. An `object` (or a `companion object`) with `@JvmStatic` is the
  * Kotlin-idiomatic way to expose a contractable static method: it is nameable as `Triangles::class`
  * and the predicate-free production code stays just as terse as a top-level function.
+ *
+ * (The contract for this target — `contracts.basics.TriangleContract` — is hosted on a plain `object`
+ * with ordinary member `fun` predicates: the standard Kotlin contract shape. A normal-`class` static
+ * target, with the contract method as a `companion object` `@JvmStatic fun`, is shown separately in the
+ * `classtarget` concept.)
  */
 object Triangles {
 

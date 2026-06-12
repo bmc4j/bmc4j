@@ -76,6 +76,22 @@ internal class ContractEnforceProofGeneratorTest {
         assertTrue(src.contains("Bmc.check(p.BoxContract.nonNeg(result, self));")) // ensures(result, self)
     }
 
+    @Test
+    fun object_hosted_predicates_are_checked_on_the_singleton_instance() {
+        // predicateOnObject = true -> the enforce-proof invokes the object's predicate members on the
+        // singleton `<Owner>.INSTANCE`, while still calling the REAL target method directly.
+        val src = ContractEnforceProofGenerator.generate("pkg", "MathEnforce", listOf(
+                ContractStubGenerator.Contract("pkg.MathImpl", "pkg.MathContract", "isqrt", "int",
+                        listOf(p("int", "n")), "nonNegative", "resultNonNegative",
+                        "VERIFIED", null, null, true)))
+        assertTrue(src.contains("Bmc.assume(pkg.MathContract.INSTANCE.nonNegative(a0));"),
+                "an object-hosted requires predicate must be assumed on the singleton:\n$src")
+        assertTrue(src.contains("int result = pkg.MathImpl.isqrt(a0);"),
+                "the target method is still called directly (not on the predicate singleton):\n$src")
+        assertTrue(src.contains("Bmc.check(pkg.MathContract.INSTANCE.resultNonNegative(result, a0));"),
+                "an object-hosted ensures predicate must be checked on the singleton:\n$src")
+    }
+
     companion object {
         private fun p(type: String, name: String): Map.Entry<String, String> =
                 java.util.Map.entry(type, name)

@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 20
+proofs: 21
 proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -27,16 +27,23 @@ object Triangles {
     @JvmStatic fun triangle(n: Int): Int { var s = 0; for (i in 1..n) s += i; return s }
 }
 
-// src/test — the contract; @JvmStatic predicates live in the companion
+// src/test — the contract: the STANDARD Kotlin shape is a plain `object` whose predicates are
+// ordinary member `fun`s (no companion, no @JvmStatic per predicate). The mirror carries a throwaway
+// `error("mirror")` body — only its signature and @Requires/@Ensures matter.
 @BmcContractsFor(Triangles::class)
-interface TriangleContract {
-    @Requires("bounded") @Ensures("nonNeg") fun triangle(n: Int): Int
-    companion object {
-        @JvmStatic fun bounded(n: Int): Boolean = n in 0..8
-        @JvmStatic fun nonNeg(result: Int, n: Int): Boolean = result >= 0
-    }
+object TriangleContract {
+    @Requires("bounded") @Ensures("nonNeg") fun triangle(n: Int): Int = error("mirror")
+    fun bounded(n: Int): Boolean = n in 0..8
+    fun nonNeg(result: Int, n: Int): Boolean = result >= 0
 }
 ```
+
+The processor invokes the predicates on the singleton (`TriangleContract.INSTANCE.bounded(n)` in the
+generated Java); a pure boolean over its arguments is analyzed by JBMC identically to a static one. The
+`interface` + `companion object` + per-predicate `@JvmStatic` form (the Java-style static shape) is still
+accepted — the generator unit tests pin both call shapes, and the Java [`examples/contracts`](../contracts)
+module exercises the static path end-to-end — but the `object` host is the idiomatic Kotlin form used
+throughout this module.
 
 ```
 ./gradlew :examples:contracts-kotlin:test
@@ -49,7 +56,10 @@ A contract mirror binds to a method on the `@BmcContractsFor` class by signature
 
 | Shape | Status |
 | --- | --- |
-| `object` / `companion` method with `@JvmStatic` (static target) | works — see `basics` |
+| contract host is an **`object`**, predicates are **plain member `fun`s** (no companion / `@JvmStatic`) — the **standard Kotlin shape** | works — predicates invoked on the singleton `Contract.INSTANCE`; used throughout (see `basics`) |
+| contract host is an `interface`/`class` with `@JvmStatic`-companion (or static) predicates — the Java-style static shape | works — additive; pinned by the generator unit tests and the Java `examples/contracts` module |
+| target is an **`object`** `@JvmStatic` (static target) | works — see `basics` |
+| target is a normal **`class`** whose contracted method is a `companion object` `@JvmStatic fun` (static target on a class) | works — see `classtarget` (host-kind and target-kind are independent) |
 | pure instance method (receiver threaded as `self`) | works — see `instance` |
 | method with **default parameters** (real + `$default` synthetic) | works — see `defaults` |
 | **`suspend`** function (value-returning) | works — see `suspendcontracts` (the `Continuation` is hidden, the declared result recovered, the body driven to completion) |
@@ -61,14 +71,48 @@ A contract mirror binds to a method on the `@BmcContractsFor` class by signature
 A silent failure to bind is the failure mode the processor refuses to allow: a `@BmcContractsFor` type
 that binds zero contracts is a hard error, not a warning.
 
-## `basics` — the basic shape (`object` + `@JvmStatic`)
+## `basics` — the standard shape (`object` host → `object` `@JvmStatic` target)
 
-`Triangles.triangle(n)` is a loop, costly to inline. With a contract, a caller at `unwind = 2` reuses
-`@Ensures result >= 0` instead of unrolling and passes; the identical `TrianglesNaive` (no contract)
-must inline and overruns the bound — **UNKNOWN** ("bound too small": truncated exploration is
-incompleteness, not a counterexample). The function lives in an `object` with `@JvmStatic` because a
-bare top-level `fun` compiles into a facade class Kotlin can't name. *(1 pass + 1 undecided-on-purpose;
-plus 1 green enforce proof.)*
+`Triangles.triangle(n)` is a loop, costly to inline. The contract is the **standard Kotlin shape** — a
+plain `object` host with ordinary member `fun` predicates (no companion, no `@JvmStatic` per predicate);
+the processor invokes them on the singleton `TriangleContract.INSTANCE`. With the contract, a caller at
+`unwind = 2` reuses `@Ensures result >= 0` instead of unrolling and passes; the identical
+`TrianglesNaive` (no contract) must inline and overruns the bound — **UNKNOWN** ("bound too small":
+truncated exploration is incompleteness, not a counterexample). The target `triangle` lives in an
+`object` with `@JvmStatic` because a bare top-level `fun` compiles into a facade class Kotlin can't name.
+*(1 pass + 1 undecided-on-purpose; plus 1 green enforce proof.)*
+
+## `classtarget` — `object` host → normal-`class` static target (kinds are independent)
+
+The host-kind (where the predicates live) and the target-kind (where the contracted method lives) are
+orthogonal. `basics` shows an `object` host binding an `object` `@JvmStatic` target; here the SAME
+`object`-host shape binds a normal Kotlin **`class`** whose contracted method is a `companion object`
+`@JvmStatic fun` — a real `static` method on the class — confirming the two are independent:
+
+```kotlin
+class Squares {                                   // a normal class, NOT an object
+    companion object { @JvmStatic fun pyramid(n: Int): Int { /* loop */ } }
+}
+
+@BmcContractsFor(Squares::class)
+object SquaresContract {                          // object host, plain member predicates
+    @Requires("bounded") @Ensures("nonNeg") fun pyramid(n: Int): Int = error("mirror")
+    fun bounded(n: Int): Boolean = n in 0..8
+    fun nonNeg(result: Int, n: Int): Boolean = result >= 0
+}
+```
+
+The processor resolves the mirror to the companion `@JvmStatic` static target by signature, and
+`enforce__pyramid` discharges **VERIFIED** — an object-hosted contract proves a normal-`class` static
+target exactly as it does an `object` target. `bogus` ships a deliberately-**false** object-hosted
+contract pinned `@ExpectEnforce(REFUTED)`: it publishes no redirect and passes by refutation, so
+"annotating ≠ asserting" holds in the object form against a class-static target too.
+
+Only the *enforce* direction is exercised here. A **caller-reuse** redirect of a Kotlin caller of a
+`companion @JvmStatic` method is a separate capability: kotlinc lowers such a call to an `invokevirtual`
+on the synthetic `Squares$Companion` singleton (a different call shape than the `invokestatic` an
+`object` target's caller emits), so caller-side reuse is demonstrated in `basics`'s object-target form.
+*(1 green + 1 refuted enforce proof.)*
 
 ## `instance` — pure instance methods (receiver as `self`)
 
@@ -93,12 +137,12 @@ proof.)*
 
 ## `soundness` — the guard (annotate ≠ proven)
 
-One contract type mixes an honest mirror and a deliberately false one. `absDelta`'s `@Ensures result
->= 0` is true, so `enforce__absDelta` VERIFIES and publishes a redirect. `delta`'s is a lie (false when
-`a < b`), pinned `@ExpectEnforce(REFUTED)`: `enforce__delta` passes BY refutation (counterexample `a =
-0, b = 1`) and publishes no redirect, so nothing reuses the false summary. There's no hand-written
-proof — the auto-generated enforce proofs *are* the tests. *(1 refuted-on-purpose + 1 pass enforce
-proof.)*
+One `object`-host contract (the standard shape) mixes an honest mirror and a deliberately false one.
+`absDelta`'s `@Ensures result >= 0` is true, so `enforce__absDelta` VERIFIES and publishes a redirect.
+`delta`'s is a lie (false when `a < b`), pinned `@ExpectEnforce(REFUTED)`: `enforce__delta` passes BY
+refutation (counterexample `a = 0, b = 1`) and publishes no redirect, so nothing reuses the false
+summary. There's no hand-written proof — the auto-generated enforce proofs *are* the tests. *(1
+refuted-on-purpose + 1 pass enforce proof.)*
 
 ## `purity` — contracts must be pure (and that's audited)
 

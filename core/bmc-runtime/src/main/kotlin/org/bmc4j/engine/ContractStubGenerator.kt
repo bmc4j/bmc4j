@@ -64,7 +64,16 @@ object ContractStubGenerator {
              *  (unboxed where primitive) Kotlin result type — what the predicates bind — while this field
              *  carries the boxed reference form the ABI actually returns, so the stub/enforce can box on
              *  return and unbox before the predicate. `null` for an ordinary (non-suspend) method. */
-            @JvmField val suspendBoxedReturn: String? = null) {
+            @JvmField val suspendBoxedReturn: String? = null,
+            /** True iff the predicates are ordinary members of a Kotlin `object` (a singleton), rather
+             *  than `static` methods. Kotlin compiles an `object`'s un-`@JvmStatic` `fun`s to INSTANCE
+             *  methods reached through the synthetic `<Owner>.INSTANCE` singleton field, so the generated
+             *  Java must invoke them on that receiver (`<Owner>.INSTANCE.pred(args)`) rather than
+             *  statically (`<Owner>.pred(args)`). A pure boolean method on a known singleton is analyzed
+             *  by JBMC identically to a static one (and the purity audit certifies the singleton read via
+             *  its `static final INSTANCE` field), so this is a pure call-shape change — no soundness
+             *  difference. `false` for the static/companion form (call statically, unchanged). */
+            @JvmField val predicateOnObject: Boolean = false) {
 
         @JvmField
         val expectEnforce: String = expectEnforce ?: "VERIFIED"
@@ -77,6 +86,12 @@ object ContractStubGenerator {
          *  return; driven to completion under the immediate-dispatch idealization). */
         @JvmField
         val isSuspend: Boolean = suspendBoxedReturn != null
+
+        /** The Java expression on which a predicate is invoked: the bare owner FQN for a `static`
+         *  predicate (`Owner.pred(args)`), or the singleton instance `Owner.INSTANCE` for a predicate
+         *  hosted as an ordinary member of a Kotlin `object` (`Owner.INSTANCE.pred(args)`). */
+        val predicateTarget: String
+            get() = if (predicateOnObject) "$predicateOwnerFqn.INSTANCE" else predicateOwnerFqn
 
         /** The receiver parameter name used in generated stubs/proofs; "self" by convention. */
         val receiverName: String
@@ -132,7 +147,7 @@ object ContractStubGenerator {
                 .append(c.methodName).append("__stub(").append(paramDecls.joinToString(", ")).append(") {\n")
         if (c.requires != null) {
             append("        org.bmc4j.Bmc.check(")
-                    .append(c.predicateOwnerFqn).append('.').append(c.requires)
+                    .append(c.predicateTarget).append('.').append(c.requires)
                     .append('(').append(preArgs.joinToString(", ")).append("));\n")
         }
         if (c.returnType == "void") {
@@ -149,7 +164,7 @@ object ContractStubGenerator {
             // ensures(result, self?, args...).
             val postArgs = listOf("r") + preArgs
             append("        org.bmc4j.Bmc.assume(")
-                    .append(c.predicateOwnerFqn).append('.').append(c.ensures)
+                    .append(c.predicateTarget).append('.').append(c.ensures)
                     .append('(').append(postArgs.joinToString(", ")).append("));\n")
         }
         if (c.isSuspend) {

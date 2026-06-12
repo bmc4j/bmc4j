@@ -77,7 +77,7 @@ object ContractEnforceProofGenerator {
         }
         if (c.requires != null) {
             append("        org.bmc4j.Bmc.assume(")
-                    .append(c.predicateOwnerFqn).append('.').append(c.requires)
+                    .append(c.predicateTarget).append('.').append(c.requires)
                     .append('(').append(preArgList).append("));\n")
         }
         // Static target: Owner.method(args). Instance target: self.method(args) — the REAL body.
@@ -107,7 +107,7 @@ object ContractEnforceProofGenerator {
         if (c.ensures != null) {
             val ensuresArgs = "result" + if (preArgList.isEmpty()) "" else ", $preArgList"
             append("        org.bmc4j.Bmc.check(")
-                    .append(c.predicateOwnerFqn).append('.').append(c.ensures)
+                    .append(c.predicateTarget).append('.').append(c.ensures)
                     .append('(').append(ensuresArgs).append("));\n")
         }
         append("    }\n")

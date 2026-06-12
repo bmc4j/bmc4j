@@ -31,17 +31,22 @@ object Recursive {
 ```
 
 ```kotlin
-// src/test — the contract, declared against the production class. @JvmStatic predicates in the
-// companion become the static boolean predicates the generated stub/enforce-proof call.
+// src/test — the contract, declared against the production class. The STANDARD Kotlin shape is a plain
+// `object` host whose predicates are ordinary member `fun`s (no companion, no @JvmStatic per
+// predicate); the processor invokes them on the singleton `Contract.INSTANCE`. The mirror carries a
+// throwaway `error("mirror")` body — only its signature and @Requires/@Ensures matter.
 @BmcContractsFor(Recursive::class)
-interface SumToContract {
-    @Requires("inRange") @Ensures("closedForm") fun sumTo(n: Int): Int   // mirrors the target
-    companion object {
-        @JvmStatic fun inRange(n: Int): Boolean = n in 0..12
-        @JvmStatic fun closedForm(result: Int, n: Int): Boolean = result == n * (n + 1) / 2
-    }
+object SumToContract {
+    @Requires("inRange") @Ensures("closedForm") fun sumTo(n: Int): Int = error("mirror")
+    fun inRange(n: Int): Boolean = n in 0..12
+    fun closedForm(result: Int, n: Int): Boolean = result == n * (n + 1) / 2
 }
 ```
+
+The `interface` + `companion object` + per-predicate `@JvmStatic` form (the Java-style static shape) is
+also accepted — additive, unchanged — but the `object` host is the idiomatic Kotlin form. Host-kind and
+target-kind are independent: an `object`-hosted contract binds a normal-`class` static target (a
+`companion object` `@JvmStatic fun`) exactly as it binds an `object` `@JvmStatic` target.
 
 **Kotlin shapes** that bind: `object`/`companion` `@JvmStatic` methods (static targets), pure instance
 methods (receiver threaded as `self`), methods with **default parameters** (the `$default` synthetic's
