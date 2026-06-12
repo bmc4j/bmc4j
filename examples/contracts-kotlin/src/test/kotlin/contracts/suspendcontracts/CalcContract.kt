@@ -8,12 +8,14 @@ import org.bmc4j.Requires
 import org.bmc4j.Verdict
 
 /**
- * Contracts on the `suspend` functions of [Calcs]. The mirror is declared `suspend` so it binds the
+ * Contracts on the `suspend` functions of [Calcs], in the standard **object-host** shape (a plain
+ * `object` with ordinary member `fun` predicates). The mirror is declared `suspend` so it binds the
  * suspend production target, whose lowered ABI is `(args, Continuation)Object`; the KSP processor reads
  * the declared `suspend` shape, synthesizes that lowered descriptor for the call-site redirect, hides
  * the trailing `Continuation` from the predicates, and uses the declared result type (`Int`), so the
  * predicates bind the plain Kotlin shape — `bounded(n)` and `isN(result, n)` — with no coroutine types
- * leaking in.
+ * leaking in. The predicates are invoked on the singleton (`CalcContract.INSTANCE.bounded(n)`), which
+ * JBMC analyses identically to a static call.
  *
  * The generated `enforce__stepTo` drives the real suspend body to completion (immediate dispatch) and
  * checks `@Ensures` on the completed result. `stepBuggy` is a deliberately-false demo pinned
@@ -21,19 +23,18 @@ import org.bmc4j.Verdict
  * refutes it and it publishes no reusable redirect.
  */
 @BmcContractsFor(Calcs::class)
-interface CalcContract {
+object CalcContract {
 
     @Requires("bounded")
     @Ensures("isN")
-    suspend fun stepTo(n: Int): Int
+    suspend fun stepTo(n: Int): Int = error("mirror")
 
     @ExpectEnforce(Verdict.REFUTED)
     @Requires("bounded")
     @Ensures("isN")
-    suspend fun stepBuggy(n: Int): Int
+    suspend fun stepBuggy(n: Int): Int = error("mirror")
 
-    companion object {
-        @JvmStatic fun bounded(n: Int): Boolean = n in 0..5
-        @JvmStatic fun isN(result: Int, n: Int): Boolean = result == n
-    }
+    // Plain member predicates — no companion, no @JvmStatic.
+    fun bounded(n: Int): Boolean = n in 0..5
+    fun isN(result: Int, n: Int): Boolean = result == n
 }
