@@ -306,7 +306,7 @@ object VerdictCache {
         // distinct cones and thus distinct keys already; this field distinguishes the explicit ON/OFF
         // overrides. Over-keying is sound; under-keying could serve an elided verdict for a non-eliding
         // request.
-        update(md, "elideMessages", request.elideMessages.name)
+        update(md, "removeExceptionMessages", request.removeExceptionMessages.name)
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
         //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).

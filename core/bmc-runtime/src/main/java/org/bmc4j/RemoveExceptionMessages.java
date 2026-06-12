@@ -3,16 +3,16 @@ package org.bmc4j;
 /**
  * Per-proof control over <b>exception-message elision</b> — whether bmc4j may drop the construction of
  * a thrown exception's message (passing {@code null} instead) so an unobserved, expensive message build
- * never poisons the proof. Declared via {@link BmcProof#elideMessages()}; the build-wide default is
- * {@code bmc { elideMessages = "auto"|"on"|"off" }} / {@code -Dbmc.elideMessages}.
+ * never poisons the proof. Declared via {@link BmcProof#removeExceptionMessages()}; the build-wide default is
+ * {@code bmc { removeExceptionMessages = "auto"|"on"|"off" }} / {@code -Dbmc.removeExceptionMessages}.
  *
- * <p>See {@link BmcProof#elideMessages()} for the full semantics. In short: a {@code throw new T(<expensive
+ * <p>See {@link BmcProof#removeExceptionMessages()} for the full semantics. In short: a {@code throw new T(<expensive
  * message>)} forces BMC to symbolically execute the message construction even on a branch the proof never
  * takes; if that construction is intractable (a byte&rarr;String materialization, an unbounded concat) it
  * sinks an otherwise-valid proof. Eliding the message — while still constructing and throwing the
  * exception — removes that cost without changing the verdict, as long as the message is never read.
  */
-public enum ElideMessages {
+public enum RemoveExceptionMessages {
 
     /**
      * Elide an exception message <b>iff</b> the proof's reachable cone observes no {@code Throwable}

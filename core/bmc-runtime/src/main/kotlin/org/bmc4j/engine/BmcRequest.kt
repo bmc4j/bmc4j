@@ -57,5 +57,5 @@ class BmcRequest @JvmOverloads constructor(
          * message elided is not interchangeable with one proven without (over-keying is sound;
          * under-keying could serve an elided verdict for a non-eliding request).
          */
-        @get:JvmName("elideMessages") val elideMessages: org.bmc4j.ElideMessages =
-                org.bmc4j.ElideMessages.AUTO)
+        @get:JvmName("removeExceptionMessages") val removeExceptionMessages: org.bmc4j.RemoveExceptionMessages =
+                org.bmc4j.RemoveExceptionMessages.AUTO)

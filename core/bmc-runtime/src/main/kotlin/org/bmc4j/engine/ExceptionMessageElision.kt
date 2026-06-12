@@ -1,6 +1,6 @@
 package org.bmc4j.engine
 
-import org.bmc4j.ElideMessages
+import org.bmc4j.RemoveExceptionMessages
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
@@ -60,7 +60,7 @@ import java.util.zip.ZipFile
  * invoke closure from the entry method; that is exactly what this walks (the sibling discipline of
  * [ContractPurityAudit]'s entry-rooted call-graph).
  *
- * ## Modes (the per-proof flag — [org.bmc4j.ElideMessages])
+ * ## Modes (the per-proof flag — [org.bmc4j.RemoveExceptionMessages])
  *  - `AUTO` (default): the coarse gate above — elide iff no message-observer is in the cone.
  *  - `ON`: **force**-elide even if an observer exists. This is a USER-ASSERTED override (the user
  *    promises the elided messages don't affect what they prove); the proof extension surfaces it as a
@@ -111,7 +111,7 @@ internal object ExceptionMessageElision {
      * forced-elision footnote). A no-op classpath is returned unchanged when the gate declines to elide.
      */
     @JvmStatic
-    fun apply(classpath: String, entryClass: String, entryMethod: String, mode: ElideMessages): Result {
+    fun apply(classpath: String, entryClass: String, entryMethod: String, mode: RemoveExceptionMessages): Result {
         val decision = decide(classpath, entryClass, entryMethod, mode)
         if (!decision.elide) {
             return Result(classpath, decision)
@@ -148,11 +148,11 @@ internal object ExceptionMessageElision {
      */
     @JvmStatic
     fun decide(classpath: String, entryClass: String, entryMethod: String,
-               mode: ElideMessages): Decision = when (mode) {
-        ElideMessages.OFF -> Decision.keep("elision disabled (OFF)")
-        ElideMessages.ON ->
+               mode: RemoveExceptionMessages): Decision = when (mode) {
+        RemoveExceptionMessages.OFF -> Decision.keep("elision disabled (OFF)")
+        RemoveExceptionMessages.ON ->
             Decision.elide(forced = true, reason = "forced elision (ON) — user-asserted override")
-        ElideMessages.AUTO -> decideAuto(classpath, entryClass, entryMethod)
+        RemoveExceptionMessages.AUTO -> decideAuto(classpath, entryClass, entryMethod)
     }
 
     private fun decideAuto(classpath: String, entryClass: String, entryMethod: String): Decision {

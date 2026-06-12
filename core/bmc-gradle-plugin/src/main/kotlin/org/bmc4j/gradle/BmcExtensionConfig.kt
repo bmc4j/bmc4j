@@ -179,10 +179,10 @@ abstract class BmcExtensionConfig {
      *   assertion, surfaced as a footnote on each affected VERIFIED.
      * - `"off"`: never elide.
      *
-     * A per-proof `@BmcProof(elideMessages = …)` other than `AUTO` overrides this. Overridable at the
-     * command line with `-Dbmc.elideMessages=auto|on|off`; part of the verdict-cache key.
+     * A per-proof `@BmcProof(removeExceptionMessages = …)` other than `AUTO` overrides this. Overridable at the
+     * command line with `-Dbmc.removeExceptionMessages=auto|on|off`; part of the verdict-cache key.
      */
-    abstract val elideMessages: Property<String>
+    abstract val removeExceptionMessages: Property<String>
 
     /**
      * Strict nondet-stub mode. When `true`, any *unacknowledged* stub a proof

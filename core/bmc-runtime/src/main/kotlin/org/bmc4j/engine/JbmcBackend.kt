@@ -245,7 +245,7 @@ class JbmcBackend : VerificationBackend {
             // green). The forced-elision footnote (ON) is surfaced on the verdict by the proof extension.
             classpath = ExceptionMessageElision
                     .apply(classpath, request.entryClass, entryMethodName(request.entryFunction),
-                            request.elideMessages).classpath
+                            request.removeExceptionMessages).classpath
             // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
             // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
             // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its

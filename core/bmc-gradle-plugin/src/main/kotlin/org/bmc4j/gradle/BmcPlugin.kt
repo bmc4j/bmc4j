@@ -477,21 +477,21 @@ class BmcPlugin : Plugin<Project> {
                     }
                 }
 
-                // Exception-message elision default (auto|on|off). A command-line -Dbmc.elideMessages
+                // Exception-message elision default (auto|on|off). A command-line -Dbmc.removeExceptionMessages
                 // wins over the build default (so flipping it also invalidates the verdict cache, since
                 // the mode is in the cache key). `auto` is the runtime default; only forward an explicit
                 // override. Validated loudly — only auto|on|off accepted.
-                val elideMessages = System.getProperty("bmc.elideMessages")?.takeUnless { it.isBlank() }
-                        ?: ext.elideMessages.orNull
-                if (!elideMessages.isNullOrBlank()) {
-                    val normalized = elideMessages.trim().lowercase()
+                val removeExceptionMessages = System.getProperty("bmc.removeExceptionMessages")?.takeUnless { it.isBlank() }
+                        ?: ext.removeExceptionMessages.orNull
+                if (!removeExceptionMessages.isNullOrBlank()) {
+                    val normalized = removeExceptionMessages.trim().lowercase()
                     if (normalized !in setOf("auto", "on", "off")) {
                         throw GradleException(
-                                "bmc { elideMessages } / -Dbmc.elideMessages must be one of " +
-                                        "auto|on|off, was \"$elideMessages\".")
+                                "bmc { removeExceptionMessages } / -Dbmc.removeExceptionMessages must be one of " +
+                                        "auto|on|off, was \"$removeExceptionMessages\".")
                     }
                     if (normalized != "auto") {
-                        test.systemProperty("bmc.elideMessages", normalized)
+                        test.systemProperty("bmc.removeExceptionMessages", normalized)
                     }
                 }
 

@@ -1,6 +1,6 @@
 package org.bmc4j.engine
 
-import org.bmc4j.ElideMessages
+import org.bmc4j.RemoveExceptionMessages
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -166,7 +166,7 @@ internal class ExceptionMessageElisionTest {
         // Entry.p observes e.getMessage() — an exception-message observer reachable from the entry. Must
         // NOT auto-elide.
         writeObserverClass(classes, "Entry", observe = true)
-        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", ElideMessages.AUTO)
+        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", RemoveExceptionMessages.AUTO)
         assertFalse(d.elide, "a reachable getMessage() observer must suppress auto-elision: ${d.reason}")
     }
 
@@ -175,7 +175,7 @@ internal class ExceptionMessageElisionTest {
         val classes = Files.createDirectory(dir.resolve("classes"))
         // Entry.p never reads any exception message. No observer reachable -> elision is sound.
         writeObserverClass(classes, "Entry", observe = false)
-        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", ElideMessages.AUTO)
+        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", RemoveExceptionMessages.AUTO)
         assertTrue(d.elide, "no reachable observer -> elide: ${d.reason}")
         assertFalse(d.forced, "an AUTO elision is not forced")
     }
@@ -186,7 +186,7 @@ internal class ExceptionMessageElisionTest {
         // Entry.p calls Helper.h, which reads getMessage(): the observer is reached transitively, through
         // a call edge — the walk must follow it and decline.
         writeObserverThroughCallee(classes)
-        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", ElideMessages.AUTO)
+        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", RemoveExceptionMessages.AUTO)
         assertFalse(d.elide, "a transitively-reachable observer must suppress auto-elision: ${d.reason}")
     }
 
@@ -196,15 +196,15 @@ internal class ExceptionMessageElisionTest {
         // Entry.p uses Class.forName — an opaque dispatch the walk can't follow. An observer could hide
         // behind it, so AUTO must NOT elide.
         writeReflectionClass(classes, "Entry")
-        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", ElideMessages.AUTO)
+        val d = ExceptionMessageElision.decide(classes.toString(), "Entry", "p", RemoveExceptionMessages.AUTO)
         assertFalse(d.elide, "an unbounded call-graph must suppress auto-elision: ${d.reason}")
     }
 
     @Test
     fun ON_forces_elision_and_OFF_disables_it() {
-        val on = ExceptionMessageElision.decide("", "Entry", "p", ElideMessages.ON)
+        val on = ExceptionMessageElision.decide("", "Entry", "p", RemoveExceptionMessages.ON)
         assertTrue(on.elide && on.forced, "ON forces elision (a user-asserted override)")
-        val off = ExceptionMessageElision.decide("", "Entry", "p", ElideMessages.OFF)
+        val off = ExceptionMessageElision.decide("", "Entry", "p", RemoveExceptionMessages.OFF)
         assertFalse(off.elide, "OFF never elides")
     }
 

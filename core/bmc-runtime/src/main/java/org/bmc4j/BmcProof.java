@@ -133,24 +133,24 @@ public @interface BmcProof {
      * verdict, only removes the symbolic cost that poisoned the proof.
      *
      * <ul>
-     *   <li>{@link ElideMessages#AUTO} (default) — elide an exception message <b>iff a coarse
+     *   <li>{@link RemoveExceptionMessages#AUTO} (default) — elide an exception message <b>iff a coarse
      *       observability gate clears</b>: bmc4j scans this proof's reachable cone for ANY code that
      *       observes a {@code Throwable}'s message ({@code getMessage} / {@code getLocalizedMessage} /
      *       {@code getStackTrace} / {@code printStackTrace} / {@code toString}). If none exists, no code
      *       reads any exception message, so eliding every exception message is <b>fully sound</b>. If any
      *       observer exists (or the cone can't be bounded), AUTO does not elide. Never a caveat — when
      *       AUTO elides, the value really was dead.</li>
-     *   <li>{@link ElideMessages#ON} — <b>force</b> elision even if an observer exists. This is a
+     *   <li>{@link RemoveExceptionMessages#ON} — <b>force</b> elision even if an observer exists. This is a
      *       <em>user assertion</em> that the elided messages don't affect what you prove; a
      *       VERIFIED reached via forced elision is surfaced with a footnote so it is never read as
      *       unconditional.</li>
-     *   <li>{@link ElideMessages#OFF} — never elide (the pre-feature behaviour).</li>
+     *   <li>{@link RemoveExceptionMessages#OFF} — never elide (the pre-feature behaviour).</li>
      * </ul>
      *
-     * <p>The build-wide default is {@code bmc { elideMessages = "auto"|"on"|"off" }} /
-     * {@code -Dbmc.elideMessages}; a per-proof value other than {@link ElideMessages#AUTO} overrides it.
+     * <p>The build-wide default is {@code bmc { removeExceptionMessages = "auto"|"on"|"off" }} /
+     * {@code -Dbmc.removeExceptionMessages}; a per-proof value other than {@link RemoveExceptionMessages#AUTO} overrides it.
      */
-    ElideMessages elideMessages() default ElideMessages.AUTO;
+    RemoveExceptionMessages removeExceptionMessages() default RemoveExceptionMessages.AUTO;
 
     /**
      * The verdict this proof is expected to produce; the test <b>passes only if the actual verdict
