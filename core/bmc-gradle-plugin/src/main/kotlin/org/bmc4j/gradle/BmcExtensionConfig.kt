@@ -168,6 +168,23 @@ abstract class BmcExtensionConfig {
     abstract val replayLanguage: Property<String>
 
     /**
+     * Build-wide **exception-message elision** default — whether bmc4j may drop the construction of a
+     * thrown exception's message (passing `null` instead) so an unobserved, expensive message build
+     * never poisons a proof. One of (case-insensitive):
+     *
+     * - `"auto"` (default): elide an exception message iff a coarse observability gate clears — the
+     *   proof's reachable cone observes no `Throwable` message anywhere. Fully sound when it fires
+     *   (the elided value is dead); a no-op otherwise.
+     * - `"on"`: **force** elision for every proof even if a message observer exists — a build-wide user
+     *   assertion, surfaced as a footnote on each affected VERIFIED.
+     * - `"off"`: never elide.
+     *
+     * A per-proof `@BmcProof(removeExceptionMessages = …)` other than `AUTO` overrides this. Overridable at the
+     * command line with `-Dbmc.removeExceptionMessages=auto|on|off`; part of the verdict-cache key.
+     */
+    abstract val removeExceptionMessages: Property<String>
+
+    /**
      * Strict nondet-stub mode. When `true`, any *unacknowledged* stub a proof
      * reaches turns its verdict into UNKNOWN (`BmcUndecidedError`) — nothing was proven wrong, but
      * the verdict rests on havoc'd stand-ins, so it isn't trustworthy. Default `false` (lenient:

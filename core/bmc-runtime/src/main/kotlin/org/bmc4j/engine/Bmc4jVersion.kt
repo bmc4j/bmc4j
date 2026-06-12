@@ -104,8 +104,14 @@ object Bmc4jVersion {
      * to the sound BmcStrings.ofBytes decoder (UTF-8 + ISO-8859-1/US-ASCII sound, other charsets nondet)
      * where they previously fell back to JBMC's nondet native byte[] decode, so their rewritten bytecode
      * CHANGES (re-mirror) and the verdict cache (keyed on this IDENTITY) must miss and re-derive.
+     * r17 adds [ExceptionMessageElision]: at a `Throwable`-subtype `<init>(String)` site the proof's
+     * cone never observes (AUTO's gate clears, or ON forces it), the message-building bytecode is DROPPED
+     * and `null` passed instead — so a proof over a function that builds an expensive unobserved error
+     * message (a byte->String materialization on a dead overflow branch) becomes tractable. Affected
+     * proofs' analysed bytecode CHANGES (a different elision per AUTO gate / ON / OFF), so the verdict
+     * cache (keyed on this IDENTITY plus the per-proof elision mode) must miss and re-derive.
      */
-    private const val SEMANTICS_REVISION = "r16"
+    private const val SEMANTICS_REVISION = "r17"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

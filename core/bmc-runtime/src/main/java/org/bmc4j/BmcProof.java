@@ -124,6 +124,35 @@ public @interface BmcProof {
     int timeoutSeconds() default 0;
 
     /**
+     * Whether bmc4j may <b>elide the construction of a thrown exception's message</b> for this proof —
+     * dropping the (often expensive) computation that builds an error string and passing {@code null}
+     * instead, so the exception is still constructed and thrown but its message is never built. This
+     * makes a proof over a function that builds a dynamic error message on a branch the proof never
+     * takes (e.g. a byte&rarr;String materialization on an overflow path) tractable instead of
+     * timing out: the message is never <em>read</em>, so dropping its construction cannot change the
+     * verdict, only removes the symbolic cost that poisoned the proof.
+     *
+     * <ul>
+     *   <li>{@link RemoveExceptionMessages#AUTO} (default) — elide an exception message <b>iff a coarse
+     *       observability gate clears</b>: bmc4j scans this proof's reachable cone for ANY code that
+     *       observes a {@code Throwable}'s message ({@code getMessage} / {@code getLocalizedMessage} /
+     *       {@code getStackTrace} / {@code printStackTrace} / {@code toString}). If none exists, no code
+     *       reads any exception message, so eliding every exception message is <b>fully sound</b>. If any
+     *       observer exists (or the cone can't be bounded), AUTO does not elide. Never a caveat — when
+     *       AUTO elides, the value really was dead.</li>
+     *   <li>{@link RemoveExceptionMessages#ON} — <b>force</b> elision even if an observer exists. This is a
+     *       <em>user assertion</em> that the elided messages don't affect what you prove; a
+     *       VERIFIED reached via forced elision is surfaced with a footnote so it is never read as
+     *       unconditional.</li>
+     *   <li>{@link RemoveExceptionMessages#OFF} — never elide (the pre-feature behaviour).</li>
+     * </ul>
+     *
+     * <p>The build-wide default is {@code bmc { removeExceptionMessages = "auto"|"on"|"off" }} /
+     * {@code -Dbmc.removeExceptionMessages}; a per-proof value other than {@link RemoveExceptionMessages#AUTO} overrides it.
+     */
+    RemoveExceptionMessages removeExceptionMessages() default RemoveExceptionMessages.AUTO;
+
+    /**
      * The verdict this proof is expected to produce; the test <b>passes only if the actual verdict
      * matches</b>. Defaults to {@link Verdict#VERIFIED} — the normal "prove it holds" mode.
      *

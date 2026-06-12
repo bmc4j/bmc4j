@@ -225,6 +225,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 }
                 applyModelPolicy(entryFunction)
                 applyStubPolicy(entryFunction, config, hit.stubbedMethods)
+                surfaceForcedElision(entryFunction, request)
             } else {
                 // A cached expectation-matching REFUTED/VACUOUS demo pass. Note the replay scratch
                 // file is NOT regenerated on a cached pass — it was written by the live run that
@@ -457,6 +458,25 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // stubs are silent. A fully-modeled proof with no user models prints nothing.
         applyModelPolicy(entryFunction)
         applyStubPolicy(entryFunction, config, result.stubbedMethods)
+        surfaceForcedElision(entryFunction, request)
+    }
+
+    /**
+     * Surface a footnote when this proof was VERIFIED with FORCED exception-message elision
+     * (`@BmcProof(removeExceptionMessages = ON)` / `bmc { removeExceptionMessages = "on" }`). Forced elision drops a thrown
+     * exception's message construction EVEN IF code in the cone observes a message — so it is a USER
+     * ASSERTION that the elided messages don't affect what's proven, and a VERIFIED reached this way is
+     * NOT unconditional. We print it like the stub/model honesty footnotes ("never a silent pass"). AUTO
+     * elision needs no footnote: its gate only fires when no observer exists, so the elided value is
+     * genuinely dead.
+     */
+    private fun surfaceForcedElision(entryFunction: String, request: BmcRequest) {
+        if (request.removeExceptionMessages == org.bmc4j.RemoveExceptionMessages.ON) {
+            println("  bmc4j: $entryFunction -> NOTE: exception-message construction was FORCE-ELIDED" +
+                    " (removeExceptionMessages = ON). This VERIFIED holds under the user assertion that the elided" +
+                    " exception messages don't affect the property — it is NOT an unconditional proof of" +
+                    " the message contents.")
+        }
     }
 
     /**
@@ -677,7 +697,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                              run: org.bmc4j.engine.DomainSplitBytecode.RunPlan): BmcRequest =
             BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
                     request.unwindingAssertions, request.maxStringLength, request.solver,
-                    request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff)
+                    request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
+                    request.removeExceptionMessages)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -722,6 +743,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         private const val USER_PACKAGES_PROP = "bmc.userPackages"
         private const val STRICT_MODELS_PROP = "bmc.strictModels"
         private const val ACK_UNMODELLED_PROP = "bmc.acknowledgeUnmodelled"
+        private const val REMOVE_EXCEPTION_MESSAGES_PROP = "bmc.removeExceptionMessages"
 
         /** The residual-invokedynamic marker stubs harvested for this result (dot-form FQNs), deduped. */
         internal fun residualIndyMarkers(result: JbmcResult): List<String> =
@@ -1304,7 +1326,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
-                            decision.path, true)
+                            decision.path, true, request.removeExceptionMessages)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1315,7 +1337,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     } else {
                         BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
-                                request.solver, request.timeoutSeconds, request.domainSplitRun, "", false)
+                                request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
+                                request.removeExceptionMessages)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1346,7 +1369,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
-                    request.externalSatPath, request.stringRefinementOff)
+                    request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages)
         }
 
         /**
@@ -1385,7 +1408,32 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         config == null || config.unwindingAssertions,
                         resolveMaxStringLength(config),
                         config?.solver ?: "",
-                        resolveTimeoutSeconds(config))
+                        resolveTimeoutSeconds(config),
+                        null,
+                        "",
+                        false,
+                        resolveRemoveExceptionMessages(config))
+
+        /**
+         * The exception-message elision mode this proof runs under: its per-proof
+         * `@BmcProof(removeExceptionMessages = …)` when set to a non-AUTO value (the expert override), otherwise the
+         * build-wide `bmc { removeExceptionMessages = … }` / `-Dbmc.removeExceptionMessages` default ("auto"/"on"/"off",
+         * case-insensitive), otherwise AUTO. A per-proof AUTO yields to the build default so a project can
+         * flip the whole module ON/OFF; an unrecognized property value falls back to AUTO (fail-safe — the
+         * gated default, never a silent force).
+         */
+        internal fun resolveRemoveExceptionMessages(config: BmcProof?): org.bmc4j.RemoveExceptionMessages {
+            val perProof = config?.removeExceptionMessages
+            if (perProof != null && perProof != org.bmc4j.RemoveExceptionMessages.AUTO) {
+                return perProof
+            }
+            val prop = System.getProperty(REMOVE_EXCEPTION_MESSAGES_PROP)?.trim()?.lowercase()
+            return when (prop) {
+                "on" -> org.bmc4j.RemoveExceptionMessages.ON
+                "off" -> org.bmc4j.RemoveExceptionMessages.OFF
+                else -> org.bmc4j.RemoveExceptionMessages.AUTO
+            }
+        }
 
         /**
          * The solver a proof will actually run under: its per-proof `@BmcProof(solver=...)` override
@@ -1457,7 +1505,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 BmcRequest(request.entryClass, request.entryFunction, request.classpath, bound,
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
-                        request.stringRefinementOff)
+                        request.stringRefinementOff, request.removeExceptionMessages)
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */

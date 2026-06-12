@@ -299,6 +299,14 @@ object VerdictCache {
         // The per-proof timeout is a budget, not a jbmc verdict flag (it bounds wall-clock, not the
         // formula), so it isn't in the flag signature — fold it in explicitly.
         update(md, "timeout", request.timeoutSeconds.toString())
+        // Exception-message elision mode (see ExceptionMessageElision): AUTO/ON/OFF select DIFFERENT
+        // analysed bytecode (a thrown exception's message construction is dropped or kept), so a verdict
+        // proven under one mode is not interchangeable with another. The AUTO gate's outcome additionally
+        // depends on the cone (folded in just below), so AUTO-with-observer and AUTO-without resolve to
+        // distinct cones and thus distinct keys already; this field distinguishes the explicit ON/OFF
+        // overrides. Over-keying is sound; under-keying could serve an elided verdict for a non-eliding
+        // request.
+        update(md, "removeExceptionMessages", request.removeExceptionMessages.name)
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
         //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).

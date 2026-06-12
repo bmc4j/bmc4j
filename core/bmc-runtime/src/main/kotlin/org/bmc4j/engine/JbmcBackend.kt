@@ -232,6 +232,20 @@ class JbmcBackend : VerificationBackend {
             ContractPurityAudit.auditRelevant(
                     manifest, request.entryClass, entryMethodName(request.entryFunction),
                     request.classpath, classpath)
+            // Exception-message elision: drop the construction of a thrown exception's message when the
+            // proof's reachable cone observes NO exception message (AUTO's coarse soundness gate), or
+            // when the proof asks for it explicitly (ON, a user-asserted override). This makes a proof
+            // over a function that builds an expensive dynamic error message (e.g. a byte->String
+            // materialization on a dead overflow branch) tractable: the message is never read, so dropping
+            // its computation can't change the verdict, only removes the symbolic cost that poisoned it.
+            // Runs AFTER the desugar passes (so a message-building concat/byte-decode is in the sound
+            // StringBuilder/BmcStrings form we drop) and AFTER the purity audit (which walks the full
+            // prepared classpath), but BEFORE the model slice so the engine analyses the elided bytecode.
+            // OFF is a no-op; the gate fails toward NOT eliding (worst case: no speed-up, never a false
+            // green). The forced-elision footnote (ON) is surfaced on the verdict by the proof extension.
+            classpath = ExceptionMessageElision
+                    .apply(classpath, request.entryClass, entryMethodName(request.entryFunction),
+                            request.removeExceptionMessages).classpath
             // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
             // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
             // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its
