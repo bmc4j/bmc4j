@@ -28,6 +28,18 @@ class JbmcProfile private constructor(
         /** Phase wall-times the engine reported, in first-seen order: `Symex`, `Convert SSA`,
          *  `Postprocess`, `Solver`, … → seconds. Empty if the run emitted none (e.g. killed early). */
         val phaseSeconds: Map<String, Double>,
+        /** bmc4j's OWN pre-engine pipeline pass wall-times (label → seconds), in first-seen order:
+         *  `mirror`, `desugar`, `reachability`, `domain-split`, … . These are HARNESS-MEASURED (a
+         *  wall-clock around bmc4j's classpath/bytecode prep, see [PipelineTiming]), kept distinct from
+         *  the engine-REPORTED [phaseSeconds] so a slow proof shows whether the cost is OUR prep or the
+         *  engine's symex/solver. Empty when not profiled at the backend, or fully pre-mirrored. */
+        val pipelineSeconds: Map<String, Double>,
+        /** The engine subprocess wall-clock (launch → exit/kill) the harness timed, in seconds, or null
+         *  when not measured. On a symex-timeout — where jbmc emits NO `Runtime` phase line because
+         *  symbolic execution never completed — this is attributed to a DERIVED `Symex (incomplete)`
+         *  entry, since unwinding happens DURING symex (symex IS the unwinding phase). Harness-measured,
+         *  never an engine-reported number. */
+        val engineWallSeconds: Double?,
         /** True if the engine reached the SAT/SMT solver (it logged "Passing problem to propositional
          *  reduction" or a `<N> variables, <M> clauses` line). On a timeout this distinguishes a
          *  symex-bound proof (never reached SAT) from a solver-bound one. */
@@ -52,11 +64,49 @@ class JbmcProfile private constructor(
     class MethodCount(@get:JvmName("method") val method: String,
                       @get:JvmName("count") val count: Int)
 
-    /** True when the run emitted nothing we could turn into a breakdown (no phases, no unwinding, no
-     *  formula stats) — e.g. it was killed before the engine logged anything useful. */
+    /** True when the run yielded nothing we could turn into a breakdown — neither engine-reported data
+     *  (phases, unwinding, formula stats) NOR any harness-measured timing (bmc4j pipeline passes, or an
+     *  engine wall-clock we could attribute to a derived Symex). A profiled run almost always has at least
+     *  a pipeline timing or an engine wall-clock, so this is rarely true once profiling is on. */
     fun isEmpty(): Boolean =
             phaseSeconds.isEmpty() && unwindingByMethod.isEmpty() && recursionByMethod.isEmpty()
                     && programSteps == null && vccGenerated == null && satVariables == null
+                    && pipelineSeconds.isEmpty() && engineWallSeconds == null
+
+    /** The wall-clock to attribute to a DERIVED `Symex (incomplete, harness-measured)` entry, or null
+     *  when no derivation applies. The rule is unambiguous from jbmc's phase ordering: an engine that
+     *  produced NO completed `Runtime` phase line was killed entirely inside symbolic execution (symex
+     *  IS the unwinding phase, and it runs before any phase time is reported), so the full engine
+     *  wall-clock is attributed to symex. An engine that DID report some phase line is NOT derived — its
+     *  measured phases are real and the missing time is a named missing phase (we don't invent a split). */
+    fun derivedSymexSeconds(): Double? =
+            if (phaseSeconds.isEmpty() && engineWallSeconds != null) engineWallSeconds else null
+
+    /**
+     * Return a copy of this engine-parsed profile carrying the HARNESS-measured timings: bmc4j's own
+     * [pipeline] pass wall-times and the engine subprocess [engineWall] (launch → exit/kill) in seconds.
+     * The engine-reported fields ([phaseSeconds], unwinding, formula stats, [reachedSat]) are unchanged —
+     * these are a parallel, additive overlay that never touches a verdict. [parse] produces the
+     * engine-side data; the backend / driver attaches its own measurements through here. A null/empty
+     * [pipeline] and null [engineWall] leave the profile untouched.
+     */
+    fun withHarnessTimings(pipeline: Map<String, Double>?, engineWall: Double?): JbmcProfile {
+        if (pipeline.isNullOrEmpty() && engineWall == null) {
+            return this
+        }
+        return JbmcProfile(
+                phaseSeconds = phaseSeconds,
+                pipelineSeconds = if (pipeline.isNullOrEmpty()) pipelineSeconds else LinkedHashMap(pipeline),
+                engineWallSeconds = engineWall ?: engineWallSeconds,
+                reachedSat = reachedSat,
+                unwindingByMethod = unwindingByMethod,
+                recursionByMethod = recursionByMethod,
+                programSteps = programSteps,
+                vccGenerated = vccGenerated,
+                vccRemaining = vccRemaining,
+                satVariables = satVariables,
+                satClauses = satClauses)
+    }
 
     /**
      * Render the breakdown as a readable, human-first table for the proof's stdout/report. Lines are
@@ -68,18 +118,57 @@ class JbmcProfile private constructor(
         val sb = StringBuilder()
         val tag = "  bmc4j[profile]:"
         sb.append(tag).append(' ').append(entryFunction).append(" -> ").append(verdict)
-                .append(" - engine performance breakdown\n")
+                .append(" - performance breakdown (bmc4j prep + engine)\n")
+        sb.append(tag).append("   legend: ").append(LBL_BMC4J).append("/").append(LBL_HARNESS)
+                .append(" = bmc4j-measured wall-clock, ").append(LBL_ENGINE)
+                .append(" = jbmc-reported\n")
 
-        // Where time went + whether the solver was reached (the headline signal).
-        sb.append(tag).append("   phases (where the engine spent wall-time):\n")
+        // bmc4j's OWN pipeline (HARNESS-measured): classpath mirroring + the bytecode rewrites we run
+        // before jbmc launches. Shown FIRST so the breakdown reads as (our prep) + (engine).
+        val pipelineTotal = pipelineSeconds.values.sum()
+        sb.append(tag).append("   bmc4j pipeline (harness-measured - our prep before the engine):\n")
+        if (pipelineSeconds.isEmpty()) {
+            sb.append(tag).append("       (no pipeline passes timed")
+                    .append(" - fully pre-mirrored, or not measured)\n")
+        } else {
+            for ((pass, secs) in pipelineSeconds) {
+                sb.append(tag).append("       ").append(LBL_BMC4J).append(' ')
+                        .append(pass.padEnd(24)).append("  ").append(formatSeconds(secs)).append('\n')
+            }
+            sb.append(tag).append("       ").append("total".padEnd(24 + LBL_BMC4J.length + 1))
+                    .append("  ").append(formatSeconds(pipelineTotal)).append('\n')
+        }
+
+        // Where the ENGINE spent wall-time + whether the solver was reached (the headline signal).
+        sb.append(tag).append("   engine phases (where jbmc spent wall-time):\n")
         if (phaseSeconds.isEmpty()) {
-            sb.append(tag).append("       (no phase timings captured")
-                    .append(if (reachedSat) ")\n" else " - did not reach the solver)\n")
+            // No engine-reported phase line. On a symex-timeout, attribute the engine's whole
+            // launch->kill wall-clock to a DERIVED Symex entry (symex IS the unwinding phase): the
+            // engine was 100% in symbolic execution. Clearly flagged harness-measured + incomplete.
+            val derived = derivedSymexSeconds()
+            if (derived != null) {
+                sb.append(tag).append("       ").append(LBL_HARNESS).append(' ')
+                        .append("Symex (incomplete)".padEnd(24)).append("  ")
+                        .append(formatSeconds(derived)).append('\n')
+                sb.append(tag).append("       (the engine reported no completed phase; it was killed")
+                        .append(" inside symbolic execution, so the whole engine wall-clock above is")
+                        .append(" symex - DERIVED by the harness, not reported by jbmc)\n")
+            } else {
+                sb.append(tag).append("       (no engine phase timings captured")
+                        .append(if (reachedSat) ")\n" else " - did not reach the solver)\n")
+            }
         } else {
             for ((phase, secs) in phaseSeconds) {
-                sb.append(tag).append("       ").append(phase.padEnd(20)).append("  ")
-                        .append(formatSeconds(secs)).append('\n')
+                sb.append(tag).append("       ").append(LBL_ENGINE).append(' ')
+                        .append(phase.padEnd(24)).append("  ").append(formatSeconds(secs)).append('\n')
             }
+        }
+        // The engine's total wall-clock (harness-measured) whenever we have it — frames the engine-reported
+        // phase times (which can sum to less than the wall-clock: load/teardown the phases don't name).
+        engineWallSeconds?.let {
+            sb.append(tag).append("       ").append(LBL_HARNESS).append(' ')
+                    .append("engine wall-clock".padEnd(24)).append("  ").append(formatSeconds(it))
+                    .append('\n')
         }
         sb.append(tag).append("       reached SAT/SMT solver: ").append(if (reachedSat) "YES" else "NO")
         if (!reachedSat) {
@@ -126,13 +215,26 @@ class JbmcProfile private constructor(
         return sb.toString().trimEnd('\n')
     }
 
-    private fun formatSeconds(secs: Double): String =
-            if (secs >= 0.001) String.format("%.3fs", secs) else "${secs}s"
+    private fun formatSeconds(secs: Double): String = when {
+        // Always fixed-point, never scientific notation: a sub-millisecond pass (e.g. a no-op
+        // purity-audit) reads as "<0.001s" rather than an unhelpful "7.4E-4s".
+        secs >= 0.001 -> String.format("%.3fs", secs)
+        secs > 0.0 -> "<0.001s"
+        else -> "0.000s"
+    }
 
     companion object {
 
         /** Top-N offenders shown in the rendered table (the full list is in the parsed object). */
         private const val TOP_N = 8
+
+        /** Row tags that label each timing's PROVENANCE so a reader never confuses a bmc4j-measured
+         *  wall-clock with an engine-reported phase time. `[bmc4j]` = a timed bmc4j pipeline pass;
+         *  `[harness]` = another harness-measured wall-clock (engine wall-clock, derived Symex);
+         *  `[engine]` = a number jbmc itself reported in its `Runtime <Phase>:` stream. */
+        private const val LBL_BMC4J = "[bmc4j]"
+        private const val LBL_HARNESS = "[harness]"
+        private const val LBL_ENGINE = "[engine]"
 
         /**
          * Parse the breakdown from the jbmc spill [file] (the `--json-ui` array of message objects),
@@ -283,6 +385,8 @@ class JbmcProfile private constructor(
 
             fun build(): JbmcProfile = JbmcProfile(
                     phaseSeconds = LinkedHashMap(phases),
+                    pipelineSeconds = emptyMap(),
+                    engineWallSeconds = null,
                     reachedSat = reachedSat,
                     unwindingByMethod = sorted(loopCounts),
                     recursionByMethod = sorted(recursionCounts),
