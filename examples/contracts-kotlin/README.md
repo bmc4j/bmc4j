@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 20
+proofs: 24
 proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -50,6 +50,7 @@ A contract mirror binds to a method on the `@BmcContractsFor` class by signature
 | Shape | Status |
 | --- | --- |
 | `object` / `companion` method with `@JvmStatic` (static target) | works — see `basics` |
+| contract host is an **`object`**, predicates are **plain member `fun`s** (no companion / `@JvmStatic`) | works — see `objecthost` (predicates invoked on the singleton `Contract.INSTANCE`) |
 | pure instance method (receiver threaded as `self`) | works — see `instance` |
 | method with **default parameters** (real + `$default` synthetic) | works — see `defaults` |
 | **`suspend`** function (value-returning) | works — see `suspendcontracts` (the `Continuation` is hidden, the declared result recovered, the body driven to completion) |
@@ -69,6 +70,34 @@ must inline and overruns the bound — **UNKNOWN** ("bound too small": truncated
 incompleteness, not a counterexample). The function lives in an `object` with `@JvmStatic` because a
 bare top-level `fun` compiles into a facade class Kotlin can't name. *(1 pass + 1 undecided-on-purpose;
 plus 1 green enforce proof.)*
+
+## `objecthost` — predicates as plain members of an `object` (no companion / `@JvmStatic`)
+
+The basic shape's predicates have to live in a `companion object` with `@JvmStatic` per predicate, so
+they compile to the `static boolean` methods the generated stub/enforce call — ceremony for what should
+be a plain function. The processor now also accepts the contract host being a plain Kotlin **`object`**
+whose predicates are **ordinary member `fun`s**:
+
+```kotlin
+@BmcContractsFor(Squares::class)
+object SquaresContract {
+    @Requires("bounded") @Ensures("nonNeg") fun pyramid(n: Int): Int = error("mirror")
+    fun bounded(n: Int): Boolean = n in 0..8        // plain member — no companion, no @JvmStatic
+    fun nonNeg(result: Int, n: Int): Boolean = result >= 0
+}
+```
+
+The mirror method carries a throwaway `error("mirror")` body — never used; only its signature (which
+binds to `Squares.pyramid`) and `@Requires`/`@Ensures` matter, exactly like the abstract interface
+mirror. The processor invokes the object's predicates on the singleton (`SquaresContract.INSTANCE.bounded(n)`
+in the generated Java) instead of statically; a pure boolean over its arguments reading no object state
+is analyzed by JBMC identically to a static one (and the purity audit certifies the singleton read via
+its `static final INSTANCE` field), so `enforce__pyramid` discharges **IDENTICALLY to the
+companion/static form**. `bogus` ships a deliberately-**false** object-hosted contract pinned
+`@ExpectEnforce(REFUTED)` — it publishes no redirect and passes by refutation, so annotating an
+object-hosted contract is no more "asserting" it than the static form. The companion/static form stays
+available (see `basics`) — this is additive. *(2 caller proofs: 1 pass + 1 undecided-on-purpose; plus 1
+green + 1 refuted enforce proof.)*
 
 ## `instance` — pure instance methods (receiver as `self`)
 

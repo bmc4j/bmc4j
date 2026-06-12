@@ -74,6 +74,25 @@ internal class ContractStubGeneratorTest {
         assertTrue(src.contains("Bmc.assume(p.BoxContract.nonNeg(r, self));")) // ensures(r, self)
     }
 
+    @Test
+    fun object_hosted_predicates_are_called_on_the_singleton_instance() {
+        // predicateOnObject = true -> the predicates are ordinary members of a Kotlin `object`, so the
+        // generated Java invokes them on the singleton `<Owner>.INSTANCE` rather than statically.
+        val src = ContractStubGenerator.generate("pkg", "MathStubs", listOf(
+                ContractStubGenerator.Contract("pkg.MathImpl", "pkg.MathContract", "isqrt", "int",
+                        listOf(p("int", "n")), "nonNegative", "resultNonNegative",
+                        "VERIFIED", null, null, true)))
+        assertTrue(src.contains("Bmc.check(pkg.MathContract.INSTANCE.nonNegative(n));"),
+                "an object-hosted requires predicate must be called on the singleton:\n$src")
+        assertTrue(src.contains("Bmc.assume(pkg.MathContract.INSTANCE.resultNonNegative(r, n));"),
+                "an object-hosted ensures predicate must be called on the singleton:\n$src")
+        // The static form stays a bare static call (no INSTANCE) — additive, unchanged.
+        assertFalse(ContractStubGenerator.generate("pkg", "S", listOf(
+                ContractStubGenerator.Contract("pkg.MathImpl", "pkg.MathContract", "isqrt", "int",
+                        listOf(p("int", "n")), "nonNegative", "resultNonNegative")))
+                .contains(".INSTANCE."), "the static/companion form must NOT use .INSTANCE")
+    }
+
     companion object {
         private fun p(type: String, name: String): Map.Entry<String, String> =
                 java.util.Map.entry(type, name)

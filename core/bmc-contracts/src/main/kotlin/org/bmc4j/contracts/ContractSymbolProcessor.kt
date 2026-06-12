@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
@@ -77,6 +78,13 @@ class ContractSymbolProcessor(
         val contracts = mutableListOf<ContractStubGenerator.Contract>()
         val contractRecords = mutableListOf<String>()
 
+        // When the contract host is a Kotlin `object` (a singleton), its un-`@JvmStatic` predicate
+        // `fun`s compile to INSTANCE methods reached through the synthetic `<Owner>.INSTANCE` field —
+        // so the generated Java must invoke them on that receiver, not statically. This is additive:
+        // an `interface`/`class` host with `@JvmStatic`-companion (or top-level/static) predicates is
+        // unaffected (predicateOnObject = false, the unchanged static-call shape).
+        val predicateOnObject = contractType.classKind == ClassKind.OBJECT
+
         for (mirror in contractType.getDeclaredFunctions()) {
             val requires = annotationValue(mirror, REQUIRES)
             val ensures = annotationValue(mirror, ENSURES)
@@ -129,7 +137,8 @@ class ContractSymbolProcessor(
             val expectEnforce = expectEnforceOf(mirror) ?: typeExpectEnforce(contractType)
             contracts.add(ContractStubGenerator.Contract(targetFqn, contractFqn, name,
                     declaredReturn, params,
-                    requires, ensures, expectEnforce, receiverType, suspendBoxedReturn))
+                    requires, ensures, expectEnforce, receiverType, suspendBoxedReturn,
+                    predicateOnObject))
             // SOUNDNESS: only a VERIFIED contract publishes a reusable redirect (a non-VERIFIED
             // contract's __stub would summarize callers against a postcondition the framework knows is
             // not discharged). The __BmcEnforce proof is still generated for every contract.
