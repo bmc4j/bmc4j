@@ -991,6 +991,29 @@ internal class JbmcOutputParserTest {
         assertFalse(r.isVacuous)
         assertTrue(r.violations.isEmpty(), "an unwinding assertion is not a counterexample")
         assertTrue(r.undecidedReason!!.contains("unwind bound is too small"), r.undecidedReason)
+        // The offending loop's identity is harvested off the property's sourceLocation (method in dot
+        // form, no signature; file:line), so the data-dependent-bound diagnostic can name WHERE to look.
+        assertEquals(listOf("pkg.Tests.proof (T.java:9)"), r.unwindingLoops.map { it.describe() })
+        assertFalse(r.unwindingLoops[0].recursion, "a loop firing is not a recursion firing")
+    }
+
+    @Test
+    fun a_recursion_unwinding_firing_is_harvested_and_flagged_recursion() {
+        val json = """
+            [
+              {"result":[
+                {"name":"u","status":"FAILURE","property":"java::pkg.Deep.down:(I)I.recursion",
+                 "description":"recursion unwinding assertion",
+                 "sourceLocation":{"file":"D.java","line":"4","function":"java::pkg.Deep.down:(I)I"}},
+                {"name":"m","status":"FAILURE","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"%d","function":"java::pkg.Tests.proof:()V"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent().format(SENTINEL)
+        val loops = JbmcOutputParser.parse(json, ENTRY).unwindingLoops
+        assertEquals(1, loops.size)
+        assertEquals("pkg.Deep.down (D.java:4) [recursion]", loops[0].describe())
+        assertTrue(loops[0].recursion)
     }
 
     @Test

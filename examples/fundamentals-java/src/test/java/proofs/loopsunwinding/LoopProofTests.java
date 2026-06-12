@@ -71,4 +71,18 @@ class LoopProofTests {
         Bmc.assume(n < 2);              // empty domain: no n is both
         Bmc.check(Sums.sumTo(n) == 0);
     }
+
+    /**
+     * UNDECIDED with AUTO unwind because the bound is DATA-DEPENDENT, not just too small: the loop runs
+     * {@code start} times, and {@code start} is a symbolic input over a range no fixed unwind can cover.
+     * Auto-unwind climbs to the cap and the unwinding assertion fires at the countDown loop at EVERY
+     * bound, so bmc4j reports it as a data-dependent bound, NAMES the loop, and says raising unwind won't
+     * help — distinct from {@link #auto_unwind_discovers_the_bound_and_verifies()}, whose constant-bounded
+     * loop converges. (The exact diagnostic text is pinned by the engine-layer unit tests.)
+     */
+    @BmcProof(expect = Verdict.UNKNOWN)
+    void a_data_dependent_loop_is_undecided_under_auto_unwind() {
+        int start = Bmc.anyInt(1, 1_000_000);
+        Bmc.check(Sums.countDown(start) >= 0);
+    }
 }

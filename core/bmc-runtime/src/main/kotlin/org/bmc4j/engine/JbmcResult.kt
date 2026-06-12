@@ -36,6 +36,7 @@ class JbmcResult private constructor(
         stubbedMethods: List<String>?,
         unmodelledMembers: List<String>?,
         linkFailureStubs: List<String>?,
+        unwindingLoops: List<UnwindingLoop>?,
         /**
          * The per-stage PERFORMANCE BREAKDOWN of this run (phase timings, loop-unwinding offenders,
          * formula size, whether SAT was reached), or null when the run was not profiled. Purely
@@ -112,11 +113,21 @@ class JbmcResult private constructor(
     @get:JvmName("linkFailureStubs")
     val linkFailureStubs: List<String> = linkFailureStubs?.toList() ?: emptyList()
 
+    /**
+     * The loops/recursions whose `--unwinding-assertions` firing made this run UNKNOWN[UNWINDING_ASSERTION]:
+     * each the offending site bmc4j already has from the failing unwinding property (method + file:line).
+     * Empty on every other verdict. A parallel FACT harvested at parse time, like [stubbedMethods]; the
+     * POLICY that turns "the cap was reached and these loops still fired" into the data-dependent-bound
+     * diagnostic lives in [AutoUnwind] / [org.bmc4j.junit.BmcProofExtension], not here.
+     */
+    @get:JvmName("unwindingLoops")
+    val unwindingLoops: List<UnwindingLoop> = unwindingLoops?.toList() ?: emptyList()
+
     @JvmOverloads
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, null, emptyList(), emptyList(), emptyList())
+            null, null, emptyList(), emptyList(), emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -136,7 +147,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubs, unmodelledMembers, linkFailureStubs, profile)
+                stubs, unmodelledMembers, linkFailureStubs, unwindingLoops, profile)
     }
 
     /**
@@ -149,7 +160,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, members, linkFailureStubs, profile)
+                stubbedMethods, members, linkFailureStubs, unwindingLoops, profile)
     }
 
     /**
@@ -163,7 +174,21 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, members, profile)
+                stubbedMethods, unmodelledMembers, members, unwindingLoops, profile)
+    }
+
+    /**
+     * Return a copy carrying the offending unwinding loops (a parallel fact, like [withStubbedMethods]).
+     * The verdict is unchanged — this only attaches the loop identity already in the failing unwinding
+     * property so [AutoUnwind] / [org.bmc4j.junit.BmcProofExtension] can name the data-dependent loop.
+     * Returns `this` when empty/unchanged.
+     */
+    fun withUnwindingLoops(loops: List<UnwindingLoop>?): JbmcResult {
+        if (loops.isNullOrEmpty()) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, unmodelledMembers, linkFailureStubs, loops, profile)
     }
 
     /**
@@ -177,7 +202,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, linkFailureStubs, profile)
+                stubbedMethods, unmodelledMembers, linkFailureStubs, unwindingLoops, profile)
     }
 
     companion object {
@@ -194,7 +219,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknown(kind: UnknownKind, reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, kind,
-                        emptyList(), emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the
@@ -226,6 +251,32 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknownParse(reason: String?, rawOutput: String?): JbmcResult =
                 unknown(UnknownKind.PARSE_FAILURE, reason, rawOutput)
+    }
+
+    /**
+     * One loop (or recursion) whose `--unwinding-assertions` firing truncated exploration: the identity
+     * bmc4j already has from the failing unwinding property. [method] is the containing method in dot
+     * form (e.g. `okio.Buffer.readDecimalLong`), [file]/[line] its source location (may be null/0 when
+     * the engine emits the property without one), and [recursion] distinguishes a recursion overrun from
+     * a loop overrun. Rendered by [describe] as the "method (file:line)" hint in the data-dependent-bound
+     * diagnostic — naming WHERE to look, without any dataflow/slice analysis.
+     */
+    class UnwindingLoop(
+            @get:JvmName("method") val method: String,
+            @get:JvmName("file") val file: String?,
+            @get:JvmName("line") val line: Int,
+            @get:JvmName("recursion") val recursion: Boolean = false) {
+
+        /** "method (file:line)", or just "method" when no source location is available. */
+        fun describe(): String = buildString {
+            append(method)
+            if (!file.isNullOrBlank()) {
+                append(" (").append(file)
+                if (line > 0) append(':').append(line)
+                append(')')
+            }
+            if (recursion) append(" [recursion]")
+        }
     }
 
     /** A single refuted property, with enough detail to build a stack trace. */

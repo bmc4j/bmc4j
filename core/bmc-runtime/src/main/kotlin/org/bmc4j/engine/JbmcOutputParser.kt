@@ -222,6 +222,9 @@ object JbmcOutputParser {
         var markers = 0            // injected reachability markers seen
         var markersFailed = 0      // ... that FAILED (i.e. that exit is reachable)
         var unwindingFailures = 0  // --unwinding-assertions firings: the BOUND is too small
+        // The offending loops/recursions behind those firings, deduped by identity, first-seen order —
+        // the data-dependent-bound diagnostic names them when the auto-unwind climb caps out.
+        val unwindingLoops = LinkedHashMap<String, JbmcResult.UnwindingLoop>()
         if (result != null) {
             for (pe in result) {
                 val p = pe.asJsonObject
@@ -241,12 +244,17 @@ object JbmcOutputParser {
                         // violation would mislabel "bound too small" as REFUTED, and an
                         // expect = REFUTED demo could pass for the wrong reason.
                         unwindingFailures++
+                        val loop = unwindingLoop(p)
+                        if (loop != null) {
+                            unwindingLoops.putIfAbsent(loop.describe(), loop)
+                        }
                         continue
                     }
                     violations.add(toViolation(p, entryFunctionFqn, userCode))
                 }
             }
         }
+        val loops = unwindingLoops.values.toList()
 
         // Verdict. When reachability markers are present (every @BmcProof gets them), the
         // overall cProverStatus is ALWAYS "failure" on the green path — a reachable marker is itself a
@@ -269,7 +277,7 @@ object JbmcOutputParser {
             }
             if (unwindingFailures > 0) {
                 return JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION,
-                        unwindingReason(unwindingFailures), json)
+                        unwindingReason(unwindingFailures), json).withUnwindingLoops(loops)
             }
             if (markersFailed == 0) {
                 return JbmcResult(false, listOf(vacuityViolation()), json, true)
@@ -287,7 +295,7 @@ object JbmcOutputParser {
         }
         if (unwindingFailures > 0) {
             return JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION,
-                    unwindingReason(unwindingFailures), json)
+                    unwindingReason(unwindingFailures), json).withUnwindingLoops(loops)
         }
         // The engine produced output, but the injected reachability markers are absent, so no
         // trustworthy verdict signal could be extracted (vacuity could not be checked). Deterministic,
@@ -399,6 +407,33 @@ object JbmcOutputParser {
                 && (description.startsWith("unwinding assertion")
                         || description.startsWith("recursion unwinding assertion"))
     }
+
+    /**
+     * The offending loop/recursion behind one unwinding-assertion FAILURE: its containing method (dot
+     * form, no signature — e.g. `okio.Buffer.readDecimalLong`) and source location, taken straight from
+     * the property bmc4j already parsed. The method comes from `sourceLocation.function` when present,
+     * else from the property name's `<function>.unwind.<n>` / `<function>.recursion` prefix. Null only if
+     * neither yields a name (then the firing is still counted, just not individually named). Pure.
+     */
+    private fun unwindingLoop(p: JsonObject): JbmcResult.UnwindingLoop? {
+        val sl = if (p.has("sourceLocation")) p.getAsJsonObject("sourceLocation") else null
+        val recursion = str(p, "property")?.endsWith(".recursion") == true
+                || str(p, "description")?.startsWith("recursion") == true
+        val method = (str(sl, "function")?.let(::loopMethodFromFunction)
+                ?: str(p, "property")?.let(::loopMethodFromProperty))?.takeIf { it.isNotBlank() }
+                ?: return null
+        val file = str(sl, "file")
+        val line = if (sl != null) intOr(sl, "line", 0) else 0
+        return JbmcResult.UnwindingLoop(method, file, line, recursion)
+    }
+
+    /** `java::okio.Buffer.readDecimalLong:(...)J` -> `okio.Buffer.readDecimalLong` (dot form, no sig). */
+    private fun loopMethodFromFunction(funcId: String): String =
+            funcId.removePrefix("java::").substringBefore(":(")
+
+    /** `okio.Buffer.readDecimalLong.unwind.3` / `...recursion` -> `okio.Buffer.readDecimalLong`. */
+    private fun loopMethodFromProperty(property: String): String =
+            property.substringBefore(".unwind.").removeSuffix(".recursion")
 
     /** The UNKNOWN reason for a bound-too-small run (the extension appends the remedies). */
     private fun unwindingReason(count: Int): String =

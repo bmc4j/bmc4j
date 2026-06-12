@@ -25,4 +25,29 @@ class LoopProofs {
         val n = Bmc.anyInt(0, 10)
         Bmc.check(Sums.sumTo(n) == n * (n + 1) / 2)
     }
+
+    /**
+     * VERIFIES under AUTO (no pin): the same closed-form property, but the loop's trip count is bounded
+     * by a CONSTANT range (n in 0..10), so auto-unwind's climb CONVERGES at a finite bound within the
+     * cap — this is the control. A loop that just needs a bigger fixed bound is NOT data-dependent and
+     * must not be mislabelled so; it simply verifies.
+     */
+    @BmcProof
+    fun a_constant_bounded_loop_converges_under_auto_unwind() {
+        val n = Bmc.anyInt(0, 10)
+        Bmc.check(Sums.sumTo(n) == n * (n + 1) / 2)
+    }
+
+    /**
+     * UNDECIDED under AUTO (no pin): the loop runs `start` times, and `start` is a SYMBOLIC input over a
+     * range no fixed unwind can cover. Auto-unwind climbs to the cap and the unwinding assertion fires at
+     * the countDown loop at EVERY bound — the data-dependent-bound signal. The verdict is UNKNOWN and the
+     * diagnostic states the trip count is data-dependent, names the loop, and says raising unwind won't
+     * help (the message text is pinned by the engine-layer unit tests).
+     */
+    @BmcProof(expect = Verdict.UNKNOWN)
+    fun a_data_dependent_loop_is_undecided_under_auto_unwind() {
+        val start = Bmc.anyInt(1, 1_000_000)
+        Bmc.check(Sums.countDown(start) >= 0)
+    }
 }
