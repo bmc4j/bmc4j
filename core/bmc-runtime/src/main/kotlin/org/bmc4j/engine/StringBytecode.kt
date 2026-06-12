@@ -11,8 +11,22 @@ import java.util.ArrayList
 
 /**
  * Redirects JVM constructs that JBMC models unsoundly to sound stand-ins, by rewriting their
- * sites in the analysed bytecode. Two transforms today:
+ * sites in the analysed bytecode. Three transforms today:
  *
+ * - **String-from-chars construction** — `String.valueOf(char)/(char[])/(char[],int,int)`,
+ *   `String.copyValueOf(...)`, `Character.toString(char)` and the `new String(char[])` /
+ *   `new String(char[],int,int)` constructors all materialize a String from char data. JBMC links
+ *   its native construction path (which lowers to `org.cprover.CProverString.ofCharArray`) to an
+ *   UNCONSTRAINED string — the construction analogue of the unsound native `String.equals` — so a
+ *   String built from chars otherwise has nondet `length()`/`charAt`. We redirect them to
+ *   [BmcStrings.ofChar]/[BmcStrings.ofChars], which rebuild the String via
+ *   `StringBuilder.append(char)` + `toString()` (the one construction primitive JBMC models soundly,
+ *   the same machinery the concat desugar uses), so the result's `length`/`charAt` agree with the
+ *   source chars and compose with the content shims below. The static factory sites retarget in place
+ *   (same descriptor); the constructor sites have their `NEW;DUP` prefix dropped and the argument
+ *   building replayed before the [BmcStrings.ofChars] call (so no dangling uninitialized String reaches
+ *   JVM verification, and the stack is one ref shallower) — see the deferred-replay buffer in
+ *   [rewriteClass]. Unrelated `new String(...)` (e.g. `new String(String)`) is left verbatim.
  * - **String content ops** — `String.equals/startsWith/endsWith/contains` →
  *   [BmcStrings] (the receiver becomes the first argument, so the operand stack is
  *   unchanged). JBMC's own `String.equals` is unsound (it can't even prove
@@ -61,6 +75,34 @@ object StringBytecode {
             "startsWith (Ljava/lang/String;)Z",
             "endsWith (Ljava/lang/String;)Z",
             "contains (Ljava/lang/CharSequence;)Z")
+
+    private const val CHARACTER = "java/lang/Character"
+
+    /**
+     * Static `String`/`Character` factories that MATERIALIZE a String from char data, mapped to the
+     * sound [BmcStrings] rebuild (`"name desc"` -> BmcStrings method name). JBMC links its native
+     * construction path to a nondet string (it routes `String.valueOf(char[])` and the
+     * `String(char[])` constructor through `CProverString.ofCharArray`, which comes back
+     * unconstrained), so a String built from chars otherwise has nondet `length()`/`charAt`. The
+     * BmcStrings rebuild has the SAME descriptor, so the call site is retargeted in place. The
+     * `String(char[])` *constructor* (an `INVOKESPECIAL` with a NEW/DUP prefix) needs extra stack
+     * surgery and is handled separately below.
+     */
+    private val STRING_VALUEOF_REDIRECTS: Map<String, String> = mapOf(
+            "valueOf (C)Ljava/lang/String;" to "ofChar",
+            "valueOf ([C)Ljava/lang/String;" to "ofChars",
+            "valueOf ([CII)Ljava/lang/String;" to "ofChars",
+            "copyValueOf ([C)Ljava/lang/String;" to "ofChars",
+            "copyValueOf ([CII)Ljava/lang/String;" to "ofChars")
+
+    /** `Character.toString(char)` -> [BmcStrings.ofChar] (same single-char materialization). */
+    private const val CHARACTER_TOSTRING = "toString (C)Ljava/lang/String;"
+
+    /** `String(char[])` / `String(char[],int,int)` constructor descriptors, mapped to the
+     *  [BmcStrings] factory that materializes the same content soundly. */
+    private val STRING_CTOR_REDIRECTS: Map<String, String> = mapOf(
+            "([C)V" to "([C)Ljava/lang/String;",
+            "([CII)V" to "([CII)Ljava/lang/String;")
 
     private val CACHE = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -147,14 +189,171 @@ object StringBytecode {
                                      ex: Array<String>?): MethodVisitor {
                 val mv = super.visitMethod(a, n, d, s, ex)
                 return object : MethodVisitor(Opcodes.ASM9, mv) {
+                    // Deferred-replay buffer for the `new String(char[])` / `new String(char[],int,int)`
+                    // shape `NEW String; DUP; <build args>; INVOKESPECIAL String.<init>([C(II))V`. We can't
+                    // decide at the NEW whether the constructor is a from-chars redirect (the args sit in
+                    // between), and we must not leave a dangling uninitialized `NEW String` that fails JVM
+                    // verification. So from a `NEW String` we RECORD subsequent visits as deferred actions;
+                    // at the decision point we either DROP the NEW;DUP and replay the recorded args before
+                    // emitting the sound `BmcStrings.ofChars` factory (redirect case), or replay everything
+                    // verbatim (any non-redirect outcome) — so unrelated code is byte-for-byte unchanged.
+                    // Buffering is abandoned (replayed verbatim) on anything that isn't the simple
+                    // NEW;DUP;args;<init> shape (a branch/label/another NEW String/method end), keeping the
+                    // transform conservative.
+                    private val recorded = ArrayList<() -> Unit>()
+                    private var recording = false
+                    private var sawDup = false
+
+                    /** Replay the buffered `NEW String` (and DUP, if seen) and recorded args verbatim,
+                     *  then stop recording — the conservative fallback for any non-redirect shape. */
+                    private fun flushRecording() {
+                        if (!recording) {
+                            return
+                        }
+                        val hadDup = sawDup
+                        val actions = ArrayList(recorded)
+                        recording = false
+                        sawDup = false
+                        recorded.clear()
+                        super.visitTypeInsn(Opcodes.NEW, STRING)
+                        if (hadDup) {
+                            super.visitInsn(Opcodes.DUP)
+                        }
+                        for (act in actions) {
+                            act()
+                        }
+                    }
+
+                    override fun visitTypeInsn(op: Int, type: String?) {
+                        if (recording) {
+                            if (op == Opcodes.NEW && STRING == type) {
+                                // A second `new String` before resolving the first: replay the first verbatim,
+                                // then start recording afresh from this one.
+                                flushRecording()
+                            } else {
+                                recorded.add { super.visitTypeInsn(op, type) }
+                                return
+                            }
+                        }
+                        if (op == Opcodes.NEW && STRING == type) {
+                            recording = true
+                            sawDup = false
+                            recorded.clear()
+                            return
+                        }
+                        super.visitTypeInsn(op, type)
+                    }
+
+                    override fun visitInsn(op: Int) {
+                        if (recording) {
+                            if (op == Opcodes.DUP && !sawDup && recorded.isEmpty()) {
+                                sawDup = true        // the DUP immediately after NEW: part of the prefix
+                                return
+                            }
+                            recorded.add { super.visitInsn(op) }
+                            return
+                        }
+                        super.visitInsn(op)
+                    }
+
+                    override fun visitIntInsn(op: Int, operand: Int) {
+                        if (recording) { recorded.add { super.visitIntInsn(op, operand) }; return }
+                        super.visitIntInsn(op, operand)
+                    }
+
+                    override fun visitVarInsn(op: Int, varIdx: Int) {
+                        if (recording) { recorded.add { super.visitVarInsn(op, varIdx) }; return }
+                        super.visitVarInsn(op, varIdx)
+                    }
+
+                    override fun visitFieldInsn(op: Int, o: String?, nm: String?, d: String?) {
+                        if (recording) { recorded.add { super.visitFieldInsn(op, o, nm, d) }; return }
+                        super.visitFieldInsn(op, o, nm, d)
+                    }
+
+                    override fun visitLdcInsn(value: Any?) {
+                        if (recording) { recorded.add { super.visitLdcInsn(value) }; return }
+                        super.visitLdcInsn(value)
+                    }
+
+                    override fun visitJumpInsn(op: Int, label: org.objectweb.asm.Label?) {
+                        // A branch inside the construction region is not the simple shape we redirect;
+                        // bail out to verbatim replay (conservative).
+                        flushRecording()
+                        super.visitJumpInsn(op, label)
+                    }
+
+                    override fun visitLabel(label: org.objectweb.asm.Label?) {
+                        flushRecording()
+                        super.visitLabel(label)
+                    }
+
+                    override fun visitIincInsn(varIdx: Int, increment: Int) {
+                        if (recording) { recorded.add { super.visitIincInsn(varIdx, increment) }; return }
+                        super.visitIincInsn(varIdx, increment)
+                    }
+
+                    override fun visitTableSwitchInsn(min: Int, max: Int, dflt: org.objectweb.asm.Label?,
+                                                      vararg labels: org.objectweb.asm.Label?) {
+                        flushRecording(); super.visitTableSwitchInsn(min, max, dflt, *labels)
+                    }
+
+                    override fun visitLookupSwitchInsn(dflt: org.objectweb.asm.Label?, keys: IntArray?,
+                                                       labels: Array<out org.objectweb.asm.Label>?) {
+                        flushRecording(); super.visitLookupSwitchInsn(dflt, keys, labels)
+                    }
+
+                    override fun visitMultiANewArrayInsn(d: String?, dims: Int) {
+                        if (recording) { recorded.add { super.visitMultiANewArrayInsn(d, dims) }; return }
+                        super.visitMultiANewArrayInsn(d, dims)
+                    }
+
                     override fun visitMethodInsn(op: Int, mOwner: String?, name: String?,
                                                  desc: String?, itf: Boolean) {
+                        val nd = name + " " + desc
+                        // The matching from-chars constructor for a recorded `NEW String; DUP; args`: drop
+                        // the NEW;DUP, replay the arg-building (which leaves [char[](, int, int)] on the
+                        // stack), then call the sound BmcStrings.ofChars factory in place of the ctor. No
+                        // uninitialized-ref ever reaches a frame, so JVM verification stays valid and the
+                        // stack is one ref shallower than the original.
+                        if (op == Opcodes.INVOKESPECIAL && STRING == mOwner && "<init>" == name
+                                && STRING_CTOR_REDIRECTS.containsKey(desc)
+                                && recording && sawDup && BMC_STRINGS != owner[0]) {
+                            val actions = ArrayList(recorded)
+                            recorded.clear()
+                            recording = false
+                            sawDup = false
+                            for (act in actions) {
+                                act()    // replay only the argument-building instructions (NEW;DUP dropped)
+                            }
+                            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, "ofChars",
+                                    STRING_CTOR_REDIRECTS[desc]!!, false)
+                            return
+                        }
+                        if (recording) {
+                            // Any other method call inside the construction region (incl. a non-redirect
+                            // String ctor, or a nested call that builds the array): not our simple shape —
+                            // replay verbatim, then process this call normally below.
+                            flushRecording()
+                        }
                         if (op == Opcodes.INVOKEVIRTUAL && STRING == mOwner
-                                && REDIRECTS.contains(name + " " + desc)) {
+                                && REDIRECTS.contains(nd)) {
                             // The receiver becomes the first arg, so the operand stack is unchanged:
                             // desc "(P...)R" -> "(Ljava/lang/String;P...)R".
                             super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, name,
                                     "(Ljava/lang/String;" + desc!!.substring(1), false)
+                        } else if (op == Opcodes.INVOKESTATIC && STRING == mOwner
+                                && STRING_VALUEOF_REDIRECTS.containsKey(nd)) {
+                            // String.valueOf(char)/(char[])/(char[],int,int) and copyValueOf: JBMC links
+                            // these to a nondet string (CProverString.ofCharArray). The BmcStrings factory
+                            // has the SAME descriptor, so retarget the static call in place.
+                            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS,
+                                    STRING_VALUEOF_REDIRECTS[nd]!!, desc, false)
+                        } else if (op == Opcodes.INVOKESTATIC && CHARACTER == mOwner
+                                && CHARACTER_TOSTRING == nd) {
+                            // Character.toString(char) materializes a 1-char String the same nondet way;
+                            // route it through the sound single-char factory.
+                            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, "ofChar", desc, false)
                         } else if (isObjectEqualsCallSite(op, mOwner, name, desc)
                                 && BMC_STRINGS != owner[0]) {
                             // Soundness hole (issue #18): a call site whose static receiver type is
@@ -179,6 +378,7 @@ object StringBytecode {
 
                     override fun visitInvokeDynamicInsn(name: String?, desc: String?, bsm: Handle?,
                                                         vararg bsmArgs: Any?) {
+                        flushRecording()
                         if (CONCAT_FACTORY == bsm!!.owner
                                 && (name == "makeConcat" || name == "makeConcatWithConstants")) {
                             // Replace with invokestatic to a fresh same-descriptor helper; the dynamic
@@ -247,6 +447,13 @@ object StringBytecode {
                         } else {
                             super.visitInvokeDynamicInsn(name, desc, bsm, *bsmArgs)
                         }
+                    }
+
+                    override fun visitMaxs(maxStack: Int, maxLocals: Int) {
+                        // Safety net: any still-open recording (a NEW String never resolved to a redirect
+                        // ctor) is replayed verbatim before the method closes.
+                        flushRecording()
+                        super.visitMaxs(maxStack, maxLocals)
                     }
                 }
             }

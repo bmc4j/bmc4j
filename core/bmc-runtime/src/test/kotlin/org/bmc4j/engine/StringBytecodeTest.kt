@@ -55,6 +55,115 @@ internal class StringBytecodeTest {
         assertNotRedirected("substring", "(II)Ljava/lang/String;")
     }
 
+    // ---- String-from-chars construction redirects to BmcStrings.ofChar(s) ----
+
+    @Test
+    fun string_valueOf_char_data_redirects_to_BmcStrings_factories() {
+        // String.valueOf(char)/(char[])/(char[],int,int) and copyValueOf materialize a String from char
+        // data; JBMC links them to a nondet string (CProverString.ofCharArray). They must retarget to the
+        // sound BmcStrings factories (SAME descriptor) — ofChar for the single char, ofChars for arrays.
+        assertStaticRedirected("java/lang/String", "valueOf", "(C)Ljava/lang/String;",
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChar(C)Ljava/lang/String;")
+        assertStaticRedirected("java/lang/String", "valueOf", "([C)Ljava/lang/String;",
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([C)Ljava/lang/String;")
+        assertStaticRedirected("java/lang/String", "valueOf", "([CII)Ljava/lang/String;",
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([CII)Ljava/lang/String;")
+        assertStaticRedirected("java/lang/String", "copyValueOf", "([C)Ljava/lang/String;",
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([C)Ljava/lang/String;")
+        assertStaticRedirected("java/lang/Character", "toString", "(C)Ljava/lang/String;",
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChar(C)Ljava/lang/String;")
+    }
+
+    @Test
+    fun new_String_from_char_array_redirects_and_runs_correctly() {
+        // static String f(char[] a) { return new String(a); }  — the NEW;DUP;aload;INVOKESPECIAL
+        // String.<init>([C)V shape. The redirect must DROP the NEW;DUP, emit BmcStrings.ofChars, leave no
+        // dangling uninitialized String (verifiable bytecode), and compute the right content on a real JVM.
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorC", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([C)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>", "([C)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([C)Ljava/lang/String;"),
+                "the constructor must be redirected to BmcStrings.ofChars: $calls")
+        assertFalse(calls.any { it.contains("java/lang/String.<init>") },
+                "the original String.<init>([C)V must be gone: $calls")
+        // Bytecode must load (no dangling uninitialized NEW) and compute correctly on a real JVM.
+        val c = define("CtorC", rewritten)
+        val f = c.getMethod("f", CharArray::class.java)
+        assertEquals("hi", f.invoke(null, charArrayOf('h', 'i')))
+        assertEquals("", f.invoke(null, charArrayOf()))
+    }
+
+    @Test
+    fun new_String_from_char_array_range_redirects_and_runs_correctly() {
+        // static String f(char[] a) { return new String(a, 1, 2); }  — the 3-arg ctor variant.
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorR", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([C)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitInsn(Opcodes.ICONST_1)
+        mv.visitInsn(Opcodes.ICONST_2)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>", "([CII)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofChars([CII)Ljava/lang/String;"),
+                "the 3-arg constructor must be redirected: $calls")
+        val c = define("CtorR", rewritten)
+        val f = c.getMethod("f", CharArray::class.java)
+        assertEquals("el", f.invoke(null, charArrayOf('h', 'e', 'l', 'l', 'o')))
+    }
+
+    @Test
+    fun unrelated_new_String_constructor_is_left_alone_and_runs() {
+        // new String(String) is NOT a from-chars construction — its NEW;DUP must be preserved verbatim,
+        // the ctor untouched, and the class must still load and run (the deferred-replay fallback path).
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CopyC", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "(Ljava/lang/String;)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>",
+                "(Ljava/lang/String;)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.any { it.contains("java/lang/String.<init>(Ljava/lang/String;)V") },
+                "new String(String) must be left as a native constructor: $calls")
+        assertFalse(calls.any { it.contains("BmcStrings.ofChars") },
+                "new String(String) must NOT be redirected to ofChars: $calls")
+        val c = define("CopyC", rewritten)
+        val f = c.getMethod("f", String::class.java)
+        assertEquals("hi", f.invoke(null, "hi"))
+    }
+
     // ---- #18: Object-typed equals() call sites redirect to BmcStrings.objEquals ----
 
     @Test
@@ -311,6 +420,41 @@ internal class StringBytecodeTest {
                     "$name should be redirected to BmcStrings: $calls")
             assertFalse(calls.any { it.contains("java/lang/String.$name") },
                     "original String.$name call must be gone")
+        }
+
+        /** Assert a static `owner.name desc` call rewrites to exactly [expectedCall]. */
+        private fun assertStaticRedirected(owner: String, name: String, desc: String, expectedCall: String) {
+            val calls = methodCalls(StringBytecode.rewriteClass(classCallingStatic(owner, name, desc)))
+            assertTrue(calls.contains(expectedCall),
+                    "$owner.$name$desc should be redirected to $expectedCall: $calls")
+            assertFalse(calls.any { it.contains("$owner.$name") },
+                    "original $owner.$name call must be gone: $calls")
+        }
+
+        /** A class C with a method that makes exactly the given INVOKESTATIC call. Builds the argument
+         *  types from [desc] (char from an int arg, char[] from a ref arg) so the stack is well-formed. */
+        private fun classCallingStatic(owner: String, name: String, desc: String): ByteArray {
+            val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "C", null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "use",
+                    "()Ljava/lang/String;", null, null)
+            mv.visitCode()
+            for (t in org.objectweb.asm.Type.getArgumentTypes(desc)) {
+                when (t.sort) {
+                    org.objectweb.asm.Type.CHAR, org.objectweb.asm.Type.INT -> mv.visitInsn(Opcodes.ICONST_0)
+                    org.objectweb.asm.Type.ARRAY -> {
+                        mv.visitInsn(Opcodes.ICONST_0)
+                        mv.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR)
+                    }
+                    else -> mv.visitInsn(Opcodes.ACONST_NULL)
+                }
+            }
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, owner, name, desc, false)
+            mv.visitInsn(Opcodes.ARETURN)
+            mv.visitMaxs(0, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
         }
 
         private fun assertNotRedirected(name: String, desc: String) {
