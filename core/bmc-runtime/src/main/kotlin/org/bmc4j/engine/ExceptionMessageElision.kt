@@ -132,7 +132,7 @@ internal object ExceptionMessageElision {
     /** Identity folded into the elision mirror's cache key (the rewrite is parameter-free beyond the
      *  Throwable hierarchy of the same classpath, so the content hash + this tag suffice). Bump on any
      *  change to which constructor sites [rewriteClass] elides. */
-    private const val MODE_KEY = "elide-msg-v1"
+    private const val MODE_KEY = "elide-msg-v3"
     private const val CACHE_NAME = "elide-msg"
 
     /** The classpath + decision after the pass. */
@@ -382,208 +382,609 @@ internal object ExceptionMessageElision {
                 return ElidingMethodVisitor(mv, isThrowable)
             }
         }
+        // Read WITH debug (accept(cv, 0)), exactly like the sibling rewrite passes: JBMC's loop / unwinding
+        // analysis is sensitive to the LineNumberTable, so an UNMODIFIED method must keep its debug
+        // byte-for-byte (else an untouched intractable-loop proof's UNKNOWN can flip). The eliding visitor
+        // preserves debug verbatim on every method it does not touch and drops only the (now-inconsistent)
+        // LineNumberTable / LocalVariableTable of the methods it actually rewrites — see [visitMaxs].
         cr.accept(cv, 0)
         return cw.toByteArray()
     }
 
     /**
-     * Deferred-replay rewriter for the `NEW T; DUP; <build message>; INVOKESPECIAL T.<init>(String)V`
-     * shape — the SAME region-buffering discipline as [StringBytecode]'s char-array ctor redirect (see
-     * its `#296` `visitLabel` fix for why a label inside the region must be RECORDED, not abandoned: a
-     * multi-line message build carries a `LineNumberTable` anchor between operand loads, with no stack
-     * effect). From a `NEW <T>` we record subsequent visits; at the matching `<init>(String)` of a
-     * `Throwable` subtype we replay `NEW;DUP` but emit `ACONST_NULL` in place of the recorded message
-     * build, then call the constructor. Any other shape (a branch inside the region, a multi-arg ctor, a
-     * different method call, a second NEW, method end) abandons the buffer to a verbatim replay, so
-     * unrelated code is byte-for-byte unchanged.
+     * Rewriter for the `NEW T; DUP; <build message>; INVOKESPECIAL T.<init>(String)V` shape that ALSO
+     * removes the dead backward slice the elision leaves behind. Two distinct dead regions are dropped:
+     *
+     *  1. **The message-build region** (PR #301): the `<build message>` between `NEW T; DUP` and the
+     *     terminal `<init>(String)` of a `Throwable` subtype — replaced by a single `ACONST_NULL`. This is
+     *     the SAME region-buffering discipline as [StringBytecode]'s char-array ctor redirect (its `#296`
+     *     `visitLabel` fix: a label inside the region is a line-number anchor with no stack effect, so it
+     *     is recorded, not abandoned).
+     *  2. **The dead-local slice** (this extension): when the elided message region read a value from a
+     *     LOCAL that was produced by a PRIOR statement and is read nowhere else, that prior statement is
+     *     now dead — its result has no remaining reader. Its construction is dropped too, so the engine
+     *     never analyses it (the okio `Buffer.readDecimalLong` overflow shape: the message reads
+     *     `buffer.readUtf8()` where `buffer` was built one statement earlier; once the `readUtf8()` is
+     *     elided the whole `buffer` build is dead, but it internally unwinds 465× and sinks the proof
+     *     unless dropped). See [DeadLocalSlicer] for the conservative escape/liveness boundary that keeps
+     *     this sound.
+     *
+     * Implemented as a WHOLE-METHOD buffering pass: every visit is recorded into an ordered [Step] list
+     * (with the structured metadata the slicer needs), then on [visitEnd] the regions are matched and the
+     * dead steps are computed and skipped during a single verbatim replay. Buffering the whole method
+     * (rather than the streaming NEW-rooted window of PR #301) is what lets the dead-local slice reach the
+     * defining statement that PRECEDES the `NEW T` — the streaming form could only see forward of the NEW.
      */
     private class ElidingMethodVisitor(
-            mv: MethodVisitor,
-            private val isThrowable: (String) -> Boolean) : MethodVisitor(Opcodes.ASM9, mv) {
+            private val out: MethodVisitor,
+            private val isThrowable: (String) -> Boolean) : MethodVisitor(Opcodes.ASM9, null) {
 
-        // The pending NEW <type>'s internal name while recording, else null.
-        private var pendingNew: String? = null
-        private var sawDup = false
-        private val recorded = ArrayList<() -> Unit>()
+        /** The whole method, recorded in visit order. */
+        private val steps = ArrayList<Step>()
 
-        private fun reset() {
-            pendingNew = null
-            sawDup = false
-            recorded.clear()
-        }
-
-        /** Replay the buffered NEW (and DUP, if seen) and recorded actions verbatim — the conservative
-         *  fallback for any non-elidable shape. */
-        private fun flush() {
-            val t = pendingNew ?: return
-            val hadDup = sawDup
-            val actions = ArrayList(recorded)
-            reset()
-            super.visitTypeInsn(Opcodes.NEW, t)
-            if (hadDup) {
-                super.visitInsn(Opcodes.DUP)
-            }
-            for (act in actions) {
-                act()
-            }
-        }
+        // ---- recording: every visit becomes a Step, replay-faithful + analysis-tagged ----
 
         override fun visitTypeInsn(op: Int, type: String?) {
-            val pend = pendingNew
-            if (pend != null) {
-                // A nested `NEW <other type>` (e.g. the `new StringBuilder()` that BUILDS the message) is
-                // part of the message-construction region and must be RECORDED so it is dropped with the
-                // rest — it is a balanced sub-construction (its own <init> follows). Only a second `NEW`
-                // of the SAME pending exception type is ambiguous (we can't tell which one the ctor binds
-                // to): replay the first verbatim and restart recording from this one, like StringBytecode.
-                if (op == Opcodes.NEW && type == pend) {
-                    flush()
-                    pendingNew = type
-                    sawDup = false
-                    recorded.clear()
-                    return
-                }
-                recorded.add { super.visitTypeInsn(op, type) }
-                return
-            }
-            if (op == Opcodes.NEW && type != null) {
-                pendingNew = type
-                sawDup = false
-                recorded.clear()
-                return
-            }
-            super.visitTypeInsn(op, type)
+            steps.add(Step(replay = { out.visitTypeInsn(op, type) },
+                    opcode = op, typeOperand = type))
         }
 
         override fun visitInsn(op: Int) {
-            if (pendingNew != null) {
-                if (op == Opcodes.DUP && !sawDup && recorded.isEmpty()) {
-                    sawDup = true // the DUP immediately after NEW: part of the prefix
-                    return
-                }
-                recorded.add { super.visitInsn(op) }
-                return
-            }
-            super.visitInsn(op)
+            steps.add(Step(replay = { out.visitInsn(op) }, opcode = op))
         }
 
         override fun visitIntInsn(op: Int, operand: Int) {
-            if (pendingNew != null) { recorded.add { super.visitIntInsn(op, operand) }; return }
-            super.visitIntInsn(op, operand)
+            steps.add(Step(replay = { out.visitIntInsn(op, operand) }, opcode = op))
         }
 
         override fun visitVarInsn(op: Int, varIdx: Int) {
-            if (pendingNew != null) { recorded.add { super.visitVarInsn(op, varIdx) }; return }
-            super.visitVarInsn(op, varIdx)
+            steps.add(Step(replay = { out.visitVarInsn(op, varIdx) }, opcode = op, localSlot = varIdx))
         }
 
         override fun visitFieldInsn(op: Int, o: String?, nm: String?, d: String?) {
-            if (pendingNew != null) { recorded.add { super.visitFieldInsn(op, o, nm, d) }; return }
-            super.visitFieldInsn(op, o, nm, d)
+            steps.add(Step(replay = { out.visitFieldInsn(op, o, nm, d) }, opcode = op, fieldDesc = d))
         }
 
         override fun visitLdcInsn(value: Any?) {
-            if (pendingNew != null) { recorded.add { super.visitLdcInsn(value) }; return }
-            super.visitLdcInsn(value)
+            // LDC pushes one (two for long/double) value with no side effects.
+            val wide = value is Long || value is Double
+            steps.add(Step(replay = { out.visitLdcInsn(value) }, opcode = Opcodes.LDC, ldcWide = wide))
         }
 
         override fun visitIincInsn(varIdx: Int, increment: Int) {
-            if (pendingNew != null) { recorded.add { super.visitIincInsn(varIdx, increment) }; return }
-            super.visitIincInsn(varIdx, increment)
+            steps.add(Step(replay = { out.visitIincInsn(varIdx, increment) },
+                    opcode = Opcodes.IINC, localSlot = varIdx))
         }
 
         override fun visitJumpInsn(op: Int, label: Label?) {
-            // A branch inside the region is not the simple shape we elide; bail to verbatim replay.
-            flush()
-            super.visitJumpInsn(op, label)
+            steps.add(Step(replay = { out.visitJumpInsn(op, label) }, opcode = op, isBranch = true))
         }
 
         override fun visitLabel(label: Label?) {
-            // A label inside the region is, in practice, only a line-number anchor between operand loads
-            // of a multi-line message build (no stack effect) — RECORD it (replayed before the ctor),
-            // exactly as StringBytecode's #296 fix does. A real control-flow join is already excluded
-            // because visitJumpInsn / the switch visitors flush first, so a recorded label can only be
-            // such a forward anchor.
-            if (pendingNew != null) { recorded.add { super.visitLabel(label) }; return }
-            super.visitLabel(label)
+            steps.add(Step(replay = { out.visitLabel(label) }, isLabel = true, label = label))
         }
 
         override fun visitLineNumber(line: Int, start: Label?) {
-            if (pendingNew != null) { recorded.add { super.visitLineNumber(line, start) }; return }
-            super.visitLineNumber(line, start)
+            // A LineNumberTable anchor: no stack effect (isMeta), and DEBUG (isLine) so a modified method
+            // can drop it — see [visitMaxs]. JBMC's loop/unwinding analysis is sensitive to the
+            // LineNumberTable, so it is preserved verbatim on every method this pass does NOT touch.
+            steps.add(Step(replay = { out.visitLineNumber(line, start) }, isMeta = true, isLine = true))
+        }
+
+        override fun visitFrame(type: Int, nLocal: Int, local: Array<out Any?>?, nStack: Int,
+                                stack: Array<out Any?>?) {
+            steps.add(Step(replay = { out.visitFrame(type, nLocal, local, nStack, stack) },
+                    isFrame = true))
         }
 
         override fun visitMultiANewArrayInsn(d: String?, dims: Int) {
-            if (pendingNew != null) { recorded.add { super.visitMultiANewArrayInsn(d, dims) }; return }
-            super.visitMultiANewArrayInsn(d, dims)
+            steps.add(Step(replay = { out.visitMultiANewArrayInsn(d, dims) },
+                    opcode = Opcodes.MULTIANEWARRAY))
         }
 
         override fun visitTableSwitchInsn(min: Int, max: Int, dflt: Label?, vararg labels: Label?) {
-            flush(); super.visitTableSwitchInsn(min, max, dflt, *labels)
+            steps.add(Step(replay = { out.visitTableSwitchInsn(min, max, dflt, *labels) },
+                    opcode = Opcodes.TABLESWITCH, isBranch = true))
         }
 
         override fun visitLookupSwitchInsn(dflt: Label?, keys: IntArray?, labels: Array<out Label>?) {
-            flush(); super.visitLookupSwitchInsn(dflt, keys, labels)
+            steps.add(Step(replay = { out.visitLookupSwitchInsn(dflt, keys, labels) },
+                    opcode = Opcodes.LOOKUPSWITCH, isBranch = true))
         }
 
         override fun visitInvokeDynamicInsn(name: String?, desc: String?, bsm: org.objectweb.asm.Handle?,
                                             vararg bsmArgs: Any?) {
-            // An indy inside the region (e.g. a makeConcat building the message) is recorded so it is
-            // DROPPED with the rest of the message build if this resolves to an elision; if it resolves to
-            // a non-elision shape, flush replays it verbatim. We can't decide yet, so buffer it.
-            if (pendingNew != null) {
-                recorded.add { super.visitInvokeDynamicInsn(name, desc, bsm, *bsmArgs) }
-                return
-            }
-            super.visitInvokeDynamicInsn(name, desc, bsm, *bsmArgs)
+            val args = bsmArgs.clone()
+            steps.add(Step(replay = { out.visitInvokeDynamicInsn(name, desc, bsm, *args) },
+                    opcode = Opcodes.INVOKEDYNAMIC, methodDesc = desc))
         }
 
         override fun visitMethodInsn(op: Int, mOwner: String?, name: String?, desc: String?,
                                      itf: Boolean) {
-            val t = pendingNew
-            if (t != null
-                    && op == Opcodes.INVOKESPECIAL
-                    && mOwner == t
-                    && name == "<init>"
-                    && desc == "(Ljava/lang/String;)V"
-                    && sawDup
-                    && isThrowable(t)) {
-                // The single-String-arg constructor of the recorded Throwable subtype: replay NEW;DUP,
-                // DROP the recorded message build, push null in its place, then call the ctor. The dropped
-                // region is exactly the message's construction (the ctor's sole operand), so the stack is
-                // [..., T, T] before ACONST_NULL -> [..., T, T, null], which the ctor consumes correctly.
-                reset()
-                super.visitTypeInsn(Opcodes.NEW, t)
-                super.visitInsn(Opcodes.DUP)
-                super.visitInsn(Opcodes.ACONST_NULL)
-                super.visitMethodInsn(Opcodes.INVOKESPECIAL, t, "<init>", "(Ljava/lang/String;)V", false)
-                return
-            }
-            if (t != null) {
-                // A call inside the region that is NOT the terminal `<init>(String)` of the pending
-                // exception. Two cases:
-                //  - The pending exception's OWN constructor with a DIFFERENT descriptor (a multi-arg
-                //    `<init>(String, Throwable)`, a no-arg, …): we can't isolate the message, so abandon
-                //    to a verbatim replay and process this ctor normally.
-                //  - Any other call (the `new StringBuilder().append(..).toString()` that BUILDS the
-                //    message, a helper that formats it): part of the message construction — RECORD it so
-                //    it is dropped with the rest if the terminal `<init>(String)` is reached.
-                if (op == Opcodes.INVOKESPECIAL && mOwner == t && name == "<init>") {
-                    // The pending exception's ctor but not the (String) overload we elide: not our shape.
-                    flush()
-                    super.visitMethodInsn(op, mOwner, name, desc, itf)
-                    return
-                }
-                recorded.add { super.visitMethodInsn(op, mOwner, name, desc, itf) }
-                return
-            }
-            super.visitMethodInsn(op, mOwner, name, desc, itf)
+            steps.add(Step(replay = { out.visitMethodInsn(op, mOwner, name, desc, itf) },
+                    opcode = op, methodOwner = mOwner, methodName = name, methodDesc = desc))
+        }
+
+        override fun visitTryCatchBlock(start: Label?, end: Label?, handler: Label?, type: String?) {
+            // Handlers are method-level metadata, not part of the linear instruction stream; forward
+            // verbatim (the elided/sliced steps are all straight-line, never a handler boundary).
+            out.visitTryCatchBlock(start, end, handler, type)
+        }
+
+        /** Deferred LocalVariableTable entries (ASM visits these after the instructions, before maxs). On
+         *  an UNMODIFIED method they replay verbatim (debug preserved exactly, like the sibling passes); on
+         *  a MODIFIED method they are DROPPED — a slice can remove the store an LVT range starts on, which
+         *  trips JBMC's java_local_variable_table predecessor-map invariant. */
+        private val localVars = ArrayList<() -> Unit>()
+
+        override fun visitLocalVariable(name: String?, desc: String?, sig: String?, start: Label?,
+                                        end: Label?, index: Int) {
+            localVars.add { out.visitLocalVariable(name, desc, sig, start, end, index) }
+        }
+
+        // ---- analysis + emit -------------------------------------------------------------------------
+
+        override fun visitCode() {
+            out.visitCode()
         }
 
         override fun visitMaxs(maxStack: Int, maxLocals: Int) {
-            // Safety net: a NEW never resolved to an elidable ctor is replayed verbatim before close.
-            flush()
-            super.visitMaxs(maxStack, maxLocals)
+            // Removing instructions can only LOWER the real stack/locals high-water mark, so the original
+            // maxs stay a valid (if loose) upper bound — emit them unchanged (the rewrite uses
+            // ClassWriter(0), so nothing recomputes them).
+            val drop = computeDroppedSteps()
+            val modified = drop.removed.isNotEmpty() || drop.replacement.isNotEmpty()
+            for (i in steps.indices) {
+                if (i in drop.removed) {
+                    continue
+                }
+                val s = steps[i]
+                // On a MODIFIED method, drop the LineNumberTable anchors too: a slice can remove the store
+                // an LVT/line range is bounded on, which trips JBMC's local-variable-table invariant. An
+                // UNMODIFIED method replays byte-identically (debug preserved), so JBMC's loop/unwinding
+                // analysis — which is sensitive to the LineNumberTable — is unchanged on every untouched
+                // method.
+                if (modified && s.isLine) {
+                    continue
+                }
+                drop.replacement[i]?.invoke() ?: s.replay()
+            }
+            // LocalVariableTable: replay verbatim on an unmodified method; drop entirely on a modified one
+            // (a dangling range over a removed store is the LVT-invariant hazard above).
+            if (!modified) {
+                for (lv in localVars) {
+                    lv()
+                }
+            }
+            out.visitMaxs(maxStack, maxLocals)
+        }
+
+        override fun visitEnd() {
+            out.visitEnd()
+        }
+
+        /**
+         * The two-phase analysis: (1) match every elidable `NEW T; DUP; <msg>; <init>(String)` region and
+         * mark its message-build steps removed + the ctor's message arg replaced by `ACONST_NULL`; then
+         * (2) hand the elided-region local reads to [DeadLocalSlicer], which marks the now-dead defining
+         * slices removed too. Returns the merged removal set + per-step replacements.
+         */
+        private fun computeDroppedSteps(): Plan {
+            val removed = HashSet<Int>()
+            val replacement = HashMap<Int, () -> Unit>()
+            // Local slots read inside an elided message region (the slicer's roots).
+            val elidedReads = HashSet<Int>()
+            matchRegions(removed, replacement, elidedReads)
+            DeadLocalSlicer(steps).sliceDeadDefs(elidedReads, removed)
+            return Plan(removed, replacement)
+        }
+
+        /**
+         * Phase 1 — find each elidable exception-message region and mark it. A region is the maximal
+         * `NEW T; DUP; <build...>; INVOKESPECIAL T.<init>(Ljava/lang/String;)V` where T resolves to a
+         * `Throwable` subtype, with NO branch / switch / frame / label-that-is-a-join inside the build (the
+         * same conservative shape as PR #301). On a match: the `<build...>` steps are marked removed and
+         * the `<init>` step's emit is REPLACED by `ACONST_NULL; INVOKESPECIAL <init>(String)`. Records each
+         * local slot the build READ into [elidedReads] (the slicer's roots).
+         */
+        private fun matchRegions(removed: MutableSet<Int>, replacement: MutableMap<Int, () -> Unit>,
+                                 elidedReads: MutableSet<Int>) {
+            var i = 0
+            while (i < steps.size) {
+                val start = steps[i]
+                if (start.opcode == Opcodes.NEW && start.typeOperand != null && isThrowable(start.typeOperand)) {
+                    val end = scanRegion(i)
+                    if (end >= 0) {
+                        // Mark the build steps [i+2 .. end-1] removed (NEW at i, DUP at i+1 stay; <init> at
+                        // end is replaced). Record local reads in the build for the slicer.
+                        for (k in (i + 2) until end) {
+                            val s = steps[k]
+                            removed.add(k)
+                            if (s.opcode in LOAD_OPS && s.localSlot >= 0) {
+                                elidedReads.add(s.localSlot)
+                            }
+                        }
+                        val t = start.typeOperand
+                        replacement[end] = {
+                            out.visitInsn(Opcodes.ACONST_NULL)
+                            out.visitMethodInsn(Opcodes.INVOKESPECIAL, t, "<init>",
+                                    "(Ljava/lang/String;)V", false)
+                        }
+                        i = end + 1
+                        continue
+                    }
+                }
+                i++
+            }
+        }
+
+        /**
+         * From a `NEW T` at [newIdx], confirm the elidable shape and return the index of the terminal
+         * `INVOKESPECIAL T.<init>(String)`, or -1 if the region is not the simple elidable form. Requires:
+         * `DUP` immediately after the NEW; the build region contains no branch/switch/frame and no second
+         * `NEW T` (ambiguous) and no other `<init>` of T (a different ctor overload); the region ends at
+         * `T.<init>(Ljava/lang/String;)V`. Labels/line-numbers inside are tolerated (no stack effect).
+         */
+        private fun scanRegion(newIdx: Int): Int {
+            val t = steps[newIdx].typeOperand ?: return -1
+            if (newIdx + 1 >= steps.size || steps[newIdx + 1].opcode != Opcodes.DUP) {
+                return -1
+            }
+            var k = newIdx + 2
+            while (k < steps.size) {
+                val s = steps[k]
+                when {
+                    s.isBranch || s.isFrame -> return -1
+                    s.opcode == Opcodes.NEW && s.typeOperand == t -> return -1 // ambiguous second NEW T
+                    s.opcode == Opcodes.INVOKESPECIAL && s.methodOwner == t && s.methodName == "<init>" -> {
+                        return if (s.methodDesc == "(Ljava/lang/String;)V") k else -1
+                    }
+                    else -> k++
+                }
+            }
+            return -1
+        }
+    }
+
+    /** One recorded method-visit: a faithful [replay] plus the structured tags the dead-local slicer and
+     *  region matcher read. Defaults describe a no-instruction meta visit (label/line/frame). */
+    private class Step(
+            @JvmField val replay: () -> Unit,
+            @JvmField val opcode: Int = -1,
+            @JvmField val localSlot: Int = -1,
+            @JvmField val typeOperand: String? = null,
+            @JvmField val methodOwner: String? = null,
+            @JvmField val methodName: String? = null,
+            @JvmField val methodDesc: String? = null,
+            @JvmField val fieldDesc: String? = null,
+            @JvmField val ldcWide: Boolean = false,
+            @JvmField val isBranch: Boolean = false,
+            @JvmField val isLabel: Boolean = false,
+            @JvmField val isFrame: Boolean = false,
+            @JvmField val isMeta: Boolean = false,
+            @JvmField val isLine: Boolean = false,
+            @JvmField val label: Label? = null)
+
+    /** The computed removals + per-step emit replacements for one method. */
+    private class Plan(
+            @JvmField val removed: Set<Int>,
+            @JvmField val replacement: Map<Int, () -> Unit>)
+
+    /** All xLOAD opcodes (the message-build's reads of a prior-statement local). */
+    private val LOAD_OPS: Set<Int> = setOf(
+            Opcodes.ILOAD, Opcodes.LLOAD, Opcodes.FLOAD, Opcodes.DLOAD, Opcodes.ALOAD)
+
+    /** All xSTORE opcodes (a local's definition). */
+    private val STORE_OPS: Set<Int> = setOf(
+            Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE)
+
+    /**
+     * Removes the **dead backward slice** an elided message leaves behind: a value produced by a prior
+     * straight-line statement, stored to a LOCAL, that the (now-removed) message build was its SOLE reader
+     * of. The motivating case is okio `Buffer.readDecimalLong`'s overflow path — `val buffer =
+     * Buffer().writeDecimalLong(v).writeByte(b)` one statement, `throw NFE("…${buffer.readUtf8()}")` the
+     * next: eliding the message drops `readUtf8()`, leaving `buffer` dead; but `writeDecimalLong` unwinds
+     * 465× and sinks the proof unless `buffer`'s construction is dropped too.
+     *
+     * ## The soundness boundary (fail-safe = KEEP)
+     * A slot's defining statement is dropped ONLY when ALL hold — each check fails toward keeping it:
+     *  - **Dead after elision**: every read of the slot (`xLOAD` / `IINC`) in the WHOLE method lies inside
+     *    a removed message-build region. If any LIVE read remains, the value is still observed — keep.
+     *  - **Single straight-line definition**: the slot has exactly one `xSTORE`, and the run of steps from
+     *    the prior stack-empty point up to that store is BRANCH-FREE (no jump/switch target or source, no
+     *    frame, no label that is a control-flow join). A value merged from multiple paths, or whose build
+     *    spans a loop with its own back-edge, is NOT a simple isolated statement — keep.
+     *  - **Stack-isolated** (net stack delta 0, starting and ending empty): the statement consumes only
+     *    what it itself produced plus pre-existing locals/constants, and leaves exactly the stored value —
+     *    so removing it cannot unbalance the surrounding stack.
+     *  - **Effect-isolated**: the only writes the statement makes are to its own slot and to objects it
+     *    freshly ALLOCATED within itself. Concretely every `INVOKE{VIRTUAL,SPECIAL,INTERFACE}` receiver
+     *    must be a value produced WITHIN the slice (a `NEW` here, or a prior in-slice call's result —
+     *    traced over the operand stack), never a pre-existing local/field; and the statement makes no
+     *    field write, array store, or `INVOKESTATIC` (a static call can mutate global state we can't see).
+     *    This is exactly the freshly-allocated-and-escapes-only-here object: its mutations are unobservable
+     *    once it is dead. Anything that could touch state observable outside the dead sub-object — keep.
+     *
+     * Conservative by construction: an unrecognized shape, an ambiguous def, any possible live escape, or
+     * any stack/effect doubt all fall through to KEEP (the pre-extension behaviour — elide the message but
+     * leave the slice), so the worst case is a missed speed-up, never an unsound drop.
+     */
+    private class DeadLocalSlicer(private val steps: List<Step>) {
+
+        fun sliceDeadDefs(elidedReads: Set<Int>, removed: MutableSet<Int>) {
+            for (slot in elidedReads) {
+                if (!isDeadAfterElision(slot, removed)) {
+                    continue
+                }
+                val storeIdx = soleStoreIndex(slot) ?: continue
+                val sliceStart = statementStart(storeIdx) ?: continue
+                if (sliceStart > storeIdx) {
+                    continue
+                }
+                if (isIsolatedStatement(sliceStart, storeIdx)) {
+                    for (k in sliceStart..storeIdx) {
+                        removed.add(k)
+                    }
+                }
+            }
+        }
+
+        /** True iff EVERY read (`xLOAD`/`IINC`) of [slot] in the method is already in [removed] (i.e. lies
+         *  inside an elided message region). A single surviving read means the value is still observed. */
+        private fun isDeadAfterElision(slot: Int, removed: Set<Int>): Boolean {
+            for (i in steps.indices) {
+                val s = steps[i]
+                val reads = (s.opcode in LOAD_OPS && s.localSlot == slot) ||
+                        (s.opcode == Opcodes.IINC && s.localSlot == slot)
+                if (reads && i !in removed) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        /** The index of the SOLE `xSTORE [slot]`, or null when there are zero or several (a value merged or
+         *  reassigned has no single isolated definition we can drop soundly). `IINC` counts as a write too,
+         *  so a slot updated in place is rejected. */
+        private fun soleStoreIndex(slot: Int): Int? {
+            var found = -1
+            for (i in steps.indices) {
+                val s = steps[i]
+                val writes = (s.opcode in STORE_OPS && s.localSlot == slot) ||
+                        (s.opcode == Opcodes.IINC && s.localSlot == slot)
+                if (writes) {
+                    if (found >= 0) {
+                        return null
+                    }
+                    found = i
+                }
+            }
+            return if (found >= 0) found else null
+        }
+
+        /**
+         * The start index of the straight-line statement ending at [storeIdx]: scan back to the most recent
+         * step at which the operand stack was empty (a statement boundary), tolerating only labels /
+         * line-numbers with no stack effect. Returns null if a branch / switch / frame / a label (a
+         * possible control-flow join) is hit before the stack empties — the build is not a simple
+         * straight-line statement and must be kept.
+         */
+        private fun statementStart(storeIdx: Int): Int? {
+            // The store pops the value it stores (+1 or +2 slots); the statement that produced it must
+            // net-push exactly that. Walk backward summing producers' deltas until they balance the store's
+            // pop at a stack-empty boundary.
+            var balance = -stackDelta(steps[storeIdx]) // slots the store popped (1 for int/ref, 2 for long)
+            if (balance <= 0) {
+                return null
+            }
+            var i = storeIdx - 1
+            while (i >= 0) {
+                val s = steps[i]
+                if (s.isBranch || s.isFrame || s.isLabel) {
+                    // A join/branch inside the would-be statement: not a simple straight-line def.
+                    return null
+                }
+                if (s.isMeta) {
+                    i--
+                    continue
+                }
+                val d = stackDelta(s)
+                if (d == UNMODELED_DELTA) {
+                    return null // an instruction we don't model precisely: keep, fail-safe
+                }
+                balance -= d
+                if (balance == 0) {
+                    return i
+                }
+                if (balance < 0) {
+                    // Stack underflowed within the window — the statement reaches below this point; bail.
+                    return null
+                }
+                i--
+            }
+            return null
+        }
+
+        /**
+         * True iff the statement [start]..[storeIdx] is stack- and effect-isolated per the boundary doc:
+         * net stack delta 0; no field/array write; no INVOKESTATIC; and every method-call receiver is a
+         * value produced WITHIN the slice (a NEW here or a prior in-slice call result), traced over a small
+         * symbolic operand stack of "is this value slice-allocated?" booleans.
+         */
+        private fun isIsolatedStatement(start: Int, storeIdx: Int): Boolean {
+            // Symbolic stack of "value was allocated within this slice" flags.
+            val sliceAllocated = ArrayDeque<Boolean>()
+            var i = start
+            while (i <= storeIdx) {
+                val s = steps[i]
+                if (s.isMeta || s.isLabel) {
+                    i++
+                    continue
+                }
+                when {
+                    // Disallowed effects: any field/array write, or a static call (opaque global effect).
+                    s.opcode in FIELD_WRITE_OPS || s.opcode in ARRAY_STORE_OPS ||
+                            s.opcode == Opcodes.INVOKESTATIC || s.opcode == Opcodes.INVOKEDYNAMIC ->
+                        return false
+                    s.opcode == Opcodes.ATHROW || s.opcode in RETURN_OPS -> return false
+                    else -> {
+                        if (!applyStackEffect(s, sliceAllocated)) {
+                            return false
+                        }
+                    }
+                }
+                i++
+            }
+            // After the store, the slice's operand stack must be empty (balanced statement).
+            return sliceAllocated.isEmpty()
+        }
+
+        /**
+         * Push/pop the slice's symbolic "is slice-allocated?" stack for one step and gate the calls.
+         * Returns false (=> keep the statement) on any shape we don't model precisely or that violates the
+         * receiver rule. Only the opcodes a simple builder/factory statement uses are modelled exactly;
+         * anything else fails safe.
+         */
+        private fun applyStackEffect(s: Step, stack: ArrayDeque<Boolean>): Boolean {
+            when (s.opcode) {
+                Opcodes.NEW -> stack.push(true) // a freshly-allocated object: slice-owned
+                Opcodes.ISTORE, Opcodes.FSTORE, Opcodes.ASTORE -> {
+                    if (stack.isEmpty()) return false
+                    stack.pop() // the terminal store of the produced value (slice slot)
+                }
+                Opcodes.LSTORE, Opcodes.DSTORE -> {
+                    if (stack.size < 2) return false
+                    stack.pop(); stack.pop()
+                }
+                Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD -> stack.push(false) // a pre-existing value
+                Opcodes.LLOAD, Opcodes.DLOAD -> { stack.push(false); stack.push(false) }
+                Opcodes.LDC -> { stack.push(false); if (s.ldcWide) stack.push(false) }
+                Opcodes.BIPUSH, Opcodes.SIPUSH -> stack.push(false)
+                Opcodes.ACONST_NULL, Opcodes.ICONST_M1, Opcodes.ICONST_0, Opcodes.ICONST_1,
+                Opcodes.ICONST_2, Opcodes.ICONST_3, Opcodes.ICONST_4, Opcodes.ICONST_5,
+                Opcodes.FCONST_0, Opcodes.FCONST_1, Opcodes.FCONST_2 -> stack.push(false)
+                Opcodes.LCONST_0, Opcodes.LCONST_1, Opcodes.DCONST_0, Opcodes.DCONST_1 -> {
+                    stack.push(false); stack.push(false)
+                }
+                Opcodes.DUP -> {
+                    if (stack.isEmpty()) return false
+                    stack.push(stack.peek())
+                }
+                Opcodes.POP -> { if (stack.isEmpty()) return false; stack.pop() }
+                Opcodes.I2C, Opcodes.I2B, Opcodes.I2S, Opcodes.I2L, Opcodes.I2F, Opcodes.I2D,
+                Opcodes.INEG, Opcodes.FNEG -> { /* unary, type may widen but we only track 1-slot ints/refs
+                    in builder statements; conservatively treat as keep if it crosses widths */
+                    if (stack.isEmpty()) return false
+                    // pop 1 push 1 — but I2L/I2D widen to 2 slots: model that.
+                    val v = stack.pop()
+                    stack.push(false)
+                    if (s.opcode == Opcodes.I2L || s.opcode == Opcodes.I2D) stack.push(false)
+                    @Suppress("UNUSED_EXPRESSION") v
+                }
+                Opcodes.IADD, Opcodes.ISUB, Opcodes.IMUL, Opcodes.IDIV, Opcodes.IREM,
+                Opcodes.IAND, Opcodes.IOR, Opcodes.IXOR, Opcodes.ISHL, Opcodes.ISHR, Opcodes.IUSHR,
+                Opcodes.FADD, Opcodes.FSUB, Opcodes.FMUL, Opcodes.FDIV, Opcodes.FREM -> {
+                    if (stack.size < 2) return false
+                    stack.pop(); stack.pop(); stack.push(false)
+                }
+                Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE, Opcodes.INVOKESPECIAL -> {
+                    val desc = s.methodDesc ?: return false
+                    val argSlots = argSlotCount(desc)
+                    if (stack.size < argSlots + 1) return false
+                    repeat(argSlots) { stack.pop() } // arguments
+                    val receiverSliceOwned = stack.pop() // the receiver
+                    if (!receiverSliceOwned) {
+                        // The call's receiver is a pre-existing object — a side effect on live state. Keep.
+                        return false
+                    }
+                    // The result (if any) is produced by an in-slice object's method: treat as slice-owned
+                    // so a fluent builder chain (`new B().a().b()`) stays in-slice.
+                    pushReturn(desc, stack, sliceOwned = true)
+                }
+                else -> return false // any opcode we don't model exactly -> keep (fail safe)
+            }
+            return true
+        }
+
+        /** Push the descriptor's return value (0/1/2 slots) onto the symbolic stack with [sliceOwned]. */
+        private fun pushReturn(desc: String, stack: ArrayDeque<Boolean>, sliceOwned: Boolean) {
+            val ret = desc.substring(desc.indexOf(')') + 1)
+            when {
+                ret == "V" -> {}
+                ret == "J" || ret == "D" -> { stack.push(sliceOwned); stack.push(sliceOwned) }
+                else -> stack.push(sliceOwned)
+            }
+        }
+
+        /** Net operand-stack slot delta of one instruction step (meta steps = 0). Only the opcodes a
+         *  simple builder/factory statement uses are needed; anything unmodeled returns a sentinel that
+         *  makes [statementStart] bail (treated via the caller's branch/keep paths). */
+        private fun stackDelta(s: Step): Int {
+            if (s.isMeta || s.isLabel || s.isFrame) return 0
+            return when (s.opcode) {
+                Opcodes.NEW, Opcodes.BIPUSH, Opcodes.SIPUSH, Opcodes.ACONST_NULL,
+                Opcodes.ICONST_M1, Opcodes.ICONST_0, Opcodes.ICONST_1, Opcodes.ICONST_2,
+                Opcodes.ICONST_3, Opcodes.ICONST_4, Opcodes.ICONST_5,
+                Opcodes.FCONST_0, Opcodes.FCONST_1, Opcodes.FCONST_2,
+                Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.ALOAD -> 1
+                Opcodes.LCONST_0, Opcodes.LCONST_1, Opcodes.DCONST_0, Opcodes.DCONST_1,
+                Opcodes.LLOAD, Opcodes.DLOAD -> 2
+                Opcodes.LDC -> if (s.ldcWide) 2 else 1
+                Opcodes.DUP -> 1
+                Opcodes.POP -> -1
+                Opcodes.ISTORE, Opcodes.FSTORE, Opcodes.ASTORE -> -1
+                Opcodes.LSTORE, Opcodes.DSTORE -> -2
+                Opcodes.IINC -> 0
+                Opcodes.I2C, Opcodes.I2B, Opcodes.I2S, Opcodes.INEG, Opcodes.FNEG -> 0
+                Opcodes.I2L, Opcodes.I2D -> 1
+                Opcodes.IADD, Opcodes.ISUB, Opcodes.IMUL, Opcodes.IDIV, Opcodes.IREM,
+                Opcodes.IAND, Opcodes.IOR, Opcodes.IXOR, Opcodes.ISHL, Opcodes.ISHR, Opcodes.IUSHR,
+                Opcodes.FADD, Opcodes.FSUB, Opcodes.FMUL, Opcodes.FDIV, Opcodes.FREM -> -1
+                Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE, Opcodes.INVOKESPECIAL ->
+                    returnSlots(s.methodDesc) - argSlotCount(s.methodDesc) - 1 // -receiver
+                Opcodes.INVOKESTATIC, Opcodes.INVOKEDYNAMIC ->
+                    returnSlots(s.methodDesc) - argSlotCount(s.methodDesc)
+                else -> UNMODELED_DELTA
+            }
+        }
+
+        private fun returnSlots(desc: String?): Int {
+            if (desc == null) return 0
+            val ret = desc.substring(desc.indexOf(')') + 1)
+            return when {
+                ret == "V" -> 0
+                ret == "J" || ret == "D" -> 2
+                else -> 1
+            }
+        }
+
+        /** Total slots the descriptor's arguments occupy (long/double = 2). */
+        private fun argSlotCount(desc: String?): Int {
+            if (desc == null) return 0
+            var slots = 0
+            var i = desc.indexOf('(') + 1
+            while (i < desc.length && desc[i] != ')') {
+                when (desc[i]) {
+                    'J', 'D' -> { slots += 2; i++ }
+                    'L' -> { slots += 1; i = desc.indexOf(';', i) + 1 }
+                    '[' -> { i++; while (i < desc.length && desc[i] == '[') i++
+                             if (i < desc.length && desc[i] == 'L') i = desc.indexOf(';', i) + 1 else i++
+                             slots += 1 }
+                    else -> { slots += 1; i++ }
+                }
+            }
+            return slots
+        }
+
+        private companion object {
+            const val UNMODELED_DELTA = Int.MIN_VALUE / 4
+            val FIELD_WRITE_OPS = setOf(Opcodes.PUTFIELD, Opcodes.PUTSTATIC)
+            val ARRAY_STORE_OPS = setOf(
+                    Opcodes.IASTORE, Opcodes.LASTORE, Opcodes.FASTORE, Opcodes.DASTORE,
+                    Opcodes.AASTORE, Opcodes.BASTORE, Opcodes.CASTORE, Opcodes.SASTORE)
+            val RETURN_OPS = setOf(
+                    Opcodes.IRETURN, Opcodes.LRETURN, Opcodes.FRETURN, Opcodes.DRETURN,
+                    Opcodes.ARETURN, Opcodes.RETURN)
         }
     }
 

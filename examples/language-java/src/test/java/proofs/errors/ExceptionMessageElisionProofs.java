@@ -1,6 +1,7 @@
 package proofs.errors;
 
 import example.errors.Parser;
+import example.errors.SlowMessage;
 import example.errors.Validator;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
@@ -45,6 +46,26 @@ class ExceptionMessageElisionProofs {
         } catch (IllegalArgumentException e) {
             // The overflow branch fires for large n. We observe NOTHING about the exception — not its
             // message — so eliding the (expensive) message construction is sound here.
+        }
+    }
+
+    // EFFECTIVENESS, the DEAD-LOCAL case: renderOrThrow builds its expensive message material in a PRIOR
+    // statement, stored in a LOCAL (new Materializer().grow(n).grow(n)), then throws a message that reads
+    // materializer.render(). Eliding the message removes render(), leaving the materializer local dead —
+    // but its construction (the grow loops the engine unwinds) is a separate statement, so eliding only the
+    // message EXPRESSION (Parser's case) would still encode it and the proof would stay UNKNOWN:TIMEOUT.
+    // The backward dead-code slice drops the now-dead fresh-object chain too, so the engine never unwinds
+    // grow and the proof VERIFIES. Without elision (-Dbmc.removeExceptionMessages=off) the grow unwind
+    // poisons it -> UNKNOWN. This is the slice's UNKNOWN->VERIFIED flip.
+    @BmcProof
+    void dead_local_message_material_is_sliced_away() {
+        int n = Bmc.anyInt(0, 2_000_000);
+        try {
+            int r = SlowMessage.renderOrThrow(n);
+            Bmc.check(r == 2 * n); // reached only for n <= 1_000_000
+        } catch (IllegalArgumentException e) {
+            // The overflow branch fires for large n; we observe NOTHING about the exception, so eliding
+            // the message — and slicing away the dead materializer that fed only it — is sound here.
         }
     }
 
