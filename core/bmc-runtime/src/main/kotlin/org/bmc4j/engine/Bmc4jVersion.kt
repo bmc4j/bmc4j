@@ -89,8 +89,17 @@ object Bmc4jVersion {
      * the DISCOVERED bound (e.g. 5) rather than 16, so a pre-r14 entry keyed at the old fixed bound must
      * not satisfy an r14 lookup. Bumping re-derives every cached verdict on the soundness-safe side
      * (over-invalidation). Explicit `unwind = N` proofs are unaffected (their key already carried N).
+     * r15 plugs a coverage hole in the `new String(char[])` / `new String(char[],int,int)` construction
+     * redirect: the deferred-replay buffer abandoned the rewrite whenever a LABEL + line number fell
+     * between the array-arg load and the ctor (the LineNumberTable anchor kotlinc/javac place inside a
+     * multi-line construction expression), because [StringBytecode]'s visitLabel flushed the recording.
+     * Such a label has no stack effect, so it is now RECORDED (replayed in place) rather than flushed —
+     * a real control-flow join is still excluded by the jump/switch flushes. Affected char[] constructions
+     * now redirect to the sound BmcStrings.ofChars where they previously fell back to JBMC's nondet native
+     * construction, so their rewritten bytecode CHANGES (re-mirror) and the verdict cache (keyed on this
+     * IDENTITY) must miss and re-derive.
      */
-    private const val SEMANTICS_REVISION = "r14"
+    private const val SEMANTICS_REVISION = "r15"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField
