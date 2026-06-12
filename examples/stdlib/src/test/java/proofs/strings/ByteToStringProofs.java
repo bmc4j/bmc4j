@@ -82,44 +82,26 @@ class ByteToStringProofs {
     // A well-formed 2-byte UTF-8 sequence (lead 110xxxxx, cont 10xxxxxx) for a code point in
     // [0x80, 0x7FF] decodes to ONE char equal to that code point. The full domain [0x80, 0x7FF]
     // (1920 code points) is intrinsically too heavy for the musl engine as a single proof (it blows
-    // up mid-solve), so it is DOMAIN-SPLIT below: the four bands tile [0x80, 0x7FF] exactly
-    // (contiguous, no gaps, no overlaps), so the conjunction proves the identical full-range fact.
-    // The negative control covers the whole range in one shot (refutation finds its counterexample
-    // cheaply).
+    // up mid-solve), so this ONE proof is DOMAIN-SPLIT via the built-in Bmc.domainSplit/Bmc.slice
+    // API: the overall condition declares the claimed [0x80, 0x7FF] domain and four slices tile it
+    // exactly (contiguous, no gaps). bmc4j expands this into five derived runs — four SLICE runs
+    // (the body re-verified under each band) and one COVER run that PROVES the bands leave no gap.
 
-    // Shared body: prove the 2-byte decode over the band [lo, hi].
-    private static void utf8_two_byte_decodes_band(int lo, int hi) {
-        int cp = Bmc.anyInt(lo, hi);
+    // PASS (domain-split over [0x80, 0x7FF] in four bands).
+    @BmcProof(unwind = 8)
+    void utf8_two_byte_sequence_decodes_to_codepoint() {
+        int cp = Bmc.anyInt();
+        Bmc.domainSplit(cp >= 0x80 && cp <= 0x7FF); // the claimed full domain
+        Bmc.slice(cp >= 0x080 && cp <= 0x27F);
+        Bmc.slice(cp >= 0x280 && cp <= 0x47F);
+        Bmc.slice(cp >= 0x480 && cp <= 0x67F);
+        Bmc.slice(cp >= 0x680 && cp <= 0x7FF); // the four bands tile [0x80, 0x7FF]; the COVER run proves no gap
         byte lead = (byte) (0xC0 | (cp >> 6));
         byte cont = (byte) (0x80 | (cp & 0x3F));
         byte[] data = { lead, cont };
         String s = new String(data, StandardCharsets.UTF_8);
         Bmc.check(s.length() == 1);
         Bmc.check(s.charAt(0) == (char) cp);
-    }
-
-    // PASS (band 1/4): code points 0x080..0x27F.
-    @BmcProof(unwind = 8)
-    void utf8_two_byte_decodes_codepoint_0x080_0x27F() {
-        utf8_two_byte_decodes_band(0x080, 0x27F);
-    }
-
-    // PASS (band 2/4): code points 0x280..0x47F.
-    @BmcProof(unwind = 8)
-    void utf8_two_byte_decodes_codepoint_0x280_0x47F() {
-        utf8_two_byte_decodes_band(0x280, 0x47F);
-    }
-
-    // PASS (band 3/4): code points 0x480..0x67F.
-    @BmcProof(unwind = 8)
-    void utf8_two_byte_decodes_codepoint_0x480_0x67F() {
-        utf8_two_byte_decodes_band(0x480, 0x67F);
-    }
-
-    // PASS (band 4/4): code points 0x680..0x7FF. Together bands 1..4 tile [0x80, 0x7FF].
-    @BmcProof(unwind = 8)
-    void utf8_two_byte_decodes_codepoint_0x680_0x7FF() {
-        utf8_two_byte_decodes_band(0x680, 0x7FF);
     }
 
     // NEGATIVE CONTROL: a false claim about the 2-byte decode (wrong code point) must refute.
