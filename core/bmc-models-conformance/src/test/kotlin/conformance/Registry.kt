@@ -43,6 +43,15 @@ val COVERED: Set<String> = setOf(
     // (model proofs proofs.primitives.FloatDoubleArraysLaws + differential conformance.OptionalArraysConformanceTest).
     // java.util.Random — the "prove for every random outcome" model (RandomLaws model proofs).
     "java.util.Random",
+    // Environmental-value models (java.lang.Thread / java.lang.Runtime) — the identity/processor-count
+    // accessors a single-threaded proof reaches as fixed environment values, so a nondet thread id /
+    // processor count stops poisoning otherwise-deterministic logic (the okio.SegmentPool symbolic-bucket
+    // false-REFUTED). Each models only currentThread()/getId()/threadId() resp. getRuntime()/
+    // availableProcessors() (constants); the rest of each class's surface is its class-level @BmcModelTail.
+    // Covered at class level here via the model proofs in proofs.environment (EnvironmentBucketLaws); kept
+    // OUT of PER_MEMBER_ENFORCED — their full lifecycle/scheduling resp. process/memory-control surface is
+    // the open, deliberately-unmodeled remainder absorbed (loud) by the tail, not a whole-surface model.
+    "java.lang.Thread", "java.lang.Runtime",
     "java.util.concurrent.atomic.AtomicInteger", "java.util.concurrent.atomic.AtomicLong",
     "java.util.concurrent.atomic.AtomicBoolean", "java.util.concurrent.atomic.AtomicReference",
     "java.util.concurrent.CompletableFuture", "java.util.concurrent.ConcurrentHashMap",
