@@ -12,8 +12,10 @@ import org.bmc4j.Verdict;
  * Charset)}) to a nondet string, so these
  * went UNKNOWN. bmc4j now redirects the {@code new String(byte[], ...)} constructors to a sound
  * {@code BmcStrings.ofBytes} decoder (see {@code StringBytecode} / {@code BmcStrings}). The proofs
- * read {@code length()}/{@code charAt(i)} back over symbolic bytes; each PASS has a {@code REFUTED}
- * negative control proving the verify is real, not a vacuous/false VERIFY.
+ * read {@code length()}/{@code charAt(i)} back over symbolic bytes, and compare a decoded String to a
+ * literal via {@code String.equals} (the exact op that escaped to native {@code CProverString.equals}
+ * before the redirect); each PASS has a {@code REFUTED} negative control proving the verify is real,
+ * not a vacuous/false VERIFY.
  *
  * <p>Lengths are tiny on purpose — symbolic length / the decode loop drive proof cost.
  */
@@ -113,5 +115,34 @@ class ByteToStringProofs {
         byte[] data = { lead, cont };
         String s = new String(data, StandardCharsets.UTF_8);
         Bmc.check(s.charAt(0) == (char) (cp ^ 1));   // refuted: flipped low bit
+    }
+
+    // --- the equality escape: a decoded String compared to a literal -----------------------------
+    //
+    // The reported escape was a comparison of a byte-materialized String to a literal (e.g. okio
+    // `path.name == "b"`, where `name` is `nameBytes().utf8()` — a byte->String materialization).
+    // Before the byte ctor redirect, the decoded String was nondet and the comparison reached JBMC's
+    // native String.equals (org.cprover.CProverString.equals) as a link-failure stub (UNKNOWN). With
+    // the byte ctor redirected, the decoded String content is sound and the comparison routes through
+    // the sound BmcStrings.equals shim. The charAt/length proofs above already pin the content; these
+    // pin the content composed with String.equals — the exact op that escaped.
+
+    // PASS: a single decoded byte equal to 'b' compared to the literal "b" via String.equals.
+    @BmcProof(maxStringLength = 1, unwind = 6)
+    void utf8_decoded_string_equals_literal() {
+        byte b = Bmc.anyByte();
+        Bmc.assume(b == (byte) 'b');
+        String s = new String(new byte[] { b }, StandardCharsets.UTF_8);
+        Bmc.check(s.equals("b"));   // routes through BmcStrings.equals, not native CProverString.equals
+    }
+
+    // NEGATIVE CONTROL: a decoded ASCII byte that is NOT 'b' must NOT equal "b" (no false VERIFY).
+    @BmcProof(maxStringLength = 1, unwind = 6, expect = Verdict.REFUTED)
+    void utf8_decoded_string_equals_literal_refutes() {
+        byte b = Bmc.anyByte();
+        Bmc.assume(b >= 0 && b <= 0x7F);
+        Bmc.assume(b != (byte) 'b');
+        String s = new String(new byte[] { b }, StandardCharsets.UTF_8);
+        Bmc.check(s.equals("b"));   // refuted: an ASCII byte other than 'b' decodes to a non-"b" String
     }
 }
