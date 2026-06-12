@@ -132,7 +132,7 @@ internal object ExceptionMessageElision {
     /** Identity folded into the elision mirror's cache key (the rewrite is parameter-free beyond the
      *  Throwable hierarchy of the same classpath, so the content hash + this tag suffice). Bump on any
      *  change to which constructor sites [rewriteClass] elides. */
-    private const val MODE_KEY = "elide-msg-v2"
+    private const val MODE_KEY = "elide-msg-v3"
     private const val CACHE_NAME = "elide-msg"
 
     /** The classpath + decision after the pass. */
@@ -382,13 +382,12 @@ internal object ExceptionMessageElision {
                 return ElidingMethodVisitor(mv, isThrowable)
             }
         }
-        // SKIP_DEBUG so the LocalVariableTable / LineNumberTable are NOT read into the stream. The
-        // dead-local slice removes whole statements (including the store an LVT range starts on); a stale
-        // LVT range whose start label lands on the new first instruction trips JBMC's
-        // java_local_variable_table predecessor-map invariant ("current bytecode shall not be the first").
-        // Debug info is purely cosmetic on the analysis mirror — counterexample source mapping uses the
-        // ORIGINAL classes, not this mirror — so dropping it is sound and sidesteps the hazard entirely.
-        cr.accept(cv, ClassReader.SKIP_DEBUG)
+        // Read WITH debug (accept(cv, 0)), exactly like the sibling rewrite passes: JBMC's loop / unwinding
+        // analysis is sensitive to the LineNumberTable, so an UNMODIFIED method must keep its debug
+        // byte-for-byte (else an untouched intractable-loop proof's UNKNOWN can flip). The eliding visitor
+        // preserves debug verbatim on every method it does not touch and drops only the (now-inconsistent)
+        // LineNumberTable / LocalVariableTable of the methods it actually rewrites — see [visitMaxs].
+        cr.accept(cv, 0)
         return cw.toByteArray()
     }
 
@@ -466,7 +465,10 @@ internal object ExceptionMessageElision {
         }
 
         override fun visitLineNumber(line: Int, start: Label?) {
-            steps.add(Step(replay = { out.visitLineNumber(line, start) }, isMeta = true))
+            // A LineNumberTable anchor: no stack effect (isMeta), and DEBUG (isLine) so a modified method
+            // can drop it — see [visitMaxs]. JBMC's loop/unwinding analysis is sensitive to the
+            // LineNumberTable, so it is preserved verbatim on every method this pass does NOT touch.
+            steps.add(Step(replay = { out.visitLineNumber(line, start) }, isMeta = true, isLine = true))
         }
 
         override fun visitFrame(type: Int, nLocal: Int, local: Array<out Any?>?, nStack: Int,
@@ -509,12 +511,15 @@ internal object ExceptionMessageElision {
             out.visitTryCatchBlock(start, end, handler, type)
         }
 
+        /** Deferred LocalVariableTable entries (ASM visits these after the instructions, before maxs). On
+         *  an UNMODIFIED method they replay verbatim (debug preserved exactly, like the sibling passes); on
+         *  a MODIFIED method they are DROPPED — a slice can remove the store an LVT range starts on, which
+         *  trips JBMC's java_local_variable_table predecessor-map invariant. */
+        private val localVars = ArrayList<() -> Unit>()
+
         override fun visitLocalVariable(name: String?, desc: String?, sig: String?, start: Label?,
                                         end: Label?, index: Int) {
-            // Debug LVT only (SKIP_DEBUG is not set by every caller); forward verbatim — a dropped store's
-            // stale LVT range is harmless (debug info, never analysed) and removing instructions can only
-            // shrink, never invalidate, the label-bounded ranges.
-            out.visitLocalVariable(name, desc, sig, start, end, index)
+            localVars.add { out.visitLocalVariable(name, desc, sig, start, end, index) }
         }
 
         // ---- analysis + emit -------------------------------------------------------------------------
@@ -528,9 +533,27 @@ internal object ExceptionMessageElision {
             // maxs stay a valid (if loose) upper bound — emit them unchanged (the rewrite uses
             // ClassWriter(0), so nothing recomputes them).
             val drop = computeDroppedSteps()
+            val modified = drop.removed.isNotEmpty() || drop.replacement.isNotEmpty()
             for (i in steps.indices) {
-                if (i !in drop.removed) {
-                    drop.replacement[i]?.invoke() ?: steps[i].replay()
+                if (i in drop.removed) {
+                    continue
+                }
+                val s = steps[i]
+                // On a MODIFIED method, drop the LineNumberTable anchors too: a slice can remove the store
+                // an LVT/line range is bounded on, which trips JBMC's local-variable-table invariant. An
+                // UNMODIFIED method replays byte-identically (debug preserved), so JBMC's loop/unwinding
+                // analysis — which is sensitive to the LineNumberTable — is unchanged on every untouched
+                // method.
+                if (modified && s.isLine) {
+                    continue
+                }
+                drop.replacement[i]?.invoke() ?: s.replay()
+            }
+            // LocalVariableTable: replay verbatim on an unmodified method; drop entirely on a modified one
+            // (a dangling range over a removed store is the LVT-invariant hazard above).
+            if (!modified) {
+                for (lv in localVars) {
+                    lv()
                 }
             }
             out.visitMaxs(maxStack, maxLocals)
@@ -639,6 +662,7 @@ internal object ExceptionMessageElision {
             @JvmField val isLabel: Boolean = false,
             @JvmField val isFrame: Boolean = false,
             @JvmField val isMeta: Boolean = false,
+            @JvmField val isLine: Boolean = false,
             @JvmField val label: Label? = null)
 
     /** The computed removals + per-step emit replacements for one method. */
