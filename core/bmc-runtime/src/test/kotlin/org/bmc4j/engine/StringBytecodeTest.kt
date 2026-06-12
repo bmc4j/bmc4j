@@ -199,6 +199,131 @@ internal class StringBytecodeTest {
         assertEquals("hi", f.invoke(null, charArrayOf('h', 'i')))
     }
 
+    // ---- byte[] -> String charset-decode constructor redirect ----
+
+    @Test
+    fun new_String_from_bytes_with_charset_getstatic_redirects_to_monomorphic_decoder() {
+        // static String f(byte[] a) { return new String(a, StandardCharsets.UTF_8); } and the
+        // ISO_8859_1 variant. The recognized Charset getstatic that feeds the ctor must be DROPPED and
+        // the call retargeted to the monomorphic BmcStrings.ofBytesUtf8 / ofBytesLatin1 (no Charset
+        // operand) — JBMC can't reason about a Charset object at runtime. Must run correctly on a real JVM.
+        for ((field, factory) in listOf(
+                "UTF_8" to "ofBytesUtf8", "ISO_8859_1" to "ofBytesLatin1", "US_ASCII" to "ofBytesLatin1")) {
+            val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorB$field", null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                    "([B)Ljava/lang/String;", null, null)
+            mv.visitCode()
+            mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+            mv.visitInsn(Opcodes.DUP)
+            mv.visitVarInsn(Opcodes.ALOAD, 0)
+            mv.visitFieldInsn(Opcodes.GETSTATIC, "java/nio/charset/StandardCharsets", field,
+                    "Ljava/nio/charset/Charset;")
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>",
+                    "([BLjava/nio/charset/Charset;)V", false)
+            mv.visitInsn(Opcodes.ARETURN)
+            mv.visitMaxs(0, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+
+            val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+            val calls = methodCalls(rewritten)
+            assertTrue(calls.contains(
+                    "INVOKESTATIC org/bmc4j/engine/BmcStrings.$factory([B)Ljava/lang/String;"),
+                    "$field must redirect to BmcStrings.$factory (charset getstatic dropped): $calls")
+            assertFalse(calls.any { it.contains("java/lang/String.<init>") },
+                    "the native byte[] ctor must be gone for $field: $calls")
+            assertFalse(calls.any { it.contains("StandardCharsets") },
+                    "the recognized charset getstatic must be dropped for $field: $calls")
+            val c = define("CtorB$field", rewritten)
+            val res = c.getMethod("f", ByteArray::class.java).invoke(null, byteArrayOf('h'.code.toByte(), 'i'.code.toByte()))
+            assertEquals("hi", res, "$field decode of ASCII bytes")
+        }
+    }
+
+    @Test
+    fun new_String_from_bytes_default_charset_redirects_to_ofBytes() {
+        // static String f(byte[] a) { return new String(a); } — no Charset operand. Redirect to the
+        // descriptor-matched BmcStrings.ofBytes([B) (default-charset UTF-8 decode).
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorBDef", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([B)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>", "([B)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val rewritten = StringBytecode.rewriteClass(cw.toByteArray())
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofBytes([B)Ljava/lang/String;"),
+                "new String(byte[]) must redirect to BmcStrings.ofBytes([B): $calls")
+        val c = define("CtorBDef", rewritten)
+        val res = c.getMethod("f", ByteArray::class.java).invoke(null, byteArrayOf('o'.code.toByte(), 'k'.code.toByte()))
+        assertEquals("ok", res)
+    }
+
+    @Test
+    fun new_String_from_bytes_with_kotlin_charsets_getstatic_redirects() {
+        // A Kotlin charset-decode site loads kotlin/text/Charsets.UTF_8 (not StandardCharsets). That getstatic must be
+        // recognized and dropped too, routing to the monomorphic UTF-8 decoder. (Bytecode-shape only —
+        // we don't load it, since kotlin/text/Charsets need not be on the test runtime classpath.)
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorBKt", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([B)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitFieldInsn(Opcodes.GETSTATIC, "kotlin/text/Charsets", "UTF_8", "Ljava/nio/charset/Charset;")
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>",
+                "([BLjava/nio/charset/Charset;)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val calls = methodCalls(StringBytecode.rewriteClass(cw.toByteArray()))
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofBytesUtf8([B)Ljava/lang/String;"),
+                "kotlin/text/Charsets.UTF_8 must redirect to BmcStrings.ofBytesUtf8: $calls")
+        assertFalse(calls.any { it.contains("kotlin/text/Charsets") },
+                "the kotlin Charsets getstatic must be dropped: $calls")
+    }
+
+    @Test
+    fun new_String_from_bytes_with_unrecognized_charset_keeps_generic_ofBytes() {
+        // A Charset from a VARIABLE (not a recognized getstatic singleton) can't be resolved at rewrite
+        // time, so the redirect must keep the generic BmcStrings.ofBytes(...,Charset) — which falls
+        // through to a nondet (conservatively UNKNOWN) result, never a false VERIFY. The Charset operand
+        // stays on the stack (the factory takes it).
+        val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "CtorBVar", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f",
+                "([BLjava/nio/charset/Charset;)Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/String")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitVarInsn(Opcodes.ALOAD, 1)                  // charset from a parameter, not a getstatic
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/String", "<init>",
+                "([BLjava/nio/charset/Charset;)V", false)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+
+        val calls = methodCalls(StringBytecode.rewriteClass(cw.toByteArray()))
+        assertTrue(calls.contains(
+                "INVOKESTATIC org/bmc4j/engine/BmcStrings.ofBytes([BLjava/nio/charset/Charset;)Ljava/lang/String;"),
+                "an unrecognized (variable) charset must keep the generic ofBytes(...,Charset): $calls")
+    }
+
     // ---- #18: Object-typed equals() call sites redirect to BmcStrings.objEquals ----
 
     @Test
