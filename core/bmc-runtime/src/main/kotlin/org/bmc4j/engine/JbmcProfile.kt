@@ -115,104 +115,67 @@ class JbmcProfile private constructor(
      * self-labels what run it describes).
      */
     fun render(entryFunction: String, verdict: String): String {
-        val sb = StringBuilder()
-        val tag = "  bmc4j[profile]:"
-        sb.append(tag).append(' ').append(entryFunction).append(" -> ").append(verdict)
-                .append(" - performance breakdown (bmc4j prep + engine)\n")
-        sb.append(tag).append("   legend: ").append(LBL_BMC4J).append("/").append(LBL_HARNESS)
-                .append(" = bmc4j-measured wall-clock, ").append(LBL_ENGINE)
-                .append(" = jbmc-reported\n")
+        // Each timed row: "<label> <name>  <secs>", padded so the seconds column lines up.
+        fun timed(label: String, name: String, secs: Double) =
+                "       $label ${name.padEnd(24)}  ${formatSeconds(secs)}"
 
         // bmc4j's OWN pipeline (HARNESS-measured): classpath mirroring + the bytecode rewrites we run
         // before jbmc launches. Shown FIRST so the breakdown reads as (our prep) + (engine).
-        val pipelineTotal = pipelineSeconds.values.sum()
-        sb.append(tag).append("   bmc4j pipeline (harness-measured - our prep before the engine):\n")
-        if (pipelineSeconds.isEmpty()) {
-            sb.append(tag).append("       (no pipeline passes timed")
-                    .append(" - fully pre-mirrored, or not measured)\n")
-        } else {
-            for ((pass, secs) in pipelineSeconds) {
-                sb.append(tag).append("       ").append(LBL_BMC4J).append(' ')
-                        .append(pass.padEnd(24)).append("  ").append(formatSeconds(secs)).append('\n')
-            }
-            sb.append(tag).append("       ").append("total".padEnd(24 + LBL_BMC4J.length + 1))
-                    .append("  ").append(formatSeconds(pipelineTotal)).append('\n')
+        val pipelineRows = if (pipelineSeconds.isEmpty())
+            "       (no pipeline passes timed - fully pre-mirrored, or not measured)"
+        else
+            pipelineSeconds.entries.joinToString("\n") { timed(LBL_BMC4J, it.key, it.value) } +
+                    "\n       ${"total".padEnd(24 + LBL_BMC4J.length + 1)}  ${formatSeconds(pipelineSeconds.values.sum())}"
+
+        // Where the ENGINE spent wall-time. On a symex-timeout (no engine-reported phase line) the whole
+        // launch->kill wall-clock is attributed to a DERIVED Symex entry (symex IS the unwinding phase):
+        // the engine was 100% in symbolic execution. Flagged harness-measured + incomplete.
+        val engineRows = when {
+            phaseSeconds.isNotEmpty() ->
+                phaseSeconds.entries.joinToString("\n") { timed(LBL_ENGINE, it.key, it.value) }
+            derivedSymexSeconds() != null ->
+                timed(LBL_HARNESS, "Symex (incomplete)", derivedSymexSeconds()!!) +
+                        "\n       (the engine reported no completed phase; it was killed inside symbolic" +
+                        " execution, so the whole engine wall-clock above is symex - DERIVED by the" +
+                        " harness, not reported by jbmc)"
+            else ->
+                "       (no engine phase timings captured" +
+                        if (reachedSat) ")" else " - did not reach the solver)"
+        }
+        // The engine's total wall-clock (harness-measured) frames the engine-reported phase times (which
+        // can sum to less than the wall-clock: load/teardown the phases don't name).
+        val engineWallRow = engineWallSeconds?.let { "\n" + timed(LBL_HARNESS, "engine wall-clock", it) } ?: ""
+        val satRow = "       reached SAT/SMT solver: ${if (reachedSat) "YES" else "NO"}" +
+                if (reachedSat) ""
+                else "  (time was spent BEFORE solving - i.e. in symbolic execution / formula construction, not the solver)"
+
+        // Top unwound methods / recursion firings (the hot method).
+        fun methodRows(header: String, counts: List<MethodCount>, showMore: Boolean) =
+                if (counts.isEmpty()) "" else
+                    "   $header\n" + counts.take(TOP_N).joinToString("\n") { "       ${it.method}  x${it.count}" } +
+                            if (showMore && counts.size > TOP_N) "\n       (+ ${counts.size - TOP_N} more)" else ""
+
+        val stats = buildList {
+            programSteps?.let { add("program expression: $it steps") }
+            if (vccGenerated != null || vccRemaining != null)
+                add("VCCs: ${vccGenerated ?: "?"} generated, ${vccRemaining ?: "?"} remaining")
+            if (satVariables != null || satClauses != null)
+                add("SAT: ${satVariables ?: "?"} variables, ${satClauses ?: "?"} clauses")
         }
 
-        // Where the ENGINE spent wall-time + whether the solver was reached (the headline signal).
-        sb.append(tag).append("   engine phases (where jbmc spent wall-time):\n")
-        if (phaseSeconds.isEmpty()) {
-            // No engine-reported phase line. On a symex-timeout, attribute the engine's whole
-            // launch->kill wall-clock to a DERIVED Symex entry (symex IS the unwinding phase): the
-            // engine was 100% in symbolic execution. Clearly flagged harness-measured + incomplete.
-            val derived = derivedSymexSeconds()
-            if (derived != null) {
-                sb.append(tag).append("       ").append(LBL_HARNESS).append(' ')
-                        .append("Symex (incomplete)".padEnd(24)).append("  ")
-                        .append(formatSeconds(derived)).append('\n')
-                sb.append(tag).append("       (the engine reported no completed phase; it was killed")
-                        .append(" inside symbolic execution, so the whole engine wall-clock above is")
-                        .append(" symex - DERIVED by the harness, not reported by jbmc)\n")
-            } else {
-                sb.append(tag).append("       (no engine phase timings captured")
-                        .append(if (reachedSat) ")\n" else " - did not reach the solver)\n")
-            }
-        } else {
-            for ((phase, secs) in phaseSeconds) {
-                sb.append(tag).append("       ").append(LBL_ENGINE).append(' ')
-                        .append(phase.padEnd(24)).append("  ").append(formatSeconds(secs)).append('\n')
-            }
-        }
-        // The engine's total wall-clock (harness-measured) whenever we have it — frames the engine-reported
-        // phase times (which can sum to less than the wall-clock: load/teardown the phases don't name).
-        engineWallSeconds?.let {
-            sb.append(tag).append("       ").append(LBL_HARNESS).append(' ')
-                    .append("engine wall-clock".padEnd(24)).append("  ").append(formatSeconds(it))
-                    .append('\n')
-        }
-        sb.append(tag).append("       reached SAT/SMT solver: ").append(if (reachedSat) "YES" else "NO")
-        if (!reachedSat) {
-            sb.append("  (time was spent BEFORE solving - i.e. in symbolic execution /")
-                    .append(" formula construction, not the solver)")
-        }
-        sb.append('\n')
-
-        // Top unwound methods (the hot method).
-        if (unwindingByMethod.isNotEmpty()) {
-            sb.append(tag).append("   top unwound loops (method x iterations):\n")
-            for (mc in unwindingByMethod.take(TOP_N)) {
-                sb.append(tag).append("       ").append(mc.method).append("  x").append(mc.count)
-                        .append('\n')
-            }
-            if (unwindingByMethod.size > TOP_N) {
-                sb.append(tag).append("       (+ ").append(unwindingByMethod.size - TOP_N)
-                        .append(" more)\n")
-            }
-        }
-        if (recursionByMethod.isNotEmpty()) {
-            sb.append(tag).append("   recursion unwinding (method x firings):\n")
-            for (mc in recursionByMethod.take(TOP_N)) {
-                sb.append(tag).append("       ").append(mc.method).append("  x").append(mc.count)
-                        .append('\n')
-            }
-        }
-
-        // Formula size.
-        val stats = mutableListOf<String>()
-        programSteps?.let { stats.add("program expression: $it steps") }
-        if (vccGenerated != null || vccRemaining != null) {
-            stats.add("VCCs: ${vccGenerated ?: "?"} generated, ${vccRemaining ?: "?"} remaining")
-        }
-        if (satVariables != null || satClauses != null) {
-            stats.add("SAT: ${satVariables ?: "?"} variables, ${satClauses ?: "?"} clauses")
-        }
-        if (stats.isNotEmpty()) {
-            sb.append(tag).append("   formula size:\n")
-            for (s in stats) {
-                sb.append(tag).append("       ").append(s).append('\n')
-            }
-        }
-        return sb.toString().trimEnd('\n')
+        // Assemble the sections, drop the empty ones, then stamp every line with the grep-able tag.
+        val tag = "  bmc4j[profile]:"
+        return listOf(
+                " $entryFunction -> $verdict - performance breakdown (bmc4j prep + engine)",
+                "   legend: $LBL_BMC4J/$LBL_HARNESS = bmc4j-measured wall-clock, $LBL_ENGINE = jbmc-reported",
+                "   bmc4j pipeline (harness-measured - our prep before the engine):\n$pipelineRows",
+                "   engine phases (where jbmc spent wall-time):\n$engineRows$engineWallRow\n$satRow",
+                methodRows("top unwound loops (method x iterations):", unwindingByMethod, showMore = true),
+                methodRows("recursion unwinding (method x firings):", recursionByMethod, showMore = false),
+                if (stats.isEmpty()) "" else "   formula size:\n" + stats.joinToString("\n") { "       $it" },
+        ).filter { it.isNotEmpty() }
+                .joinToString("\n")
+                .lineSequence().joinToString("\n") { "$tag$it" }
     }
 
     private fun formatSeconds(secs: Double): String = when {
