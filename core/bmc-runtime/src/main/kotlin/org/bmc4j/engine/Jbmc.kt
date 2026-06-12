@@ -3,7 +3,9 @@ package org.bmc4j.engine
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -33,7 +35,10 @@ class Jbmc(private val executable: String) {
         return exec(command, entryFunction, timeoutSeconds, userClasspath)
     }
 
-    /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor). */
+    /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
+     *  Used for STDERR only, which is tiny; STDOUT (which can reach hundreds of MB on a heavy
+     *  `--verbosity 10 --trace` proof) is spilled to a temp file by [FileGobbler] instead, never
+     *  buffered in heap. */
     private class StreamGobbler(private val input: InputStream) : Thread("bmc-jbmc-gobbler") {
 
         @Volatile
@@ -52,6 +57,71 @@ class Jbmc(private val executable: String) {
         }
 
         fun text(): String = text
+    }
+
+    /**
+     * Drains jbmc's STDOUT to a temp [file] on its own thread, STREAMING it through a bounded buffer
+     * instead of buffering the whole (possibly hundreds-of-MB `--verbosity 10 --trace`) output in heap
+     * as one `String` — the latent OOM this fixes. The parser ([JbmcOutputParser.parse] taking a
+     * `File`) then reads the spill incrementally, materializing only what it needs; the timeout / crash
+     * paths read a bounded head+tail for their error message (see [headTail]). The file is deleted by
+     * the caller (`execOnce`'s `finally`).
+     */
+    private class FileGobbler(private val input: InputStream, val file: File) :
+            Thread("bmc-jbmc-gobbler") {
+
+        init {
+            isDaemon = true
+        }
+
+        override fun run() {
+            try {
+                file.outputStream().buffered().use { out -> input.copyTo(out, COPY_BUFFER) }
+            } catch (e: IOException) {
+                // Stream closed by a kill mid-read — keep whatever was spilled so far (possibly empty).
+            }
+        }
+
+        /** A bounded head+tail of the spilled output for a timeout / engine-crash diagnostic message —
+         *  read with a random-access seek so we never pull the whole (possibly huge) file into heap. */
+        fun headTail(): String = headTail(file)
+
+        companion object {
+            private const val COPY_BUFFER = 1 shl 16 // 64 KiB streaming buffer; heap stays bounded
+
+            /** Bounded head+tail of [file] (UTF-8, best-effort) for an error message. Empty if missing. */
+            fun headTail(file: File): String {
+                val len = try {
+                    if (file.isFile) file.length() else return ""
+                } catch (e: IOException) {
+                    return ""
+                }
+                if (len == 0L) {
+                    return ""
+                }
+                val side = DIAG_SIDE
+                return try {
+                    if (len <= 2L * side) {
+                        String(file.readBytes(), StandardCharsets.UTF_8)
+                    } else {
+                        val head = file.inputStream().use { ins ->
+                            val b = ByteArray(side); val n = ins.read(b)
+                            if (n <= 0) "" else String(b, 0, n, StandardCharsets.UTF_8)
+                        }
+                        val tail = RandomAccessFile(file, "r").use { raf ->
+                            raf.seek(len - side)
+                            val b = ByteArray(side); raf.readFully(b)
+                            String(b, StandardCharsets.UTF_8)
+                        }
+                        "$head\n...\n$tail"
+                    }
+                } catch (e: IOException) {
+                    ""
+                }
+            }
+
+            private const val DIAG_SIDE = 800
+        }
     }
 
     companion object {
@@ -284,13 +354,17 @@ class Jbmc(private val executable: String) {
             pb.redirectErrorStream(false)
             applySolverPath(pb) // so jbmc's --z3 (etc.) finds the solver even if it's not on global PATH
             var p: Process? = null
+            // jbmc's stdout is SPILLED to this temp file as it streams, never buffered whole in heap (the
+            // latent-OOM fix); the parser reads it incrementally and we delete it in `finally`.
+            val outFile = Files.createTempFile("bmc-jbmc-out", ".json").toFile()
             try {
                 p = pb.start()
                 RUNNING.add(p)
                 // Drain both streams on background threads so a full pipe buffer can't deadlock the
                 // process while we're blocked in waitFor(timeout) (a single-threaded readAllBytes would
                 // also ignore the timeout entirely — it blocks until EOF, i.e. until the process exits).
-                val out = StreamGobbler(p.inputStream)
+                // STDOUT spills to a temp file (it can be hundreds of MB); STDERR stays in heap (tiny).
+                val out = FileGobbler(p.inputStream, outFile)
                 val err = StreamGobbler(p.errorStream)
                 out.start()
                 err.start()
@@ -308,7 +382,9 @@ class Jbmc(private val executable: String) {
                     p.waitFor() // reap so exitValue/streams settle
                     out.join()
                     err.join()
-                    return JbmcResult.unknownTimeout("timed out after ${timeoutSeconds}s", out.text())
+                    // A bounded head+tail of the spill is enough to diagnose a timeout — never the whole
+                    // (possibly huge) output.
+                    return JbmcResult.unknownTimeout("timed out after ${timeoutSeconds}s", out.headTail())
                 }
                 out.join()
                 err.join()
@@ -317,11 +393,15 @@ class Jbmc(private val executable: String) {
                     // Engine error (solver gave up / crashed / bad invocation). Undecided, not refuted:
                     // there's no counterexample, so report UNKNOWN rather than a refutation. The detail
                     // (exit code + stderr) is folded into the message for actionable diagnosis. Flagged
-                    // as a CRASH structurally so exec() retries it once.
+                    // as a CRASH structurally so exec() retries it once. The stdout detail/rawOutput is a
+                    // bounded head+tail of the spill, not the whole stream.
+                    val outHeadTail = out.headTail()
                     return JbmcResult.unknownEngineCrash(
-                            engineErrorReason(command, exit, err.text(), out.text()), out.text())
+                            engineErrorReason(command, exit, err.text(), outHeadTail), outHeadTail)
                 }
-                return JbmcOutputParser.parse(out.text(), entryFunction, userClasspath)
+                // STREAM-parse straight from the spill file: only the verdict element + opaque-symbol
+                // STATUS-MESSAGEs are materialized; the flood is read and discarded (heap stays bounded).
+                return JbmcOutputParser.parse(outFile, entryFunction, userClasspath)
             } catch (e: IOException) {
                 throw IllegalStateException(
                         "Could not start JBMC process: " + command.joinToString(" "), e)
@@ -337,6 +417,11 @@ class Jbmc(private val executable: String) {
                     if (p.isAlive) {
                         killTree(p)
                     }
+                }
+                try {
+                    Files.deleteIfExists(outFile.toPath()) // never leak the (possibly large) spill file
+                } catch (ignored: IOException) {
+                    outFile.deleteOnExit() // best effort: clean up at JVM exit if the unlink raced
                 }
             }
         }

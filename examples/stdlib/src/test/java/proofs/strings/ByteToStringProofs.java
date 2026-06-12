@@ -104,59 +104,6 @@ class ByteToStringProofs {
         Bmc.check(s.charAt(0) == (char) cp);
     }
 
-    // ===== TEMPORARY DIAGNOSTIC PROBES (delete after) =========================================
-
-    // PROBE A: range vs decode. Tiny 2-value band, NO domainSplit, unwind=8, same decode+checks.
-    // VERIFIES => heaviness is the RANGE. PARSE_FAILURE => heaviness is the DECODE FORMULA.
-    @BmcProof(unwind = 8)
-    void probe_a_tiny_band_unwind8() {
-        int cp = Bmc.anyInt(0x80, 0x81);
-        byte lead = (byte) (0xC0 | (cp >> 6));
-        byte cont = (byte) (0x80 | (cp & 0x3F));
-        byte[] data = { lead, cont };
-        String s = new String(data, StandardCharsets.UTF_8);
-        Bmc.check(s.length() == 1);
-        Bmc.check(s.charAt(0) == (char) cp);
-    }
-
-    // PROBE B1: full range, no split, unwind=4.
-    @BmcProof(unwind = 4)
-    void probe_b1_full_range_unwind4() {
-        int cp = Bmc.anyInt(0x80, 0x7FF);
-        byte lead = (byte) (0xC0 | (cp >> 6));
-        byte cont = (byte) (0x80 | (cp & 0x3F));
-        byte[] data = { lead, cont };
-        String s = new String(data, StandardCharsets.UTF_8);
-        Bmc.check(s.length() == 1);
-        Bmc.check(s.charAt(0) == (char) cp);
-    }
-
-    // PROBE B2: full range, no split, unwind=2.
-    @BmcProof(unwind = 2)
-    void probe_b2_full_range_unwind2() {
-        int cp = Bmc.anyInt(0x80, 0x7FF);
-        byte lead = (byte) (0xC0 | (cp >> 6));
-        byte cont = (byte) (0x80 | (cp & 0x3F));
-        byte[] data = { lead, cont };
-        String s = new String(data, StandardCharsets.UTF_8);
-        Bmc.check(s.length() == 1);
-        Bmc.check(s.charAt(0) == (char) cp);
-    }
-
-    // PROBE C: tiny band, unwind=2. If A crashes but this verifies, low-unwind rescues the decode.
-    @BmcProof(unwind = 2)
-    void probe_c_tiny_band_unwind2() {
-        int cp = Bmc.anyInt(0x80, 0x81);
-        byte lead = (byte) (0xC0 | (cp >> 6));
-        byte cont = (byte) (0x80 | (cp & 0x3F));
-        byte[] data = { lead, cont };
-        String s = new String(data, StandardCharsets.UTF_8);
-        Bmc.check(s.length() == 1);
-        Bmc.check(s.charAt(0) == (char) cp);
-    }
-
-    // ===== END TEMPORARY DIAGNOSTIC PROBES ====================================================
-
     // NEGATIVE CONTROL: a false claim about the 2-byte decode (wrong code point) must refute.
     @BmcProof(unwind = 8, expect = Verdict.REFUTED)
     void utf8_two_byte_false_codepoint_refutes() {

@@ -3,6 +3,11 @@ package org.bmc4j.engine
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
+import java.io.File
+import java.io.RandomAccessFile
+import java.nio.charset.StandardCharsets
 import java.util.ArrayDeque
 
 /**
@@ -13,6 +18,20 @@ import java.util.ArrayDeque
  * location, reconstruct the active call stack from the trace's
  * `function-call`/`function-return` steps, and pull out the symbolic
  * input assignments that constitute the counterexample.
+ *
+ * A `--verbosity 10 --trace` run over a heavy string proof emits HUNDREDS of MB of
+ * STATUS-MESSAGE / trace JSON. Buffering all of it as one in-heap `String` (then a full gson
+ * tree) exhausts the test JVM under concurrent runs (the latent OOM). The production entry point
+ * therefore STREAMS the engine's stdout from a temp [File] ([parse] taking a `File`): it walks the
+ * top-level `--json-ui` array element-by-element with gson's incremental [JsonReader] and
+ * materializes ONLY the elements bmc4j actually needs —
+ *   - the single message object carrying the `result` array (verdict + counterexample traces), and
+ *   - the STATUS-MESSAGE objects whose `messageText` carries the opaque-symbol stub marker
+ *     ([OPAQUE_MARKER]) —
+ * discarding the STATUS-MESSAGE flood as it streams. Peak heap is thus bounded to the kept set
+ * regardless of total output size, while EVERY fact the old whole-tree parser extracted is
+ * preserved (the kept elements are exactly the ones the harvesters read). The in-heap `String`
+ * entry point ([parse] taking a `String`) is retained verbatim for the pure-parser unit tests.
  */
 object JbmcOutputParser {
 
@@ -30,10 +49,100 @@ object JbmcOutputParser {
             // mid-write) instead of reading only "could not parse".
             return JbmcResult.unknownParse(parseFailureReason(json), json)
         }
+        return parseRoot(root, json, entryFunctionFqn, userClasspath)
+    }
+
+    /**
+     * STREAMING production entry point: parse the engine's `--json-ui` output straight from the temp
+     * [file] the gobbler spilled it to, WITHOUT ever buffering the whole document in heap (the fix for
+     * the latent OOM on a high-output proof). Walks the top-level array with gson's incremental
+     * [JsonReader] via [streamRelevantElements], keeping only the verdict element and the opaque-symbol
+     * STATUS-MESSAGEs — so the rest of the (possibly hundreds-of-MB) STATUS-MESSAGE / trace flood is
+     * read and discarded, never retained. The retained `rawOutput` is a BOUNDED diagnostic summary
+     * ([boundedRawSummary]) rather than the full output, so the result object can't re-introduce the
+     * heap blow-up either. Verdict-neutral: the filtered element set is exactly what every harvester
+     * and the verdict logic read, so the verdict is byte-identical to the whole-tree parse.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun parse(file: File, entryFunctionFqn: String?, userClasspath: String? = null): JbmcResult {
+        val root: JsonArray = try {
+            streamRelevantElements(file)
+        } catch (e: RuntimeException) {
+            return JbmcResult.unknownParse(parseFailureReason(file), boundedRawSummary(file))
+        } catch (e: java.io.IOException) {
+            return JbmcResult.unknownParse(parseFailureReason(file), boundedRawSummary(file))
+        }
+        return parseRoot(root, boundedRawSummary(file), entryFunctionFqn, userClasspath)
+    }
+
+    /**
+     * Walk the top-level `--json-ui` JSON array in [file] with gson's incremental [JsonReader],
+     * materializing ONLY the elements bmc4j needs into a SMALL in-heap array and discarding everything
+     * else as it streams (so the STATUS-MESSAGE / trace flood never lands in heap all at once):
+     *
+     *   - the message object carrying the `result` array — the verdict + every counterexample trace
+     *     (markers, violations, unwinding firings, unmodelled-sentinel / stub_ignored_arg* / no-body
+     *     traces). It is materialized whole (its traces are bounded — they are the actual properties,
+     *     not the verbosity flood). The LAST `result`-bearing object wins, matching the whole-tree
+     *     parser's "last assignment wins" loop in [parseVerdict] / the harvesters.
+     *   - every object carrying a `messageText` that contains the opaque-symbol [OPAQUE_MARKER] — the
+     *     nondet-stub footnote source [harvestStubs] reads. (A non-marker STATUS-MESSAGE is discarded.)
+     *
+     * Each top-level element is read with [JsonParser.parseReader], which consumes exactly ONE value
+     * from the stream and leaves the reader positioned at the next — so only one element is in heap at
+     * a time before it is kept or dropped. Throws if the stream isn't a JSON array (caller maps that to
+     * a PARSE_FAILURE, identical to the String path's classification).
+     */
+    private fun streamRelevantElements(file: File): JsonArray {
+        val kept = JsonArray()
+        var result: JsonObject? = null
+        file.inputStream().buffered().use { raw ->
+            JsonReader(raw.reader(StandardCharsets.UTF_8)).use { reader ->
+                reader.isLenient = true
+                if (reader.peek() != JsonToken.BEGIN_ARRAY) {
+                    // Not the --json-ui array (empty/garbage/truncated head) — mirror the String path's
+                    // "could not parse into the expected array" by throwing; the caller builds the
+                    // self-diagnosing PARSE_FAILURE from a bounded file head/tail.
+                    throw IllegalStateException("jbmc output is not a JSON array")
+                }
+                reader.beginArray()
+                while (reader.hasNext()) {
+                    // Read ONE top-level element; only this element is in heap before keep/discard.
+                    val element = JsonParser.parseReader(reader)
+                    if (!element.isJsonObject) {
+                        continue
+                    }
+                    val obj = element.asJsonObject
+                    if (obj.has("result")) {
+                        result = obj // last result-bearing object wins (as in the whole-tree loops)
+                        continue
+                    }
+                    val text = str(obj, "messageText")
+                    if (text != null && text.contains(OPAQUE_MARKER)) {
+                        kept.add(obj) // an opaque-symbol stub footnote — keep for harvestStubs
+                    }
+                    // Every other STATUS-MESSAGE (the verbosity flood) is discarded here.
+                }
+                reader.endArray()
+            }
+        }
+        // Append the verdict element LAST so a "last result wins" reader still sees it; the verdict
+        // logic and harvesters scan the whole array, so ordering relative to the stub messages is
+        // irrelevant to correctness.
+        result?.let { kept.add(it) }
+        return kept
+    }
+
+    /** Run the verdict + harvest pipeline over an already-materialized [root] array, attaching the
+     *  [rawOutput] to carry into the result. Shared by the in-heap [String] and streaming [File] entry
+     *  points so both extract exactly the same facts. */
+    private fun parseRoot(root: JsonArray, rawOutput: String?, entryFunctionFqn: String?,
+                          userClasspath: String?): JbmcResult {
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
         // computed verdict below via withStubbedMethods (a no-op when empty).
-        return parseVerdict(root, json, entryFunctionFqn, WitnessUserCode.from(userClasspath))
+        return parseVerdict(root, rawOutput, entryFunctionFqn, WitnessUserCode.from(userClasspath))
                 .withStubbedMethods(harvestStubs(root))
                 .withUnmodelledMembers(harvestUnmodelledMembers(root))
                 // linkFailureStubs carries BOTH fingerprints of a present-class nondet stub a refutation
@@ -45,7 +154,58 @@ object JbmcOutputParser {
                 .withLinkFailureStubs(harvestLinkFailureStubMembers(root) + harvestNoBodyCalleeMembers(root))
     }
 
-    private fun parseVerdict(root: JsonArray, json: String, entryFunctionFqn: String?,
+    /**
+     * A BOUNDED diagnostic stand-in for the full (possibly hundreds-of-MB) engine output, stored as the
+     * result's `rawOutput` on the streaming path so the result object can't itself re-introduce the heap
+     * blow-up. Keeps the file's total size plus its bounded head and tail — enough to diagnose a later
+     * issue without retaining the whole stream. Best-effort; never throws (an unreadable file yields a
+     * short note).
+     */
+    private fun boundedRawSummary(file: File): String = try {
+        val len = file.length()
+        if (len == 0L) {
+            "<jbmc output: empty>"
+        } else {
+            val head = readBoundedHead(file, RAW_SUMMARY_SIDE)
+            val tail = readBoundedTail(file, RAW_SUMMARY_SIDE)
+            buildString {
+                append("<jbmc output: ").append(len).append(" bytes; head> ")
+                append(head.replace('\n', ' ').replace('\r', ' ').trim())
+                append(" <tail> ").append(tail.replace('\n', ' ').replace('\r', ' ').trim())
+            }
+        }
+    } catch (e: java.io.IOException) {
+        "<jbmc output: unreadable (${e.message})>"
+    }
+
+    /** Bytes of the head and of the tail kept in [boundedRawSummary]. */
+    private const val RAW_SUMMARY_SIDE = 400
+
+    /** First [maxBytes] bytes of [file] decoded as UTF-8 (best-effort). */
+    private fun readBoundedHead(file: File, maxBytes: Int): String =
+            file.inputStream().use { ins ->
+                val buf = ByteArray(maxBytes)
+                val n = ins.read(buf)
+                if (n <= 0) "" else String(buf, 0, n, StandardCharsets.UTF_8)
+            }
+
+    /** Last [maxBytes] bytes of [file] decoded as UTF-8 (best-effort), via a random-access seek so we
+     *  never read the whole file. */
+    private fun readBoundedTail(file: File, maxBytes: Int): String {
+        val len = file.length()
+        if (len <= 0L) {
+            return ""
+        }
+        val take = minOf(len, maxBytes.toLong()).toInt()
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(len - take)
+            val buf = ByteArray(take)
+            raf.readFully(buf)
+            return String(buf, StandardCharsets.UTF_8)
+        }
+    }
+
+    private fun parseVerdict(root: JsonArray, json: String?, entryFunctionFqn: String?,
                             userCode: WitnessUserCode?): JbmcResult {
         var result: JsonArray? = null
         for (e in root) {
@@ -168,6 +328,52 @@ object JbmcOutputParser {
             val tail = if (len > PARSE_TAIL_MAX) text.substring(len - PARSE_TAIL_MAX) else text
             append("; last ").append(tail.length).append(" chars: ")
                     .append(tail.replace('\n', ' ').replace('\r', ' ').trim())
+        }
+    }
+
+    /**
+     * The streaming-path analogue of [parseFailureReason]: build the self-diagnosing PARSE_FAILURE
+     * reason from a temp [file] WITHOUT reading the whole (possibly hundreds-of-MB) output into heap. We
+     * classify off the file's bounded HEAD (empty / starts-like-JSON / garbage) and report the true
+     * total length, then append a bounded TAIL via a random-access seek — the same diagnosis the String
+     * path produces, kept O(bounded) in heap so a parse failure on a huge output can't itself OOM.
+     */
+    internal fun parseFailureReason(file: File): String = buildString {
+        append("JBMC produced output bmc4j could not parse")
+        val len = try {
+            file.length()
+        } catch (e: java.io.IOException) {
+            -1L
+        }
+        val head = try {
+            readBoundedHead(file, PARSE_TAIL_MAX).trim()
+        } catch (e: java.io.IOException) {
+            ""
+        }
+        val classification = when {
+            len == 0L -> "empty (no stdout captured — engine wrote nothing, or it was killed " +
+                    "before the first byte)"
+            (head.startsWith("[") || head.startsWith("{")) ->
+                // We can't cheaply tell truncated from malformed without the tail; the tail below carries
+                // the distinguishing detail. Name it as a delimited-but-unparseable array/object.
+                "delimited like the --json-ui array/object but did not parse (truncated mid-write, an " +
+                        "OOM-kill, or interleaved engine stderr bleed — see the tail)"
+            head.isEmpty() && len < 0L -> "unreadable (could not open the spill file)"
+            else -> "non-JSON garbage (does not begin like the --json-ui array/object — engine " +
+                    "stderr on stdout, or a wrapper banner)"
+        }
+        append("; classification: ").append(classification)
+        append("; total length: ").append(if (len >= 0) len.toString() else "?").append(" bytes")
+        if (len > 0) {
+            val tail = try {
+                readBoundedTail(file, PARSE_TAIL_MAX)
+            } catch (e: java.io.IOException) {
+                ""
+            }
+            if (tail.isNotEmpty()) {
+                append("; last ").append(tail.length).append(" chars: ")
+                        .append(tail.replace('\n', ' ').replace('\r', ' ').trim())
+            }
         }
     }
 
