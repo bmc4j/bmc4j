@@ -45,7 +45,12 @@ class JbmcBackend : VerificationBackend {
 
     override fun verify(request: BmcRequest): JbmcResult {
         val jbmcPath = resolveJbmc()
-        val classpath = prepareClasspath(request, jbmcPath)
+        // @BmcProfile: time bmc4j's OWN pre-engine pipeline (the classpath/bytecode prep below) so the
+        // breakdown reads as (our prep) + (engine), never just the engine. Allocated only when profiling
+        // is on, so the normal path pays nothing; threaded into the engine run so the parsed profile can
+        // surface these harness-measured timings alongside jbmc's engine-reported phases.
+        val timing = if (request.profile) PipelineTiming() else null
+        val classpath = prepareClasspath(request, jbmcPath, timing)
         // Hold one JVM-wide jbmc permit for the lifetime of the engine process. This is the single
         // chokepoint that bounds TOTAL concurrent jbmc processes to the configured parallelism, whether
         // they come from independent @BmcProof methods (already concurrency-limited by the JUnit pool)
@@ -65,7 +70,10 @@ class JbmcBackend : VerificationBackend {
                     // @BmcProfile: when on, the driver parses a per-stage performance breakdown from the
                     // verbose stream it already captures and attaches it to the result (additive; the
                     // verdict is unchanged).
-                    request.profile)
+                    request.profile,
+                    // The bmc4j-pipeline timings collected above + the request, so the driver can fold our
+                    // harness-measured prep phases (and the engine wall-clock it measures) into the profile.
+                    timing?.snapshot())
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a
@@ -103,8 +111,16 @@ class JbmcBackend : VerificationBackend {
          *  only the per-proof tail (contracts, domain split, purity audit, model slice) runs in-JVM. */
         const val GRADLE_MIRROR_PROP = "bmc.gradleMirrorDir"
 
-        /** All the JBMC-specific classpath preparation (contracts, bytecode rewrites, model jars). */
-        fun prepareClasspath(request: BmcRequest, jbmcPath: String): String {
+        /** All the JBMC-specific classpath preparation (contracts, bytecode rewrites, model jars). When
+         *  [timing] is non-null (a `@BmcProfile` proof), each substantial pass is wrapped in a wall-clock
+         *  so the profile can show where bmc4j's own prep time went, distinct from the engine's. The work
+         *  itself is byte-for-byte identical with or without timing — the wrapper is transparent. */
+        fun prepareClasspath(request: BmcRequest, jbmcPath: String,
+                             timing: PipelineTiming? = null): String {
+            // Time [body] under [label] when profiling, else run it directly (zero overhead off the
+            // profiled path). Inline-ish helper so each pass is a one-line `t("label") { ... }` wrap.
+            fun <T> t(label: String, body: () -> T): T =
+                    if (timing != null) timing.time(label, body) else body()
             // If the Gradle plugin pre-mirrored the analysis classpath, substitute each covered entry for
             // its already-rewritten counterpart and run the HOISTABLE passes on the rest IN-JVM. The mirror
             // task takes the consumer's own compiled output AND the bmcModel output as inputs too, so on a
@@ -144,14 +160,17 @@ class JbmcBackend : VerificationBackend {
             }
             val analysisClasspath =
                     if (preMirrored) {
-                        hoistableWithGradleMirror(request.classpath, Path.of(mirrorDir))
+                        // Pre-mirrored: substitute each covered entry for its already-rewritten mirror
+                        // (cheap, mostly path bookkeeping) — labelled `mirror`. Any uncovered entry is
+                        // rewritten in-JVM inside here (the rare fallback).
+                        t("mirror") { hoistableWithGradleMirror(request.classpath, Path.of(mirrorDir)) }
                     } else {
                         // No usable plugin mirror: the whole classpath gets the hoistable passes in-JVM below.
                         request.classpath
                     }
             // Method contracts: rewrite contracted call sites to their replace-stubs; a
             // generated enforce proof is excluded as a caller so it sees the real body (modular enforce).
-            var classpath = applyContracts(request, analysisClasspath)
+            var classpath = t("contracts") { applyContracts(request, analysisClasspath) }
             // Fold the consumer's own src/bmcModel output into the SAME classpath the rewrite chain runs
             // over, so a user-authored model is rewritten exactly like the proof/test classes (String
             // content ops -> BmcStrings, concat / record / typeSwitch / lambda invokedynamic desugared,
@@ -172,9 +191,10 @@ class JbmcBackend : VerificationBackend {
                 // already-rewritten mirror; an uncovered entry (fallback) is rewritten in-JVM. With no
                 // plugin mirror, run the hoistable passes on it directly. Either way it ends up
                 // rewritten exactly once.
-                val foldedUserModels =
-                        if (preMirrored) hoistableWithGradleMirror(userModels, Path.of(mirrorDir))
-                        else applyHoistablePasses(userModels)
+                val foldedUserModels = t("user-models") {
+                    if (preMirrored) hoistableWithGradleMirror(userModels, Path.of(mirrorDir))
+                    else applyHoistablePasses(userModels)
+                }
                 classpath = foldedUserModels + File.pathSeparator + classpath
                 userModelEntries = foldedUserModels.split(File.pathSeparator).count { it.isNotEmpty() }
             }
@@ -189,7 +209,7 @@ class JbmcBackend : VerificationBackend {
             // unchanged. Its verdict-relevant values are also folded into the verdict-cache key
             // (VerdictCache.resolvedConfig), which over-invalidates on any config change.
             if (!preMirrored) {
-                classpath = applyHoistablePasses(classpath)
+                classpath = applyHoistablePasses(classpath, timing)
             }
             // Domain split: when this request is ONE derived run of a domainSplit proof, rewrite the
             // entry method's domainSplit/slice markers for that run — a slice's injected assume, or the
@@ -198,8 +218,10 @@ class JbmcBackend : VerificationBackend {
             // (domainSplitRun == null).
             val splitRun = request.domainSplitRun
             if (splitRun != null) {
-                classpath = DomainSplitBytecode.rewrite(
+                classpath = t("domain-split") {
+                    DomainSplitBytecode.rewrite(
                         classpath, request.entryClass, entryMethodName(request.entryFunction), splitRun)
+                }
                 // The cover run injects a NEW return into the entry method AFTER the (hoisted) Reachability
                 // pass ran, so that injected return carries no vacuity marker yet. Re-run Reachability here
                 // — AFTER the split rewrite — so the injected return gets its marker. Reachability is
@@ -207,7 +229,7 @@ class JbmcBackend : VerificationBackend {
                 // `return`), so re-running over the already-marked entry only catches the freshly-injected
                 // one. Scoped to the split case: an ordinary proof's returns were all marked by the hoisted
                 // pass, so no in-JVM Reachability scan is paid for the common (non-split) proof.
-                classpath = ReachabilityBytecode.rewrite(classpath)
+                classpath = t("domain-split") { ReachabilityBytecode.rewrite(classpath) }
             }
             // Add the bundled Kotlin models (clean Intrinsics / coroutine runtime); harmless for Java.
             // It must sit AFTER the consumer's user models so a user model still shadows first: the user
@@ -233,9 +255,11 @@ class JbmcBackend : VerificationBackend {
             // sites) so an impure contract fails exactly the proofs that would unsoundly reuse it, not
             // every proof in the module. A no-op without contracts.
             val manifest = ContractManifest.readFromClasspath(request.classpath)
-            ContractPurityAudit.auditRelevant(
-                    manifest, request.entryClass, entryMethodName(request.entryFunction),
-                    request.classpath, classpath)
+            t("purity-audit") {
+                ContractPurityAudit.auditRelevant(
+                        manifest, request.entryClass, entryMethodName(request.entryFunction),
+                        request.classpath, classpath)
+            }
             // Exception-message elision: drop the construction of a thrown exception's message when the
             // proof's reachable cone observes NO exception message (AUTO's coarse soundness gate), or
             // when the proof asks for it explicitly (ON, a user-asserted override). This makes a proof
@@ -247,9 +271,11 @@ class JbmcBackend : VerificationBackend {
             // prepared classpath), but BEFORE the model slice so the engine analyses the elided bytecode.
             // OFF is a no-op; the gate fails toward NOT eliding (worst case: no speed-up, never a false
             // green). The forced-elision footnote (ON) is surfaced on the verdict by the proof extension.
-            classpath = ExceptionMessageElision
-                    .apply(classpath, request.entryClass, entryMethodName(request.entryFunction),
-                            request.removeExceptionMessages).classpath
+            classpath = t("exception-message-elision") {
+                ExceptionMessageElision
+                        .apply(classpath, request.entryClass, entryMethodName(request.entryFunction),
+                                request.removeExceptionMessages).classpath
+            }
             // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
             // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
             // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its
@@ -262,7 +288,7 @@ class JbmcBackend : VerificationBackend {
             // off classpath) is returned UNCHANGED: it still sees the whole surface, so slicing never
             // under-feeds a fallback proof. Done after the purity audit so the audit still walks the full
             // prepared classpath. A slice failure fails safe to the unsliced classpath.
-            return ModelSlice.sliceForCone(classpath, request.entryClass)
+            return t("model-slice") { ModelSlice.sliceForCone(classpath, request.entryClass) }
         }
 
         /**
@@ -337,11 +363,13 @@ class JbmcBackend : VerificationBackend {
          * per-proof), which is why they can be hoisted into the cacheable task (Config keyed by the manifest
          * config re-validation).
          */
-        fun applyHoistablePasses(classpath: String): String {
-            var cp = applyDesugarPasses(classpath)
-            cp = ConfigBytecode.rewrite(cp)
-            cp = KotlinParamBytecode.rewrite(cp)
-            cp = ReachabilityBytecode.rewrite(cp)
+        fun applyHoistablePasses(classpath: String, timing: PipelineTiming? = null): String {
+            fun <T> t(label: String, body: () -> T): T =
+                    if (timing != null) timing.time(label, body) else body()
+            var cp = t("desugar") { applyDesugarPasses(classpath) }
+            cp = t("config") { ConfigBytecode.rewrite(cp) }
+            cp = t("kotlin-param") { KotlinParamBytecode.rewrite(cp) }
+            cp = t("reachability") { ReachabilityBytecode.rewrite(cp) }
             // Explicit USER-nondet witness tag: inject a verification-neutral Bmc.recordNondet("name",
             // value) after each user Bmc.any* store so a counterexample carries the input robustly. Pure
             // bytecode (no env/property/per-proof state), env-independent like the rest of this chain, so
@@ -349,7 +377,7 @@ class JbmcBackend : VerificationBackend {
             // touches user-origin classes' Bmc.any* call sites — disjoint from Config (Bmc.*From* sites),
             // KotlinParam (the non-null prologue) and Reachability (returns) — so it commutes with them
             // and is byte-identical whether run here or in the mirror.
-            return NondetTagBytecode.rewrite(cp)
+            return t("nondet-tag") { NondetTagBytecode.rewrite(cp) }
         }
 
         /**

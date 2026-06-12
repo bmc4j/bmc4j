@@ -27,12 +27,13 @@ class Jbmc(private val executable: String) {
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
             solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = "",
-            userClasspath: String? = null, profile: Boolean = false): JbmcResult {
+            userClasspath: String? = null, profile: Boolean = false,
+            pipelineSeconds: Map<String, Double>? = null): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath))
-        return exec(command, entryFunction, timeoutSeconds, userClasspath, profile)
+        return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
@@ -327,15 +328,18 @@ class Jbmc(private val executable: String) {
          * never silent, and each attempt counts as a real engine launch.
          */
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0,
-                          userClasspath: String? = null, profile: Boolean = false): JbmcResult {
-            val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile)
+                          userClasspath: String? = null, profile: Boolean = false,
+                          pipelineSeconds: Map<String, Double>? = null): JbmcResult {
+            val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile,
+                    pipelineSeconds)
             val kind = first.undecidedKind
             if (kind == null || !kind.retryable) {
                 return first // a real verdict, or a deterministic (non-retryable) UNKNOWN
             }
             println("  bmc4j: $entryFunction came back UNKNOWN[$kind] (retryable)" +
                     " - re-running the engine once")
-            val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile)
+            val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile,
+                    pipelineSeconds)
             // Keep the better outcome. The retry recovering a real verdict (VERIFIED/REFUTED) wins; a
             // still-undecided retry stays UNKNOWN (never promoted to a pass), annotated when the SAME
             // retryable kind recurred so a persisted flake is named as such.
@@ -349,7 +353,8 @@ class Jbmc(private val executable: String) {
         }
 
         private fun execOnce(command: List<String>, entryFunction: String, timeoutSeconds: Int,
-                             userClasspath: String?, profile: Boolean = false): JbmcResult {
+                             userClasspath: String?, profile: Boolean = false,
+                             pipelineSeconds: Map<String, Double>? = null): JbmcResult {
             INVOCATIONS.incrementAndGet() // ground-truth engine-launch counter for the verdict cache
             val pb = ProcessBuilder(command)
             pb.redirectErrorStream(false)
@@ -358,6 +363,11 @@ class Jbmc(private val executable: String) {
             // jbmc's stdout is SPILLED to this temp file as it streams, never buffered whole in heap (the
             // latent-OOM fix); the parser reads it incrementally and we delete it in `finally`.
             val outFile = Files.createTempFile("bmc-jbmc-out", ".json").toFile()
+            // Engine subprocess wall-clock (launch -> exit/kill), in nanos, for @BmcProfile. On a
+            // symex-timeout jbmc emits NO `Runtime` phase line, so this harness-measured wall-clock is the
+            // ONLY way to attribute the engine's time to the (incomplete) symex phase. Measured only when
+            // profiling, so the normal path is unaffected.
+            val engineStartNanos = System.nanoTime()
             try {
                 p = pb.start()
                 RUNNING.add(p)
@@ -388,7 +398,7 @@ class Jbmc(private val executable: String) {
                     // whatever the engine streamed up to the kill — the MOST valuable profile case, since
                     // it reveals where a timed-out proof was stuck (symex vs solver) and the hot method.
                     return JbmcResult.unknownTimeout("timed out after ${timeoutSeconds}s", out.headTail())
-                            .withProfile(parseProfileIfRequested(profile, outFile))
+                            .withProfile(parseProfileIfRequested(profile, outFile, engineStartNanos, pipelineSeconds))
                 }
                 out.join()
                 err.join()
@@ -402,12 +412,12 @@ class Jbmc(private val executable: String) {
                     val outHeadTail = out.headTail()
                     return JbmcResult.unknownEngineCrash(
                             engineErrorReason(command, exit, err.text(), outHeadTail), outHeadTail)
-                            .withProfile(parseProfileIfRequested(profile, outFile))
+                            .withProfile(parseProfileIfRequested(profile, outFile, engineStartNanos, pipelineSeconds))
                 }
                 // STREAM-parse straight from the spill file: only the verdict element + opaque-symbol
                 // STATUS-MESSAGEs are materialized; the flood is read and discarded (heap stays bounded).
                 return JbmcOutputParser.parse(outFile, entryFunction, userClasspath)
-                        .withProfile(parseProfileIfRequested(profile, outFile))
+                        .withProfile(parseProfileIfRequested(profile, outFile, engineStartNanos, pipelineSeconds))
             } catch (e: IOException) {
                 throw IllegalStateException(
                         "Could not start JBMC process: " + command.joinToString(" "), e)
@@ -440,8 +450,19 @@ class Jbmc(private val executable: String) {
          * Best-effort: [JbmcProfile.parse] never throws (the profile is diagnostic, never a verdict),
          * and it tolerates a TRUNCATED file from a timeout kill — exactly the case worth profiling.
          */
-        private fun parseProfileIfRequested(profile: Boolean, outFile: File): JbmcProfile? =
-                if (profile) JbmcProfile.parse(outFile) else null
+        private fun parseProfileIfRequested(profile: Boolean, outFile: File,
+                                            engineStartNanos: Long,
+                                            pipelineSeconds: Map<String, Double>?): JbmcProfile? {
+            if (!profile) {
+                return null
+            }
+            val engineWall = (System.nanoTime() - engineStartNanos) / 1_000_000_000.0
+            // Fold in the HARNESS-measured timings: bmc4j's own pre-engine pipeline passes and the engine
+            // subprocess wall-clock. The engine wall-clock is what lets the renderer derive a Symex
+            // entry on a symex-timeout (no `Runtime` phase line emitted) — symex IS the unwinding phase,
+            // so the full engine wall-clock is symex when no phase completed.
+            return JbmcProfile.parse(outFile).withHarnessTimings(pipelineSeconds, engineWall)
+        }
 
         /** Build the UNKNOWN reason line for an engine error exit (solver gave up / crashed / bad args). */
         private fun engineErrorReason(command: List<String>, exit: Int,
