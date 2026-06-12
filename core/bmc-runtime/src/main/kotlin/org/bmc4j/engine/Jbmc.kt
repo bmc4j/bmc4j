@@ -27,12 +27,12 @@ class Jbmc(private val executable: String) {
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
             solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = "",
-            userClasspath: String? = null): JbmcResult {
+            userClasspath: String? = null, profile: Boolean = false): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath))
-        return exec(command, entryFunction, timeoutSeconds, userClasspath)
+        return exec(command, entryFunction, timeoutSeconds, userClasspath, profile)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
@@ -327,15 +327,15 @@ class Jbmc(private val executable: String) {
          * never silent, and each attempt counts as a real engine launch.
          */
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0,
-                          userClasspath: String? = null): JbmcResult {
-            val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath)
+                          userClasspath: String? = null, profile: Boolean = false): JbmcResult {
+            val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile)
             val kind = first.undecidedKind
             if (kind == null || !kind.retryable) {
                 return first // a real verdict, or a deterministic (non-retryable) UNKNOWN
             }
             println("  bmc4j: $entryFunction came back UNKNOWN[$kind] (retryable)" +
                     " - re-running the engine once")
-            val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath)
+            val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile)
             // Keep the better outcome. The retry recovering a real verdict (VERIFIED/REFUTED) wins; a
             // still-undecided retry stays UNKNOWN (never promoted to a pass), annotated when the SAME
             // retryable kind recurred so a persisted flake is named as such.
@@ -343,12 +343,13 @@ class Jbmc(private val executable: String) {
                 return JbmcResult.unknown(kind,
                         second.undecidedReason + "\n    (the $kind persisted across a retry)",
                         second.rawOutput)
+                        .withProfile(second.profile) // keep the retry's diagnostic breakdown
             }
             return second
         }
 
         private fun execOnce(command: List<String>, entryFunction: String, timeoutSeconds: Int,
-                             userClasspath: String?): JbmcResult {
+                             userClasspath: String?, profile: Boolean = false): JbmcResult {
             INVOCATIONS.incrementAndGet() // ground-truth engine-launch counter for the verdict cache
             val pb = ProcessBuilder(command)
             pb.redirectErrorStream(false)
@@ -383,8 +384,11 @@ class Jbmc(private val executable: String) {
                     out.join()
                     err.join()
                     // A bounded head+tail of the spill is enough to diagnose a timeout — never the whole
-                    // (possibly huge) output.
+                    // (possibly huge) output. When @BmcProfile asked for it, parse the breakdown from
+                    // whatever the engine streamed up to the kill — the MOST valuable profile case, since
+                    // it reveals where a timed-out proof was stuck (symex vs solver) and the hot method.
                     return JbmcResult.unknownTimeout("timed out after ${timeoutSeconds}s", out.headTail())
+                            .withProfile(parseProfileIfRequested(profile, outFile))
                 }
                 out.join()
                 err.join()
@@ -398,10 +402,12 @@ class Jbmc(private val executable: String) {
                     val outHeadTail = out.headTail()
                     return JbmcResult.unknownEngineCrash(
                             engineErrorReason(command, exit, err.text(), outHeadTail), outHeadTail)
+                            .withProfile(parseProfileIfRequested(profile, outFile))
                 }
                 // STREAM-parse straight from the spill file: only the verdict element + opaque-symbol
                 // STATUS-MESSAGEs are materialized; the flood is read and discarded (heap stays bounded).
                 return JbmcOutputParser.parse(outFile, entryFunction, userClasspath)
+                        .withProfile(parseProfileIfRequested(profile, outFile))
             } catch (e: IOException) {
                 throw IllegalStateException(
                         "Could not start JBMC process: " + command.joinToString(" "), e)
@@ -425,6 +431,17 @@ class Jbmc(private val executable: String) {
                 }
             }
         }
+
+        /**
+         * Parse the per-stage performance breakdown from the spill [outFile] when [profile] is on (the
+         * `@BmcProfile` capability), else null. A SEPARATE streaming pass over the same captured stream
+         * the verdict comes from — so the normal (non-profiled) path is byte-for-byte unchanged and pays
+         * nothing, while a profiled run reads the verbose STATUS-MESSAGEs the verdict parser discards.
+         * Best-effort: [JbmcProfile.parse] never throws (the profile is diagnostic, never a verdict),
+         * and it tolerates a TRUNCATED file from a timeout kill — exactly the case worth profiling.
+         */
+        private fun parseProfileIfRequested(profile: Boolean, outFile: File): JbmcProfile? =
+                if (profile) JbmcProfile.parse(outFile) else null
 
         /** Build the UNKNOWN reason line for an engine error exit (solver gave up / crashed / bad args). */
         private fun engineErrorReason(command: List<String>, exit: Int,

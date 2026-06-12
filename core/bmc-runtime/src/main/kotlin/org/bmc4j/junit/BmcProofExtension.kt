@@ -155,7 +155,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // external-SAT binary path (+ refinement-off mode) into the request so BOTH the verdict cache
         // key and the engine run see it — and FAILS LOUD (plain language) when the fast solver was asked
         // for on a text proof without the opt-out. (A no-op for the common no-external-SAT case.)
-        val request = applySolverPlan(requestFor(entryClass, entryFunction, config))
+        // @BmcProfile (additive, default off): when present, ask the engine driver to parse a per-stage
+        // performance breakdown out of the verbose stream it already captures and attach it to the result.
+        // It NEVER changes the verdict; it only emits extra diagnostic output, rendered below.
+        val profileRequested = method.isAnnotationPresent(org.bmc4j.BmcProfile::class.java)
+        val request = applySolverPlan(requestFor(entryClass, entryFunction, config, profileRequested))
 
         // JBMC backend (symbolic, all-inputs). For concurrency correctness, see the
         // README's Lincheck guidance — @BmcProof proves logic soundness.
@@ -208,7 +212,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         val cacheRequest = cacheKeyRequest(effectiveRequest, config)
         // Verdict-cache short-circuit only with a concrete bound (an un-discovered AUTO has no single
         // bound to look up — it climbs, and each rung consults the cache itself).
-        val hit = if (haveConcreteBound) VerdictCache.lookup(cacheRequest, engineIdentity) else null
+        // A profiled proof must actually RUN the engine to have a stream to profile, so skip the
+        // verdict-cache short-circuit when @BmcProfile is on. The verdict is identical either way (the
+        // cache is a perf optimization), so this only costs the profiled proof one engine run — exactly
+        // what the user asked for by annotating it.
+        val hit = if (haveConcreteBound && !request.profile)
+                VerdictCache.lookup(cacheRequest, engineIdentity) else null
         if (hit != null && hit.verdict == expected) {
             outcome.verdict = hit.verdict
             outcome.cached = true
@@ -309,6 +318,14 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
         val actual = actualVerdict(result)
         outcome.verdict = actual
+
+        // @BmcProfile: render the per-stage performance breakdown now (before any verdict-honesty
+        // demotion below changes the printed verdict label) — it describes the ENGINE RUN, which is the
+        // same run whatever the final reported verdict. Emitted here covers every live-run exit path
+        // (VERIFIED / REFUTED / UNKNOWN / TIMEOUT), including the most valuable timeout case: a timed-out
+        // run returns its result here (the kill is not thrown), so the profile parsed up to the kill —
+        // including "never reached SAT" and the hot method — prints. Additive: never touches the verdict.
+        renderProfile(entryFunction, request, result, actual)
 
         // Out-of-scope (DECLARED package) demotion (verdict HONESTY + the package-waiver loudness
         // invariant): a class under a `bmc { notModeledPackages { … } }` glob has no model body, so JBMC
@@ -477,6 +494,27 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     " exception messages don't affect the property — it is NOT an unconditional proof of" +
                     " the message contents.")
         }
+    }
+
+    /**
+     * Print the per-stage performance breakdown for a `@BmcProfile` proof. A no-op unless this proof
+     * requested profiling AND the engine driver attached a parsed [JbmcProfile] to the result (only the
+     * live jbmc path does; a split run, or a profile parse that yielded nothing, prints a short note so
+     * the annotation is never silently ignored). Purely diagnostic — called for its console output only,
+     * never influences the verdict.
+     */
+    private fun renderProfile(entryFunction: String, request: BmcRequest, result: JbmcResult,
+                              actual: Verdict) {
+        if (!request.profile) {
+            return
+        }
+        val profile = result.profile
+        if (profile == null || profile.isEmpty()) {
+            println("  bmc4j[profile]: $entryFunction -> $actual - no engine performance breakdown was" +
+                    " captured (the run produced no profilable verbose output).")
+            return
+        }
+        println(profile.render(entryFunction, actual.name))
     }
 
     /**
@@ -698,7 +736,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
-                    request.removeExceptionMessages)
+                    request.removeExceptionMessages, request.profile)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -1326,7 +1364,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
-                            decision.path, true, request.removeExceptionMessages)
+                            decision.path, true, request.removeExceptionMessages, request.profile)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1338,7 +1376,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
-                                request.removeExceptionMessages)
+                                request.removeExceptionMessages, request.profile)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1369,7 +1407,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
-                    request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages)
+                    request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
+                    request.profile)
         }
 
         /**
@@ -1399,7 +1438,9 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             }
         }
 
-        internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?): BmcRequest =
+        @JvmOverloads
+        internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?,
+                                profile: Boolean = false): BmcRequest =
                 BmcRequest(
                         entryClass,
                         entryFunction,
@@ -1412,7 +1453,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         null,
                         "",
                         false,
-                        resolveRemoveExceptionMessages(config))
+                        resolveRemoveExceptionMessages(config),
+                        profile)
 
         /**
          * The exception-message elision mode this proof runs under: its per-proof
@@ -1505,7 +1547,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 BmcRequest(request.entryClass, request.entryFunction, request.classpath, bound,
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
-                        request.stringRefinementOff, request.removeExceptionMessages)
+                        request.stringRefinementOff, request.removeExceptionMessages, request.profile)
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */
