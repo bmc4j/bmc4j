@@ -19,6 +19,48 @@ public final class BmcStrings {
     private BmcStrings() {
     }
 
+    /**
+     * Sound materialization of a {@code String} from char data. JBMC links its native construction
+     * path ({@code new String(char[])} / {@code String.valueOf(char[])}, which lower to
+     * {@code CProverString.ofCharArray}) to a nondet string — the construction analogue of the unsound
+     * native {@code String.equals}. We rebuild it from the one construction primitive JBMC <em>does</em>
+     * model soundly: {@code StringBuilder.append(char)} + {@code toString()} (the same machinery the
+     * {@code StringConcatFactory} desugar and the {@code CharArray.concatToString()} model already rely
+     * on). The resulting String's {@code length()}/{@code charAt} then agree with the source chars, so it
+     * composes with the sound {@link #equals}/{@link #contains}/etc. above.
+     *
+     * <p>{@code StringBytecode} redirects the construction call sites here during analysis. Bounded by
+     * design: the append loop unwinds to {@code count}, so it is sound and cheap for bounded char arrays.
+     */
+    public static String ofChars(char[] data, int offset, int count) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || count < 0 || offset + count > data.length) {
+            throw new StringIndexOutOfBoundsException();   // matches String(char[],int,int) bounds checking
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            sb.append(data[offset + i]);
+        }
+        return sb.toString();
+    }
+
+    /** Sound stand-in for {@code new String(char[])} / {@code String.valueOf(char[])} (whole array). */
+    public static String ofChars(char[] data) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        return ofChars(data, 0, data.length);
+    }
+
+    /** Sound stand-in for {@code String.valueOf(char)} / {@code Character.toString(char)} (single char). */
+    public static String ofChar(char c) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(c);
+        return sb.toString();
+    }
+
     /** Sound stand-in for {@code receiver.equals(other)} where the receiver is a String. */
     public static boolean equals(String receiver, Object other) {
         if (receiver == null) {
