@@ -62,6 +62,7 @@ include(
     "examples:kotlin-coroutines-and-lincheck",
     "examples:contracts",
     "examples:contracts-kotlin",
+    "examples:assume-contracts",
 )
 
 // Model proofs: @BmcProof proofs of the bmc-models' own algebraic laws, verified by JBMC itself

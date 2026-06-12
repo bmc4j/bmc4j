@@ -36,6 +36,7 @@ class JbmcResult private constructor(
         stubbedMethods: List<String>?,
         unmodelledMembers: List<String>?,
         linkFailureStubs: List<String>?,
+        assumedContracts: List<String>?,
         /**
          * The per-stage PERFORMANCE BREAKDOWN of this run (phase timings, loop-unwinding offenders,
          * formula size, whether SAT was reached), or null when the run was not profiled. Purely
@@ -112,11 +113,21 @@ class JbmcResult private constructor(
     @get:JvmName("linkFailureStubs")
     val linkFailureStubs: List<String> = linkFailureStubs?.toList() ?: emptyList()
 
+    /**
+     * The per-proof ASSUMED output-contracts (`Bmc.assumeEvery` / `Bmc.assumeStable`) this run installed
+     * — each a `"Owner.method"` display (a `(stable)` suffix marks an `assumeStable`). A parallel FACT
+     * harvested by [JbmcBackend], like [stubbedMethods]: the POLICY (flagging a VERIFIED as NOT
+     * unconditional) is applied by [org.bmc4j.junit.BmcProofExtension]. Empty when the proof declares
+     * none.
+     */
+    @get:JvmName("assumedContracts")
+    val assumedContracts: List<String> = assumedContracts?.toList() ?: emptyList()
+
     @JvmOverloads
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, null, emptyList(), emptyList(), emptyList())
+            null, null, emptyList(), emptyList(), emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -136,7 +147,21 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubs, unmodelledMembers, linkFailureStubs, profile)
+                stubs, unmodelledMembers, linkFailureStubs, assumedContracts, profile)
+    }
+
+    /**
+     * Return a copy carrying the assumed-output-contract list (a parallel fact, like
+     * [withStubbedMethods]). The verdict and violations are unchanged — the verdict FLAG ("VERIFIED
+     * under assumed contract … — NOT unconditional") is a presentation POLICY applied later by
+     * [org.bmc4j.junit.BmcProofExtension]. Returns `this` when empty/unchanged.
+     */
+    fun withAssumedContracts(contracts: List<String>?): JbmcResult {
+        if (contracts.isNullOrEmpty()) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, unmodelledMembers, linkFailureStubs, contracts, profile)
     }
 
     /**
@@ -149,7 +174,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, members, linkFailureStubs, profile)
+                stubbedMethods, members, linkFailureStubs, assumedContracts, profile)
     }
 
     /**
@@ -163,7 +188,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, members, profile)
+                stubbedMethods, unmodelledMembers, members, assumedContracts, profile)
     }
 
     /**
@@ -177,7 +202,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, linkFailureStubs, profile)
+                stubbedMethods, unmodelledMembers, linkFailureStubs, assumedContracts, profile)
     }
 
     companion object {
@@ -194,7 +219,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknown(kind: UnknownKind, reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, kind,
-                        emptyList(), emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the
