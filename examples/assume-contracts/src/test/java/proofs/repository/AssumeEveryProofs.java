@@ -87,4 +87,31 @@ class AssumeEveryProofs {
         UserService service = new UserService(repo);
         Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1);
     }
+
+    /**
+     * NO CONCRETE STUB. {@code Bmc.anyRef(UserRepository.class)} hands the proof a symbolic repository -
+     * a stand-in for ANY implementation - so it needs no hand-written {@code NondetRepository}. Under the
+     * same output-only assumption the service result is {@code >= -1} and the proof VERIFIES. This is the
+     * boilerplate-free path: one typed handle, one assumption, no stub class.
+     */
+    @BmcProof(unwind = 4)
+    void anyref_needs_no_concrete_stub() {
+        UserRepository repo = Bmc.anyRef(UserRepository.class);
+        Bmc.assumeEvery(repo::findById, u -> u == null || u.age() >= 0);
+        UserService service = new UserService(repo);
+        Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1);
+    }
+
+    /**
+     * DROP THE ASSUMPTION on the {@code anyRef} handle and the property is no longer provable: the
+     * symbolic repository's {@code findById} is unconstrained, so the age can be any negative value -
+     * REFUTED. The companion negative for {@code anyref_needs_no_concrete_stub}, proving the assumption
+     * (not the {@code anyRef} havoc) is what carries the proof.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    void anyref_without_the_assumption_is_refuted() {
+        UserRepository repo = Bmc.anyRef(UserRepository.class);
+        UserService service = new UserService(repo);
+        Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= 0);
+    }
 }

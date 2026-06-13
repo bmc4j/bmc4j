@@ -556,12 +556,21 @@ public final class Bmc {
     }
 
     /**
-     * A symbolic, NON-NULL reference of type {@code T} — a stand-in for an external/unanalyzable
+     * A symbolic, NON-NULL reference of type {@code T} - a stand-in for an external/unanalyzable
      * dependency the proof holds a handle to (e.g. a repository or service interface with no analyzed
-     * implementation). JBMC treats its methods as nondet stubs unless an {@link #assumeEvery} /
-     * {@link #assumeStable} assumed contract constrains them; the reference itself is non-null, so a
-     * call on it doesn't trip a null-dereference check. The class token records the intended type and
-     * documents the proof; the value is symbolic regardless.
+     * implementation), so a proof needs no hand-written concrete stub:
+     *
+     * <pre>{@code
+     * UserRepository repo = Bmc.anyRef(UserRepository.class);
+     * Bmc.assumeEvery(repo::findById, u -> u == null || u.age() >= 0);
+     * }</pre>
+     *
+     * The result is a fresh nondet {@code T} over-approximating ANY implementation; its methods are
+     * nondet stubs unless an {@link #assumeEvery} / {@link #assumeStable} assumed contract constrains
+     * them, and the reference is non-null so a call on it doesn't trip a null-dereference check. The
+     * class token names the intended type (the value is symbolic regardless); the rewrite layer
+     * intrinsifies the call so the implicit erasure cast back to {@code T} holds. SOUND: a fresh nondet
+     * over-approximation, never an unsound narrowing.
      */
     public static <T> T anyRef(Class<T> __type) {
         return CProver.nondetWithoutNull();

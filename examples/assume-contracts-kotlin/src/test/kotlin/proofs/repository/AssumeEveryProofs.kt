@@ -87,4 +87,30 @@ class AssumeEveryProofs {
         val service = UserService(repo)
         Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1)
     }
+
+    /**
+     * NO CONCRETE STUB. Bmc.anyRef(UserRepository::class.java) hands the proof a symbolic repository - a
+     * stand-in for ANY implementation - so it needs no hand-written NondetRepository. Under the same
+     * output-only assumption the service result is >= -1 and the proof VERIFIES. The boilerplate-free
+     * path: one typed handle, one assumption, no stub class.
+     */
+    @BmcProof(unwind = 4)
+    fun `anyRef needs no concrete stub`() {
+        val repo = Bmc.anyRef(UserRepository::class.java)
+        Bmc.assumeEvery(repo::findById) { it == null || it.age >= 0 }
+        val service = UserService(repo)
+        Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1)
+    }
+
+    /**
+     * DROP THE ASSUMPTION on the anyRef handle and the property is no longer provable: the symbolic
+     * repository's findById is unconstrained, so the age can be any negative value - REFUTED. The
+     * companion negative proving the assumption (not the anyRef havoc) is what carries the proof.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    fun `anyRef without the assumption is refuted`() {
+        val repo = Bmc.anyRef(UserRepository::class.java)
+        val service = UserService(repo)
+        Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= 0)
+    }
 }

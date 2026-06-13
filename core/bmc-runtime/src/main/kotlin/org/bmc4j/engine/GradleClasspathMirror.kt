@@ -18,6 +18,8 @@ import java.nio.file.Path
  *  - the six pure desugars [CoroutineBytecode] (LVT strip), [StringBytecode], [LambdaBytecode],
  *    [SwitchBytecode], [ResidualIndyBytecode], [MathBytecode], fused into ONE walk
  *    ([ClasspathMirror.mirrorAll]);
+ *  - [AnyRefBytecode] - intrinsifies `Bmc.anyRef(Foo.class)` to `CProver.nondetWithoutNull()` so the
+ *    erasure cast back to `Foo` holds; a pure function of the bytecode (only touches `anyRef` sites);
  *  - [ConfigBytecode] — bakes `Bmc.*From*("KEY")` to this run's real env/property value. The forked test
  *    JVM's config properties don't reach the worker JVM, so the plugin forwards them; the worker records
  *    the resolved config in the manifest and the runtime re-validates it ([configMatches]) — a config
@@ -162,6 +164,11 @@ object GradleClasspathMirror {
             withConfigProperties(configProperties) {
                 ClasspathMirror.withCacheRoot(mirrorRoot) {
                     var cp = ClasspathMirror.mirrorAll(classpath)
+                    // Intrinsify Bmc.anyRef(Foo.class) -> CProver.nondetWithoutNull() so the trailing
+                    // erasure checkcast holds (no failing dynamic-cast check). Pure, env-independent; same
+                    // entry point JbmcBackend.applyHoistablePasses calls, so the mirror is byte-for-byte
+                    // what the in-JVM pipeline produces.
+                    cp = AnyRefBytecode.rewrite(cp)
                     // Config bake — uses the forwarded properties (set on this worker for the scope of the
                     // call) and the worker's inherited env. The runtime re-validates the baked config below.
                     cp = ConfigBytecode.rewrite(cp)

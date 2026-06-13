@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 7
+proofs: 9
 proof-execution: ~60s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower - this number is for spotting slow concepts, not timing the build.
 -->
@@ -46,14 +46,16 @@ legitimately richer micro-model.
 
 ## `repository` - assume-guarantee over an unanalyzable repository
 
-A concrete `NondetRepository` (so the proof holds a non-null, concretely typed handle - a symbolic
-interface receiver trips JBMC's dynamic-cast check) sits behind a `UserService`. The service is correct
-only IF the repository upholds an output property; `assumeEvery(repo::findById) { ... }` supplies it.
-`service holds...` VERIFIES under the output-only assumption; **drop** it and the same property is
-**REFUTED** (the assumption is load-bearing). `args aware...` constrains the output **by** the call
-argument with a two-param trailing lambda (`result.id == id`). `an over tight predicate...` rules out every
-output => **VACUOUS**. `an impure predicate is accepted` reads a mutable top-level var inside the predicate
-and still VERIFIES - `assumeEvery` is a user-owned assertion, not a purity-audited contract.
+A `UserService` sits over a repository the proof can't see through. The service is correct only IF the
+repository upholds an output property; `assumeEvery(repo::findById) { ... }` supplies it. `service
+holds...` VERIFIES under the output-only assumption; **drop** it and the same property is **REFUTED** (the
+assumption is load-bearing). `args aware...` constrains the output **by** the call argument with a
+two-param trailing lambda (`result.id == id`). `an over tight predicate...` rules out every output =>
+**VACUOUS**. `an impure predicate is accepted` reads a mutable top-level var inside the predicate and still
+VERIFIES - `assumeEvery` is a user-owned assertion, not a purity-audited contract. `anyRef needs no
+concrete stub` drops even the `NondetRepository`: `Bmc.anyRef(UserRepository::class.java)` hands the proof
+a symbolic repository (any implementation) directly - one typed handle + one assumption, no stub class;
+`anyRef without the assumption is refuted` is its load-bearing negative.
 
 ## `env` - `assumeStable` and the `<clinit>` case
 

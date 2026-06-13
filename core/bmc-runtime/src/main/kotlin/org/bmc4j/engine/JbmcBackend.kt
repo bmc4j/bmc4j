@@ -383,8 +383,8 @@ class JbmcBackend : VerificationBackend {
         }
 
         /**
-         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain — `6-desugar -> Config ->
-         * KotlinParam -> Reachability -> NondetTag` — in the SAME order, with the SAME pass entry points,
+         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain - `6-desugar -> AnyRef -> Config ->
+         * KotlinParam -> Reachability -> NondetTag` - in the SAME order, with the SAME pass entry points,
          * that [GradleClasspathMirror.mirror] runs in the plugin worker. So the bytecode this produces
          * in-JVM (for an uncovered entry, or with no plugin mirror at all) is byte-for-byte what the
          * cacheable task produces for a covered one. The six desugars + Reachability + NondetTag are pure
@@ -397,6 +397,11 @@ class JbmcBackend : VerificationBackend {
             fun <T> t(label: String, body: () -> T): T =
                     if (timing != null) timing.time(label, body) else body()
             var cp = t("desugar") { applyDesugarPasses(classpath) }
+            // Intrinsify Bmc.anyRef(Foo.class) -> CProver.nondetWithoutNull() so the trailing erasure
+            // checkcast consumes the JBMC-intrinsic havoc directly (havoc'd object already typed Foo, no
+            // failing dynamic-cast check). Pure, env-independent, only touches anyRef call sites - same
+            // entry point GradleClasspathMirror.mirror runs, so the mirror is byte-for-byte identical.
+            cp = t("anyref") { AnyRefBytecode.rewrite(cp) }
             cp = t("config") { ConfigBytecode.rewrite(cp) }
             cp = t("kotlin-param") { KotlinParamBytecode.rewrite(cp) }
             cp = t("reachability") { ReachabilityBytecode.rewrite(cp) }

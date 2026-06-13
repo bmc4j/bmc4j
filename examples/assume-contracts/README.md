@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 7
+proofs: 9
 proof-execution: ~60s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower - this number is for spotting slow concepts, not timing the build.
 -->
@@ -50,6 +50,10 @@ and the same property is **REFUTED** (the assumption is load-bearing). `args_awa
 output **by** the call argument (`result.id == id`). `an_over_tight_predicate...` rules out every output
 => **VACUOUS**. `an_impure_predicate_is_accepted` shows an impure predicate (reads a mutable static) is
 analysed normally, not rejected - assumeEvery is a user-owned assertion, not a purity-audited contract.
+`anyref_needs_no_concrete_stub` drops even the hand-written `NondetRepository`: `Bmc.anyRef(
+UserRepository.class)` hands the proof a symbolic repository (any implementation) directly, so the
+boilerplate-free path is one typed handle + one assumption; `anyref_without_the_assumption_is_refuted`
+is its load-bearing negative.
 
 ## `env` - `assumeStable` and the `<clinit>` case
 
