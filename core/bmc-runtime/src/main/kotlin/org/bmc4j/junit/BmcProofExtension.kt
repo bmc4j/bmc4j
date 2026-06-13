@@ -1670,6 +1670,27 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return false
         }
 
+        /**
+         * The TENTATIVE data-dependent-bound hint for a PINNED under-unwind: when an explicit
+         * `@BmcProof(unwind = N)` ran out at N with an UNWINDING_ASSERTION and the engine named the
+         * loop, we can't tell "N was just too small" from "the bound is symbolic" — only the AUTO climb
+         * (which is decisive, see [AutoUnwind.cappedReason]) can. So we hedge: name the loop and say a
+         * larger unwind MIGHT help, but if the trip count is data-dependent it never will — drop the pin
+         * and let auto-unwind decide. Returns null when the reason is already the decisive AUTO diagnostic
+         * (so we don't double up) or when no loop was named.
+         */
+        internal fun tentativeDataDependentNote(result: JbmcResult, reason: String?): String? {
+            if (result.undecidedKind != UnknownKind.UNWINDING_ASSERTION) return null
+            val loops = result.unwindingLoops
+            if (loops.isEmpty()) return null
+            if (reason != null && reason.contains("DATA-DEPENDENT")) return null // already decisive
+            val named = loops.joinToString("; ") { it.describe() }
+            return "this firing is at the loop: $named. If a larger fixed unwind covers it, raise " +
+                    "@BmcProof(unwind = ...); but if that loop's trip count is DATA-DEPENDENT (bounded " +
+                    "by a symbolic value), no unwind ever will — drop the pin and let auto-unwind decide, " +
+                    "or constrain the symbolic input that bounds it with assume(...)."
+        }
+
         internal fun toError(engineId: String, entryFunction: String,
                              result: JbmcResult, proofMethod: Method?): BmcVerificationError {
             val sb = StringBuilder()
@@ -1690,6 +1711,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 sb.append(")\n")
                 val reason = result.undecidedReason
                 sb.append("  ? ").append(reason ?: "undecided within budget").append('\n')
+                tentativeDataDependentNote(result, reason)?.let { sb.append("  ? ").append(it).append('\n') }
                 sb.append("    No counterexample: this is NOT a refutation — the engine ran out of budget or\n")
                         .append("    fell over before reaching a verdict. To get a decision, try one of:\n")
                         .append("      - raise unwind (the loop bound may be too high to solve in time):" +

@@ -32,8 +32,12 @@ package org.bmc4j.engine
  *    help: stop and report a clear UNKNOWN (the proof may have an unbounded / too-deep loop).
  *
  * If the cap is reached and every rung only ever hit the unwinding bound, the loops never cover within
- * the cap: report a clear UNKNOWN telling the user this may be an unbounded / too-deep loop and to set
- * an explicit `unwind`. The climb never runs forever.
+ * the cap. The climb itself is the discriminator: a loop that just needs a bigger FINITE bound converges
+ * (its unwinding assertion passes) at some rung, so a climb that reaches the cap STILL firing the same
+ * assertion means the loop's trip count is DATA-DEPENDENT (symbolic) and a larger fixed `unwind` can never
+ * cover it. We report that as a clear UNKNOWN naming the offending loop (method + file:line from the
+ * failing unwinding property) and pointing at the levers that actually help — constrain the symbolic
+ * input, split the proof, or contract the heavy callee. The climb never runs forever.
  */
 object AutoUnwind {
 
@@ -72,8 +76,14 @@ object AutoUnwind {
                 // The bound truncated exploration: climb if we can, else cap out.
                 isUnwindingTooSmall(result) -> {
                     if (bound >= ceiling) {
-                        // Cap reached and the loops still don't cover — never a false pass; a clear UNKNOWN.
-                        return Outcome(cappedUnknown(ceiling), ceiling, discovered = false, rungs = rungs)
+                        // Cap reached and the loops still don't cover. The climb ran `--unwinding-assertions`
+                        // at every bound 1..cap and the SAME unwinding assertion fired at each — the
+                        // discriminator: a loop that just needs a bigger FINITE bound CONVERGES (passes) at
+                        // some rung, so reaching the cap still failing means the trip count is
+                        // DATA-DEPENDENT (symbolic) and raising unwind will not help. Carry the loops the
+                        // last (capping) rung named so the diagnostic can point at the offending method:line.
+                        return Outcome(cappedUnknown(ceiling, result.unwindingLoops), ceiling,
+                                discovered = false, rungs = rungs)
                     }
                     bound = nextBound(bound, ceiling)
                 }
@@ -102,17 +112,41 @@ object AutoUnwind {
      * The clear UNKNOWN for a proof whose loops never cover within the cap: the climb hit the unwinding
      * bound at every rung up to [cap]. Non-retryable (deterministic), kind UNWINDING_ASSERTION — the
      * same kind a pinned under-unwind reports, so an `expect = UNKNOWN` demo of an unbounded loop still
-     * matches.
+     * matches. [loops] are the offending loops the capping rung named; when present the reason is the
+     * actionable DATA-DEPENDENT-bound diagnostic, and the result carries them onward.
      */
-    internal fun cappedUnknown(cap: Int): JbmcResult =
-            JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION, cappedReason(cap), null)
+    @JvmStatic
+    @JvmOverloads
+    internal fun cappedUnknown(cap: Int, loops: List<JbmcResult.UnwindingLoop> = emptyList()): JbmcResult =
+            JbmcResult.unknown(UnknownKind.UNWINDING_ASSERTION, cappedReason(cap, loops), null)
+                    .withUnwindingLoops(loops)
 
-    /** The message body for a capped climb (the extension prepends/follows it with the usual framing). */
-    internal fun cappedReason(cap: Int): String =
-            "auto-unwind found no conclusive result up to unwind=$cap (the cap) — every bound tried hit " +
-                    "the unwinding assertion, so this proof may have an unbounded or too-deep loop. " +
-                    "Set an explicit @BmcProof(unwind = N) above $cap if a larger fixed bound covers it, " +
-                    "or restructure the loop so its trip count is bounded."
+    /**
+     * The message body for a capped climb (the extension prepends/follows it with the usual framing).
+     *
+     * Capping out IS the data-dependent signal: `--unwinding-assertions` ran at every bound 1..[cap] and
+     * the loop's assertion fired at all of them, so a larger FIXED unwind would not converge — the trip
+     * count is symbolic. When the offending [loops] are known we name them and say so plainly; otherwise
+     * we fall back to the older "unbounded or too-deep" wording (which still leaves room for a larger
+     * fixed bound). Either way `@BmcProof(expect = TIMEOUT/UNKNOWN)` demos keep matching the kind.
+     */
+    internal fun cappedReason(cap: Int, loops: List<JbmcResult.UnwindingLoop> = emptyList()): String {
+        if (loops.isEmpty()) {
+            return "auto-unwind found no conclusive result up to unwind=$cap (the cap) — every bound " +
+                    "tried hit the unwinding assertion, so this proof may have an unbounded or too-deep " +
+                    "loop. Set an explicit @BmcProof(unwind = N) above $cap if a larger fixed bound " +
+                    "covers it, or restructure the loop so its trip count is bounded."
+        }
+        val named = loops.joinToString("; ") { it.describe() }
+        val subject = if (loops.size == 1) "this loop's trip count is" else "these loops' trip counts are"
+        return "auto-unwind climbed to the cap (unwind=$cap) and the unwinding assertion still fired at " +
+                "every bound 1..$cap, so $subject DATA-DEPENDENT (bounded by a symbolic value, not a " +
+                "constant) — raising `unwind` will NOT help; a larger fixed bound can never cover a " +
+                "symbolic trip count. Offending loop: $named. " +
+                "Instead: constrain the symbolic input that bounds it with assume(...) / a tighter range, " +
+                "split the proof so the loop runs over a fixed-size input, or model/contract " +
+                "(@Requires/@Ensures) the heavy callee whose state feeds the loop."
+    }
 
     /**
      * The one-line note announcing a DISCOVERED bound, for the rendered proof output and the structured
