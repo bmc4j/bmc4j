@@ -40,6 +40,16 @@ class BmcPluginTest {
     }
 
     @Test
+    fun exposes_a_stringMode_property_defaulting_to_unset_refinement() {
+        val ext = applied().extensions.findByType(BmcExtensionConfig::class.java)
+        assertNotNull(ext, "bmc extension")
+        // Unset by convention - the runtime treats absent as REFINEMENT (the default mode).
+        assertTrue(!ext!!.stringMode.isPresent, "stringMode should be unset (refinement) by default")
+        ext.stringMode.set("none")
+        assertEquals("none", ext.stringMode.get())
+    }
+
+    @Test
     fun notModeledPackages_dsl_collects_globs_in_declaration_order() {
         val ext = applied().extensions.findByType(BmcExtensionConfig::class.java)!!
         ext.notModeledPackages { spec ->

@@ -60,6 +60,21 @@ class BmcRequest @JvmOverloads constructor(
         @get:JvmName("removeExceptionMessages") val removeExceptionMessages: org.bmc4j.RemoveExceptionMessages =
                 org.bmc4j.RemoveExceptionMessages.AUTO,
         /**
+         * How JBMC models `java.lang.String` for this proof (see [org.bmc4j.StringMode]).
+         * [REFINEMENT][org.bmc4j.StringMode.REFINEMENT] (the default) runs JBMC's string-refinement
+         * solver and passes `--max-nondet-string-length`; [NONE][org.bmc4j.StringMode.NONE] turns
+         * refinement off (`--no-refine-strings`) and OMITS `--max-nondet-string-length` (JBMC rejects
+         * the two together). A verdict proven under one mode is NOT interchangeable with the other, so
+         * this is part of the verdict-cache identity (it rides the verdict-relevant flag signature in
+         * [Jbmc.appendVerdictRelevantFlags]; over-keying is sound, under-keying could serve a
+         * refinement-off verdict for a refinement-on request).
+         *
+         * Distinct from [stringRefinementOff], which is an INTERNAL flag tracking that the external-SAT
+         * path implicitly disables refinement; [stringMode] is the USER-FACING, per-proof choice that
+         * explicitly emits `--no-refine-strings`.
+         */
+        @get:JvmName("stringMode") val stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
+        /**
          * Whether to emit a per-stage PERFORMANCE BREAKDOWN for this run (the [org.bmc4j.BmcProfile]
          * capability). Purely additive output: it makes the engine driver parse the verbose stream into a
          * [JbmcProfile] and attach it to the result, and it is DELIBERATELY EXCLUDED from the verdict-cache

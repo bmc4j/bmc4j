@@ -307,6 +307,13 @@ object VerdictCache {
         // overrides. Over-keying is sound; under-keying could serve an elided verdict for a non-eliding
         // request.
         update(md, "removeExceptionMessages", request.removeExceptionMessages.name)
+        // String-modelling mode (see StringMode): NONE turns JBMC string refinement OFF
+        // (--no-refine-strings, no --max-nondet-string-length); REFINEMENT leaves it on. A verdict
+        // proven with refinement off is NOT interchangeable with one proven with it on, so the mode
+        // must bust the cache. It already rides the flag SIGNATURE above (the --no-refine-strings /
+        // --max-nondet-string-length flags differ), so this is the redundant belt-and-suspenders
+        // per-field update; over-keying is always sound.
+        update(md, "stringMode", request.stringMode.name)
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
         //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).
