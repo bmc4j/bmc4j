@@ -373,9 +373,9 @@ internal class StringBytecodeTest {
         // BmcStrings.objEquals is the redirect target: String/String goes through the sound shim,
         // everything else delegates to the receiver's real equals (so boxed primitives and user
         // classes keep normal semantics). On a real JVM the String/String case runs the shim's
-        // length()+charAt loop; CProverString.charAt returns '\0' off-engine, but equal-length equal
-        // references still compare equal, so identity-equal strings are true and content soundness is
-        // covered end-to-end by the BMC proof below.
+        // length()+charAt loop; CProverString.charAt now delegates to the real String.charAt
+        // off-engine (sound under no-refine, intrinsic-lowered under refinement), so the content
+        // compare is exact here; content soundness is also covered end-to-end by the BMC proof below.
         assertTrue(BmcStrings.objEquals("abc", "abc"), "identical String content compares equal")
         assertTrue(BmcStrings.objEquals(null, null), "null/null is equal")
         assertFalse(BmcStrings.objEquals("abc", null), "String vs null is not equal")

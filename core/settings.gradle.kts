@@ -36,6 +36,7 @@ include(
     "bmc-constraints-jakarta",
     "bmc-contracts",
     "bmc-models",
+    "bmc-string-model",
     "bmc-kotlin-models",
     "bmc-kotlin",
     "bmc-models-conformance",

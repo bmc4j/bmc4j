@@ -396,6 +396,15 @@ class BmcPlugin : Plugin<Project> {
                     test.systemProperty("bmc.noCache", "true")
                 }
 
+                // No-refine enablement: forward -Dbmc.noRefineStrings to the test JVM so the char-array
+                // String model engages under jbmc --no-refine-strings (StringMode.NONE). A build-wide
+                // CLI -D wins; with it unset the default (string refinement ON) is unchanged. The
+                // per-proof StringMode knob (a separate PR) layers on top, resolving to the same property.
+                val cliNoRefine = System.getProperty("bmc.noRefineStrings")
+                if (!cliNoRefine.isNullOrBlank()) {
+                    test.systemProperty("bmc.noRefineStrings", cliNoRefine)
+                }
+
                 // Point JBMC at the consumer's compiled models (empty path if none).
                 test.systemProperty("bmc.userModels", bmcModel.output.classesDirs.asPath)
 
