@@ -34,9 +34,12 @@ import java.util.zip.ZipFile
  * - the PREDICATE indy's handle is the compiled lambda body (`Proof.lambda$..:(LUser;[,..])Z`).
  *
  * This is the same static-constant read [LambdaBytecode] / [StringBytecode] use to sidestep indy.
- * Crucially, when the marker parameter types are plain Java functional interfaces (which they are on
- * [org.bmc4j.Bmc]), a KOTLIN caller's `repo::findById` SAM-converts to the identical LambdaMetafactory
- * indy - so one decoder serves Java and Kotlin across compiler versions.
+ * When the marker parameter types are plain Java functional interfaces (which they are on
+ * [org.bmc4j.Bmc]), a KOTLIN caller's `repo::findById` SAM-converts to a LambdaMetafactory indy too -
+ * but its impl handle points at a private static FORWARDING THUNK kotlinc synthesises on the proof
+ * class (`name$findById(Repo self, args)` - null-check then forward), NOT directly at the dependency
+ * the way javac binds the receiver. [scanReferenceThunks] resolves that thunk back to the real method
+ * it forwards to, so one decoder serves Java and Kotlin across compiler versions.
  *
  * ## Lowering (onto the contracts machinery)
  * For each marker we shadow the target with a constrained-nondet stub on the analysis classpath and
@@ -174,16 +177,94 @@ internal object AssumeContractBytecode {
     /** [decode] over already-loaded class bytes. Exposed for unit tests. */
     internal fun decodeBytes(bytes: ByteArray, methodName: String): List<Decoded> {
         val out = ArrayList<Decoded>()
+        // A Kotlin bound/unbound method reference (repo::findById) does NOT SAM-convert to a direct
+        // H_INVOKEVIRTUAL handle on the dependency the way javac does. kotlinc emits a private static
+        // SYNTHETIC forwarding THUNK on the proof class - `static R name$findById(Repo self, int id){
+        // Intrinsics.checkNotNullParameter(self,..); return self.findById(id); }` - and the reference
+        // indy's impl handle points at THAT thunk, not the real method. So we pre-scan the class for
+        // these thunks and resolve a thunk handle back to the dependency method it forwards to, so the
+        // shadow lands on the real call site (UserService's findById call), not on a dead thunk.
+        val thunks = scanReferenceThunks(bytes)
         ClassReader(bytes).accept(object : ClassVisitor(Opcodes.ASM9) {
             override fun visitMethod(a: Int, n: String?, d: String?, s: String?,
                                      ex: Array<String>?): MethodVisitor? {
                 if (n != methodName) {
                     return null
                 }
-                return MarkerScanner(out)
+                return MarkerScanner(out, thunks)
             }
         }, 0)
         return out
+    }
+
+    /**
+     * Pre-scan [bytes] for Kotlin method-reference forwarding thunks: private static methods (name
+     * carrying a `$`) whose body is just an optional `Intrinsics.checkNotNullParameter` guard and a
+     * SINGLE forwarding
+     * invoke of the real dependency method, then a return. Returns a map keyed by the thunk's
+     * `name+desc` to the [Handle] of the method it forwards to (with the tag matching the forwarded
+     * opcode, so the redirect knows static vs instance). A method that does anything else (more than one
+     * real call, branches, field access) is not a recognisable thunk and is left out, so the caller
+     * falls back to treating the reference handle as the target directly (the javac shape).
+     */
+    private fun scanReferenceThunks(bytes: ByteArray): Map<String, Handle> {
+        val thunks = HashMap<String, Handle>()
+        ClassReader(bytes).accept(object : ClassVisitor(Opcodes.ASM9) {
+            override fun visitMethod(access: Int, name: String?, desc: String?, sig: String?,
+                                     ex: Array<String>?): MethodVisitor? {
+                // kotlinc emits the reference thunk as a PRIVATE STATIC method whose name carries a `$`
+                // (`<proofMethod>$findById`); it is NOT flagged ACC_SYNTHETIC, so we key off private +
+                // static + the `$` marker and confirm the plain-forwarder body shape below. A javac
+                // reference never produces such a method (its handle points straight at the dependency),
+                // so this only ever matches the Kotlin shape.
+                val isStatic = access and Opcodes.ACC_STATIC != 0
+                val isPrivate = access and Opcodes.ACC_PRIVATE != 0
+                if (!isStatic || !isPrivate || name == null || desc == null || !name.contains('$')) {
+                    return null
+                }
+                return object : MethodVisitor(Opcodes.ASM9) {
+                    var forwarded: Handle? = null
+                    var disqualified = false
+
+                    override fun visitMethodInsn(op: Int, owner: String?, n: String?, d: String?,
+                                                 itf: Boolean) {
+                        // The Kotlin null-check guard is plumbing, not the forwarded call - skip it.
+                        if (owner == "kotlin/jvm/internal/Intrinsics") {
+                            return
+                        }
+                        if (forwarded != null) {
+                            disqualified = true // more than one real call - not a plain forwarder
+                            return
+                        }
+                        val tag = when (op) {
+                            Opcodes.INVOKEVIRTUAL -> Opcodes.H_INVOKEVIRTUAL
+                            Opcodes.INVOKEINTERFACE -> Opcodes.H_INVOKEINTERFACE
+                            Opcodes.INVOKESTATIC -> Opcodes.H_INVOKESTATIC
+                            Opcodes.INVOKESPECIAL -> Opcodes.H_INVOKESPECIAL
+                            else -> { disqualified = true; return }
+                        }
+                        forwarded = Handle(tag, owner, n, d, itf)
+                    }
+
+                    override fun visitFieldInsn(op: Int, owner: String?, n: String?, d: String?) {
+                        disqualified = true // a real field read/write - not a plain forwarder
+                    }
+
+                    override fun visitInvokeDynamicInsn(n: String?, d: String?, bsm: Handle?,
+                                                        vararg a: Any?) {
+                        disqualified = true
+                    }
+
+                    override fun visitEnd() {
+                        val f = forwarded
+                        if (f != null && !disqualified) {
+                            thunks["$name$desc"] = f
+                        }
+                    }
+                }
+            }
+        }, 0)
+        return thunks
     }
 
     /**
@@ -193,7 +274,8 @@ internal object AssumeContractBytecode {
      * reference first, predicate second - directly before the marker call, so the linear two-slot window
      * is exact for a well-formed site; anything else throws [AssumeContractError].
      */
-    private class MarkerScanner(private val out: MutableList<Decoded>) : MethodVisitor(Opcodes.ASM9) {
+    private class MarkerScanner(private val out: MutableList<Decoded>,
+                                private val thunks: Map<String, Handle>) : MethodVisitor(Opcodes.ASM9) {
 
         private var refHandle: Handle? = null
         private var predHandle: Handle? = null
@@ -220,10 +302,13 @@ internal object AssumeContractBytecode {
         }
 
         private fun build(stable: Boolean): Decoded {
-            val ref = refHandle ?: throw AssumeContractError(
+            val rawRef = refHandle ?: throw AssumeContractError(
                     "an assumeEvery/assumeStable marker is missing its method-reference argument as a" +
                             " resolvable LambdaMetafactory site - pass a direct bound/static method" +
                             " reference (e.g. repo::findById), not a stored function value.")
+            // Resolve a Kotlin reference thunk back to the real dependency method it forwards to (see
+            // scanReferenceThunks); a javac-shaped reference handle is not in the map and passes through.
+            val ref = thunks["${rawRef.name}${rawRef.desc}"] ?: rawRef
             val pred = predHandle ?: throw AssumeContractError(
                     "an assumeEvery/assumeStable marker is missing its predicate lambda as a resolvable" +
                             " LambdaMetafactory site - pass the predicate inline as a lambda.")
