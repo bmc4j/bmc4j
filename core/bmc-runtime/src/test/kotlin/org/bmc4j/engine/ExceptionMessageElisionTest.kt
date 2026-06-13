@@ -158,6 +158,51 @@ internal class ExceptionMessageElisionTest {
         assertNull((thrown as IllegalArgumentException).message)
     }
 
+    // ---- dead-local backward slice ----------------------------------------------------------------
+
+    @Test
+    fun dead_local_built_by_a_fresh_object_chain_is_sliced_away() {
+        // The okio-shape: a value is built by a fresh-object builder chain in a PRIOR statement, stored to
+        // a local, and read ONLY by the elided exception message:
+        //   Builder b = new Builder().fill(n).fillMore(n);   // local 1
+        //   throw new IllegalArgumentException(b.render());   // sole reader of local 1
+        // Eliding the message removes b.render(); local 1 is then dead, so its whole construction (the
+        // expensive builder chain) must be sliced away too — not just the message expression.
+        val rewritten = ExceptionMessageElision.rewriteClass(deadLocalBuilderClass(), buildersAreNotThrowable)
+        val calls = methodCalls(rewritten)
+        assertTrue(calls.any { it.contains("ThrowDL.<init>(Ljava/lang/String;)V") },
+                "the exception is still constructed: $calls")
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is elided to null")
+        // The dead builder chain is gone: no fill/fillMore/render/<init> of the Builder survives, and the
+        // Builder is never even NEW'd.
+        assertFalse(calls.any { it.contains("bld/Builder") },
+                "the dead builder chain (fresh object that escapes only to the elided message) is sliced: $calls")
+    }
+
+    @Test
+    fun a_live_read_of_the_local_keeps_its_construction() {
+        // Same builder, but the local is ALSO read on a live path (returned). It is not dead, so its
+        // construction must be KEPT (fail-safe): only a slot read solely inside elided regions is sliced.
+        val rewritten = ExceptionMessageElision.rewriteClass(
+                deadLocalBuilderClass(liveReadOfLocal = true), buildersAreNotThrowable)
+        val calls = methodCalls(rewritten)
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is still elided")
+        assertTrue(calls.any { it.contains("bld/Builder.<init>") },
+                "a builder whose local is read on a live path must NOT be sliced: $calls")
+    }
+
+    @Test
+    fun a_local_built_by_a_static_call_is_kept() {
+        // rendered = Helper.expensive(n) (a STATIC call), stored to a local read only by the elided
+        // message. A static call can mutate global state we can't see, so its result-build is conservatively
+        // KEPT even though the local is dead — the fail-safe boundary (we only slice fresh-object chains).
+        val rewritten = ExceptionMessageElision.rewriteClass(staticCallLocalClass(), jdkThrowable)
+        val calls = methodCalls(rewritten)
+        assertTrue(opcodes(rewritten).contains("ACONST_NULL"), "the message is elided")
+        assertTrue(calls.any { it.contains("Helper.expensive") },
+                "a static-call-built local is conservatively kept (static effects are opaque): $calls")
+    }
+
     // ---- observability gate -----------------------------------------------------------------------
 
     @Test
@@ -223,6 +268,77 @@ internal class ExceptionMessageElisionTest {
     }
 
     // ---- helpers ----------------------------------------------------------------------------------
+
+    /** `isThrowable` for the dead-local tests: ThrowDL is the (only) Throwable; bld/Builder is NOT. */
+    private val buildersAreNotThrowable: (String) -> Boolean = { n -> n == "ThrowDL" || jdkThrowable(n) }
+
+    /**
+     * The okio-shape dead-local class:
+     * ```
+     * static void f(int n) {
+     *   Builder b = new bld/Builder().fill(n).fillMore(n);   // local 1, a fresh-object builder chain
+     *   throw new ThrowDL(b.render());                       // sole reader of local 1, message-eliding ctor
+     * }
+     * ```
+     * When [liveReadOfLocal], an extra `ALOAD 1` keeps the local live on another path (so the slice must
+     * NOT fire). bld/Builder.<init>/fill/fillMore/render are declared but never linked (the rewrite is a
+     * pure bytecode transform; we only inspect the emitted instructions, never run this class).
+     */
+    private fun deadLocalBuilderClass(liveReadOfLocal: Boolean = false): ByteArray {
+        val cw = ClassWriter(0) // mirror the rewrite's ClassWriter(0): no frame/maxs recomputation
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ThrowDL", null, "java/lang/RuntimeException", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f", "(I)V", null, null)
+        mv.visitCode()
+        // local 1 = new Builder().fill(n).fillMore(n)
+        mv.visitTypeInsn(Opcodes.NEW, "bld/Builder")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "bld/Builder", "<init>", "()V", false)
+        mv.visitVarInsn(Opcodes.ILOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "bld/Builder", "fill", "(I)Lbld/Builder;", false)
+        mv.visitVarInsn(Opcodes.ILOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "bld/Builder", "fillMore", "(I)Lbld/Builder;", false)
+        mv.visitVarInsn(Opcodes.ASTORE, 1)
+        if (liveReadOfLocal) {
+            // A live read of local 1 (popped) — not inside any elided region, so the slot is NOT dead.
+            mv.visitVarInsn(Opcodes.ALOAD, 1)
+            mv.visitInsn(Opcodes.POP)
+        }
+        // throw new ThrowDL(b.render())
+        mv.visitTypeInsn(Opcodes.NEW, "ThrowDL")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 1)
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "bld/Builder", "render", "()Ljava/lang/String;", false)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "ThrowDL", "<init>", "(Ljava/lang/String;)V", false)
+        mv.visitInsn(Opcodes.ATHROW)
+        mv.visitMaxs(4, 2)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
+
+    /**
+     * A local built by a STATIC call (`rendered = Helper.expensive(n)`), read only by the elided message —
+     * the case the slicer conservatively KEEPS (a static call's effects are opaque).
+     */
+    private fun staticCallLocalClass(): ByteArray {
+        val cw = ClassWriter(0)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ThrowSC", null, "java/lang/Object", null)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "f", "(I)V", null, null)
+        mv.visitCode()
+        mv.visitVarInsn(Opcodes.ILOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "Helper", "expensive", "(I)Ljava/lang/String;", false)
+        mv.visitVarInsn(Opcodes.ASTORE, 1)
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalArgumentException")
+        mv.visitInsn(Opcodes.DUP)
+        mv.visitVarInsn(Opcodes.ALOAD, 1)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/IllegalArgumentException", "<init>",
+                "(Ljava/lang/String;)V", false)
+        mv.visitInsn(Opcodes.ATHROW)
+        mv.visitMaxs(3, 2)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
 
     /** static void f(int n) { throw new <exc>(<message build?>); } — the message is a
      *  StringBuilder().append("bad: ").append(n).toString() when [withMessageBuild], else a literal. */
