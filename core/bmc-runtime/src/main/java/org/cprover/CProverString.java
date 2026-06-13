@@ -19,9 +19,22 @@ public final class CProverString {
     private CProverString() {
     }
 
-    /** Character at {@code index} of {@code s}, JBMC's no-bounds-exception variant. */
+    /**
+     * Character at {@code index} of {@code s}, JBMC's no-bounds-exception variant.
+     *
+     * <p>Under string refinement (the default) JBMC recognises this by FQN and lowers it to its sound
+     * built-in character read; the body is ignored. With refinement OFF (StringMode.NONE) that intrinsic
+     * lowering does NOT fire, so the literal body is linked - and the old placeholder ({@code '\0'}) was
+     * then unsound: every {@code BmcStrings} content op (equals/contains/hashCode), which is rebuilt from
+     * {@code CProverString.charAt}, read a constant nul. We instead delegate to {@link String#charAt}.
+     * Under no-refine the bundled char-array String model backs that with a real array (a sound array
+     * read), so {@code BmcStrings} composes soundly; under refinement the delegation is moot (the body is
+     * never executed). The bounds variance ({@code charAt} throws on out-of-range, this intrinsic is the
+     * "no-exception" form) is irrelevant to {@code BmcStrings}, whose loops only ever pass in-range
+     * indices ({@code i < length()}).
+     */
     public static char charAt(String s, int index) {
-        return '\0';
+        return s.charAt(index);
     }
 
     /**

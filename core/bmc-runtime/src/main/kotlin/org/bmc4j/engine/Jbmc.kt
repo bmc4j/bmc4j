@@ -234,7 +234,8 @@ class Jbmc(private val executable: String) {
             // --no-refine-strings") if both are present, so under NONE we emit --no-refine-strings and
             // OMIT --max-nondet-string-length; under REFINEMENT we pass --max-nondet-string-length as
             // before. This is the SINGLE place the mode reaches the command, so the verdict-cache key
-            // tracks it automatically (see [verdictRelevantFlags]).
+            // tracks it automatically (see [verdictRelevantFlags]). Under NONE the bundled char-array
+            // String model is prepended (see JbmcBackend), keyed on this same StringMode.
             when (stringMode) {
                 org.bmc4j.StringMode.NONE -> cmd.add("--no-refine-strings")
                 org.bmc4j.StringMode.REFINEMENT ->

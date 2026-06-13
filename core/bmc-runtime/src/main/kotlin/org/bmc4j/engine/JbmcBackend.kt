@@ -265,6 +265,21 @@ class JbmcBackend : VerificationBackend {
             if (kotlinModels != null) {
                 classpath = spliceAfter(classpath, userModelEntries, kotlinModels)
             }
+            // Sound char-array-backed java.lang.String / StringBuilder model, ONLY under no-refine
+            // (StringMode.NONE). Under string refinement (the default) JBMC's refinement solver IS the
+            // sound String model and these classes must NOT shadow it; with refinement OFF the cbmc
+            // core-models' String/StringBuilder are degenerate intrinsic-only shells (length->nondetInt,
+            // charAt->placeholder, StringBuilder.toString->possibly-null nondet), so a correct String
+            // property false-REFUTES with a NullPointerException. This model backs a String with a real
+            // char[] so construction/length()/charAt() are sound array operations. Spliced at the same
+            // position as the Kotlin models (after user models, so a user override still wins) and BEFORE
+            // core-models (appended below), so it shadows the degenerate cbmc String by classpath order.
+            if (request.stringMode == org.bmc4j.StringMode.NONE) {
+                val stringModel = BundledStringModel.extractRoot()
+                if (stringModel != null) {
+                    classpath = spliceAfter(classpath, userModelEntries, stringModel)
+                }
+            }
             // Append the JDK models (class hierarchy for dynamic-cast checks + thread analysis).
             val coreModels = coreModelsNextTo(jbmcPath)
             if (coreModels != null) {

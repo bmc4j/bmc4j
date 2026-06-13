@@ -36,6 +36,23 @@ consumed by the `examples/` via `includeBuild`):
   `Stream`, `BigInteger`/`BigDecimal`, `java.time` as epoch primitives), placed on the
   analysis classpath so that logic is analyzable. Extends JBMC's coverage without a fork.
   Proven sound by the two-axis conformance harness — see [model soundness](model-soundness.md).
+- **`core/bmc-string-model`** — sound char-array-backed models of `java.lang.String` /
+  `StringBuilder` / `AbstractStringBuilder` / `StringBuffer`, used **only** when string
+  refinement is OFF (`--no-refine-strings` / `StringMode.NONE`). Under refinement (the default)
+  JBMC's refinement solver supplies the sound String model and these classes are NOT on the
+  classpath; with refinement off the cbmc `core-models.jar` String/StringBuilder are degenerate
+  intrinsic-only shells (`length()` → `nondetInt`, `charAt` → a placeholder, `StringBuilder.toString`
+  → a possibly-null nondet), so a String's backing is null and a correct property like
+  `Buffer().writeUtf8("ab"); size==2` false-REFUTES with a `NullPointerException`. These models
+  back a String with a real `char[]` so construction / `length()` / `charAt()` are sound array
+  operations. Packaged like `bmc-kotlin-models`: shipped as inert resources in `bmc-runtime` and
+  prepended to JBMC's analysis classpath only under no-refine (`BundledStringModel`). Covers
+  construction (`new String(char[])`, `StringBuilder.append(char)`+`toString()`), `length`,
+  `charAt`, `isEmpty`, `equals`, `hashCode`, `substring`, `compareTo`. Limits under no-refine: a
+  String **literal**'s content is not recovered (JBMC materializes a literal without a constructor,
+  so its backing is a fresh nondet array — sound but content-unconstrained), and a symbolic string
+  must be introduced via construction (`new String(symbolicCharArray)`) rather than
+  `Bmc.anyString`/raw `nondetWithoutNull` (whose nondet backing field is re-havoced across calls).
 - **`core/bmc-contracts`** — the `@Requires`/`@Ensures` annotation processor: generates
   replace-stubs, auto-discharged enforce-`@BmcProof`s, and the manifest the backend reads
   to redirect call sites. Enables modular (assume-guarantee) proofs — see

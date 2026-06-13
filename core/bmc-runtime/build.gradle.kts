@@ -156,11 +156,39 @@ sourceSets.named("main") {
 tasks.named("processResources") {
     dependsOn(bundleKotlinModel)
 }
+
+// Sound char-array-backed java.lang.String / StringBuilder / AbstractStringBuilder / StringBuffer
+// models for JBMC's analysis classpath, used ONLY under --no-refine-strings (StringMode.NONE). Same
+// packaging discipline as the kotlin models above: these classes carry real JDK names, so they ship as
+// inert RESOURCES (NEVER on a runtime classpath - the bootstrap loader wins for java.*, and a stray
+// test-classpath copy would break tests). BundledStringModel extracts them and the no-refine path
+// prepends them to JBMC's analysis classpath, where they shadow the cbmc core-models' degenerate
+// intrinsic-only String/StringBuilder.
+val stringModel: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+dependencies {
+    stringModel(project(":bmc-string-model"))
+}
+val bundleStringModel by tasks.registering(Copy::class) {
+    from(stringModel.elements.map { jars -> jars.map { zipTree(it) } }) {
+        exclude("META-INF/**")
+    }
+    into(layout.buildDirectory.dir("string-model/bmc-string-model"))
+}
+sourceSets.named("main") {
+    resources.srcDir(layout.buildDirectory.dir("string-model"))
+}
+tasks.named("processResources") {
+    dependsOn(bundleStringModel)
+}
 // sourcesJar packs main.allSource, which includes the kotlin-model resources dir
 // bundleKotlinModel produces — Gradle's strict validation requires the explicit
 // dependency (this was the pre-existing `-p core build` failure).
 tasks.named("sourcesJar") {
     dependsOn(bundleKotlinModel)
+    dependsOn(bundleStringModel)
 }
 
 // Don't add Shadow's extra `shadow` variant/component to the java component: the
