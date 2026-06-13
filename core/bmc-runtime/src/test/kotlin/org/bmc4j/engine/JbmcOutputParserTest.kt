@@ -1086,6 +1086,97 @@ internal class JbmcOutputParserTest {
         assertTrue(r.undecidedReason!!.contains("unwind bound is too small"), r.undecidedReason)
     }
 
+    // --- NONE-mode char-array String witness reconstruction ----------
+    // Under StringMode.NONE java.lang.String is the char-array-backed bmc-string-model class, so a
+    // proof-local String surfaces as `s -> stringObj`, `stringObj.value -> charArrayObj`,
+    // `charArrayObj.data -> backing`, then per-index chars. With reconstructStrings the witness must
+    // stitch that back to a READABLE `s = "hi"`; without it (REFINEMENT, the default) the String is an
+    // opaque object the witness drops. This mirrors the exact shape jbmc 6.9.0 emits for
+    // `String s = new String(symbolicChars)`.
+
+    /** The NONE-mode model-String trace fixture: `s` is "hi" via the value/backing/element chain. */
+    private val noneModeStringTrace = """
+        [
+          {"result":[
+            {"name":"c.1","status":"FAILURE","description":"assertion",
+             "sourceLocation":{"file":"Example.java","line":"3","function":"java::pkg.Tests.proof:()V"},
+             "trace":[
+               {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                "sourceLocation":{"file":"Tests.java","line":"1"}},
+               {"stepType":"assignment","lhs":"dynamic_object${'$'}4.data",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                "value":{"name":"pointer","data":"dynamic_array${'$'}1","type":"char *"}},
+               {"stepType":"assignment","lhs":"dynamic_array${'$'}1[0L]",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                "value":{"name":"integer","data":"'h'","type":"char"}},
+               {"stepType":"assignment","lhs":"dynamic_array${'$'}1[1L]",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                "value":{"name":"integer","data":"'i'","type":"char"}},
+               {"stepType":"assignment","lhs":"dynamic_object${'$'}3.value",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                "value":{"name":"pointer","data":"dynamic_object${'$'}4","type":"struct java::array[char] *"}},
+               {"stepType":"assignment","lhs":"s",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                "value":{"name":"pointer","data":"dynamic_object${'$'}3","type":"const struct java.lang.String *"}},
+               {"stepType":"failure",
+                "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"3"}}
+             ]}
+          ]}
+        ]""".trimIndent()
+
+    @Test
+    fun none_mode_char_array_string_is_reconstructed_to_a_readable_string() {
+        val r = JbmcOutputParser.parse(noneModeStringTrace, ENTRY, null, reconstructStrings = true)
+        assertEquals(listOf("s = \"hi\""), r.violations[0].counterexample)
+        val b = r.violations[0].bindings.single { it.name == "s" }
+        assertEquals("string", b.kind)
+        assertEquals("hi", b.data)
+    }
+
+    @Test
+    fun refinement_mode_leaves_the_string_object_unreconstructed() {
+        // The default (reconstructStrings = false, i.e. REFINEMENT mode) must NOT touch the witness: the
+        // model-String object is opaque and dropped, exactly as before this reconstruction existed.
+        val r = JbmcOutputParser.parse(noneModeStringTrace, ENTRY)
+        assertTrue(r.violations[0].counterexample.none { it.startsWith("s = ") },
+                "REFINEMENT-mode rendering must be unchanged (no reconstructed String)")
+        assertTrue(r.violations[0].bindings.none { it.name == "s" })
+    }
+
+    @Test
+    fun none_mode_does_not_render_the_implicit_this_receiver_as_a_string() {
+        // JBMC stamps a model String's `this` receiver assignment with the CALLER's (proof) frame; it must
+        // never be rendered as a `this = "..."` input (nor an uncompilable `String this = ...` replay).
+        val json = """
+            [
+              {"result":[
+                {"name":"c.1","status":"FAILURE","description":"assertion",
+                 "sourceLocation":{"file":"Example.java","line":"3","function":"java::pkg.Tests.proof:()V"},
+                 "trace":[
+                   {"stepType":"function-call","function":{"identifier":"java::pkg.Tests.proof:()V"},
+                    "sourceLocation":{"file":"Tests.java","line":"1"}},
+                   {"stepType":"assignment","lhs":"dynamic_object${'$'}4.data",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_array${'$'}1","type":"char *"}},
+                   {"stepType":"assignment","lhs":"dynamic_array${'$'}1[0L]",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"integer","data":"'h'","type":"char"}},
+                   {"stepType":"assignment","lhs":"dynamic_object${'$'}3.value",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}4","type":"struct java::array[char] *"}},
+                   {"stepType":"assignment","lhs":"this",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V"},
+                    "value":{"name":"pointer","data":"dynamic_object${'$'}3","type":"const struct java.lang.String *"}},
+                   {"stepType":"failure",
+                    "sourceLocation":{"function":"java::pkg.Tests.proof:()V","file":"Example.java","line":"3"}}
+                 ]}
+              ]}
+            ]""".trimIndent()
+        val r = JbmcOutputParser.parse(json, ENTRY, null, reconstructStrings = true)
+        assertTrue(r.violations[0].counterexample.none { it.startsWith("this = ") })
+        assertTrue(r.violations[0].bindings.none { it.name == "this" })
+    }
+
     companion object {
         private const val ENTRY = "pkg.Tests.proof"
 

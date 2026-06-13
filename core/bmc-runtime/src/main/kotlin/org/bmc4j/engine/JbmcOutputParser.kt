@@ -37,7 +37,8 @@ object JbmcOutputParser {
 
     @JvmStatic
     @JvmOverloads
-    fun parse(json: String, entryFunctionFqn: String?, userClasspath: String? = null): JbmcResult {
+    fun parse(json: String, entryFunctionFqn: String?, userClasspath: String? = null,
+              reconstructStrings: Boolean = false): JbmcResult {
         val root: JsonArray = try {
             JsonParser.parseString(json).asJsonArray
         } catch (e: RuntimeException) {
@@ -49,7 +50,7 @@ object JbmcOutputParser {
             // mid-write) instead of reading only "could not parse".
             return JbmcResult.unknownParse(parseFailureReason(json), json)
         }
-        return parseRoot(root, json, entryFunctionFqn, userClasspath)
+        return parseRoot(root, json, entryFunctionFqn, userClasspath, reconstructStrings)
     }
 
     /**
@@ -65,7 +66,8 @@ object JbmcOutputParser {
      */
     @JvmStatic
     @JvmOverloads
-    fun parse(file: File, entryFunctionFqn: String?, userClasspath: String? = null): JbmcResult {
+    fun parse(file: File, entryFunctionFqn: String?, userClasspath: String? = null,
+              reconstructStrings: Boolean = false): JbmcResult {
         val root: JsonArray = try {
             streamRelevantElements(file)
         } catch (e: RuntimeException) {
@@ -73,7 +75,7 @@ object JbmcOutputParser {
         } catch (e: java.io.IOException) {
             return JbmcResult.unknownParse(parseFailureReason(file), boundedRawSummary(file))
         }
-        return parseRoot(root, boundedRawSummary(file), entryFunctionFqn, userClasspath)
+        return parseRoot(root, boundedRawSummary(file), entryFunctionFqn, userClasspath, reconstructStrings)
     }
 
     /**
@@ -138,11 +140,12 @@ object JbmcOutputParser {
      *  [rawOutput] to carry into the result. Shared by the in-heap [String] and streaming [File] entry
      *  points so both extract exactly the same facts. */
     private fun parseRoot(root: JsonArray, rawOutput: String?, entryFunctionFqn: String?,
-                          userClasspath: String?): JbmcResult {
+                          userClasspath: String?, reconstructStrings: Boolean = false): JbmcResult {
         // Harvest the nondet-stub fact from the engine message stream once, regardless of
         // verdict — policy (footnote / strict-UNKNOWN) is applied later by the caller. Attached to the
         // computed verdict below via withStubbedMethods (a no-op when empty).
-        return parseVerdict(root, rawOutput, entryFunctionFqn, WitnessUserCode.from(userClasspath))
+        return parseVerdict(root, rawOutput, entryFunctionFqn, WitnessUserCode.from(userClasspath),
+                reconstructStrings)
                 .withStubbedMethods(harvestStubs(root))
                 .withUnmodelledMembers(harvestUnmodelledMembers(root))
                 // linkFailureStubs carries BOTH fingerprints of a present-class nondet stub a refutation
@@ -206,7 +209,7 @@ object JbmcOutputParser {
     }
 
     private fun parseVerdict(root: JsonArray, json: String?, entryFunctionFqn: String?,
-                            userCode: WitnessUserCode?): JbmcResult {
+                            userCode: WitnessUserCode?, reconstructStrings: Boolean = false): JbmcResult {
         var result: JsonArray? = null
         for (e in root) {
             if (!e.isJsonObject) {
@@ -250,7 +253,7 @@ object JbmcOutputParser {
                         }
                         continue
                     }
-                    violations.add(toViolation(p, entryFunctionFqn, userCode))
+                    violations.add(toViolation(p, entryFunctionFqn, userCode, reconstructStrings))
                 }
             }
         }
@@ -792,7 +795,8 @@ object JbmcOutputParser {
     }
 
     private fun toViolation(property: JsonObject, entryFunctionFqn: String?,
-                            userCode: WitnessUserCode?): JbmcResult.Violation {
+                            userCode: WitnessUserCode?,
+                            reconstructStrings: Boolean = false): JbmcResult.Violation {
         var description = str(property, "description")
         val sl = if (property.has("sourceLocation")) property.getAsJsonObject("sourceLocation") else null
         var file = if (sl != null) str(sl, "file") else null
@@ -804,7 +808,7 @@ object JbmcOutputParser {
 
         if (property.has("trace")) {
             buildStackAndCounterexample(property.getAsJsonArray("trace"), file, line,
-                    entryFunctionFqn, userCode, stack, counterexample, bindings)
+                    entryFunctionFqn, userCode, stack, counterexample, bindings, reconstructStrings)
         }
         // When the property carries no location of its own (jbmc sometimes omits it on a model-lowered
         // assertion — e.g. a divide check merged through the Integer/collection models), recover it from
@@ -1104,7 +1108,8 @@ object JbmcOutputParser {
                                             entryFunctionFqn: String?, userCode: WitnessUserCode?,
                                             stack: MutableList<StackTraceElement>,
                                             counterexample: MutableList<String>,
-                                            bindings: MutableList<JbmcResult.Binding>) {
+                                            bindings: MutableList<JbmcResult.Binding>,
+                                            reconstructStrings: Boolean = false) {
         val active = ArrayDeque<Frame>()
         var failFunction: String? = null
         // name -> final value, restricted to the proof method's own variables.
@@ -1117,6 +1122,15 @@ object JbmcOutputParser {
         // (`dynamic_array`), and the concrete elements arrive as per-index assignments to that backing
         // store. So we harvest the three links across the whole trace and stitch them together after.
         val heap = ArrayHeap()
+        // The heap state needed to reconstruct a NONE-mode char-array-backed model String back to a
+        // readable `name = "abc"`. Under StringMode.NONE java.lang.String is the bmc-string-model class,
+        // whose content lives in a real `char[] value` field; in the trace a proof-local String variable
+        // (`s`) is a POINTER to a String `dynamic_object$N`, whose `value` member points to a char[] array
+        // object, whose backing store + per-index chars the ArrayHeap below already harvests. So we follow
+        // the String-specific `s -> stringObj` and `stringObj.value -> charArrayObj` links here and assemble
+        // the chars via the shared ArrayHeap char-element resolution. Inert (and unbuilt) outside NONE,
+        // where JBMC supplies its own opaque String model and this reconstruction would not apply.
+        val strings = if (reconstructStrings) StringHeap() else null
         val entryPrefix = if (entryFunctionFqn != null) "java::$entryFunctionFqn" else null
 
         // Explicit USER-nondet witness tags (NondetTagBytecode) are the PRIMARY input channel, so harvest
@@ -1161,6 +1175,7 @@ object JbmcOutputParser {
                 "assignment" -> {
                     collectCounterexample(step, entryPrefix, userCode, inputs, inputKinds)
                     heap.observe(step, entryPrefix, userCode)
+                    strings?.observe(step, entryPrefix, userCode)
                 }
                 "failure" -> {
                     val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
@@ -1185,6 +1200,19 @@ object JbmcOutputParser {
             if (name !in inputs) {
                 counterexample.add("$name = ${arr.render()}")
                 bindings.add(JbmcResult.Binding(name, arr.kind, arr.render()))
+            }
+        }
+        // NONE-mode char-array-backed String inputs (StringHeap is null outside NONE, so REFINEMENT-mode
+        // rendering is untouched): assemble each user String variable's char[] backing into a readable
+        // `name = "abc"` binding, so a NONE-mode refutation shows the string content instead of leaving the
+        // String an opaque object the witness drops. The chars come from the ArrayHeap (which already
+        // harvested the char[] array object's backing store + per-index chars); we just follow the
+        // String-specific `s -> stringObj.value -> charArrayObj` links to find which object holds them.
+        strings?.resolveStrings(heap)?.forEach { (name, value) ->
+            if (name !in inputs) {
+                val literal = ReplayRenderer.javaStringLiteral(value)
+                counterexample.add("$name = $literal")
+                bindings.add(JbmcResult.Binding(name, "string", value))
             }
         }
 
@@ -1459,6 +1487,22 @@ object JbmcOutputParser {
         private fun arrayKind(elementType: String?): String =
                 if (elementType.isNullOrBlank()) "array" else "$elementType[]"
 
+        /**
+         * The concrete elements (index order, as raw value `data`) of the char[] ARRAY OBJECT [objId],
+         * following the same `object.data -> backing-store -> per-index elements` chain [resolveArrays]
+         * uses, or null when the object's backing/elements were not fully observed. Used by the NONE-mode
+         * [StringHeap] to read a model String's char[] backing (the String's `value` field points at this
+         * array object). Pure.
+         */
+        fun resolveElementsForObject(objId: String): List<String>? {
+            val backing = objectBacking[objId] ?: return null
+            val elems = backingElems[backing] ?: return null
+            if (elems.isEmpty()) {
+                return null
+            }
+            return elems.toSortedMap().values.toList()
+        }
+
         companion object {
             private val OBJECT_DATA_RE = Regex("""^(dynamic_object\$\d+)\.data$""")
             private val ELEMENT_RE = Regex("""^([A-Za-z_][A-Za-z0-9_$]*)\[(\d+)L?]$""")
@@ -1473,6 +1517,142 @@ object JbmcOutputParser {
      *  (`int[]`/`long[]`). [render] is the human-readable `[e0, e1, …]` display form. */
     private class ResolvedArray(val elements: List<String>, val kind: String) {
         fun render(): String = elements.joinToString(", ", "[", "]")
+    }
+
+    /**
+     * Reconstructs NONE-mode model-String inputs from a refutation trace back to a READABLE String. Used
+     * ONLY under StringMode.NONE (built only when `reconstructStrings` is set), where `java.lang.String`
+     * is the char-array-backed bmc-string-model class. A proof-local String variable surfaces as a
+     * two-link chain we harvest, then a third link the [ArrayHeap] already harvested:
+     *
+     *  1. the proof-local variable (`s`) is a `pointer` whose `type` is `... java.lang.String *` and whose
+     *     `data` is the String heap object id (`dynamic_object$N`) - recorded FIRST-WINS per name, and only
+     *     for a real user-declared local (same [isUserDeclaredLocal] discrimination as the array path);
+     *  2. that String object's char[] backing field is an assignment to `dynamic_object$N.value` (the
+     *     bmc-string-model `char[] value` field; defensively also the `@java.lang.String.`-qualified form)
+     *     whose pointer `data` is the char[] ARRAY OBJECT id - recorded last-wins (the settled link);
+     *  3. that char[] array object's backing store + per-index chars are exactly what [ArrayHeap] already
+     *     observed, so [resolveStrings] reads them back via [ArrayHeap.resolveElementsForObject] rather
+     *     than re-harvesting them here.
+     *
+     * The chars (each a JBMC `'X'` / `'\uXXXX'` / numeric value `data`) are decoded and joined into the
+     * String content. DISPLAY-ONLY reconstruction - it never affects the verdict - and pins the shape
+     * jbmc 6.9.0 emits for the char-array String model (covered by the parser unit tests; the engine
+     * identity is in the verdict-cache key, so a bump forces re-validation, like the array witness path).
+     */
+    private class StringHeap {
+        // user String variable name -> String heap object id (dynamic_object$N), FIRST-WINS.
+        private val stringVars = LinkedHashMap<String, String>()
+        // String heap object id -> its char[] backing array object id (from the `value` field), last-wins.
+        private val stringValueObject = HashMap<String, String>()
+
+        /** Folds one `assignment` step into the String-chain maps. Pure bookkeeping; never throws. */
+        fun observe(step: JsonObject, entryPrefix: String?, userCode: WitnessUserCode?) {
+            val lhs = str(step, "lhs")
+            if (lhs.isNullOrEmpty() || !step.has("value") || !step.get("value").isJsonObject) {
+                return
+            }
+            val value = step.getAsJsonObject("value")
+            // (1) a user-declared String variable: a String-typed pointer in the user's own frame.
+            // Exclude `this` - JBMC stamps a model String's `this` receiver assignment with the CALLER's
+            // (proof) frame, so it would otherwise pass the user-declared check and render a bogus
+            // `this = "..."` input (and an uncompilable `String this = ...` replay).
+            if (isUserVariable(lhs) && lhs != "this"
+                    && str(value, "name") == "pointer" && isStringPointerType(str(value, "type"))) {
+                val obj = str(value, "data")
+                if (obj != null && obj != "null" && lhs !in stringVars) {
+                    val loc = if (step.has("sourceLocation")) step.getAsJsonObject("sourceLocation") else null
+                    val fn = if (loc != null) str(loc, "function") else null
+                    if (isUserDeclaredLocal(fn, lhs, entryPrefix, userCode)) {
+                        stringVars[lhs] = obj
+                    }
+                }
+                return
+            }
+            // (2) the String object's char[] backing field: `dynamic_object$N.value` -> char[] array obj.
+            val valueLink = STRING_VALUE_RE.matchEntire(lhs)
+            if (valueLink != null && str(value, "name") == "pointer") {
+                val charObj = str(value, "data")
+                if (charObj != null && charObj != "null") {
+                    stringValueObject[valueLink.groupValues[1]] = charObj
+                }
+            }
+        }
+
+        /**
+         * Stitch every recorded String variable into its readable content, in first-seen name order,
+         * using [heap] for the char[] backing's per-index chars (link 3). A String whose backing/elements
+         * were not fully observed (e.g. a lazy nondet literal whose content the model does not recover) is
+         * dropped - never rendered as a wrong/partial value.
+         */
+        fun resolveStrings(heap: ArrayHeap): Map<String, String> {
+            val out = LinkedHashMap<String, String>()
+            for ((name, stringObj) in stringVars) {
+                val charObj = stringValueObject[stringObj] ?: continue
+                val chars = heap.resolveElementsForObject(charObj) ?: continue
+                val sb = StringBuilder(chars.size)
+                var ok = true
+                for (c in chars) {
+                    val decoded = decodeCharData(c)
+                    if (decoded == null) {
+                        ok = false
+                        break
+                    }
+                    sb.append(decoded)
+                }
+                if (ok) {
+                    out[name] = sb.toString()
+                }
+            }
+            return out
+        }
+
+        companion object {
+            // `dynamic_object$N.value` or the `@java.lang.String.`-qualified form; group 1 = the String obj.
+            private val STRING_VALUE_RE =
+                    Regex("""^(dynamic_object\$\d+)\.(?:@java\.lang\.String\.)?value$""")
+
+            /** True for a JBMC pointer type to the (model) java.lang.String, e.g.
+             *  `const struct java.lang.String *` / `struct java.lang.String *`. */
+            private fun isStringPointerType(type: String?): Boolean =
+                    type != null && type.contains("java.lang.String") && type.trimEnd().endsWith("*")
+        }
+    }
+
+    /**
+     * Decode one JBMC char value `data` to a [Char] for String reconstruction: a numeric code, a plain
+     * quoted char (`'m'`), or a quoted unicode/control escape (`'\uXXXX'`, `'\n'`, `'\t'`, ...). Returns
+     * null for anything unrecognizable so [StringHeap.resolveStrings] drops the whole String rather than
+     * fabricate content. Broader than [parseCharData] (which only handles a single-inner-char quote or a
+     * bare number), because the char-array model's per-index chars commonly arrive as `'\uXXXX'`.
+     */
+    private fun decodeCharData(data: String?): Char? {
+        val d = data?.trim() ?: return null
+        if (d.length >= 2 && d.first() == '\'' && d.last() == '\'') {
+            val inner = d.substring(1, d.length - 1)
+            return when {
+                inner.length == 1 -> inner[0]
+                inner.startsWith("\\u") && inner.length == 6 ->
+                    inner.substring(2).toIntOrNull(16)?.toChar()
+                inner.length == 2 && inner[0] == '\\' -> decodeShortEscape(inner[1])
+                else -> null
+            }
+        }
+        val code = d.toIntOrNull() ?: return null
+        return if (code in 0..0xFFFF) code.toChar() else null
+    }
+
+    /** Decode a single-letter char escape body (the char after a backslash). Null for an unknown one. */
+    private fun decodeShortEscape(c: Char): Char? = when (c) {
+        'n' -> '\n'
+        'r' -> '\r'
+        't' -> '\t'
+        'b' -> '\b'
+        'f' -> 12.toChar()
+        '0' -> 0.toChar()
+        '\\' -> '\\'
+        '\'' -> '\''
+        else -> null
     }
 
     /**
