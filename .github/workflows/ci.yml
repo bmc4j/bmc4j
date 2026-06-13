@@ -23,6 +23,10 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `labeled` lets the `full-no-cache` label trigger a CI run; that run skips the verdict-cache
+    # restore (see below) so every proof re-solves cold, surfacing results the cache would mask.
+    # The defaults must be listed explicitly once `types` is set.
+    types: [opened, synchronize, reopened, labeled]
   # Merge queue: GitHub runs CI against each queued PR rebased on the latest main
   # BEFORE it lands, so a red leg (or a cross-PR break) can never reach main. The
   # merge_group leg runs the SAME full matrix as a push to main (below).
@@ -350,6 +354,10 @@ jobs:
       # re-solves its own slice + whatever changed. restore-only (no save here): the merge job
       # below produces the next snapshot from the shard artifacts.
       - name: Restore verdict caches
+        # Skipped when the PR carries the `full-no-cache` label: a cold verdict cache forces every
+        # proof to re-run its solve, surfacing verdicts the cache would otherwise mask (a bug that
+        # only shows on a from-scratch run). Normal runs restore it for fast feedback.
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'full-no-cache') }}
         uses: actions/cache/restore@v5
         with:
           path: |
