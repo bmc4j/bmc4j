@@ -85,7 +85,13 @@ class JbmcBackend : VerificationBackend {
         if (result.isVerified && result.stubbedMethods.isEmpty()) {
             StubHarvestFloor.ensure(jbmcPath, engineIdentity())
         }
-        return result
+        // Attach the assumed output-contracts this proof installed as a parallel FACT (like
+        // stubbedMethods): each "Owner.method" the verdict interpreter surfaces so a VERIFIED reached
+        // under an assumeEvery/assumeStable is flagged NOT unconditional. Re-decoded from the original
+        // classpath (cheap: one class read; install() itself is memoized).
+        return result.withAssumedContracts(
+                AssumeContractBytecode.displays(
+                        request.entryClass, request.entryFunction, request.classpath))
     }
 
     private companion object {
@@ -171,6 +177,23 @@ class JbmcBackend : VerificationBackend {
             // Method contracts: rewrite contracted call sites to their replace-stubs; a
             // generated enforce proof is excluded as a caller so it sees the real body (modular enforce).
             var classpath = t("contracts") { applyContracts(request, analysisClasspath) }
+            // Per-proof ASSUMED output-contracts (Bmc.assumeEvery / assumeStable): read the proof's
+            // marker call sites, decode each (reference + predicate) STATICALLY from its
+            // LambdaMetafactory bootstrap handles on the ORIGINAL pre-rewrite classpath (the indys are
+            // still present there), shadow each target with a constrained-nondet stub, and redirect its
+            // call sites — including those in <clinit> and uncontrolled callees. A no-op when the proof
+            // declares none. The decoded set is also surfaced on the verdict (below) and its predicates
+            // are purity-audited (alongside the contract audit).
+            val assumeContracts = t("assume-contracts") {
+                AssumeContractBytecode.decode(
+                        request.classpath, request.entryClass, entryMethodName(request.entryFunction))
+            }
+            if (assumeContracts.isNotEmpty()) {
+                classpath = t("assume-contracts") {
+                    AssumeContractBytecode.install(classpath, request.entryClass,
+                            entryMethodName(request.entryFunction), assumeContracts)
+                }
+            }
             // Fold the consumer's own src/bmcModel output into the SAME classpath the rewrite chain runs
             // over, so a user-authored model is rewritten exactly like the proof/test classes (String
             // content ops -> BmcStrings, concat / record / typeSwitch / lambda invokedynamic desugared,
@@ -260,6 +283,13 @@ class JbmcBackend : VerificationBackend {
                         manifest, request.entryClass, entryMethodName(request.entryFunction),
                         request.classpath, classpath)
             }
+            // NB: assumed-contract predicates (assumeEvery / assumeStable) are deliberately NOT
+            // purity-audited. Unlike an annotation contract — whose predicate becomes a reusable summary
+            // spliced into callers — an assumed contract is an explicit, per-proof, user-owned assertion
+            // surfaced on the verdict ("VERIFIED under assumed contract X"). An effectful predicate is a
+            // legitimate richer micro-model (model the dependency's side effects, not just its output),
+            // and the over-approximation soundness (fresh-per-call nondet) holds regardless of the
+            // predicate's purity. The user owns it; we don't gate it.
             // Exception-message elision: drop the construction of a thrown exception's message when the
             // proof's reachable cone observes NO exception message (AUTO's coarse soundness gate), or
             // when the proof asks for it explicitly (ON, a user-asserted override). This makes a proof
@@ -353,8 +383,8 @@ class JbmcBackend : VerificationBackend {
         }
 
         /**
-         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain — `6-desugar -> Config ->
-         * KotlinParam -> Reachability -> NondetTag` — in the SAME order, with the SAME pass entry points,
+         * The full ENVIRONMENT-INDEPENDENT prefix of the rewrite chain - `6-desugar -> AnyRef -> Config ->
+         * KotlinParam -> Reachability -> NondetTag` - in the SAME order, with the SAME pass entry points,
          * that [GradleClasspathMirror.mirror] runs in the plugin worker. So the bytecode this produces
          * in-JVM (for an uncovered entry, or with no plugin mirror at all) is byte-for-byte what the
          * cacheable task produces for a covered one. The six desugars + Reachability + NondetTag are pure
@@ -367,6 +397,11 @@ class JbmcBackend : VerificationBackend {
             fun <T> t(label: String, body: () -> T): T =
                     if (timing != null) timing.time(label, body) else body()
             var cp = t("desugar") { applyDesugarPasses(classpath) }
+            // Intrinsify Bmc.anyRef(Foo.class) -> CProver.nondetWithoutNull() so the trailing erasure
+            // checkcast consumes the JBMC-intrinsic havoc directly (havoc'd object already typed Foo, no
+            // failing dynamic-cast check). Pure, env-independent, only touches anyRef call sites - same
+            // entry point GradleClasspathMirror.mirror runs, so the mirror is byte-for-byte identical.
+            cp = t("anyref") { AnyRefBytecode.rewrite(cp) }
             cp = t("config") { ConfigBytecode.rewrite(cp) }
             cp = t("kotlin-param") { KotlinParamBytecode.rewrite(cp) }
             cp = t("reachability") { ReachabilityBytecode.rewrite(cp) }

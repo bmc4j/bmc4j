@@ -36,6 +36,7 @@ class JbmcResult private constructor(
         stubbedMethods: List<String>?,
         unmodelledMembers: List<String>?,
         linkFailureStubs: List<String>?,
+        assumedContracts: List<String>?,
         unwindingLoops: List<UnwindingLoop>?,
         /**
          * The per-stage PERFORMANCE BREAKDOWN of this run (phase timings, loop-unwinding offenders,
@@ -114,6 +115,16 @@ class JbmcResult private constructor(
     val linkFailureStubs: List<String> = linkFailureStubs?.toList() ?: emptyList()
 
     /**
+     * The per-proof ASSUMED output-contracts (`Bmc.assumeEvery` / `Bmc.assumeStable`) this run installed
+     * - each a `"Owner.method"` display (a `(stable)` suffix marks an `assumeStable`). A parallel FACT
+     * harvested by [JbmcBackend], like [stubbedMethods]: the POLICY (flagging a VERIFIED as NOT
+     * unconditional) is applied by [org.bmc4j.junit.BmcProofExtension]. Empty when the proof declares
+     * none.
+     */
+    @get:JvmName("assumedContracts")
+    val assumedContracts: List<String> = assumedContracts?.toList() ?: emptyList()
+
+    /**
      * The loops/recursions whose `--unwinding-assertions` firing made this run UNKNOWN[UNWINDING_ASSERTION]:
      * each the offending site bmc4j already has from the failing unwinding property (method + file:line).
      * Empty on every other verdict. A parallel FACT harvested at parse time, like [stubbedMethods]; the
@@ -127,7 +138,7 @@ class JbmcResult private constructor(
     constructor(verified: Boolean, violations: List<Violation>, rawOutput: String?,
                 vacuous: Boolean = false) : this(
             if (verified) Verdict.VERIFIED else Verdict.REFUTED, violations, rawOutput, vacuous,
-            null, null, emptyList(), emptyList(), emptyList(), emptyList())
+            null, null, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 
     /** True if JBMC found no property violation within the bound. */
     val isVerified: Boolean
@@ -147,7 +158,21 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubs, unmodelledMembers, linkFailureStubs, unwindingLoops, profile)
+                stubs, unmodelledMembers, linkFailureStubs, assumedContracts, unwindingLoops, profile)
+    }
+
+    /**
+     * Return a copy carrying the assumed-output-contract list (a parallel fact, like
+     * [withStubbedMethods]). The verdict and violations are unchanged - the verdict FLAG ("VERIFIED
+     * under assumed contract ... - NOT unconditional") is a presentation POLICY applied later by
+     * [org.bmc4j.junit.BmcProofExtension]. Returns `this` when empty/unchanged.
+     */
+    fun withAssumedContracts(contracts: List<String>?): JbmcResult {
+        if (contracts.isNullOrEmpty()) {
+            return this
+        }
+        return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
+                stubbedMethods, unmodelledMembers, linkFailureStubs, contracts, unwindingLoops, profile)
     }
 
     /**
@@ -160,7 +185,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, members, linkFailureStubs, unwindingLoops, profile)
+                stubbedMethods, members, linkFailureStubs, assumedContracts, unwindingLoops, profile)
     }
 
     /**
@@ -174,12 +199,12 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, members, unwindingLoops, profile)
+                stubbedMethods, unmodelledMembers, members, assumedContracts, unwindingLoops, profile)
     }
 
     /**
      * Return a copy carrying the offending unwinding loops (a parallel fact, like [withStubbedMethods]).
-     * The verdict is unchanged — this only attaches the loop identity already in the failing unwinding
+     * The verdict is unchanged - this only attaches the loop identity already in the failing unwinding
      * property so [AutoUnwind] / [org.bmc4j.junit.BmcProofExtension] can name the data-dependent loop.
      * Returns `this` when empty/unchanged.
      */
@@ -188,7 +213,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, linkFailureStubs, loops, profile)
+                stubbedMethods, unmodelledMembers, linkFailureStubs, assumedContracts, loops, profile)
     }
 
     /**
@@ -202,7 +227,7 @@ class JbmcResult private constructor(
             return this
         }
         return JbmcResult(verdict, violations, rawOutput, isVacuous, undecidedReason, undecidedKind,
-                stubbedMethods, unmodelledMembers, linkFailureStubs, unwindingLoops, profile)
+                stubbedMethods, unmodelledMembers, linkFailureStubs, assumedContracts, unwindingLoops, profile)
     }
 
     companion object {
@@ -219,7 +244,7 @@ class JbmcResult private constructor(
         @JvmStatic
         fun unknown(kind: UnknownKind, reason: String?, rawOutput: String?): JbmcResult =
                 JbmcResult(Verdict.UNKNOWN, emptyList(), rawOutput, false, reason, kind,
-                        emptyList(), emptyList(), emptyList(), emptyList())
+                        emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 
         /**
          * An UNKNOWN result caused specifically by the per-proof wall-clock budget expiring (the

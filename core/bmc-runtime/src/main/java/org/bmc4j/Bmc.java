@@ -555,6 +555,27 @@ public final class Bmc {
         return CProver.nondetWithoutNull();
     }
 
+    /**
+     * A symbolic, NON-NULL reference of type {@code T} - a stand-in for an external/unanalyzable
+     * dependency the proof holds a handle to (e.g. a repository or service interface with no analyzed
+     * implementation), so a proof needs no hand-written concrete stub:
+     *
+     * <pre>{@code
+     * UserRepository repo = Bmc.anyRef(UserRepository.class);
+     * Bmc.assumeEvery(repo::findById, u -> u == null || u.age() >= 0);
+     * }</pre>
+     *
+     * The result is a fresh nondet {@code T} over-approximating ANY implementation; its methods are
+     * nondet stubs unless an {@link #assumeEvery} / {@link #assumeStable} assumed contract constrains
+     * them, and the reference is non-null so a call on it doesn't trip a null-dereference check. The
+     * class token names the intended type (the value is symbolic regardless); the rewrite layer
+     * intrinsifies the call so the implicit erasure cast back to {@code T} holds. SOUND: a fresh nondet
+     * over-approximation, never an unsound narrowing.
+     */
+    public static <T> T anyRef(Class<T> __type) {
+        return CProver.nondetWithoutNull();
+    }
+
     /** Restrict the proof to inputs for which the condition holds. */
     public static void assume(boolean __assumption) {
         CProver.assume(__assumption);
@@ -679,5 +700,125 @@ public final class Bmc {
      */
     public static void recordNondet(String __name, Object __value) {
         // No-op at runtime; JBMC enters/returns it so the (name, value) args land in the trace.
+    }
+
+    // --- assumed output-contracts (assumeEvery / assumeStable) ---------------
+    // assumeEvery / assumeStable let a proof ASSUME an external/unanalyzable dependency upholds an
+    // output property and prove on top of it — no model, no annotation, no string method name:
+    //
+    //   Bmc.assumeEvery(repo::findById, user -> user == null || user.age() >= 0);
+    //   Bmc.assumeEvery(repo::findById, (user, id) -> user == null || user.id() == id);  // args-aware
+    //   Bmc.assumeStable(Runtime.getRuntime()::availableProcessors, n -> n == 8);        // env case
+    //
+    // These are PROOF-WIDE DECLARATIONS, not sequential statements (like domainSplit/check): a call
+    // appearing ANYWHERE in the proof installs the micro-model for the WHOLE analysis - including calls
+    // inside <clinit> and inside callees the proof doesn't control. The first argument MUST be a direct
+    // method reference (bound or static); the second an inline lambda predicate. bmc4j reads the
+    // target STATICALLY from the reference's LambdaMetafactory bootstrap handle (it never executes the
+    // invokedynamic) and shadows the target on the analysis classpath with a constrained-nondet stub
+    // `R m(args){ R r = nondet(); assume(predicate(r [,args])); return r; }`. See AssumeContractBytecode.
+    //
+    //   - assumeEvery is FRESH PER CALL - each call returns any output satisfying the predicate, a SOUND
+    //     OVER-APPROXIMATION: a property proven this way holds for any real implementation that respects
+    //     the predicate. The right default for repositories / services / factories.
+    //   - assumeStable pins ONE value for the whole run (memoized; reused at every call site incl.
+    //     <clinit>). The right form for a deterministic query (availableProcessors(), a config constant)
+    //     whose value a local assume can't reach.
+    //
+    // SOUNDNESS: the micro-model is an ASSUMPTION (constrained nondet via assume, never assert). A
+    // VERIFIED reached under an assumed contract is FLAGGED on the verdict ("NOT unconditional"); an
+    // over-tight predicate that rules out every output surfaces as VACUOUS. The predicate is NOT
+    // purity-audited (unlike a dischargeable annotation contract): an assumed contract is a user-owned
+    // assertion, so an impure or effectful predicate is allowed.
+    //
+    // These are MARKERS: the bodies below are never executed (the engine analyses the bytecode that
+    // installs the contract). Arity 0..2 of the reference is covered, output-only and args-aware.
+
+    /** A zero-argument method reference whose output an {@link #assumeStable} / {@link #assumeEvery}
+     *  constrains — e.g. {@code Runtime.getRuntime()::availableProcessors}. */
+    @FunctionalInterface
+    public interface Ref0<R> {
+        R get();
+    }
+
+    /** A one-argument method reference — e.g. {@code repo::findById}. */
+    @FunctionalInterface
+    public interface Ref1<A, R> {
+        R apply(A a);
+    }
+
+    /** A two-argument method reference. */
+    @FunctionalInterface
+    public interface Ref2<A, B, R> {
+        R apply(A a, B b);
+    }
+
+    /** An output-only predicate over a reference's result. */
+    @FunctionalInterface
+    public interface ResultPredicate<R> {
+        boolean test(R result);
+    }
+
+    /** An args-aware predicate over a one-argument reference's result and call argument. */
+    @FunctionalInterface
+    public interface ResultArgPredicate1<R, A> {
+        boolean test(R result, A a);
+    }
+
+    /** An args-aware predicate over a two-argument reference's result and call arguments. */
+    @FunctionalInterface
+    public interface ResultArgPredicate2<R, A, B> {
+        boolean test(R result, A a, B b);
+    }
+
+    /**
+     * Assume the zero-argument dependency {@code target} returns, on every call, a value satisfying
+     * {@code predicate} — fresh per call. A proof-wide declaration (see the section comment); the marker
+     * body is never executed.
+     */
+    public static <R> void assumeEvery(Ref0<R> __target, ResultPredicate<R> __predicate) {
+        // Marker: AssumeContractBytecode reads the reference + predicate statically and installs the
+        // constrained-nondet shadow for the whole analysis.
+    }
+
+    /** Assume the one-argument dependency {@code target} returns, on every call, a value satisfying the
+     *  output-only {@code predicate} — fresh per call. */
+    public static <A, R> void assumeEvery(Ref1<A, R> __target, ResultPredicate<R> __predicate) {
+        // Marker — see AssumeContractBytecode.
+    }
+
+    /** Assume the one-argument dependency {@code target} returns, on every call, a value satisfying the
+     *  args-aware {@code predicate} (result AND the call argument) — fresh per call. */
+    public static <A, R> void assumeEvery(Ref1<A, R> __target, ResultArgPredicate1<R, A> __predicate) {
+        // Marker — see AssumeContractBytecode.
+    }
+
+    /** Assume the two-argument dependency {@code target} returns, on every call, a value satisfying the
+     *  output-only {@code predicate} — fresh per call. */
+    public static <A, B, R> void assumeEvery(Ref2<A, B, R> __target, ResultPredicate<R> __predicate) {
+        // Marker — see AssumeContractBytecode.
+    }
+
+    /** Assume the two-argument dependency {@code target} returns, on every call, a value satisfying the
+     *  args-aware {@code predicate} (result AND both call arguments) — fresh per call. */
+    public static <A, B, R> void assumeEvery(Ref2<A, B, R> __target,
+                                             ResultArgPredicate2<R, A, B> __predicate) {
+        // Marker — see AssumeContractBytecode.
+    }
+
+    /**
+     * Assume the zero-argument deterministic query {@code target} returns ONE fixed value satisfying
+     * {@code predicate} for the whole run — memoized, reused at every call site including {@code
+     * <clinit>}. The environment / config case (e.g.
+     * {@code assumeStable(Runtime.getRuntime()::availableProcessors, n -> n == 8)}).
+     */
+    public static <R> void assumeStable(Ref0<R> __target, ResultPredicate<R> __predicate) {
+        // Marker — see AssumeContractBytecode.
+    }
+
+    /** Assume the one-argument dependency {@code target} returns ONE fixed value satisfying
+     *  {@code predicate} for the whole run (memoized). */
+    public static <A, R> void assumeStable(Ref1<A, R> __target, ResultPredicate<R> __predicate) {
+        // Marker — see AssumeContractBytecode.
     }
 }

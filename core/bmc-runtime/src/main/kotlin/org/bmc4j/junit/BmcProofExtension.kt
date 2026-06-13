@@ -235,6 +235,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 applyModelPolicy(entryFunction)
                 applyStubPolicy(entryFunction, config, hit.stubbedMethods)
                 surfaceForcedElision(entryFunction, request)
+                surfaceAssumedContracts(entryFunction, request)
             } else {
                 // A cached expectation-matching REFUTED/VACUOUS demo pass. Note the replay scratch
                 // file is NOT regenerated on a cached pass — it was written by the live run that
@@ -476,6 +477,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         applyModelPolicy(entryFunction)
         applyStubPolicy(entryFunction, config, result.stubbedMethods)
         surfaceForcedElision(entryFunction, request)
+        surfaceAssumedContracts(entryFunction, request)
     }
 
     /**
@@ -493,6 +495,26 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     " (removeExceptionMessages = ON). This VERIFIED holds under the user assertion that the elided" +
                     " exception messages don't affect the property — it is NOT an unconditional proof of" +
                     " the message contents.")
+        }
+    }
+
+    /**
+     * Surface a footnote when this proof was VERIFIED under one or more ASSUMED output-contracts
+     * (`Bmc.assumeEvery` / `Bmc.assumeStable`). Each shadows an external dependency with a
+     * constrained-nondet stub, so the VERIFIED holds only as an ASSUME-GUARANTEE result — "IF the
+     * dependency upholds the predicate, THEN the property holds." Printed like the stub / forced-elision
+     * honesty footnotes ("never a silent pass"), so a green reached this way is never read as
+     * unconditional. Decoded deterministically from the proof's markers, so it surfaces on both the live
+     * and the cached path.
+     */
+    private fun surfaceAssumedContracts(entryFunction: String, request: BmcRequest) {
+        val assumed = org.bmc4j.engine.AssumeContractBytecode.displays(
+                request.entryClass, request.entryFunction, request.classpath)
+        if (assumed.isNotEmpty()) {
+            println("  bmc4j: $entryFunction -> NOTE: VERIFIED under assumed contract(s) " +
+                    assumed.joinToString(", ") + " => the proof's own predicate(s). This is an" +
+                    " ASSUME-GUARANTEE result (the dependency's output is assumed, not analysed) — it is" +
+                    " NOT an unconditional proof.")
         }
     }
 

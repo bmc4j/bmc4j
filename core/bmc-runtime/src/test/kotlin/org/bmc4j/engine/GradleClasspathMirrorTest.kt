@@ -273,12 +273,13 @@ internal class GradleClasspathMirrorTest {
             val classpath = deps.toString() + File.pathSeparator + proj.toString()
 
             // IN-JVM reference: the exact chain JbmcBackend.applyHoistablePasses runs (same entry points,
-            // same order: 6-desugar -> Config -> KotlinParam -> Reachability -> NondetTag). Lands under
+            // same order: 6-desugar -> AnyRef -> Config -> KotlinParam -> Reachability -> NondetTag). Lands under
             // ~/.cache via the default ClasspathMirror root. The samples have no Bmc.*From* / Bmc.any* call
             // sites, so Config and NondetTag are no-ops here — but including them keeps the reference
             // faithful to the worker's pipeline.
             val inJvm = run {
                 var cp = ClasspathMirror.mirrorAll(classpath)
+                cp = AnyRefBytecode.rewrite(cp)
                 cp = ConfigBytecode.rewrite(cp)
                 cp = KotlinParamBytecode.rewrite(cp)
                 cp = ReachabilityBytecode.rewrite(cp)
