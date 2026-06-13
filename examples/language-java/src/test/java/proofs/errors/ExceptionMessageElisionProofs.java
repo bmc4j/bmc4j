@@ -1,6 +1,8 @@
 package proofs.errors;
 
+import example.errors.LiveLocalAfterMessage;
 import example.errors.Parser;
+import example.errors.SlowMessage;
 import example.errors.Validator;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
@@ -46,6 +48,41 @@ class ExceptionMessageElisionProofs {
             // The overflow branch fires for large n. We observe NOTHING about the exception — not its
             // message — so eliding the (expensive) message construction is sound here.
         }
+    }
+
+    // EFFECTIVENESS, the DEAD-LOCAL case: renderOrThrow builds its expensive message material in a PRIOR
+    // statement, stored in a LOCAL (new Materializer().grow(n).grow(n)), then throws a message that reads
+    // materializer.render(). Eliding the message removes render(), leaving the materializer local dead —
+    // but its construction (the grow loops the engine unwinds) is a separate statement, so eliding only the
+    // message EXPRESSION (Parser's case) would still encode it and the proof would stay UNKNOWN:TIMEOUT.
+    // The backward dead-code slice drops the now-dead fresh-object chain too, so the engine never unwinds
+    // grow and the proof VERIFIES. Without elision (-Dbmc.removeExceptionMessages=off) the grow unwind
+    // poisons it -> UNKNOWN. This is the slice's UNKNOWN->VERIFIED flip.
+    @BmcProof
+    void dead_local_message_material_is_sliced_away() {
+        int n = Bmc.anyInt(0, 2_000_000);
+        try {
+            int r = SlowMessage.renderOrThrow(n);
+            Bmc.check(r == 2 * n); // reached only for n <= 1_000_000
+        } catch (IllegalArgumentException e) {
+            // The overflow branch fires for large n; we observe NOTHING about the exception, so eliding
+            // the message — and slicing away the dead materializer that fed only it — is sound here.
+        }
+    }
+
+    // SOUNDNESS, the LIVE-LOCAL regression: checkedLabel guards its arg with a dynamic-message throw and
+    // carries a SYMBOLIC string (Bmc.anyAsciiString) through a local it returns. The arg is never null, so
+    // the throw is never taken and nothing reads a message -> AUTO elides the message; but the returned local
+    // is LIVE (we read its length() here). The symbolic string's non-null guarantee comes from the engine's
+    // nondet modeling, which reads checkedLabel's LocalVariableTable. A rewrite that dropped the modified
+    // method's LocalVariableTable made JBMC lose that non-null tracking, so the returned string read back null
+    // and this VERIFIED proof FALSE-REFUTED with a NullPointerException. VERIFIES with the fix, FALSE-REFUTES
+    // without it. (A fresh proof, so it actually RUNS cold rather than replaying a cached verdict.)
+    @BmcProof
+    void live_local_survives_message_elision() {
+        String s = Bmc.anyAsciiString(2);              // a SYMBOLIC string, length 0..2
+        String label = LiveLocalAfterMessage.checkedLabel(s, 7); // s != null: never throws; message elided
+        Bmc.check(label.length() <= 2);                // the carried symbolic string. NPE here without the fix.
     }
 
     // SOUNDNESS: this proof reads e.getMessage(), so it observes an exception message — AUTO must NOT
