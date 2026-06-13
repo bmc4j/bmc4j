@@ -369,6 +369,62 @@ internal class BmcProofExtensionTest {
         fun alsoDefaultTimeout() {}
     }
 
+    @Disabled("reflection-only fixture; not a runnable proof suite")
+    internal class MixedStringModeProofs {
+        @BmcProof
+        fun usesDefaultMode() {}
+
+        @BmcProof(stringMode = org.bmc4j.StringMode.NONE)
+        fun usesNone() {}
+
+        @BmcProof(stringMode = org.bmc4j.StringMode.REFINEMENT)
+        fun usesRefinementExplicit() {}
+    }
+
+    @Test
+    fun resolveStringMode_prefersPerProofOverride_thenDefaults() {
+        assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                annotationOn(MixedStringModeProofs::class.java, "usesNone")),
+                "per-proof @BmcProof(stringMode = NONE) wins")
+        assertEquals(org.bmc4j.StringMode.REFINEMENT, BmcProofExtension.resolveStringMode(
+                annotationOn(MixedStringModeProofs::class.java, "usesDefaultMode")),
+                "the annotation default REFINEMENT resolves to REFINEMENT when no build default is set")
+    }
+
+    @Test
+    fun resolveStringMode_honorsBuildDefaultProp_andPerProofOverrides() {
+        val prev = System.getProperty("bmc.stringMode")
+        System.setProperty("bmc.stringMode", "none")
+        try {
+            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                    annotationOn(MixedStringModeProofs::class.java, "usesDefaultMode")),
+                    "-Dbmc.stringMode=none must apply when the proof leaves stringMode on the default")
+            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                    annotationOn(MixedStringModeProofs::class.java, "usesRefinementExplicit")),
+                    "a per-proof REFINEMENT (the annotation default) yields to the build default, " +
+                            "exactly like AUTO does for removeExceptionMessages - so the module-wide " +
+                            "bmc.stringMode=none wins; only a non-default per-proof value (NONE) overrides")
+            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                    annotationOn(MixedStringModeProofs::class.java, "usesNone")),
+                    "a per-proof NONE override stands even under a different build default")
+        } finally {
+            restore("bmc.stringMode", prev)
+        }
+    }
+
+    @Test
+    fun resolveStringMode_unrecognizedProp_fallsBackToRefinement() {
+        val prev = System.getProperty("bmc.stringMode")
+        System.setProperty("bmc.stringMode", "banana")
+        try {
+            assertEquals(org.bmc4j.StringMode.REFINEMENT, BmcProofExtension.resolveStringMode(
+                    annotationOn(MixedStringModeProofs::class.java, "usesDefaultMode")),
+                    "an unrecognized -Dbmc.stringMode is fail-safe: falls back to REFINEMENT")
+        } finally {
+            restore("bmc.stringMode", prev)
+        }
+    }
+
     @Test
     fun resolveMaxStringLength_prefersPerProofOverride_thenDefaults() {
         assertEquals(4, BmcProofExtension.resolveMaxStringLength(

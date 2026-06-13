@@ -153,6 +153,34 @@ public @interface BmcProof {
     RemoveExceptionMessages removeExceptionMessages() default RemoveExceptionMessages.AUTO;
 
     /**
+     * How JBMC models {@code java.lang.String} for this proof. See {@link StringMode} for the full
+     * semantics; in short:
+     *
+     * <ul>
+     *   <li>{@link StringMode#REFINEMENT} (default) — JBMC's string-refinement solver is ON, so
+     *       {@code String} CONTENT operations ({@code equals}/{@code contains}/{@code substring}/…)
+     *       are reasoned end-to-end and {@code --max-nondet-string-length} bounds symbolic input
+     *       strings. The right mode for <b>string-content</b> proofs.</li>
+     *   <li>{@link StringMode#NONE} — string refinement is OFF ({@code --no-refine-strings}): strings
+     *       are modelled purely as their char-array bytecode + the {@code org.cprover.CProverString}
+     *       shim. Use it for <b>string-as-DATA / throughput</b> proofs (encoding into buffers,
+     *       {@code byte}&lt;-&gt;{@code char}, decimal/numeric formatting) where refinement is the
+     *       bottleneck and can explode formula construction.</li>
+     * </ul>
+     *
+     * <p><b>This is a COMPLETENESS knob, never a soundness one.</b> {@link StringMode#NONE} can only
+     * turn a would-be verdict into {@code UNKNOWN} (a string-content op the shim cannot decide
+     * nondet-stubs), never a false {@code VERIFIED}. So it is opt-in for string-encoding/throughput
+     * proofs; {@link StringMode#REFINEMENT} stays the default for string-content proofs. Note that
+     * {@code --max-nondet-string-length} is NOT passed under {@code NONE} (JBMC rejects it together
+     * with {@code --no-refine-strings}).
+     *
+     * <p>The build-wide default is {@code bmc { stringMode = "refinement"|"none" }} /
+     * {@code -Dbmc.stringMode}; a per-proof value other than {@link StringMode#REFINEMENT} overrides it.
+     */
+    StringMode stringMode() default StringMode.REFINEMENT;
+
+    /**
      * The verdict this proof is expected to produce; the test <b>passes only if the actual verdict
      * matches</b>. Defaults to {@link Verdict#VERIFIED} — the normal "prove it holds" mode.
      *

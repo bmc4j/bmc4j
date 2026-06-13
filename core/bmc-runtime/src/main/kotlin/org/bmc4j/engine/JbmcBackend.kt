@@ -63,6 +63,9 @@ class JbmcBackend : VerificationBackend {
                     request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver,
                     request.timeoutSeconds, request.externalSatPath,
+                    // String-modelling mode (REFINEMENT default / NONE = --no-refine-strings). Threaded
+                    // through so a per-proof @BmcProof(stringMode = NONE) reaches the engine command.
+                    request.stringMode,
                     // The ORIGINAL (un-rewritten) test classpath drives witness rendering: it carries the
                     // consumer's own class output dirs with full debug info, so the parser can tell the
                     // user's declared inputs (kept) from engine synthetics / library frames (dropped).

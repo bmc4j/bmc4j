@@ -108,5 +108,6 @@ object UnwindCache {
             else BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                     NORMALIZED_UNWIND, request.unwindingAssertions, request.maxStringLength,
                     request.solver, request.timeoutSeconds, request.domainSplitRun,
-                    request.externalSatPath, request.stringRefinementOff)
+                    request.externalSatPath, request.stringRefinementOff,
+                    request.removeExceptionMessages, request.stringMode)
 }

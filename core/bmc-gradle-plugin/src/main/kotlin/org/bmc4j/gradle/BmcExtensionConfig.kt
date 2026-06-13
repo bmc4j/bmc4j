@@ -185,6 +185,24 @@ abstract class BmcExtensionConfig {
     abstract val removeExceptionMessages: Property<String>
 
     /**
+     * Build-wide **string-modelling mode** default — how JBMC models `java.lang.String`. One of
+     * (case-insensitive):
+     *
+     * - `"refinement"` (default): JBMC's string-refinement solver is ON and `--max-nondet-string-length`
+     *   bounds symbolic input strings. The right mode for **string-content** proofs
+     *   (`equals`/`contains`/`substring`/…).
+     * - `"none"`: string refinement is OFF (`--no-refine-strings`) — strings are modelled purely as
+     *   their char-array bytecode + the `org.cprover.CProverString` shim. Use it for **string-as-DATA /
+     *   throughput** proofs (encoding into buffers, `byte`<->`char`, numeric formatting) where
+     *   refinement is the bottleneck. A COMPLETENESS tradeoff, never a soundness one: a content op the
+     *   shim cannot decide nondet-stubs to UNKNOWN, never a false VERIFIED.
+     *
+     * A per-proof `@BmcProof(stringMode = …)` other than `REFINEMENT` overrides this. Overridable at
+     * the command line with `-Dbmc.stringMode=refinement|none`; part of the verdict-cache key.
+     */
+    abstract val stringMode: Property<String>
+
+    /**
      * Strict nondet-stub mode. When `true`, any *unacknowledged* stub a proof
      * reaches turns its verdict into UNKNOWN (`BmcUndecidedError`) — nothing was proven wrong, but
      * the verdict rests on havoc'd stand-ins, so it isn't trustworthy. Default `false` (lenient:

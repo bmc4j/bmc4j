@@ -495,6 +495,24 @@ class BmcPlugin : Plugin<Project> {
                     }
                 }
 
+                // String-modelling mode default (refinement|none). A command-line -Dbmc.stringMode wins
+                // over the build default (so flipping it also invalidates the verdict cache, since the
+                // mode is in the cache key). `refinement` is the runtime default; only forward an explicit
+                // override. Validated loudly - only refinement|none accepted.
+                val stringMode = System.getProperty("bmc.stringMode")?.takeUnless { it.isBlank() }
+                        ?: ext.stringMode.orNull
+                if (!stringMode.isNullOrBlank()) {
+                    val normalized = stringMode.trim().lowercase()
+                    if (normalized !in setOf("refinement", "none")) {
+                        throw GradleException(
+                                "bmc { stringMode } / -Dbmc.stringMode must be one of " +
+                                        "refinement|none, was \"$stringMode\".")
+                    }
+                    if (normalized != "refinement") {
+                        test.systemProperty("bmc.stringMode", normalized)
+                    }
+                }
+
                 // SAT/SMT backend (default = built-in MiniSat). A command-line -Dbmc.solver wins over
                 // the build default (so e.g. swapping the solver also invalidates the verdict cache).
                 val cliSolver = System.getProperty("bmc.solver")

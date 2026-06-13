@@ -758,7 +758,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
-                    request.removeExceptionMessages, request.profile)
+                    request.removeExceptionMessages, request.stringMode, request.profile)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -804,6 +804,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         private const val STRICT_MODELS_PROP = "bmc.strictModels"
         private const val ACK_UNMODELLED_PROP = "bmc.acknowledgeUnmodelled"
         private const val REMOVE_EXCEPTION_MESSAGES_PROP = "bmc.removeExceptionMessages"
+        private const val STRING_MODE_PROP = "bmc.stringMode"
 
         /** The residual-invokedynamic marker stubs harvested for this result (dot-form FQNs), deduped. */
         internal fun residualIndyMarkers(result: JbmcResult): List<String> =
@@ -1386,7 +1387,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
-                            decision.path, true, request.removeExceptionMessages, request.profile)
+                            decision.path, true, request.removeExceptionMessages, request.stringMode,
+                            request.profile)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1398,7 +1400,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
-                                request.removeExceptionMessages, request.profile)
+                                request.removeExceptionMessages, request.stringMode, request.profile)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1430,7 +1432,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
-                    request.profile)
+                    request.stringMode, request.profile)
         }
 
         /**
@@ -1476,6 +1478,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         "",
                         false,
                         resolveRemoveExceptionMessages(config),
+                        resolveStringMode(config),
                         profile)
 
         /**
@@ -1496,6 +1499,26 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 "on" -> org.bmc4j.RemoveExceptionMessages.ON
                 "off" -> org.bmc4j.RemoveExceptionMessages.OFF
                 else -> org.bmc4j.RemoveExceptionMessages.AUTO
+            }
+        }
+
+        /**
+         * The string-modelling mode this proof runs under: its per-proof `@BmcProof(stringMode = …)`
+         * when set to a non-REFINEMENT value (the explicit opt-in), otherwise the build-wide
+         * `bmc { stringMode = … }` / `-Dbmc.stringMode` default ("refinement"/"none", case-insensitive),
+         * otherwise REFINEMENT. A per-proof REFINEMENT yields to the build default so a project can flip
+         * a whole module to NONE; an unrecognized property value falls back to REFINEMENT (fail-safe —
+         * the sound, complete default, never a silent refinement-off).
+         */
+        internal fun resolveStringMode(config: BmcProof?): org.bmc4j.StringMode {
+            val perProof = config?.stringMode
+            if (perProof != null && perProof != org.bmc4j.StringMode.REFINEMENT) {
+                return perProof
+            }
+            val prop = System.getProperty(STRING_MODE_PROP)?.trim()?.lowercase()
+            return when (prop) {
+                "none" -> org.bmc4j.StringMode.NONE
+                else -> org.bmc4j.StringMode.REFINEMENT
             }
         }
 
@@ -1569,7 +1592,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 BmcRequest(request.entryClass, request.entryFunction, request.classpath, bound,
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
-                        request.stringRefinementOff, request.removeExceptionMessages, request.profile)
+                        request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
+                        request.profile)
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */

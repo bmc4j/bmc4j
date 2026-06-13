@@ -27,12 +27,13 @@ class Jbmc(private val executable: String) {
     fun run(entryClass: String, entryFunction: String, classpath: String,
             unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
             solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = "",
+            stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
             userClasspath: String? = null, profile: Boolean = false,
             pipelineSeconds: Map<String, Double>? = null): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, solver, externalSatPath))
+                maxStringLength, solver, externalSatPath, stringMode))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds)
     }
 
@@ -165,7 +166,8 @@ class Jbmc(private val executable: String) {
         @JvmOverloads
         internal fun args(entryClass: String, entryFunction: String, classpath: String,
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
-                          solver: String?, externalSatPath: String = ""): List<String> {
+                          solver: String?, externalSatPath: String = "",
+                          stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
@@ -177,7 +179,7 @@ class Jbmc(private val executable: String) {
             // and the verdict-cache key can never drift apart — see [appendVerdictRelevantFlags] /
             // [verdictRelevantFlags].
             appendVerdictRelevantFlags(cmd, unwind, unwindingAssertions, maxStringLength,
-                    solver, externalSatPath)
+                    solver, externalSatPath, stringMode)
             // Pure OUTPUT/UI flags below — they change what we can OBSERVE, never the verdict, so they
             // are deliberately NOT part of the verdict-cache signature.
             cmd.add("--json-ui")
@@ -198,7 +200,9 @@ class Jbmc(private val executable: String) {
          * the real command, and [verdictRelevantFlags] calls it to derive the verdict-cache key — so the
          * key can never diverge from the flags actually passed.
          *
-         * INCLUDES: `--unwind`, `--unwinding-assertions`, `--max-nondet-string-length`, the full solver
+         * INCLUDES: `--unwind`, `--unwinding-assertions`, the string-mode flags
+         * (`--no-refine-strings` under [org.bmc4j.StringMode.NONE]) / `--max-nondet-string-length`
+         * (under [org.bmc4j.StringMode.REFINEMENT]; the two are mutually exclusive), the full solver
          * selection (`--external-sat-solver` / `--smt2`+`--external-smt2-solver` / `--z3` / `--boolector`
          * / `--cvc4` / `--cvc5` / `--sat-solver`), and any future HARD-CODED engine flag added here.
          *
@@ -217,15 +221,27 @@ class Jbmc(private val executable: String) {
          */
         private fun appendVerdictRelevantFlags(cmd: MutableList<String>, unwind: Int,
                                                unwindingAssertions: Boolean, maxStringLength: Int,
-                                               solver: String?, externalSatPath: String) {
+                                               solver: String?, externalSatPath: String,
+                                               stringMode: org.bmc4j.StringMode) {
             cmd.add("--unwind")
             cmd.add(unwind.toString())
             if (unwindingAssertions) {
                 cmd.add("--unwinding-assertions")
             }
-            if (maxStringLength > 0) {
-                cmd.add("--max-nondet-string-length")
-                cmd.add(maxStringLength.toString())
+            // String-modelling mode (see [org.bmc4j.StringMode]). NONE turns JBMC's string refinement
+            // OFF; REFINEMENT (the default) leaves it on. The two are MUTUALLY EXCLUSIVE with
+            // --max-nondet-string-length: JBMC hard-errors ("cannot use --max-nondet-string-length with
+            // --no-refine-strings") if both are present, so under NONE we emit --no-refine-strings and
+            // OMIT --max-nondet-string-length; under REFINEMENT we pass --max-nondet-string-length as
+            // before. This is the SINGLE place the mode reaches the command, so the verdict-cache key
+            // tracks it automatically (see [verdictRelevantFlags]).
+            when (stringMode) {
+                org.bmc4j.StringMode.NONE -> cmd.add("--no-refine-strings")
+                org.bmc4j.StringMode.REFINEMENT ->
+                    if (maxStringLength > 0) {
+                        cmd.add("--max-nondet-string-length")
+                        cmd.add(maxStringLength.toString())
+                    }
             }
             addSolver(cmd, solver, externalSatPath)
         }
@@ -246,7 +262,7 @@ class Jbmc(private val executable: String) {
         internal fun verdictRelevantFlags(request: BmcRequest): String {
             val flags = mutableListOf<String>()
             appendVerdictRelevantFlags(flags, request.unwind, request.unwindingAssertions,
-                    request.maxStringLength, request.solver, request.externalSatPath)
+                    request.maxStringLength, request.solver, request.externalSatPath, request.stringMode)
             return flags.joinToString(" ")
         }
 
