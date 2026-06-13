@@ -169,4 +169,23 @@ public final class String implements CharSequence, Comparable<String> {
     public char[] toCharArray() {
         return backing().clone();
     }
+
+    /**
+     * Bulk-copy chars {@code [srcBegin, srcEnd)} of this String into {@code dst} starting at
+     * {@code dstBegin}, reading the backing array DIRECTLY (no per-char public {@link #charAt(int)}).
+     *
+     * <p>This mirrors the real JDK {@code String.getChars}, which bulk-copies via {@code System.arraycopy}
+     * with no per-element bounds check. It exists so that INTERNAL char copies (e.g.
+     * {@code AbstractStringBuilder.append(String)}) do not route through the public bounds-checking
+     * {@code charAt}. Under StringMode.NONE a public {@code charAt} bounds-checks against the SYMBOLIC
+     * backing length and symex cannot prove the loop index in range, so it explores the throw branch on
+     * every copied char and recursively builds a StringIndexOutOfBoundsException message (itself an
+     * append/charAt) - a blowup that never happens in real execution. Here the index range is in-bounds
+     * by construction (the caller copies exactly {@code length()} chars off the same backing), so the
+     * direct array read has no throw branch.
+     */
+    void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {
+        char[] b = backing();
+        System.arraycopy(b, srcBegin, dst, dstBegin, srcEnd - srcBegin);
+    }
 }
