@@ -36,6 +36,32 @@ public final class SlowMessage {
     }
 
     /**
+     * The FAITHFUL okio {@code Buffer.readDecimalLong} overflow shape: a fresh object in a local with a
+     * <b>discarded side-effect-only self-call OUTSIDE the message</b> as well as a read inside it. okio:
+     * <pre>{@code
+     * val buffer = Buffer().writeDecimalLong(value).writeByte(b)   // fresh object, a local
+     * if (!negative) buffer.readByte()                             // discarded result, side-effect-only
+     * throw NumberFormatException("Number too large: ${buffer.readUtf8()}")
+     * }</pre>
+     * The out-of-message {@code probe()} (the {@code readByte()} analogue) reads the local but discards its
+     * result — a side-effect-only self-call. Under the prior in-region-reads-only rule that out-of-region
+     * read kept the {@code materializer} live, so the expensive {@code grow} chain stayed in the cone and
+     * the proof timed out. The object is in fact FULLY dead (fresh, escapes nowhere, the probe result
+     * discarded), so dead-allocation elimination drops its whole lifetime — chain AND probe — and the
+     * proof verifies.
+     */
+    public static int renderOrThrowWithProbe(int n) {
+        if (n > 1_000_000) {
+            Materializer materializer = new Materializer().grow(n).grow(n);
+            // A DISCARDED side-effect-only self-call OUTSIDE the message (the okio readByte() analogue):
+            // its result is thrown away, so the only thing keeping `materializer` live is the message.
+            materializer.probe();
+            throw new IllegalArgumentException("overflow: " + materializer.render());
+        }
+        return n * 2;
+    }
+
+    /**
      * A fresh object whose builder methods run input-bounded append loops — the per-call work the engine
      * unwinds. Allocated fresh and escaping only into the (elided) exception message, so once the message
      * is gone the whole object is dead and its construction is safe to slice away.
@@ -49,6 +75,17 @@ public final class SlowMessage {
                 sb.append((char) ('0' + (i % 10)));
             }
             return this;
+        }
+
+        /** A side-effect-only self-call returning a value typically DISCARDED at the call site — the
+         *  {@code readByte()} analogue. Mutates the object and returns its length; the caller throws the
+         *  result away, so once the object is dead this call is dead too. */
+        int probe() {
+            int len = sb.length();
+            if (len > 0) {
+                sb.setLength(len - 1);
+            }
+            return len;
         }
 
         String render() {
