@@ -18,6 +18,7 @@ the exact input) with one that passes — that failure *is* the result.
 | [kotlin-coroutines-and-lincheck](kotlin-coroutines-and-lincheck) | Coroutines (`suspend` proofs) and BMC-vs-Lincheck (logic vs concurrency) |
 | [contracts-kotlin](contracts-kotlin) | Method contracts from Kotlin (kapt-wired): basics (`object`+`@JvmStatic`), instance receivers, default parameters, the soundness guard, the purity audit on a `this`-mutation |
 | [contracts](contracts) | Method contracts (`@Requires`/`@Ensures`) in Java: basics, recursion-as-induction, stacking, the soundness guard |
+| [assume-contracts](assume-contracts) | Assumed output-contracts (`Bmc.assumeEvery` / `Bmc.assumeStable`): prove on top of an unanalyzable dependency's output property — assume-guarantee (repository, args-aware, the env/`<clinit>` case), with the assumption flagged on the verdict, load-bearing (drop it ⇒ REFUTED), over-tight ⇒ VACUOUS, impure predicate ⇒ rejected |
 
 ## Running them
 
