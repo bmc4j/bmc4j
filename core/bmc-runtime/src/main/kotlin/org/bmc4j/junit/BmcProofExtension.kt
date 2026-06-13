@@ -1365,9 +1365,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
          *    `bmc{solver}`/`-Dbmc.solver` > global `bmc{externalSat}`/`-Dbmc.externalSat`);
          *  - resolves a named fast solver (`"kissat"`) to its bundled binary, gracefully declining to
          *    the default solver (with a plain-language log) when none is bundled on this platform;
-         *  - applies the text-use guard ([StringUseClassifier]): the fast solver engages ONLY for a
-         *    proof proven text-free; a text proof that asked for it FAILS LOUD by default, or (with the
-         *    opt-out) falls back to the SOUND default solver — never runs text-reasoning-off and passes.
+         *  - applies the text-use guard ([StringUseClassifier]): the fast solver engages for a proof
+         *    proven text-free OR any proof under [org.bmc4j.StringMode.NONE] (where the char-array String
+         *    model makes a text proof bit-blast to the same sound CNF the built-in solver handles); a text
+         *    proof under REFINEMENT that asked for it FAILS LOUD by default, or (with the opt-out) falls
+         *    back to the SOUND default solver — never runs refinement-off-and-unmodelled and passes.
          *
          * Returns the request with [BmcRequest.externalSatPath] / [BmcRequest.stringRefinementOff] set
          * when (and only when) the fast solver was soundly selected; a no-op (returns [request]
@@ -1381,7 +1383,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.solver,
                             System.getProperty("bmc.externalSat", ""),
                             request.entryClass,
-                            request.classpath))
+                            request.classpath,
+                            request.stringMode))
             return when (decision) {
                 is org.bmc4j.engine.SolverPlan.Decision.ExternalSat ->
                     BmcRequest(request.entryClass, request.entryFunction, request.classpath,

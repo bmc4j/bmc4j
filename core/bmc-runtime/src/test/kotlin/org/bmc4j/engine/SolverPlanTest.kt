@@ -118,6 +118,30 @@ internal class SolverPlanTest {
     }
 
     @Test
+    fun textProof_underStringModeNone_getsTheFastSolver(@TempDir dir: Path) {
+        // Under StringMode.NONE refinement is already off AND the char-array String model gives sound
+        // String semantics, so a text proof bit-blasts to the same CNF the built-in solver handles
+        // soundly. External SAT is just a faster backend for that CNF -> ExternalSat, NOT FailLoud.
+        val fast = stageFakeSolver(dir, "fast")
+        val d = SolverPlan.resolve(SolverPlan.SolverRequest(
+                fast, "", "Entry", textClasspath(dir), org.bmc4j.StringMode.NONE))
+        assertInstanceOf(SolverPlan.Decision.ExternalSat::class.java, d,
+                "a text proof under StringMode.NONE is sound on the fast solver")
+        assertEquals(fast, (d as SolverPlan.Decision.ExternalSat).path)
+    }
+
+    @Test
+    fun textProof_underRefinement_stillFailsLoud(@TempDir dir: Path) {
+        // Regression: under REFINEMENT (the default) jbmc cannot combine external SAT with its string-
+        // refinement loop, so a text proof must keep failing loud exactly as before.
+        val fast = stageFakeSolver(dir, "fast")
+        val d = SolverPlan.resolve(SolverPlan.SolverRequest(
+                fast, "", "Entry", textClasspath(dir), org.bmc4j.StringMode.REFINEMENT))
+        assertInstanceOf(SolverPlan.Decision.FailLoud::class.java, d,
+                "a text proof under REFINEMENT requesting the fast solver still FAILS LOUD")
+    }
+
+    @Test
     fun unknownSolverPathThatDoesNotExist_declinesToDefault(@TempDir dir: Path) {
         // An external-sat path that isn't a real file can't be a binary: decline to the default solver,
         // never an error (mirrors the kissatPath()==null platform case).
