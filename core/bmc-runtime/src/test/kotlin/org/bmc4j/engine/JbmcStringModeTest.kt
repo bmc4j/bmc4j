@@ -62,4 +62,27 @@ internal class JbmcStringModeTest {
                 "the verdict-relevant flag signature must differ between StringMode.REFINEMENT and NONE " +
                         "so a cached verdict for one mode is never reused for the other")
     }
+
+    @Test
+    fun verdictRelevantFlags_underNone_dependOnMaxStringLength() {
+        // Under NONE the length bound is enforced by the bytecode transform (StringLengthBytecode), not a
+        // jbmc flag, so two NONE proofs differing only in maxStringLength produce DIFFERENT analysed
+        // bytecode. The verdict-cache signature must therefore differ too, or one's verdict would be
+        // served for the other (a stale-cache soundness hole).
+        val none2 = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
+                16, true, 2, "", 0, stringMode = StringMode.NONE)
+        val none8 = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
+                16, true, 8, "", 0, stringMode = StringMode.NONE)
+        assertNotEquals(Jbmc.verdictRelevantFlags(none2), Jbmc.verdictRelevantFlags(none8),
+                "under NONE the verdict signature must fold in maxStringLength (it changes the bytecode)")
+    }
+
+    @Test
+    fun none_realCommand_neverCarriesTheCacheOnlyMarker() {
+        // The cache-only length marker must NEVER reach the engine (jbmc rejects a string-length flag
+        // with --no-refine-strings); args() builds the real command, so it must be absent there.
+        val a = args(StringMode.NONE, maxStringLength = 8)
+        assertFalse(a.contains("--bmc-norefine-string-length"),
+                "the NONE cache-only length marker must not be passed to jbmc: $a")
+    }
 }
