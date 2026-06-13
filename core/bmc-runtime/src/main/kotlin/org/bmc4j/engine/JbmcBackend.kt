@@ -279,6 +279,18 @@ class JbmcBackend : VerificationBackend {
                 if (stringModel != null) {
                     classpath = spliceAfter(classpath, userModelEntries, stringModel)
                 }
+                // Make a symbolic string's LENGTH bound bind under no-refine, the same way the
+                // --max-nondet-string-length flag does under refinement (mode-agnostic). This rewrites
+                // each symbolic-string INTRODUCTION (nondetWithoutNull() + checkcast String, what the
+                // Bmc.anyString/anyAsciiString helper bodies and bare `String s = nondetWithoutNull()`
+                // compile to) into a bounded char-array construction the char-array String model backs
+                // soundly: the per-call anyString(n) bound becomes the helper's own maxLength param, and
+                // the global maxStringLength backs any bare symbolic string. PER-PROOF (mode + the run's
+                // effective maxStringLength), so it runs in-JVM here, NOT in the hoistable/mirrored chain;
+                // under REFINEMENT it does not run at all, leaving the flag path unchanged.
+                classpath = t("string-length") {
+                    StringLengthBytecode.rewrite(classpath, request.maxStringLength)
+                }
             }
             // Append the JDK models (class hierarchy for dynamic-cast checks + thread analysis).
             val coreModels = coreModelsNextTo(jbmcPath)

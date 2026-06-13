@@ -3,6 +3,7 @@ package org.bmc4j.engine;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.cprover.CProver;
 import org.cprover.CProverString;
 
 /**
@@ -20,6 +21,42 @@ import org.cprover.CProverString;
 public final class BmcStrings {
 
     private BmcStrings() {
+    }
+
+    /**
+     * Sound introduction of a SYMBOLIC {@code String} whose length is bounded by {@code maxLength},
+     * for string refinement OFF ({@link org.bmc4j.StringMode#NONE}). {@code StringLengthBytecode}
+     * redirects the symbolic-string introduction sites here under NONE: the {@code Bmc.anyString} /
+     * {@code anyAsciiString} helper bodies (bound = the helper's own {@code maxLength} parameter, so a
+     * per-call bound is honored as-is) and bare {@code CProver.nondetWithoutNull()} String sites (bound
+     * = the run's global {@code maxStringLength}).
+     *
+     * <p>Under NONE a bare {@code nondetWithoutNull()} String has a char-array backing JBMC re-havocs
+     * across reads, so an {@code assume(length <= n)} pinned only one read and a later read could
+     * exceed {@code n} (the length bound was effectively dropped). Building the string from a real
+     * char-array of nondet length {@code 0..maxLength} gives it a STABLE backing (see the char-array
+     * String model): {@code length()} and every {@code charAt} read the same array, so the bound binds
+     * and any per-call {@code assume} (min length, alphabet, ASCII range) the helper adds on top
+     * refines that same backing. SOUND: a fresh nondet string over every value of length
+     * {@code 0..maxLength}, never a narrowing.
+     *
+     * <p>Bounded by design: the fill loop unwinds to {@code maxLength}, so size the proof's
+     * {@code unwind} to cover it (the same budget rule {@code anyString} already documents). A negative
+     * {@code maxLength} is treated as 0 (the empty string), matching the helpers' own validation that
+     * rejects a negative bound before this point.
+     */
+    public static String anyCharBacked(int maxLength) {
+        int bound = maxLength < 0 ? 0 : maxLength;
+        int n = CProver.nondetInt();
+        CProver.assume(n >= 0 && n <= bound);
+        char[] data = new char[n];
+        for (int i = 0; i < n; i++) {
+            data[i] = CProver.nondetChar();
+        }
+        // new String(char[]) here resolves to the char-array String model's constructor (NOT redirected
+        // back through StringBytecode, which excludes BmcStrings as an owner), so the backing is the
+        // exact array: a real, stable char[] of bounded length.
+        return new String(data);
     }
 
     /**

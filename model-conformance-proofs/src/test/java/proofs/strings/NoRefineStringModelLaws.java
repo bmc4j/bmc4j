@@ -31,10 +31,12 @@ import org.bmc4j.StringMode;
  *   <li>A String LITERAL's content is NOT recovered (JBMC materializes a literal without running a
  *       constructor, so the backing is a fresh nondet array): {@code "ab".length()} is nondet, not 2.
  *       Conservative - a literal-content claim is UNKNOWN, never wrong.</li>
- *   <li>A String from {@code Bmc.anyString(...)} / raw {@code nondetWithoutNull()} is not yet sound
- *       under no-refine (the nondet object's backing field is re-havoced across calls); introduce a
- *       symbolic string via {@code new String(symbolicCharArray)} instead. Routing {@code anyString}
- *       through construction under NONE is the companion change owned by the stringMode PR.</li>
+ *   <li>A String LITERAL's content is still not recovered under no-refine (above). A String from
+ *       {@code Bmc.anyString(...)} / raw {@code nondetWithoutNull()} is now LENGTH-BOUNDED soundly
+ *       under no-refine: {@code StringLengthBytecode} rewrites the symbolic-string introduction into a
+ *       bounded char-array construction (per-call {@code anyString(n)} bound, global
+ *       {@code maxStringLength} for a bare nondet string), so the length knobs bind the same way they do
+ *       under refinement. See {@code NoRefineLengthBoundLaws}.</li>
  * </ul>
  */
 class NoRefineStringModelLaws {

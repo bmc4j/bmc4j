@@ -50,9 +50,12 @@ consumed by the `examples/` via `includeBuild`):
   construction (`new String(char[])`, `StringBuilder.append(char)`+`toString()`), `length`,
   `charAt`, `isEmpty`, `equals`, `hashCode`, `substring`, `compareTo`. Limits under no-refine: a
   String **literal**'s content is not recovered (JBMC materializes a literal without a constructor,
-  so its backing is a fresh nondet array — sound but content-unconstrained), and a symbolic string
-  must be introduced via construction (`new String(symbolicCharArray)`) rather than
-  `Bmc.anyString`/raw `nondetWithoutNull` (whose nondet backing field is re-havoced across calls).
+  so its backing is a fresh nondet array — sound but content-unconstrained). A symbolic string's
+  LENGTH is now bounded soundly under no-refine by `StringLengthBytecode`, which rewrites the
+  symbolic-string introduction (`Bmc.anyString`/`anyAsciiString` helper bodies and bare
+  `String s = nondetWithoutNull()`) into a bounded char-array construction: the per-call
+  `anyString(n)` bound, and the global `@BmcProof.maxStringLength` for a bare nondet string, bind the
+  same way they do under refinement (mode-agnostic) instead of being silently dropped.
 - **`core/bmc-contracts`** — the `@Requires`/`@Ensures` annotation processor: generates
   replace-stubs, auto-discharged enforce-`@BmcProof`s, and the manifest the backend reads
   to redirect call sites. Enables modular (assume-guarantee) proofs — see

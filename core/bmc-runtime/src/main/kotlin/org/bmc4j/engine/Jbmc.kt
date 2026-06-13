@@ -222,7 +222,8 @@ class Jbmc(private val executable: String) {
         private fun appendVerdictRelevantFlags(cmd: MutableList<String>, unwind: Int,
                                                unwindingAssertions: Boolean, maxStringLength: Int,
                                                solver: String?, externalSatPath: String,
-                                               stringMode: org.bmc4j.StringMode) {
+                                               stringMode: org.bmc4j.StringMode,
+                                               forCacheKey: Boolean = false) {
             cmd.add("--unwind")
             cmd.add(unwind.toString())
             if (unwindingAssertions) {
@@ -237,7 +238,20 @@ class Jbmc(private val executable: String) {
             // tracks it automatically (see [verdictRelevantFlags]). Under NONE the bundled char-array
             // String model is prepended (see JbmcBackend), keyed on this same StringMode.
             when (stringMode) {
-                org.bmc4j.StringMode.NONE -> cmd.add("--no-refine-strings")
+                org.bmc4j.StringMode.NONE -> {
+                    cmd.add("--no-refine-strings")
+                    // Under NONE the length bound is NOT a jbmc flag (the engine rejects
+                    // --max-nondet-string-length with --no-refine-strings); it is enforced by the
+                    // StringLengthBytecode transform, which bounds a bare symbolic string's char-array
+                    // backing by this value. So it changes the analysed BYTECODE without changing the
+                    // command - meaning the verdict-cache key MUST still fold it in, or two NONE proofs
+                    // differing only in maxStringLength would collide on a stale cached verdict. Append a
+                    // CACHE-ONLY marker (never passed to the engine) so the signature tracks it.
+                    if (forCacheKey && maxStringLength > 0) {
+                        cmd.add("--bmc-norefine-string-length")
+                        cmd.add(maxStringLength.toString())
+                    }
+                }
                 org.bmc4j.StringMode.REFINEMENT ->
                     if (maxStringLength > 0) {
                         cmd.add("--max-nondet-string-length")
@@ -263,7 +277,8 @@ class Jbmc(private val executable: String) {
         internal fun verdictRelevantFlags(request: BmcRequest): String {
             val flags = mutableListOf<String>()
             appendVerdictRelevantFlags(flags, request.unwind, request.unwindingAssertions,
-                    request.maxStringLength, request.solver, request.externalSatPath, request.stringMode)
+                    request.maxStringLength, request.solver, request.externalSatPath, request.stringMode,
+                    forCacheKey = true)
             return flags.joinToString(" ")
         }
 
