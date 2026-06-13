@@ -283,16 +283,13 @@ class JbmcBackend : VerificationBackend {
                         manifest, request.entryClass, entryMethodName(request.entryFunction),
                         request.classpath, classpath)
             }
-            // Assumed-contract predicates must be PURE too (the predicate is the only thing constraining
-            // an otherwise-free symbol; an impure predicate would not be a function of its inputs). Reuse
-            // the same audit walk — each predicate lambda is certified pure-by-construction against the
-            // fully prepared, model-bearing classpath, or the build fails loud via ContractPurityError.
-            if (assumeContracts.isNotEmpty()) {
-                t("purity-audit") {
-                    ContractPurityAudit.audit(
-                            AssumeContractBytecode.predicateRedirects(assumeContracts), classpath)
-                }
-            }
+            // NB: assumed-contract predicates (assumeEvery / assumeStable) are deliberately NOT
+            // purity-audited. Unlike an annotation contract — whose predicate becomes a reusable summary
+            // spliced into callers — an assumed contract is an explicit, per-proof, user-owned assertion
+            // surfaced on the verdict ("VERIFIED under assumed contract X"). An effectful predicate is a
+            // legitimate richer micro-model (model the dependency's side effects, not just its output),
+            // and the over-approximation soundness (fresh-per-call nondet) holds regardless of the
+            // predicate's purity. The user owns it; we don't gate it.
             // Exception-message elision: drop the construction of a thrown exception's message when the
             // proof's reachable cone observes NO exception message (AUTO's coarse soundness gate), or
             // when the proof asks for it explicitly (ON, a user-asserted override). This makes a proof

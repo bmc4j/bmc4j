@@ -69,4 +69,22 @@ class AssumeEveryProofs {
         UserService service = new UserService(repo);
         Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1);
     }
+
+    /** A mutable static; reading it inside the predicate is exactly what the purity audit forbids. */
+    static int minAge = 0;
+
+    /**
+     * An IMPURE predicate is ACCEPTED. {@code assumeEvery} is NOT purity-audited (unlike a dischargeable
+     * {@code @Ensures} contract): it is an explicit, user-owned assertion. This predicate reads the
+     * mutable static {@code minAge} rather than being a pure function of its input — an impurity the
+     * annotation-contract audit would reject — yet here it is analysed normally and VERIFIES (under
+     * {@code minAge == 0}, every returned age is {@code >= 0}, so the service result is {@code >= -1}).
+     */
+    @BmcProof(unwind = 4)
+    void an_impure_predicate_is_accepted() {
+        UserRepository repo = new NondetRepository();
+        Bmc.assumeEvery(repo::findById, u -> u == null || u.age() >= minAge);
+        UserService service = new UserService(repo);
+        Bmc.check(service.ageOrAbsent(Bmc.anyInt(0, 100)) >= -1);
+    }
 }

@@ -140,17 +140,6 @@ internal class AssumeContractBytecodeTest {
                 "instance stub prepends the receiver: ${c.stubDesc}")
     }
 
-    @Test
-    fun the_predicate_redirects_name_the_lambda_bodies_for_the_purity_audit() {
-        val decoded = decode("two")
-        val preds = AssumeContractBytecode.predicateRedirects(decoded)
-        assertEquals(2, preds.size)
-        // Each predicate redirect's owner is the proof class (where the synthetic lambda body lives).
-        preds.forEach {
-            assertEquals("org/bmc4j/engine/AssumeContractBytecodeTestFixtures", it.owner)
-        }
-    }
-
     // ---- helpers ----
 
     /** The `owner.name` call sites inside [stubName] of the generated [bytes], in order. */

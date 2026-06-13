@@ -59,9 +59,10 @@ import java.util.zip.ZipFile
  * bounded only by the predicate, so a property proven on top of it holds for any real implementation
  * that respects the predicate. It is surfaced on the verdict ([org.bmc4j.junit.BmcProofExtension]) so a
  * VERIFIED reached under an assumed contract is flagged NOT unconditional. An over-tight predicate makes
- * the assume unsatisfiable → VACUOUS, surfaced by the existing vacuity detection. The predicate is
- * certified PURE by [ContractPurityAudit] (same audit the annotation contracts use); an impure predicate
- * is rejected loudly. The shadow is per-proof — it applies to this proof's analysis classpath only.
+ * the assume unsatisfiable → VACUOUS, surfaced by the existing vacuity detection. The predicate is NOT
+ * purity-audited (unlike an annotation contract, whose predicate becomes a reusable summary): an assumed
+ * contract is an explicit, per-proof, user-owned assertion, so an impure or effectful predicate is
+ * allowed — a legitimately richer micro-model. The shadow is per-proof — applies to this proof only.
  */
 internal object AssumeContractBytecode {
 
@@ -277,19 +278,6 @@ internal object AssumeContractBytecode {
             ContractRewriter.rewrite(withStub, decoded.map { it.redirect() }, null)
         }
     }
-
-    /** The predicate methods this proof's assumed contracts invoke — `owner.name(desc)` redirects fed to
-     *  [ContractPurityAudit] so an impure predicate is rejected exactly like an impure annotation
-     *  contract. Each predicate is a static synthetic lambda body; a static stub redirect over it lets
-     *  the existing audit walk certify it pure-by-construction. */
-    @JvmStatic
-    fun predicateRedirects(decoded: List<Decoded>): List<ContractRewriter.Redirect> =
-            decoded.map {
-                // owner.name(predDesc) -> itself; only the OWNER/NAME/DESC are read by the audit walk,
-                // which treats the redirect's target as the root method to certify pure.
-                ContractRewriter.Redirect(it.predOwner, it.predName, it.predDesc,
-                        it.predOwner, it.predName)
-            }
 
     /** Emit [STUB_CLASS] holding one constrained-nondet stub per decoded contract into a fresh mirror
      *  dir, and return that dir. The class is regenerated per (proof) call but content-addressed by the
