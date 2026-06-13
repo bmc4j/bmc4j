@@ -8,16 +8,16 @@ import org.bmc4j.Verdict;
 
 /**
  * Assume-guarantee over an unanalyzable repository. {@code UserService} is correct only IF the
- * repository upholds an output property; {@code Bmc.assumeEvery(repo::findById, …)} supplies that
- * property — no model of the repository, no annotation. The verdict is flagged "VERIFIED under assumed
- * contract … — NOT unconditional".
+ * repository upholds an output property; {@code Bmc.assumeEvery(repo::findById, ...)} supplies that
+ * property - no model of the repository, no annotation. The verdict is flagged "VERIFIED under assumed
+ * contract ... - NOT unconditional".
  */
 class AssumeEveryProofs {
 
     /**
      * VERIFIES under the output-only assumption that every {@code findById} returns {@code null} or a
      * user with {@code age >= 0}: the service's result is then always {@code >= -1}. The repository has
-     * no analyzed body — the proof rests entirely on the assumption.
+     * no analyzed body - the proof rests entirely on the assumption.
      */
     @BmcProof(unwind = 4)
     void service_holds_under_the_repository_assumption() {
@@ -31,7 +31,7 @@ class AssumeEveryProofs {
     /**
      * DROP THE ASSUMPTION and the same property is no longer provable: {@code findById} is nondet-stubbed
      * (any user, any age including negative), so {@code ageOrAbsent} can return an arbitrary negative
-     * age — REFUTED. This is what makes the assumption above LOAD-BEARING.
+     * age - REFUTED. This is what makes the assumption above LOAD-BEARING.
      */
     @BmcProof(expect = Verdict.REFUTED)
     void without_the_assumption_the_property_is_refuted() {
@@ -43,7 +43,7 @@ class AssumeEveryProofs {
     }
 
     /**
-     * ARGS-AWARE: the predicate constrains the output BY the call argument — {@code findById(id)} returns
+     * ARGS-AWARE: the predicate constrains the output BY the call argument - {@code findById(id)} returns
      * {@code null} or a user whose {@code id == id}. A proof that relies on {@code result.id == id} then
      * verifies.
      */
@@ -59,7 +59,7 @@ class AssumeEveryProofs {
 
     /**
      * OVER-TIGHT predicate => VACUOUS, surfaced. {@code age >= 0 && age < 0} is satisfiable by no
-     * output, so every {@code findById} path is pruned and the proof checks nothing — the existing
+     * output, so every {@code findById} path is pruned and the proof checks nothing - the existing
      * vacuity detection flags it.
      */
     @BmcProof(expect = Verdict.VACUOUS)
@@ -76,8 +76,8 @@ class AssumeEveryProofs {
     /**
      * An IMPURE predicate is ACCEPTED. {@code assumeEvery} is NOT purity-audited (unlike a dischargeable
      * {@code @Ensures} contract): it is an explicit, user-owned assertion. This predicate reads the
-     * mutable static {@code minAge} rather than being a pure function of its input — an impurity the
-     * annotation-contract audit would reject — yet here it is analysed normally and VERIFIES (under
+     * mutable static {@code minAge} rather than being a pure function of its input - an impurity the
+     * annotation-contract audit would reject - yet here it is analysed normally and VERIFIES (under
      * {@code minAge == 0}, every returned age is {@code >= 0}, so the service result is {@code >= -1}).
      */
     @BmcProof(unwind = 4)

@@ -14,21 +14,21 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 /**
- * The `Bmc.assumeEvery` / `Bmc.assumeStable` marker rewriter — installs a per-proof **assumed
+ * The `Bmc.assumeEvery` / `Bmc.assumeStable` marker rewriter - installs a per-proof **assumed
  * output-contract** for an external/unanalyzable dependency, so a proof can reason on top of "IF the
  * dependency upholds this output property, THEN my code is correct" without a model, an annotation, or
  * a string method name.
  *
  * Like [DomainSplitBytecode], the markers ([org.bmc4j.Bmc.assumeEvery] / [org.bmc4j.Bmc.assumeStable])
  * are NOT sequential statements: a call appearing ANYWHERE in the proof installs the micro-model for
- * the WHOLE analysis — including calls inside `<clinit>` and inside callees the proof doesn't control.
+ * the WHOLE analysis - including calls inside `<clinit>` and inside callees the proof doesn't control.
  * That reach (a call site a local `assume` can't touch) is the whole point.
  *
  * ## How it reads the target STATICALLY (no invokedynamic execution)
  * `Bmc.assumeEvery(repo::findById) { ... }` compiles, immediately before the marker `invokestatic`, to
  * two `invokedynamic` sites bound by `java.lang.invoke.LambdaMetafactory`: one for the method reference
  * `repo::findById`, one for the predicate lambda. We never symbolically execute either indy (the
- * invokedynamic fault line). Instead we read the **bootstrap method arguments** — `bsmArgs[1]` is a
+ * invokedynamic fault line). Instead we read the **bootstrap method arguments** - `bsmArgs[1]` is a
  * [Handle] carrying the implementation method's exact `owner.name:descriptor`:
  * - the REFERENCE indy's handle is the dependency method to shadow (`UserRepository.findById:(I)LUser;`);
  * - the PREDICATE indy's handle is the compiled lambda body (`Proof.lambda$..:(LUser;[,..])Z`).
@@ -36,7 +36,7 @@ import java.util.zip.ZipFile
  * This is the same static-constant read [LambdaBytecode] / [StringBytecode] use to sidestep indy.
  * Crucially, when the marker parameter types are plain Java functional interfaces (which they are on
  * [org.bmc4j.Bmc]), a KOTLIN caller's `repo::findById` SAM-converts to the identical LambdaMetafactory
- * indy — so one decoder serves Java and Kotlin across compiler versions.
+ * indy - so one decoder serves Java and Kotlin across compiler versions.
  *
  * ## Lowering (onto the contracts machinery)
  * For each marker we shadow the target with a constrained-nondet stub on the analysis classpath and
@@ -45,24 +45,24 @@ import java.util.zip.ZipFile
  * ```
  * static R target__assumeStub(<self?,> args) {     // self prepended for an instance target
  *     R r = nondet();
- *     Bmc.assume(predicate(r <, self?, args>));     // the user's pure predicate
+ *     Bmc.assume(predicate(r <, self?, args>));     // the user's predicate (not purity-audited)
  *     return r;
  * }
  * ```
  *
- * `assumeEvery` is **fresh per call** — every call returns any output satisfying the predicate, a sound
+ * `assumeEvery` is **fresh per call** - every call returns any output satisfying the predicate, a sound
  * over-approximation. `assumeStable` **memoizes** `r` in a static, initialised once, so the whole run
- * (every call site, including `<clinit>`) sees one fixed value — the environment/config case.
+ * (every call site, including `<clinit>`) sees one fixed value - the environment/config case.
  *
  * ## Soundness
  * The micro-model is an ASSUMPTION (constrained nondet via `assume`, never `assert`): fresh output
  * bounded only by the predicate, so a property proven on top of it holds for any real implementation
  * that respects the predicate. It is surfaced on the verdict ([org.bmc4j.junit.BmcProofExtension]) so a
  * VERIFIED reached under an assumed contract is flagged NOT unconditional. An over-tight predicate makes
- * the assume unsatisfiable → VACUOUS, surfaced by the existing vacuity detection. The predicate is NOT
+ * the assume unsatisfiable -> VACUOUS, surfaced by the existing vacuity detection. The predicate is NOT
  * purity-audited (unlike an annotation contract, whose predicate becomes a reusable summary): an assumed
  * contract is an explicit, per-proof, user-owned assertion, so an impure or effectful predicate is
- * allowed — a legitimately richer micro-model. The shadow is per-proof — applies to this proof only.
+ * allowed - a legitimately richer micro-model. The shadow is per-proof - applies to this proof only.
  */
 internal object AssumeContractBytecode {
 
@@ -76,13 +76,13 @@ internal object AssumeContractBytecode {
 
     /** Internal name of the generated stub class folded onto the analysis classpath, one per proof.
      *  Deliberately OUTSIDE the `org/bmc4j` namespace: JBMC does not lazily load (and thus never enters)
-     *  a class under the bmc4j runtime's own package — exactly like the user-package `__BmcStubs` the
+     *  a class under the bmc4j runtime's own package - exactly like the user-package `__BmcStubs` the
      *  annotation contracts generate, this lives in a neutral synthetic package so the engine treats it
      *  as ordinary analysis code and resolves the redirected `invokestatic` to its real body. */
     private const val STUB_CLASS = "bmc4jgen/AssumeContractStubs"
 
     /**
-     * One decoded assumed contract: the dependency method to shadow + the pure predicate that constrains
+     * One decoded assumed contract: the dependency method to shadow + the predicate that constrains
      * its output. [stable] selects fresh-per-call (`assumeEvery`) vs memoized-once (`assumeStable`).
      *
      * @property targetOwner internal name of the class declaring the shadowed method
@@ -91,7 +91,7 @@ internal object AssumeContractBytecode {
      * @property targetIsStatic whether the reference is to a static method (no receiver on the stack)
      * @property predOwner internal name of the class declaring the compiled predicate lambda
      * @property predName the predicate method's name
-     * @property predDesc the predicate method's descriptor — `(R<,self?,args>)Z` (args present iff
+     * @property predDesc the predicate method's descriptor - `(R<,self?,args>)Z` (args present iff
      *   args-aware), with reference SAM-erasure where the lambda was typed `Object`
      */
     class Decoded(
@@ -105,7 +105,7 @@ internal object AssumeContractBytecode {
             @JvmField val stable: Boolean) {
 
         /** The stub method name: a per-target unique, descriptor-keyed symbol on [STUB_CLASS]. Kept free
-         *  of `$` (JBMC's method resolver treats `$`-laden synthetic names specially) — a plain
+         *  of `$` (JBMC's method resolver treats `$`-laden synthetic names specially) - a plain
          *  `name__assumeStub_<hash>` like the annotation contracts' `name__stub`. */
         val stubName: String
             get() = "${targetName}__assumeStub_" + Integer.toHexString(
@@ -133,7 +133,7 @@ internal object AssumeContractBytecode {
     /**
      * A malformed `assumeEvery`/`assumeStable` site (the marker's reference/predicate arguments weren't
      * the expected pair of `LambdaMetafactory` indys, or the predicate arity doesn't match the target).
-     * Unchecked so it propagates out of the analysis path and fails the proof LOUD — a marker we can't
+     * Unchecked so it propagates out of the analysis path and fails the proof LOUD - a marker we can't
      * lower soundly must never silently run as an ordinary proof (which would drop the assumption and
      * could read as a false VERIFIED or a phantom REFUTED).
      */
@@ -154,10 +154,10 @@ internal object AssumeContractBytecode {
 
     /**
      * The assumed output-contract DISPLAYS (`"Owner.method"`, `(stable)`-suffixed for an
-     * `assumeStable`) the proof at [entryClass].[entryFunction] declares — the verdict footnote the
+     * `assumeStable`) the proof at [entryClass].[entryFunction] declares - the verdict footnote the
      * proof extension prints to flag a VERIFIED reached under an assumed contract as NOT unconditional.
      * Re-decoded from the original [classpath] (the decode is deterministic from the proof source, so it
-     * needn't ride through the verdict cache — surfaces on the live AND the cached path). Empty when the
+     * needn't ride through the verdict cache - surfaces on the live AND the cached path). Empty when the
      * proof declares none, or when the entry class can't be read (fail-quiet: no footnote, never a thrown
      * exception out of a green path).
      */
@@ -189,8 +189,8 @@ internal object AssumeContractBytecode {
     /**
      * Scans one method linearly, remembering the last two SAM-conversion indy handles seen so that when
      * an `assumeEvery`/`assumeStable` `invokestatic` is reached, the reference handle (penultimate) and
-     * predicate handle (last) on the operand stack are known. The compiler emits them in source order —
-     * reference first, predicate second — directly before the marker call, so the linear two-slot window
+     * predicate handle (last) on the operand stack are known. The compiler emits them in source order -
+     * reference first, predicate second - directly before the marker call, so the linear two-slot window
      * is exact for a well-formed site; anything else throws [AssumeContractError].
      */
     private class MarkerScanner(private val out: MutableList<Decoded>) : MethodVisitor(Opcodes.ASM9) {
@@ -222,11 +222,11 @@ internal object AssumeContractBytecode {
         private fun build(stable: Boolean): Decoded {
             val ref = refHandle ?: throw AssumeContractError(
                     "an assumeEvery/assumeStable marker is missing its method-reference argument as a" +
-                            " resolvable LambdaMetafactory site — pass a direct bound/static method" +
+                            " resolvable LambdaMetafactory site - pass a direct bound/static method" +
                             " reference (e.g. repo::findById), not a stored function value.")
             val pred = predHandle ?: throw AssumeContractError(
                     "an assumeEvery/assumeStable marker is missing its predicate lambda as a resolvable" +
-                            " LambdaMetafactory site — pass the predicate inline as a lambda.")
+                            " LambdaMetafactory site - pass the predicate inline as a lambda.")
             val targetIsStatic = ref.tag == Opcodes.H_INVOKESTATIC
             // Args-aware predicates take (result, args...); output-only take (result). The reference's
             // own arg count is the call's argument count; the predicate beyond its leading result arg
@@ -274,7 +274,7 @@ internal object AssumeContractBytecode {
             val stubDir = writeStubClass(decoded)
             val withStub = stubDir.toString() + File.pathSeparator + classpath
             // The redirect rewrite runs over the whole (stub-prefixed) classpath so the dependency's call
-            // sites — wherever they are, including <clinit> and uncontrolled callees — route to the stub.
+            // sites - wherever they are, including <clinit> and uncontrolled callees - route to the stub.
             ContractRewriter.rewrite(withStub, decoded.map { it.redirect() }, null)
         }
     }
@@ -284,7 +284,7 @@ internal object AssumeContractBytecode {
      *  mirror, so identical decodings reuse one dir. */
     private fun writeStubClass(decoded: List<Decoded>): Path {
         val bytes = generateStubClass(decoded)
-        // Reuse the mirror's content-addressed, atomic publish for the generated class — keyed by the
+        // Reuse the mirror's content-addressed, atomic publish for the generated class - keyed by the
         // stub bytes themselves so two distinct decodings never alias one dir.
         val dir = Files.createTempDirectory("bmc-assume-")
         val classFile = dir.resolve("$STUB_CLASS.class")
@@ -296,7 +296,7 @@ internal object AssumeContractBytecode {
 
     /** Build the stub class: `R name(<self?,>args){ R r = [memoized] nondet(); assume(pred(...)); return r; }`.
      *  COMPUTE_FRAMES (the stable stub has an init-once branch) with a non-loading
-     *  [getCommonSuperClass] — the stub's referenced types (the dependency's return type, the predicate
+     *  [getCommonSuperClass] - the stub's referenced types (the dependency's return type, the predicate
      *  owner) are analysis-only and may not be loadable here; the only frame merge is over identical or
      *  Object-compatible references, so collapsing every merge to Object is sound for these stubs. */
     internal fun generateStubClass(decoded: List<Decoded>): ByteArray {
@@ -367,7 +367,7 @@ internal object AssumeContractBytecode {
         // value = nondet()
         pushNondet(mv, ret)
         mv.visitFieldInsn(Opcodes.PUTSTATIC, STUB_CLASS, valueField, ret.descriptor)
-        // assume(pred(value, params)) — load value into rSlot first so the shared predicate emit works.
+        // assume(pred(value, params)) - load value into rSlot first so the shared predicate emit works.
         mv.visitFieldInsn(Opcodes.GETSTATIC, STUB_CLASS, valueField, ret.descriptor)
         mv.visitVarInsn(ret.getOpcode(Opcodes.ISTORE), rSlot)
         emitPredicateCall(mv, d, ret, rSlot, Type.getArgumentTypes(d.stubDesc))
@@ -381,7 +381,7 @@ internal object AssumeContractBytecode {
 
     /** Emit `Bmc.assume(predicate(r <, params...>))`. The predicate's first arg is the result; an
      *  args-aware predicate also takes every call argument (the stub's params, minus the leading
-     *  receiver for an instance target — the predicate is written over the call args, not the receiver). */
+     *  receiver for an instance target - the predicate is written over the call args, not the receiver). */
     private fun emitPredicateCall(mv: MethodVisitor, d: Decoded, ret: Type, rSlot: Int,
                                   paramTypes: Array<Type>) {
         val predArgs = Type.getArgumentTypes(d.predDesc)
@@ -423,18 +423,18 @@ internal object AssumeContractBytecode {
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC, CPROVER, "nondetDouble", "()D", false)
             else -> {
                 // Reference / array result: an arbitrary value INCLUDING null (the predicate decides
-                // whether null is admissible — `it == null || …` is the canonical form, a SOUND
+                // whether null is admissible - `it == null || ...` is the canonical form, a SOUND
                 // over-approximation that must keep the null case reachable).
                 //
                 // We must NOT use `nondetWithNull()` directly: JBMC represents its result as an
                 // under-modelled `&_constarray` placeholder whose object fields are not consistently
                 // tracked, so a field read inside the predicate and the same read in the caller can
-                // disagree — the assumption then fails to constrain the caller's view. Instead we havoc a
+                // disagree - the assumption then fails to constrain the caller's view. Instead we havoc a
                 // PROPERLY-MODELLED fresh object with `nondetWithoutNull()` (the form the annotation
                 // contracts use, whose fields ARE symbolically tracked) and havoc null-ness separately:
                 //   r = nondetBoolean() ? null : (R) nondetWithoutNull();
-                // so the result still ranges over null AND every well-modelled object — the sound
-                // over-approximation — while a non-null object's fields stay consistent across reads.
+                // so the result still ranges over null AND every well-modelled object - the sound
+                // over-approximation - while a non-null object's fields stay consistent across reads.
                 val nullLabel = org.objectweb.asm.Label()
                 val done = org.objectweb.asm.Label()
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC, CPROVER, "nondetBoolean", "()Z", false)

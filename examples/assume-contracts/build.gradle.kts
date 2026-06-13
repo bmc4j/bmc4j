@@ -1,6 +1,6 @@
-// Assumed output-contracts — Bmc.assumeEvery / Bmc.assumeStable. A proof ASSUMES an external,
+// Assumed output-contracts - Bmc.assumeEvery / Bmc.assumeStable. A proof ASSUMES an external,
 // unanalyzable dependency upholds an output property (no model, no annotation, no string method name)
-// and proves on top of it. Each proof self-asserts its expected verdict via @BmcProof(expect = …):
+// and proves on top of it. Each proof self-asserts its expected verdict via @BmcProof(expect = ...):
 // the assumption is load-bearing (drop it => REFUTED/UNKNOWN), an over-tight predicate => VACUOUS.
 plugins {
     java

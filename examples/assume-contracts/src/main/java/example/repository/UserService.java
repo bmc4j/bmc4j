@@ -4,7 +4,7 @@ package example.repository;
  * A small service over {@link UserRepository}. Its correctness is COMPOSITIONAL: it holds only if the
  * repository upholds an output property (a non-null user has a non-negative age, and {@code findById(id)}
  * returns a user whose {@code id} is {@code id}). The proofs supply that property with
- * {@code Bmc.assumeEvery(repo::findById, …)} — assume-guarantee — instead of a model of the repository.
+ * {@code Bmc.assumeEvery(repo::findById, ...)} - assume-guarantee - instead of a model of the repository.
  */
 public final class UserService {
 

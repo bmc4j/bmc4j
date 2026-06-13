@@ -7,7 +7,7 @@ import org.bmc4j.Bmc;
  * {@code LambdaMetafactory} {@code invokedynamic} sites for the method reference + predicate that the
  * {@link AssumeContractBytecode} decoder reads statically (the {@code bsmArgs[1]} implementation
  * handle). The Kotlin caller path SAM-converts to the identical encoding against these Java functional
- * interfaces — pinned end-to-end by the example proofs, not here.
+ * interfaces - pinned end-to-end by the example proofs, not here.
  */
 final class AssumeContractBytecodeTestFixtures {
 

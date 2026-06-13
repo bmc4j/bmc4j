@@ -1,11 +1,11 @@
 package example.repository;
 
 /**
- * An external dependency with NO analyzed implementation — a repository the proof can't see through
+ * An external dependency with NO analyzed implementation - a repository the proof can't see through
  * (a database/network call behind an interface). Its output is exactly what an
- * {@code Bmc.assumeEvery(repo::findById, …)} assumption constrains: "every {@code findById} returns a
+ * {@code Bmc.assumeEvery(repo::findById, ...)} assumption constrains: "every {@code findById} returns a
  * value satisfying this predicate". Without an assumption JBMC nondet-stubs the call (the result is
- * unconstrained), so a property that depends on the repository's behaviour can't be proven — which is
+ * unconstrained), so a property that depends on the repository's behaviour can't be proven - which is
  * the point of the assume-guarantee.
  */
 public interface UserRepository {

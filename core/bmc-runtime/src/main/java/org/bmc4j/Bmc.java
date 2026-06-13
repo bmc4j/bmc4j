@@ -702,14 +702,14 @@ public final class Bmc {
     //   Bmc.assumeStable(Runtime.getRuntime()::availableProcessors, n -> n == 8);        // env case
     //
     // These are PROOF-WIDE DECLARATIONS, not sequential statements (like domainSplit/check): a call
-    // appearing ANYWHERE in the proof installs the micro-model for the WHOLE analysis — including calls
+    // appearing ANYWHERE in the proof installs the micro-model for the WHOLE analysis - including calls
     // inside <clinit> and inside callees the proof doesn't control. The first argument MUST be a direct
-    // method reference (bound or static); the second a pure inline lambda predicate. bmc4j reads the
+    // method reference (bound or static); the second an inline lambda predicate. bmc4j reads the
     // target STATICALLY from the reference's LambdaMetafactory bootstrap handle (it never executes the
     // invokedynamic) and shadows the target on the analysis classpath with a constrained-nondet stub
     // `R m(args){ R r = nondet(); assume(predicate(r [,args])); return r; }`. See AssumeContractBytecode.
     //
-    //   - assumeEvery is FRESH PER CALL — each call returns any output satisfying the predicate, a SOUND
+    //   - assumeEvery is FRESH PER CALL - each call returns any output satisfying the predicate, a SOUND
     //     OVER-APPROXIMATION: a property proven this way holds for any real implementation that respects
     //     the predicate. The right default for repositories / services / factories.
     //   - assumeStable pins ONE value for the whole run (memoized; reused at every call site incl.
@@ -718,8 +718,9 @@ public final class Bmc {
     //
     // SOUNDNESS: the micro-model is an ASSUMPTION (constrained nondet via assume, never assert). A
     // VERIFIED reached under an assumed contract is FLAGGED on the verdict ("NOT unconditional"); an
-    // over-tight predicate that rules out every output surfaces as VACUOUS; the predicate is certified
-    // PURE by the same audit the annotation contracts use (an impure predicate is rejected loudly).
+    // over-tight predicate that rules out every output surfaces as VACUOUS. The predicate is NOT
+    // purity-audited (unlike a dischargeable annotation contract): an assumed contract is a user-owned
+    // assertion, so an impure or effectful predicate is allowed.
     //
     // These are MARKERS: the bodies below are never executed (the engine analyses the bytecode that
     // installs the contract). Arity 0..2 of the reference is covered, output-only and args-aware.

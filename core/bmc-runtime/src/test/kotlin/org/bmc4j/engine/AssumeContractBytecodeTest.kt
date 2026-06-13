@@ -46,7 +46,7 @@ internal class AssumeContractBytecodeTest {
     fun decodes_an_args_aware_predicate() {
         val c = decode("argsAware").single()
         assertEquals("findById", c.targetName)
-        // Args-aware predicate: (result, id) — two parameters.
+        // Args-aware predicate: (result, id) - two parameters.
         assertEquals(2, org.objectweb.asm.Type.getArgumentTypes(c.predDesc).size)
     }
 
@@ -73,7 +73,7 @@ internal class AssumeContractBytecodeTest {
         val c = decode("twoArg").single()
         assertEquals("find", c.targetName)
         assertEquals(2, org.objectweb.asm.Type.getArgumentTypes(c.targetDesc).size)
-        // Args-aware over two call args: (result, tenant, id) — three parameters.
+        // Args-aware over two call args: (result, tenant, id) - three parameters.
         assertEquals(3, org.objectweb.asm.Type.getArgumentTypes(c.predDesc).size)
     }
 
@@ -103,7 +103,7 @@ internal class AssumeContractBytecodeTest {
     fun the_fresh_stub_calls_nondet_then_assume_then_returns() {
         val c = decode("outputOnly").single()
         val calls = stubCalls(AssumeContractBytecode.generateStubClass(listOf(c)), c.stubName)
-        // A fresh stub: havoc the result, assume the predicate, return — no static memo field reads.
+        // A fresh stub: havoc the result, assume the predicate, return - no static memo field reads.
         assertTrue(calls.any { it.contains("CProver.nondet") }, "havocs a result: $calls")
         assertTrue(calls.any { it == "org/cprover/CProver.assume" }, "assumes the predicate: $calls")
         assertTrue(calls.any { it.endsWith(c.predName) }, "calls the user predicate: $calls")
