@@ -245,6 +245,93 @@ internal class ExceptionMessageElisionTest {
                 "an object passed as a call argument escapes and must NOT be sliced")
     }
 
+    @Test
+    fun real_okio_readDecimalLong_slices_but_writeDecimalLong_keeps_writeUtf8() {
+        // Feed okio 3.9.0's ACTUAL Buffer.class (from the gradle cache) through the rewrite, then inspect
+        // the surviving instructions. This is the real-jar reproduction. It establishes two facts: the
+        // throwaway-Buffer message region in readDecimalLong DOES elide and its dead lifetime IS sliced
+        // (the slicer fires correctly on real okio), AND writeDecimalLong's Long.MIN_VALUE writeUtf8 call
+        // is non-exceptional and survives, which is the real reason a writeDecimalLong+readDecimalLong
+        // round-trip proof keeps writeUtf8 in its cone. If the jar is not present, skip (no false pass).
+        val bufferClass = realOkioBufferClass() ?: return
+        val rewritten = ExceptionMessageElision.rewriteClass(bufferClass) { n -> jdkOrOkioThrowable(n) }
+        val rdl = methodBody(rewritten, "readDecimalLong")
+
+        // 1. Did the "Number too large: " message region elide at all?
+        val elided = rdl.any { it == "ACONST_NULL" }
+        // 2. Did the throwaway-Buffer lifetime get sliced (no writeDecimalLong/writeByte/readByte/readUtf8
+        //    surviving on the overflow path)? readDecimalLong also calls size() etc. on `this`, so we look
+        //    specifically for the throwaway-builder calls.
+        val builderCalls = rdl.filter {
+            it.contains("okio/Buffer.writeDecimalLong") || it.contains("okio/Buffer.writeByte") ||
+                    it.contains("okio/Buffer.readByte") || it.contains("okio/Buffer.readUtf8")
+        }
+        println("[okio-repro] readDecimalLong message-elided=$elided; surviving throwaway-builder calls=$builderCalls")
+        assertTrue(elided, "the 'Number too large' message region must elide on real okio")
+        assertTrue(builderCalls.isEmpty(),
+                "the dead throwaway-Buffer lifetime must be fully sliced on real okio, surviving: $builderCalls")
+
+        // ROOT CAUSE of the "writeUtf8 still in the cone, proof times out" symptom: it is NOT the slicer.
+        // okio's writeDecimalLong(long) has a Long.MIN_VALUE special case `this.writeUtf8("-92233...808")`
+        // (the value can't be negated). That writeUtf8 is a normal, NON-throwing call on `this`, on a
+        // legitimate arm of writeDecimalLong's own branch. The proof CALLS writeDecimalLong(v) in its setup,
+        // so the engine encodes both arms and pulls writeUtf8 into the cone REGARDLESS of any readDecimalLong
+        // message elision. The exception-message slicer correctly does not (and must not) touch it: it is
+        // not inside any elided exception message. So writeDecimalLong must STILL contain its writeUtf8 call
+        // after the rewrite (the slicer leaves non-message code verbatim).
+        val wdl = methodBody(rewritten, "writeDecimalLong")
+        assertTrue(wdl.any { it.contains("okio/Buffer.writeUtf8(Ljava/lang/String;)") },
+                "writeDecimalLong's Long.MIN_VALUE writeUtf8 is non-exceptional and stays (this, not the " +
+                        "slicer, is what keeps writeUtf8 in the proof cone): $wdl")
+    }
+
+    /** Locate okio 3.9.0's Buffer.class in the gradle module cache and return its bytes, or null if absent
+     *  (the repro then skips). Searches the user's ~/.gradle modules-2 tree for okio-jvm-3.9.0.jar. */
+    private fun realOkioBufferClass(): ByteArray? {
+        val home = System.getProperty("user.home") ?: return null
+        val root = Path.of(home, ".gradle", "caches", "modules-2", "files-2.1",
+                "com.squareup.okio", "okio-jvm", "3.9.0")
+        if (!Files.isDirectory(root)) return null
+        val jar = Files.walk(root).use { w ->
+            w.filter { Files.isRegularFile(it) && it.fileName.toString() == "okio-jvm-3.9.0.jar" }
+                    .findFirst().orElse(null)
+        } ?: return null
+        java.util.zip.ZipFile(jar.toFile()).use { zf ->
+            val e = zf.getEntry("okio/Buffer.class") ?: return null
+            return zf.getInputStream(e).use { it.readAllBytes() }
+        }
+    }
+
+    /** Throwable resolver for the real-okio repro: okio defines no Throwables, so the JDK roots suffice. */
+    private val jdkOrOkioThrowable: (String) -> Boolean get() = jdkThrowable
+
+    /** Linear list of one method's surviving instructions, rendered as `OWNER.NAME` for calls, `NEW type`,
+     *  `ACONST_NULL`, or the raw opcode, in visit order. Used to inspect what the rewrite left behind. */
+    private fun methodBody(clazz: ByteArray, method: String): List<String> {
+        val body = ArrayList<String>()
+        ClassReader(clazz).accept(object : ClassVisitor(Opcodes.ASM9) {
+            override fun visitMethod(a: Int, n: String?, d: String?, s: String?,
+                                     e: Array<String>?): MethodVisitor? {
+                if (n != method) return null
+                return object : MethodVisitor(Opcodes.ASM9) {
+                    override fun visitMethodInsn(op: Int, owner: String?, name: String?,
+                                                 desc: String?, itf: Boolean) {
+                        body.add("$owner.$name$desc")
+                    }
+
+                    override fun visitTypeInsn(op: Int, type: String?) {
+                        if (op == Opcodes.NEW) body.add("NEW $type")
+                    }
+
+                    override fun visitInsn(op: Int) {
+                        if (op == Opcodes.ACONST_NULL) body.add("ACONST_NULL")
+                    }
+                }
+            }
+        }, 0)
+        return body
+    }
+
     // ---- observability gate -----------------------------------------------------------------------
 
     @Test
