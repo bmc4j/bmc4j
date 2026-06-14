@@ -35,15 +35,24 @@ class JbmcProfile private constructor(
          *  engine's symex/solver. Empty when not profiled at the backend, or fully pre-mirrored. */
         val pipelineSeconds: Map<String, Double>,
         /** The engine subprocess wall-clock (launch → exit/kill) the harness timed, in seconds, or null
-         *  when not measured. On a symex-timeout — where jbmc emits NO `Runtime` phase line because
-         *  symbolic execution never completed — this is attributed to a DERIVED `Symex (incomplete)`
-         *  entry, since unwinding happens DURING symex (symex IS the unwinding phase). Harness-measured,
-         *  never an engine-reported number. */
+         *  when not measured. On a TIMEOUT, this minus the completed `Runtime <Phase>:` times is the
+         *  UNACCOUNTED remainder, attributed to the phase the engine was killed inside (see
+         *  [derivedInProgressPhase] / [lastPhaseEntered]): Convert SSA for a bit-blasting-bound proof,
+         *  Symex for a symex-bound one. Harness-measured, never an engine-reported number. */
         val engineWallSeconds: Double?,
         /** True if the engine reached the SAT/SMT solver (it logged "Passing problem to propositional
          *  reduction" or a `<N> variables, <M> clauses` line). On a timeout this distinguishes a
          *  symex-bound proof (never reached SAT) from a solver-bound one. */
         val reachedSat: Boolean,
+        /** The LAST engine phase the run was observed to ENTER, derived from in-progress markers (not
+         *  completion lines): [Phase.SYMEX] once `Starting Bounded Model Checking` is seen, [Phase.CONVERT_SSA]
+         *  once `converting SSA` is seen, [Phase.SOLVER] once the solver is reached. Null if no phase marker
+         *  was captured (the engine was killed before symex even started). This is what lets a TIMEOUT
+         *  attribute its wall-clock to the phase the engine was actually IN, e.g. a heavy proof whose symex
+         *  finished (`Runtime Symex` emitted) but was then killed bit-blasting in Convert SSA is attributed
+         *  to Convert SSA, NOT mislabelled "Symex (incomplete)". Survives a SIGKILL because the marker is a
+         *  STATUS-MESSAGE the engine emits at phase entry, captured incrementally before the kill. */
+        val lastPhaseEntered: Phase?,
         /** Per-method loop-unwinding counts (method FQN → number of `Unwinding loop` iterations seen),
          *  highest-first then by name. The "top offenders" list — the hot method is at the top. */
         val unwindingByMethod: List<MethodCount>,
@@ -64,6 +73,21 @@ class JbmcProfile private constructor(
     class MethodCount(@get:JvmName("method") val method: String,
                       @get:JvmName("count") val count: Int)
 
+    /**
+     * The ORDERED engine phases, used to attribute a timeout's unaccounted wall-clock to the phase the
+     * engine was actually IN. jbmc emits a STATUS-MESSAGE on ENTERING each (not just on completing it):
+     * `Starting Bounded Model Checking` marks [SYMEX] (symbolic execution / loop unwinding), `converting
+     * SSA` marks [CONVERT_SSA] (lowering the program equation to a bit-vector formula - the bit-blasting
+     * that dominates a heavy timeout), and the propositional-reduction handoff marks [SOLVER]. `ordinal`
+     * is the
+     * progression order, so "the furthest phase entered" is just the max. The display label is what a
+     * derived `<label> (incomplete)` row reads as. */
+    enum class Phase(val label: String) {
+        SYMEX("Symex"),
+        CONVERT_SSA("Convert SSA"),
+        SOLVER("Solver");
+    }
+
     /** True when the run yielded nothing we could turn into a breakdown — neither engine-reported data
      *  (phases, unwinding, formula stats) NOR any harness-measured timing (bmc4j pipeline passes, or an
      *  engine wall-clock we could attribute to a derived Symex). A profiled run almost always has at least
@@ -71,16 +95,47 @@ class JbmcProfile private constructor(
     fun isEmpty(): Boolean =
             phaseSeconds.isEmpty() && unwindingByMethod.isEmpty() && recursionByMethod.isEmpty()
                     && programSteps == null && vccGenerated == null && satVariables == null
-                    && pipelineSeconds.isEmpty() && engineWallSeconds == null
+                    && pipelineSeconds.isEmpty() && engineWallSeconds == null && lastPhaseEntered == null
 
-    /** The wall-clock to attribute to a DERIVED `Symex (incomplete, harness-measured)` entry, or null
-     *  when no derivation applies. The rule is unambiguous from jbmc's phase ordering: an engine that
-     *  produced NO completed `Runtime` phase line was killed entirely inside symbolic execution (symex
-     *  IS the unwinding phase, and it runs before any phase time is reported), so the full engine
-     *  wall-clock is attributed to symex. An engine that DID report some phase line is NOT derived — its
-     *  measured phases are real and the missing time is a named missing phase (we don't invent a split). */
-    fun derivedSymexSeconds(): Double? =
-            if (phaseSeconds.isEmpty() && engineWallSeconds != null) engineWallSeconds else null
+    /**
+     * The UNACCOUNTED engine wall-clock attributed to an in-progress phase the engine was killed inside,
+     * paired with that phase, or null when no derivation applies. This is the timeout-attribution fix:
+     * instead of always dumping the whole wall-clock onto "Symex (incomplete)", we attribute it to the
+     * phase the markers say the engine was actually IN.
+     *
+     * The rule, honest to the captured markers:
+     *  - The wall-clock to attribute is the engine wall-clock MINUS the time of the phases that DID
+     *    complete (their `Runtime <Phase>:` lines were captured). On a clean symex-bound kill nothing
+     *    completed, so it is the full wall-clock; on a Convert-SSA-bound kill symex's ~10s is subtracted
+     *    and the REMAINDER (the bit-blasting time) is what we surface.
+     *  - The phase it is attributed to is [lastPhaseEntered] - the furthest in-progress marker seen
+     *    (`converting SSA` means Convert SSA, else `Starting Bounded Model Checking` means Symex). If no phase
+     *    marker was captured at all we fall back to Symex (the engine was killed before even symex
+     *    announced itself, so symbolic execution is the only phase it could have been in).
+     *
+     * Returns null only when there is no engine wall-clock to attribute, or when the remainder is not a
+     * positive amount of time worth showing (the named completed phases already account for the wall). We
+     * never invent a split across completed phases - only the single in-progress tail is derived. */
+    fun derivedInProgressPhase(): Pair<Phase, Double>? {
+        val wall = engineWallSeconds ?: return null
+        // A run that reached the solver and reported a Solver phase line is fully accounted - no in-progress
+        // tail to derive (the time is in named phases). Only an INCOMPLETE run (killed mid-phase) derives.
+        if (phaseSeconds.containsKey(Phase.SOLVER.label)) {
+            return null
+        }
+        val completed = phaseSeconds.values.sum()
+        val remainder = wall - completed
+        if (remainder <= IN_PROGRESS_FLOOR_SECONDS) {
+            // The completed phases already account for ~all the wall-clock: nothing meaningful was spent
+            // in an in-progress phase (the kill landed right at a phase boundary, or the run finished).
+            return null
+        }
+        val phase = lastPhaseEntered
+                // No phase marker captured at all: the engine was killed before symex announced itself,
+                // so the only phase it could have been in is symbolic execution.
+                ?: Phase.SYMEX
+        return phase to remainder
+    }
 
     /**
      * Return a copy of this engine-parsed profile carrying the HARNESS-measured timings: bmc4j's own
@@ -99,6 +154,7 @@ class JbmcProfile private constructor(
                 pipelineSeconds = if (pipeline.isNullOrEmpty()) pipelineSeconds else LinkedHashMap(pipeline),
                 engineWallSeconds = engineWall ?: engineWallSeconds,
                 reachedSat = reachedSat,
+                lastPhaseEntered = lastPhaseEntered,
                 unwindingByMethod = unwindingByMethod,
                 recursionByMethod = recursionByMethod,
                 programSteps = programSteps,
@@ -140,18 +196,30 @@ class JbmcProfile private constructor(
                 add("       ${"total".padEnd(24 + LBL_BMC4J.length + 1)}  ${formatSeconds(pipelineSeconds.values.sum())}")
             }
 
-            // Where the ENGINE spent wall-time. On a symex-timeout (no engine-reported phase line) the whole
-            // launch->kill wall-clock is attributed to a DERIVED Symex entry (symex IS the unwinding phase):
-            // the engine was 100% in symbolic execution. Flagged harness-measured + incomplete.
+            // Where the ENGINE spent wall-time. First the phases jbmc REPORTED a completed `Runtime <Phase>:`
+            // line for (engine-measured). Then, on a TIMEOUT, the unaccounted remainder is attributed to the
+            // phase the engine was actually killed INSIDE - derived from the in-progress markers it streamed
+            // (`converting SSA` means Convert SSA; else symex). This is the attribution fix: a heavy proof whose
+            // symex finished but was then killed bit-blasting is shown as "Convert SSA (incomplete)", NOT
+            // mislabelled "Symex (incomplete)".
             add("   engine phases (where jbmc spent wall-time):")
+            phaseSeconds.forEach { (phase, secs) -> timed(LBL_ENGINE, phase, secs) }
+            val inProgress = derivedInProgressPhase()
             when {
-                phaseSeconds.isNotEmpty() -> phaseSeconds.forEach { (phase, secs) -> timed(LBL_ENGINE, phase, secs) }
-                derivedSymexSeconds() != null -> {
-                    timed(LBL_HARNESS, "Symex (incomplete)", derivedSymexSeconds()!!)
-                    add("       (the engine reported no completed phase; it was killed inside symbolic" +
-                            " execution, so the whole engine wall-clock above is symex - DERIVED by the" +
-                            " harness, not reported by jbmc)")
+                inProgress != null -> {
+                    val (phase, secs) = inProgress
+                    timed(LBL_HARNESS, "${phase.label} (incomplete)", secs)
+                    val explain = if (phaseSeconds.isEmpty()) {
+                        "the engine reported no completed phase; it was killed inside ${phase.label}, so the" +
+                                " whole engine wall-clock above is ${phase.label}"
+                    } else {
+                        "the engine completed the phase(s) above (engine-reported), then was killed inside" +
+                                " ${phase.label}; this is the UNACCOUNTED remainder of the engine wall-clock"
+                    }
+                    add("       ($explain - DERIVED by the harness from its phase markers, not a" +
+                            " jbmc-reported time)")
                 }
+                phaseSeconds.isNotEmpty() -> { /* fully accounted by the engine-reported phases above */ }
                 reachedSat -> add("       (no engine phase timings captured)")
                 else -> add("       (no engine phase timings captured - did not reach the solver)")
             }
@@ -198,6 +266,12 @@ class JbmcProfile private constructor(
 
         /** Top-N offenders shown in the rendered table (the full list is in the parsed object). */
         private const val TOP_N = 8
+
+        /** Below this many seconds, an unaccounted in-progress remainder is treated as noise (a kill landing
+         *  right at a phase boundary, clock jitter) rather than a phase the engine was meaningfully stuck in,
+         *  so [derivedInProgressPhase] returns null. Small enough that a real Convert-SSA-bound timeout (where
+         *  the remainder is seconds-to-minutes) always surfaces. */
+        private const val IN_PROGRESS_FLOOR_SECONDS = 0.05
 
         /** Row tags that label each timing's PROVENANCE so a reader never confuses a bmc4j-measured
          *  wall-clock with an engine-reported phase time. `[bmc4j]` = a timed bmc4j pipeline pass;
@@ -294,6 +368,18 @@ class JbmcProfile private constructor(
         /** The symex->SAT transition marker: its presence proves the solver was reached. */
         private const val PASSING_TO_SAT = "Passing problem to propositional reduction"
 
+        /** Phase-ENTRY markers jbmc streams when it BEGINS a phase (distinct from the `Runtime <Phase>:`
+         *  COMPLETION lines). They survive a SIGKILL - emitted as soon as the phase starts - so they tell
+         *  us which phase a killed run was IN, which the completion lines (never emitted for the killed
+         *  phase) cannot. Pinned against the bundled cbmc 6.9.0 by [JbmcProfileTest], same discipline as
+         *  the other markers; the engine identity is in the verdict-cache key so a bump re-validates.
+         *
+         *  - `Starting Bounded Model Checking`: symbolic execution (loop unwinding) has begun.
+         *  - `converting SSA`: symex finished; the program equation is being lowered to a bit-vector
+         *    formula (the bit-blasting that dominates a heavy timeout). */
+        private const val ENTER_SYMEX = "Starting Bounded Model Checking"
+        private const val ENTER_CONVERT_SSA = "converting SSA"
+
         /** Mutable tally that absorbs message lines and emits an immutable [JbmcProfile]. */
         private class Accumulator {
             private val phases = LinkedHashMap<String, Double>()
@@ -305,10 +391,31 @@ class JbmcProfile private constructor(
             private var vccRemaining: Long? = null
             private var satVariables: Long? = null
             private var satClauses: Long? = null
+            private var lastPhaseEntered: Phase? = null
+
+            /** Advance the furthest-entered phase monotonically (never regress to an earlier phase). */
+            private fun enter(phase: Phase) {
+                val cur = lastPhaseEntered
+                if (cur == null || phase.ordinal > cur.ordinal) {
+                    lastPhaseEntered = phase
+                }
+            }
 
             fun consume(text: String) {
                 val line = text.trim()
                 if (line.isEmpty()) {
+                    return
+                }
+                // Phase-ENTRY markers (cheap substring checks, kept ahead of the heavier regexes). They
+                // record which phase the engine was IN so a killed run attributes its wall-clock correctly.
+                // The Convert-SSA entry marker is what a heavy timeout streams just before the bit-blasting
+                // flood that gets it killed - the signal the old code discarded.
+                if (line.contains(ENTER_CONVERT_SSA)) {
+                    enter(Phase.CONVERT_SSA)
+                    return
+                }
+                if (line.contains(ENTER_SYMEX)) {
+                    enter(Phase.SYMEX)
                     return
                 }
                 UNWIND_LOOP_RE.find(line)?.let {
@@ -326,15 +433,24 @@ class JbmcProfile private constructor(
                     val secs = it.groupValues[2].toDoubleOrNull()
                     if (secs != null && phase.isNotEmpty()) {
                         phases[phase] = secs
+                        // A COMPLETED phase line also tells us the engine reached at least that phase (a
+                        // belt-and-braces backstop should an entry marker be missing/renamed in a build).
+                        if (phase.equals(Phase.CONVERT_SSA.label, ignoreCase = true)) {
+                            enter(Phase.CONVERT_SSA)
+                        } else if (phase.startsWith("Symex", ignoreCase = true)) {
+                            enter(Phase.SYMEX)
+                        }
                         if (phase.startsWith("Solver", ignoreCase = true)
                                 || phase.contains("decision procedure", ignoreCase = true)) {
                             reachedSat = true // a solver phase ran -> SAT was reached
+                            enter(Phase.SOLVER)
                         }
                     }
                     return
                 }
                 if (line.contains(PASSING_TO_SAT)) {
                     reachedSat = true
+                    enter(Phase.SOLVER)
                     return
                 }
                 PROGRAM_STEPS_RE.find(line)?.let {
@@ -350,6 +466,7 @@ class JbmcProfile private constructor(
                     satVariables = it.groupValues[1].toLongOrNull() ?: satVariables
                     satClauses = it.groupValues[2].toLongOrNull() ?: satClauses
                     reachedSat = true // a CNF size line is only emitted once SAT is reached
+                    enter(Phase.SOLVER)
                     return
                 }
             }
@@ -359,6 +476,7 @@ class JbmcProfile private constructor(
                     pipelineSeconds = emptyMap(),
                     engineWallSeconds = null,
                     reachedSat = reachedSat,
+                    lastPhaseEntered = lastPhaseEntered,
                     unwindingByMethod = sorted(loopCounts),
                     recursionByMethod = sorted(recursionCounts),
                     programSteps = programSteps,

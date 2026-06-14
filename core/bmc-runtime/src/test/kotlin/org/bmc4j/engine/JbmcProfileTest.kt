@@ -155,8 +155,9 @@ internal class JbmcProfileTest {
         assertTrue(rendered.contains("[engine] Symex"), "an engine phase, tagged engine-reported")
         assertTrue(rendered.contains("[harness] engine wall-clock"), "harness-measured engine wall")
         assertTrue(rendered.contains("reached SAT/SMT solver: YES"))
-        // No derived Symex: the engine DID report a phase line, so we never invent one.
-        assertNull(p.derivedSymexSeconds())
+        // No derived in-progress phase: the engine reached + reported a Solver phase, so the run is
+        // fully accounted - we never invent an incomplete tail.
+        assertNull(p.derivedInProgressPhase())
         // Sub-millisecond timings render as fixed-point, never scientific notation.
         val tiny = engine.withHarnessTimings(mapOf("purity-audit" to 0.0004), 0.6)
         val tinyRendered = tiny.render("pkg.Tests.proof", "VERIFIED")
@@ -167,49 +168,112 @@ internal class JbmcProfileTest {
 
     @Test
     fun a_symex_timeout_with_no_phase_line_derives_symex_from_the_engine_wall_clock() {
-        // The symex-timeout case: jbmc was killed entirely inside symbolic execution, so it emitted
-        // unwinding firings but NO `Runtime <Phase>:` line. The harness attributes the whole engine
-        // launch->kill wall-clock to a DERIVED `Symex (incomplete)` entry — symex IS the unwinding phase.
+        // The symex-bound timeout: jbmc was killed entirely inside symbolic execution. It announced symex
+        // (`Starting Bounded Model Checking`) and emitted unwinding firings, but NO `Runtime <Phase>:`
+        // line - symex never completed. The harness attributes the whole launch-to-kill wall-clock to a
+        // DERIVED `Symex (incomplete)` entry, keyed off the symex entry marker.
         val engine = JbmcProfile.parse("""
             [
+              {"messageText":"Starting Bounded Model Checking"},
               {"messageText":"Unwinding loop java::okio.Buffer.writeUtf8:(Ljava/lang/String;)V.0 iteration 1 file B.java line 7"},
               {"messageText":"Unwinding loop java::okio.Buffer.writeUtf8:(Ljava/lang/String;)V.0 iteration 2 file B.java line 7"}
             ]""".trimIndent())
         assertTrue(engine.phaseSeconds.isEmpty(), "precondition: no engine phase line was emitted")
+        assertEquals(JbmcProfile.Phase.SYMEX, engine.lastPhaseEntered, "symex was the furthest phase entered")
 
         val p = engine.withHarnessTimings(mapOf("desugar" to 0.04), 3.90)
 
-        // The derivation is unambiguous: no completed phase + an engine wall-clock => full wall is symex.
-        assertEquals(3.90, p.derivedSymexSeconds())
+        // No completed phase + an engine wall-clock => the full wall is the in-progress symex.
+        assertEquals(JbmcProfile.Phase.SYMEX to 3.90, p.derivedInProgressPhase())
         assertFalse(p.reachedSat)
 
         val rendered = p.render("okio.Tests.heavy", "TIMEOUT")
         assertTrue(rendered.contains("[harness] Symex (incomplete)"),
                 "the derived, harness-measured symex entry replaces the empty phase list")
-        assertTrue(rendered.contains("killed inside symbolic execution"), "explains the derivation")
+        assertTrue(rendered.contains("killed inside Symex"), "explains the derivation")
         assertTrue(rendered.contains("reached SAT/SMT solver: NO"))
         // The hot method still surfaces (unwinding was captured up to the kill).
         assertTrue(rendered.contains("okio.Buffer.writeUtf8  x2"))
     }
 
     @Test
-    fun some_phase_lines_but_no_solver_does_not_invent_a_symex_split() {
-        // The other timeout shape: the engine reported SOME completed phase(s) but never reached the
-        // solver. Those phase times are REAL (jbmc-reported); the missing time is a named missing phase,
-        // not a fabricated symex split — so derivedSymexSeconds is null even though an engine wall exists.
+    fun a_convert_ssa_bound_timeout_attributes_the_remainder_to_convert_ssa_not_symex() {
+        // THE BUG-FIX CASE (a captured-from-real-jbmc shape): symex COMPLETED (`Runtime Symex` emitted),
+        // the engine entered Convert SSA (`converting SSA`), and was then killed bit-blasting the equation
+        // with no `Runtime Convert SSA` line, never reached the solver. The unaccounted wall-clock
+        // (engineWall - Symex) must be attributed to "Convert SSA (incomplete)", NOT dumped onto
+        // "Symex (incomplete)". This is the exact misattribution the fix corrects.
         val engine = JbmcProfile.parse("""
             [
+              {"messageText":"Starting Bounded Model Checking"},
+              {"messageText":"Unwinding loop java::example.timeout.Heavy.quadraticMix:(II)J.0 iteration 1 file Heavy.java line 20"},
+              {"messageText":"Runtime Symex: 9.20197s"},
+              {"messageText":"size of program expression: 29375 steps"},
+              {"messageText":"Generated 69 VCC(s), 66 remaining after simplification"},
+              {"messageText":"Runtime Postprocess Equation: 0.0024134s"},
+              {"messageText":"converting SSA"}
+            ]""".trimIndent())
+        assertEquals(JbmcProfile.Phase.CONVERT_SSA, engine.lastPhaseEntered,
+                "the last phase entered was Convert SSA (the converting-SSA marker)")
+        assertFalse(engine.reachedSat, "no propositional-reduction / SAT line => never reached the solver")
+        assertEquals(9.20197, engine.phaseSeconds["Symex"])
+
+        // Engine ran 12s wall; symex (9.20197s) + postprocess (0.0024134s) completed. The remainder
+        // (~2.795s) was spent in Convert SSA, where it was killed.
+        val p = engine.withHarnessTimings(emptyMap(), 12.0)
+        val derived = p.derivedInProgressPhase()
+        assertEquals(JbmcProfile.Phase.CONVERT_SSA, derived?.first,
+                "the in-progress remainder is attributed to Convert SSA, not Symex")
+        val completed = 9.20197 + 0.0024134
+        assertEquals(12.0 - completed, derived!!.second, 1e-6, "remainder = wall - completed phases")
+
+        val rendered = p.render("proofs.profiling.heavy", "TIMEOUT")
+        assertTrue(rendered.contains("[harness] Convert SSA (incomplete)"),
+                "the breakdown shows Convert SSA (incomplete), the phase it was really stuck in")
+        assertFalse(rendered.contains("Symex (incomplete)"),
+                "it must NOT mislabel the time as Symex (incomplete) - the bug")
+        assertTrue(rendered.contains("[engine] Symex"), "the real, completed Symex phase is still shown")
+        assertTrue(rendered.contains("killed inside Convert SSA"), "names where the time went")
+        assertTrue(rendered.contains("reached SAT/SMT solver: NO"))
+    }
+
+    @Test
+    fun some_phase_lines_but_no_solver_attributes_the_remainder_to_the_last_phase_entered() {
+        // The engine reported a completed phase but never reached the solver, and a later phase entry
+        // marker shows where it then went. The completed phase times are REAL; the unaccounted remainder
+        // is the in-progress tail (here Convert SSA), derived from the entry marker, not a fabricated
+        // split across the completed phases.
+        val engine = JbmcProfile.parse("""
+            [
+              {"messageText":"Starting Bounded Model Checking"},
               {"messageText":"Runtime Symex: 1.00s"},
-              {"messageText":"Runtime Convert SSA: 0.50s"}
+              {"messageText":"converting SSA"}
             ]""".trimIndent())
         val p = engine.withHarnessTimings(emptyMap(), 4.00)
 
-        assertNull(p.derivedSymexSeconds(), "real phase lines are present => never derive a symex split")
+        val derived = p.derivedInProgressPhase()
+        assertEquals(JbmcProfile.Phase.CONVERT_SSA, derived?.first)
+        assertEquals(3.00, derived!!.second, 1e-9, "remainder = 4.00 wall - 1.00 completed Symex")
         val rendered = p.render("pkg.Tests.partial", "TIMEOUT")
-        assertTrue(rendered.contains("[engine] Symex"))
-        assertTrue(rendered.contains("[engine] Convert SSA"))
-        assertFalse(rendered.contains("Symex (incomplete)"), "no derived entry when phases were reported")
+        assertTrue(rendered.contains("[engine] Symex"), "the real completed Symex phase")
+        assertTrue(rendered.contains("[harness] Convert SSA (incomplete)"), "the derived in-progress tail")
         assertTrue(rendered.contains("[harness] engine wall-clock"))
+    }
+
+    @Test
+    fun a_remainder_at_or_below_the_floor_is_not_attributed_to_an_in_progress_phase() {
+        // When the completed phases account for ~all the wall-clock (the kill landed at a phase boundary,
+        // or the run finished), there is no meaningful in-progress tail to derive: derivedInProgressPhase
+        // is null even though an engine wall and a phase marker exist.
+        val engine = JbmcProfile.parse("""
+            [
+              {"messageText":"Starting Bounded Model Checking"},
+              {"messageText":"Runtime Symex: 3.98s"}
+            ]""".trimIndent())
+        val p = engine.withHarnessTimings(emptyMap(), 4.00) // only 0.02s unaccounted, below the floor
+        assertNull(p.derivedInProgressPhase(), "a sub-floor remainder is noise, not an in-progress phase")
+        val rendered = p.render("pkg.Tests.tight", "TIMEOUT")
+        assertFalse(rendered.contains("(incomplete)"), "no derived entry for a negligible remainder")
     }
 
     @Test

@@ -22,9 +22,10 @@ import org.bmc4j.Verdict
  *
  * Run these and read the `bmc4j[profile]:` lines in the test output. The two proofs show the two ends
  * of the diagnostic: a tractable loop that reaches the solver (full pipeline + engine phases), and a
- * heavy proof that times out in symbolic execution and so **never reaches SAT** — where jbmc emits no
- * phase line, so the harness derives a `Symex (incomplete)` entry from the engine wall-clock (symex IS
- * the unwinding phase). That is the single most useful signal when a proof hangs.
+ * heavy proof that times out **before SAT**: its symbolic execution finishes but the engine is then
+ * killed bit-blasting the equation in Convert SSA, where the harness attributes the unaccounted
+ * wall-clock (a derived `Convert SSA (incomplete)` entry). That phase attribution is the single most
+ * useful signal when a proof hangs.
  */
 class ProfileProofs {
 
@@ -47,11 +48,11 @@ class ProfileProofs {
      * high unwind builds a formula too large to solve in a small budget. The proof is force-killed and
      * reported as the TIMEOUT flavour of UNKNOWN (the verdict is unchanged by profiling), and the
      * breakdown — parsed from what the engine streamed up to the kill — pinpoints WHERE it was stuck.
-     * jbmc never completed a phase (symex was still running when it was killed), so it emitted no
-     * `Runtime` phase line; the harness instead shows a derived `[harness] Symex (incomplete)` entry equal
-     * to the engine wall-clock (symex IS the unwinding phase), the heavy method's loop unwinding
-     * dominates, and `reached SAT/SMT solver: NO` confirms the time went into symbolic execution, not the
-     * solver.
+     * Symbolic execution COMPLETES here (jbmc reports a `Runtime Symex` line); the engine is then killed
+     * inside Convert SSA, lowering the program equation to a bit-vector formula, so the harness shows the
+     * real `[engine] Symex` time plus a derived `[harness] Convert SSA (incomplete)` entry for the
+     * unaccounted remainder, and `reached SAT/SMT solver: NO` confirms it never reached the solver. Under
+     * `@BmcProfile` the live `bmc4j[engine]:` lines also print the phase transitions as they happen.
      */
     @BmcProof(unwind = 64, timeoutSeconds = 4, expect = Verdict.TIMEOUT)
     @BmcProfile

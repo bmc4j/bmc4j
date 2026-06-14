@@ -23,9 +23,10 @@ import org.bmc4j.Verdict;
  *
  * <p>Run these and read the {@code bmc4j[profile]:} lines in the test output. The two proofs show the
  * two ends of the diagnostic: a tractable loop that reaches the solver (full pipeline + engine phases),
- * and a heavy proof that times out in symbolic execution and so <em>never reaches SAT</em> — where jbmc
- * emits no phase line, so the harness derives a {@code Symex (incomplete)} entry from the engine
- * wall-clock (symex IS the unwinding phase). That is the single most useful signal when a proof hangs.
+ * and a heavy proof that times out <em>before SAT</em>: its symbolic execution finishes but the engine
+ * is then killed bit-blasting the equation in Convert SSA, where the harness attributes the unaccounted
+ * wall-clock (a derived {@code Convert SSA (incomplete)} entry). That phase attribution is the single
+ * most useful signal when a proof hangs.
  */
 class ProfileProofTests {
 
@@ -48,12 +49,13 @@ class ProfileProofTests {
      * high unwind builds a formula too large to solve in a 2-second budget. The proof is force-killed
      * and reported as the TIMEOUT flavour of UNKNOWN (the verdict is unchanged by profiling), and the
      * breakdown — parsed from what the engine streamed up to the kill — pinpoints WHERE it was stuck.
-     * jbmc never completed a phase (symex was still running when it was killed), so it emitted no
-     * {@code Runtime} phase line; the harness instead shows a derived {@code [harness] Symex (incomplete)}
-     * entry equal to the engine wall-clock (symex IS the unwinding phase), the heavy method's loop
-     * unwinding dominates, and {@code reached SAT/SMT solver: NO} confirms the time went into symbolic
-     * execution, not the solver. That is exactly the information you need to make a timing-out proof
-     * tractable (shrink the range, lower the bound, or contract the heavy callee).
+     * Symbolic execution COMPLETES here (jbmc reports a {@code Runtime Symex} line); the engine is then
+     * killed inside Convert SSA, lowering the program equation to a bit-vector formula, so the harness
+     * shows the real {@code [engine] Symex} time plus a derived {@code [harness] Convert SSA (incomplete)}
+     * entry for the unaccounted remainder, and {@code reached SAT/SMT solver: NO} confirms it never
+     * reached the solver. That is exactly the information you need to make a timing-out proof tractable
+     * (shrink the range, lower the bound, or contract the heavy callee). Under {@code @BmcProfile} the
+     * live {@code bmc4j[engine]:} lines also print the phase transitions as they happen.
      */
     @BmcProof(unwind = 64, timeoutSeconds = 4, expect = Verdict.TIMEOUT)
     @BmcProfile
