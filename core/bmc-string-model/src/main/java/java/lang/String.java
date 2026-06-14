@@ -183,8 +183,12 @@ public final class String implements CharSequence, Comparable<String> {
      * append/charAt) - a blowup that never happens in real execution. Here the index range is in-bounds
      * by construction (the caller copies exactly {@code length()} chars off the same backing), so the
      * direct array read has no throw branch.
+     *
+     * <p>Declared {@code public} to match the real {@code java.lang.String.getChars}, which is public.
+     * It must be: JDK 25 added {@code CharSequence.getChars}, and {@code String implements CharSequence},
+     * so a package-private declaration narrows that inherited public method and fails to compile on 25.
      */
-    void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {
+    public void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {
         char[] b = backing();
         System.arraycopy(b, srcBegin, dst, dstBegin, srcEnd - srcBegin);
     }
