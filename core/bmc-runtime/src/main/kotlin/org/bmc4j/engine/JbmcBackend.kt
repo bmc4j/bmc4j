@@ -130,6 +130,19 @@ class JbmcBackend : VerificationBackend {
             // profiled path). Inline-ish helper so each pass is a one-line `t("label") { ... }` wrap.
             fun <T> t(label: String, body: () -> T): T =
                     if (timing != null) timing.time(label, body) else body()
+            // The forward-passed pipeline context: the request/env plus the inter-pass artifact slots
+            // (contract manifest, decoded assume-contracts). Each BmcPass reads it; the boundary plumbing
+            // here deposits into it (manifest, assume decode) and consumes its outputs.
+            val ctx = BmcContext(request, jbmcPath)
+            // Deposit the contract manifest once (read from the ORIGINAL request classpath, a resource):
+            // the contract-rewrite and purity-audit passes consume it. Cheap; null/empty without contracts.
+            ctx.manifest = ContractManifest.readFromClasspath(request.classpath)
+            // A per-proof pass timed by its class simpleName (the orchestrator labels in-group passes the
+            // same way); used for the per-proof passes dispatched at their interleave points below.
+            fun pass(p: BmcPass, classes: ClassSet): ClassSet =
+                    if (!p.shouldTransform(ctx)) classes
+                    else if (timing != null) timing.time(p.simpleName) { p.transform(classes, ctx) }
+                    else p.transform(classes, ctx)
             // If the Gradle plugin pre-mirrored the analysis classpath, substitute each covered entry for
             // its already-rewritten counterpart and run the HOISTABLE passes on the rest IN-JVM. The mirror
             // task takes the consumer's own compiled output AND the bmcModel output as inputs too, so on a
@@ -179,7 +192,7 @@ class JbmcBackend : VerificationBackend {
                     }
             // Method contracts: rewrite contracted call sites to their replace-stubs; a
             // generated enforce proof is excluded as a caller so it sees the real body (modular enforce).
-            var classpath = t("contracts") { applyContracts(request, analysisClasspath) }
+            var classpath = pass(ContractRewritePass, ClassSet(analysisClasspath)).classpath
             // Per-proof ASSUMED output-contracts (Bmc.assumeEvery / assumeStable): read the proof's
             // marker call sites, decode each (reference + predicate) STATICALLY from its
             // LambdaMetafactory bootstrap handles on the ORIGINAL pre-rewrite classpath (the indys are
@@ -187,16 +200,8 @@ class JbmcBackend : VerificationBackend {
             // call sites — including those in <clinit> and uncontrolled callees. A no-op when the proof
             // declares none. The decoded set is also surfaced on the verdict (below) and its predicates
             // are purity-audited (alongside the contract audit).
-            val assumeContracts = t("assume-contracts") {
-                AssumeContractBytecode.decode(
-                        request.classpath, request.entryClass, entryMethodName(request.entryFunction))
-            }
-            if (assumeContracts.isNotEmpty()) {
-                classpath = t("assume-contracts") {
-                    AssumeContractBytecode.install(classpath, request.entryClass,
-                            entryMethodName(request.entryFunction), assumeContracts)
-                }
-            }
+            t("assume-contracts") { AssumeContractPass.decode(ctx) }
+            classpath = pass(AssumeContractPass, ClassSet(classpath)).classpath
             // Fold the consumer's own src/bmcModel output into the SAME classpath the rewrite chain runs
             // over, so a user-authored model is rewritten exactly like the proof/test classes (String
             // content ops -> BmcStrings, concat / record / typeSwitch / lambda invokedynamic desugared,
@@ -235,7 +240,13 @@ class JbmcBackend : VerificationBackend {
             // unchanged. Its verdict-relevant values are also folded into the verdict-cache key
             // (VerdictCache.resolvedConfig), which over-invalidates on any config change.
             if (!preMirrored) {
-                classpath = applyHoistablePasses(classpath, timing)
+                // Run the CacheablePass prefix (the hoistable, env-independent passes) in-JVM via the
+                // generic orchestrator: it derives the `Desugar -> AnyRef -> Config -> KotlinParam ->
+                // Reachability -> NondetTag` order from each pass's dependsOn (stable tiebreak) and times
+                // each into the profile. Byte-for-byte what applyHoistablePasses produced (same entry
+                // points, same order) and byte-for-byte what the Gradle mirror produces.
+                classpath = PassRegistry.ORCHESTRATOR
+                        .runCacheable(ClassSet(classpath), ctx, timing).classpath
             }
             // Domain split: when this request is ONE derived run of a domainSplit proof, rewrite the
             // entry method's domainSplit/slice markers for that run — a slice's injected assume, or the
@@ -288,9 +299,7 @@ class JbmcBackend : VerificationBackend {
                 // the global maxStringLength backs any bare symbolic string. PER-PROOF (mode + the run's
                 // effective maxStringLength), so it runs in-JVM here, NOT in the hoistable/mirrored chain;
                 // under REFINEMENT it does not run at all, leaving the flag path unchanged.
-                classpath = t("string-length") {
-                    StringLengthBytecode.rewrite(classpath, request.maxStringLength)
-                }
+                classpath = pass(StringLengthPass, ClassSet(classpath)).classpath
             }
             // Append the JDK models (class hierarchy for dynamic-cast checks + thread analysis).
             val coreModels = coreModelsNextTo(jbmcPath)
@@ -307,12 +316,7 @@ class JbmcBackend : VerificationBackend {
             // THIS proof (an enforce-proof's own target; a replace-proof's reachable redirected call
             // sites) so an impure contract fails exactly the proofs that would unsoundly reuse it, not
             // every proof in the module. A no-op without contracts.
-            val manifest = ContractManifest.readFromClasspath(request.classpath)
-            t("purity-audit") {
-                ContractPurityAudit.auditRelevant(
-                        manifest, request.entryClass, entryMethodName(request.entryFunction),
-                        request.classpath, classpath)
-            }
+            pass(PurityAuditPass, ClassSet(classpath))
             // NB: assumed-contract predicates (assumeEvery / assumeStable) are deliberately NOT
             // purity-audited. Unlike an annotation contract — whose predicate becomes a reusable summary
             // spliced into callers — an assumed contract is an explicit, per-proof, user-owned assertion
@@ -331,11 +335,7 @@ class JbmcBackend : VerificationBackend {
             // prepared classpath), but BEFORE the model slice so the engine analyses the elided bytecode.
             // OFF is a no-op; the gate fails toward NOT eliding (worst case: no speed-up, never a false
             // green). The forced-elision footnote (ON) is surfaced on the verdict by the proof extension.
-            classpath = t("exception-message-elision") {
-                ExceptionMessageElision
-                        .apply(classpath, request.entryClass, entryMethodName(request.entryFunction),
-                                request.removeExceptionMessages).classpath
-            }
+            classpath = pass(ExceptionMessageElisionPass, ClassSet(classpath)).classpath
             // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
             // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
             // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its
@@ -348,7 +348,7 @@ class JbmcBackend : VerificationBackend {
             // off classpath) is returned UNCHANGED: it still sees the whole surface, so slicing never
             // under-feeds a fallback proof. Done after the purity audit so the audit still walks the full
             // prepared classpath. A slice failure fails safe to the unsliced classpath.
-            return t("model-slice") { ModelSlice.sliceForCone(classpath, request.entryClass) }
+            return pass(ModelSlicePass, ClassSet(classpath)).classpath
         }
 
         /**
@@ -388,10 +388,7 @@ class JbmcBackend : VerificationBackend {
                 else classpath + File.pathSeparator + userModels
 
         /** The method-name half of a `Class.method` entry-function string. */
-        fun entryMethodName(entryFunction: String): String {
-            val dot = entryFunction.lastIndexOf('.')
-            return if (dot >= 0) entryFunction.substring(dot + 1) else entryFunction
-        }
+        fun entryMethodName(entryFunction: String): String = org.bmc4j.engine.entryMethodNameOf(entryFunction)
 
         /**
          * The six environment-INDEPENDENT desugar passes, in order: coroutine-LVT strip, String content
@@ -500,23 +497,6 @@ class JbmcBackend : VerificationBackend {
                 }
             }
             return out.toString()
-        }
-
-        /** Apply the contract rewriter to [analysisClasspath] (no-op without a manifest). The contract
-         *  MANIFEST is always read from the ORIGINAL request classpath (a resource, never rewritten); the
-         *  call-site rewrite is applied to [analysisClasspath], which may be the plugin's pre-mirrored
-         *  classpath. */
-        fun applyContracts(request: BmcRequest, analysisClasspath: String): String {
-            val contracts = ContractManifest.readFromClasspath(request.classpath)
-            if (contracts.isEmpty) {
-                return analysisClasspath
-            }
-            // A generated enforce proof is excluded as a caller so its direct call to the
-            // method-under-test stays real; every other proof is a replace proof (rewrite fully).
-            val entryInternal = request.entryClass.replace('.', '/')
-            val excludeCaller =
-                    if (contracts.enforceProofClasses().contains(entryInternal)) entryInternal else null
-            return ContractRewriter.rewrite(analysisClasspath, contracts.redirects(), excludeCaller)
         }
 
         /** core-models.jar sits next to the jbmc binary (`<home>/lib/core-models.jar`). */
