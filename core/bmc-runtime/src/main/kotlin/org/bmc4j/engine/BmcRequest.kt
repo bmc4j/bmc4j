@@ -92,4 +92,19 @@ class BmcRequest @JvmOverloads constructor(
          * orchestration (launching the parent + leaf runs and aggregating their verdicts) lives in
          * [org.bmc4j.junit.BmcProofExtension]. Mutually exclusive with [domainSplitRun].
          */
-        @get:JvmName("branchRun") val branchRun: BranchDecomposeBytecode.RunPlan? = null)
+        @get:JvmName("branchRun") val branchRun: BranchDecomposeBytecode.RunPlan? = null,
+        /**
+         * For a `@BmcBranchDecompose` derived run: the PROOF entry class whose call graph branch
+         * discovery walks. Distinct from [entryClass] because a LEAF run's [entryClass] is the synthetic
+         * enforce method's owner (a callee class, when the branch lives below the proof), while discovery
+         * and the classpath rewrite must always key off the original proof entry. Defaults to
+         * [entryClass] (the parent run, where they coincide). Ignored when [branchRun] is null.
+         */
+        @get:JvmName("branchEntryClass") val branchEntryClass: String = entryClass,
+        /**
+         * For a `@BmcBranchDecompose` derived run: the PROOF entry function (`Class.method`) whose call
+         * graph branch discovery walks. Distinct from [entryFunction] for a LEAF run (whose
+         * [entryFunction] is the synthetic enforce method). Defaults to [entryFunction] (the parent run).
+         * Ignored when [branchRun] is null.
+         */
+        @get:JvmName("branchEntryFunction") val branchEntryFunction: String = entryFunction)

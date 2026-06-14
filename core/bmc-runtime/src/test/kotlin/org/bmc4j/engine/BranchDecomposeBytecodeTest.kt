@@ -85,11 +85,106 @@ internal class BranchDecomposeBytecodeTest {
         return cw.toByteArray()
     }
 
+    // A class whose `m` has TWO sibling value branches, each `val = if (x cmp k) a else b` joining to
+    // its own store, then a check. Exercises the multi-branch fan-out.
+    private fun twoBranchClass(): ByteArray {
+        val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "C", null, "java/lang/Object", null)
+        defaultCtor(cw)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null)
+        mv.visitCode()
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "anyInt", "()I", false)
+        mv.visitVarInsn(Opcodes.ISTORE, 1)
+        // int a = (x < 0) ? -1 : 1;
+        valueBranch(mv, 1, Opcodes.IF_ICMPGE, -1, 1, 2)
+        // int b = (x > 10) ? 10 : 0;
+        valueBranch(mv, 1, Opcodes.IF_ICMPLE, 10, 0, 3)
+        mv.visitVarInsn(Opcodes.ILOAD, 2)
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "check", "(Z)V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
+
+    // `int v = (x cmp 0-ish) ? thenVal : elseVal; ISTORE store`. The guard compares local [xSlot] to a
+    // BIPUSH constant via [cmpOp] (the JUMP-to-else opcode); the THEN arm pushes [thenVal], the ELSE
+    // [elseVal]. Kept simple (BIPUSH operands) so it matches the recognized value-branch shape.
+    private fun valueBranch(mv: MethodVisitor, xSlot: Int, cmpOp: Int, thenVal: Int, elseVal: Int,
+                            store: Int) {
+        val elseArm = Label()
+        val join = Label()
+        mv.visitVarInsn(Opcodes.ILOAD, xSlot)
+        mv.visitInsn(Opcodes.ICONST_0)
+        mv.visitJumpInsn(cmpOp, elseArm)
+        mv.visitIntInsn(Opcodes.BIPUSH, thenVal)
+        mv.visitJumpInsn(Opcodes.GOTO, join)
+        mv.visitLabel(elseArm)
+        mv.visitIntInsn(Opcodes.BIPUSH, elseVal)
+        mv.visitLabel(join)
+        mv.visitVarInsn(Opcodes.ISTORE, store)
+    }
+
+    // A class whose `m` has a LEADING early-return guard before the value branch:
+    //   if (x < 0) return;  int r = (x < 10) ? x : 10;  check(r >= 0)
+    // The value branch is reachable only when x >= 0, so it carries a path condition the leaf assumes.
+    private fun guardedBranchClass(): ByteArray {
+        val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "C", null, "java/lang/Object", null)
+        defaultCtor(cw)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null)
+        mv.visitCode()
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "anyInt", "()I", false)
+        mv.visitVarInsn(Opcodes.ISTORE, 1)
+        // if (x < 0) return;
+        val afterGuard = Label()
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitJumpInsn(Opcodes.IFGE, afterGuard)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitLabel(afterGuard)
+        // int r = (x < 10) ? x : 10;
+        val elseArm = Label()
+        val join = Label()
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitIntInsn(Opcodes.BIPUSH, 10)
+        mv.visitJumpInsn(Opcodes.IF_ICMPGE, elseArm)
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitJumpInsn(Opcodes.GOTO, join)
+        mv.visitLabel(elseArm)
+        mv.visitIntInsn(Opcodes.BIPUSH, 10)
+        mv.visitLabel(join)
+        mv.visitVarInsn(Opcodes.ISTORE, 2)
+        mv.visitVarInsn(Opcodes.ILOAD, 2)
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "check", "(Z)V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
+
+    private fun defaultCtor(cw: ClassWriter) {
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null)
+        mv.visitCode()
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+    }
+
     @Test
     fun discovers_a_top_level_value_branch() {
         val plan = BranchDecomposeBytecode.analyzeBytes(clampClass(), "m")
         assertTrue(plan.isDecomposed, "the if/else-if/else value branch is decomposable")
         assertEquals(1, plan.branchCount)
+    }
+
+    @Test
+    fun discovers_multiple_value_branches_in_one_method() {
+        val plan = BranchDecomposeBytecode.analyzeBytes(twoBranchClass(), "m")
+        assertEquals(2, plan.branchCount, "both sibling value branches are discovered")
     }
 
     @Test
@@ -110,8 +205,8 @@ internal class BranchDecomposeBytecodeTest {
 
     @Test
     fun parent_rewrite_is_well_formed_and_emits_synthetic_methods() {
-        val parent = BranchDecomposeBytecode.rewriteClass(
-                clampClass(), "C", "m", RunPlan.Parent("m", 0))
+        val parent = BranchDecomposeBytecode.rewriteClassForTest(
+                clampClass(), "C", "m", RunPlan.Parent)
         assertVerifies(parent)
         val names = methodNames(parent)
         assertTrue("branch\$0" in names, "extracted branch method present: $names")
@@ -124,8 +219,8 @@ internal class BranchDecomposeBytecodeTest {
 
     @Test
     fun leaf_rewrite_is_well_formed_and_emits_the_enforce_proof() {
-        val leaf = BranchDecomposeBytecode.rewriteClass(
-                clampClass(), "C", "m", RunPlan.Leaf("m", 0))
+        val leaf = BranchDecomposeBytecode.rewriteClassForTest(
+                clampClass(), "C", "m", RunPlan.Leaf(0))
         assertVerifies(leaf)
         val names = methodNames(leaf)
         assertTrue("branch\$0\$enforce" in names, "leaf enforce proof present: $names")
@@ -134,6 +229,34 @@ internal class BranchDecomposeBytecodeTest {
         assertTrue(calls.any { it.contains("branch\$0(") || it.contains(".branch\$0") },
                 "enforce calls the extracted branch: $calls")
         assertTrue(calls.any { it.contains("Bmc.check") }, "enforce checks the relation: $calls")
+    }
+
+    @Test
+    fun parent_rewrite_of_two_branches_emits_both_and_calls_both_stubs() {
+        val parent = BranchDecomposeBytecode.rewriteClassForTest(
+                twoBranchClass(), "C", "m", RunPlan.Parent)
+        assertVerifies(parent)
+        val names = methodNames(parent)
+        assertTrue("branch\$0\$stub" in names && "branch\$1\$stub" in names,
+                "both summarize stubs present: $names")
+        val calls = methodCalls(parent, "m")
+        assertTrue(calls.any { it.contains("branch\$0\$stub") }
+                && calls.any { it.contains("branch\$1\$stub") },
+                "parent body calls both stubs: $calls")
+    }
+
+    @Test
+    fun leaf_with_a_path_condition_assumes_the_pre_relation() {
+        // A method with a leading early-return guard before the value branch: the leaf must assume the
+        // path-condition pre relation so it proves the summary only where the branch is reached.
+        val leaf = BranchDecomposeBytecode.rewriteClassForTest(
+                guardedBranchClass(), "C", "m", RunPlan.Leaf(0))
+        assertVerifies(leaf)
+        val names = methodNames(leaf)
+        assertTrue("branch\$0\$pre" in names, "path-condition predicate present: $names")
+        val calls = methodCalls(leaf, "branch\$0\$enforce")
+        assertTrue(calls.any { it.contains("branch\$0\$pre") }, "enforce assumes the pre relation: $calls")
+        assertTrue(calls.any { it.contains("CProver.assume") }, "enforce calls assume: $calls")
     }
 
     // ---- helpers ----

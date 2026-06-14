@@ -182,11 +182,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return
         }
 
-        // Branch decomposition: a proof annotated @BmcBranchDecompose has its method's first top-level
-        // value branch DISCOVERED by CFG analysis (the user marks nothing), EXTRACTED into a synthetic
-        // method, proven against an auto-derived summary (the LEAF run), and discharged back into the
-        // PARENT run at the call site. Leaf + parent are an assume-guarantee pair proven concurrently.
-        // A proof whose method has no discoverable value branch falls through to the ordinary path.
+        // Branch decomposition: a proof annotated @BmcBranchDecompose has EVERY decomposable value
+        // branch DISCOVERED by call-graph CFG analysis (the user marks nothing) - in the proof method
+        // AND in the callees the engine inlines, at any depth - each EXTRACTED into synthetic methods,
+        // proven against an auto-derived summary (one LEAF run per branch), and discharged back into the
+        // PARENT run at every call site. The N leaves + 1 parent are an assume-guarantee fan-out proven
+        // concurrently. A proof with no discoverable value branch anywhere falls through to the ordinary
+        // path.
         if (method.isAnnotationPresent(org.bmc4j.BmcBranchDecompose::class.java)) {
             val branchPlan = org.bmc4j.engine.BranchDecomposeBytecode.analyze(
                     request.classpath, entryClass, method.name)
@@ -196,7 +198,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 val branchBase = if (request.unwind == BmcProof.AUTO) pinUnwind(request, autoUnwindCap())
                         else request
                 runBranchDecomposeProof(method, entryClass, entryFunction, config, branchBase, backend,
-                        outcome)
+                        branchPlan, outcome)
                 return
             }
         }
@@ -805,28 +807,38 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
     private fun runBranchDecomposeProof(method: Method, entryClass: String, entryFunction: String,
                                         config: BmcProof?, request: BmcRequest,
                                         backend: org.bmc4j.engine.VerificationBackend,
+                                        plan: org.bmc4j.engine.BranchDecomposeBytecode.Plan,
                                         outcome: ProofOutcome) {
         val expected = config?.expect ?: Verdict.VERIFIED
-        println("  bmc4j: $entryFunction -> branchDecompose: 1 leaf + 1 parent run" +
+        val n = plan.branchCount
+        println("  bmc4j: $entryFunction -> branchDecompose: $n leaf + 1 parent run" +
                 " (fan-out, jbmc cap=${JbmcConcurrency.permits})")
 
-        // The two derived runs. PARENT is priority -1 (preferred when both are decisive: a parent
-        // refutation is the more fundamental failure). The leaf entry function targets the synthetic
-        // enforce proof; the parent keeps the original entry (with the branch summarized at its site).
-        val parentPlan = org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Parent(method.name, 0)
-        val leafPlan = org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Leaf(method.name, 0)
-        val leafEntry = leafEntryFunction(entryClass,
-                org.bmc4j.engine.BranchDecomposeBytecode.leafEntryMethod(0))
+        // The derived runs. PARENT is priority -1 (preferred when several are decisive: a parent
+        // refutation is the more fundamental failure - the discharge itself does not hold). Each LEAF
+        // is priority = its branch index (>= 0), so a decisive lower-index leaf is reported first,
+        // deterministic regardless of finish order. A leaf targets its branch's synthetic enforce
+        // method on its OWNER class (which may be a callee below the proof); branchEntry* keep discovery
+        // keyed off the proof entry.
         data class BranchSpec(val req: BmcRequest, val label: String, val priority: Int)
-        val specs = listOf(
-                BranchSpec(branchRequest(request, request.entryFunction, parentPlan),
-                        "parent (branch discharged as summary)", -1),
-                BranchSpec(branchRequest(request, leafEntry, leafPlan),
-                        "leaf (extracted branch proven against its summary)", 0))
+        val specs = ArrayList<BranchSpec>(n + 1)
+        specs.add(BranchSpec(
+                branchRequest(request, request.entryClass, request.entryFunction,
+                        org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Parent),
+                "parent (every branch discharged as its summary)", -1))
+        for (site in plan.sites) {
+            specs.add(BranchSpec(
+                    branchRequest(request, site.ownerClassDotted,
+                            "${site.ownerClassDotted}.${site.leafMethod}",
+                            org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Leaf(site.index)),
+                    "leaf #${site.index} (${site.ownerClassDotted} branch proven against its summary)",
+                    site.index))
+        }
 
-        // Fan out both runs and wait for both (only two runs, so the many-slice early-exit machinery is
-        // unnecessary); aggregate by priority. Tasks are side-effect free (no shared-state mutation, no
-        // throwing of expectation errors), exactly like the domain-split fan-out.
+        // Fan out all runs and wait for all; aggregate by priority. Tasks are side-effect free (no
+        // shared-state mutation, no throwing of expectation errors), exactly like the domain-split
+        // fan-out. (The many-run early-exit machinery is reserved for domainSplit; here we collect all,
+        // since N is the branch count and a typical proof has only a handful.)
         val pool = JbmcConcurrency.fanOutPool
         val completion = java.util.concurrent.ExecutorCompletionService<DerivedRun>(pool)
         val byFuture = HashMap<java.util.concurrent.Future<DerivedRun>, BranchSpec>(specs.size)
@@ -855,8 +867,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             byFuture.keys.forEach { it.cancel(true) } // never leak a jbmc process on any exit path
         }
 
-        // The lowest-priority DECISIVE run decides (parent = -1 outranks leaf = 0); both VERIFIED is a
-        // sound, full-precision green.
+        // The lowest-priority DECISIVE run decides (parent = -1 outranks every leaf); parent AND every
+        // leaf VERIFIED is a sound, full-precision green.
         val decisive = results.entries
                 .filter { it.value.verdict != Verdict.VERIFIED }
                 .minByOrNull { it.key }
@@ -866,8 +878,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 throw expectationMismatch(entryFunction, expected, Verdict.VERIFIED, null)
             }
             outcome.verdict = Verdict.VERIFIED
-            println("  bmc4j: $entryFunction -> VERIFIED (leaf proves the branch; parent proves the" +
-                    " remainder under its summary)")
+            println("  bmc4j: $entryFunction -> VERIFIED ($n leaf prove the branches; parent proves the" +
+                    " remainder under their summaries)")
             return
         }
         outcome.verdict = decisive.verdict
@@ -877,20 +889,21 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
     }
 
-    /** The fully-qualified entry function `pkg.Class.method` for the synthetic leaf method, derived
-     *  from the proof's [entryClass] and the [leafMethod] name. */
-    private fun leafEntryFunction(entryClass: String, leafMethod: String): String =
-            "$entryClass.$leafMethod"
-
-    /** A [BmcRequest] for one derived [run] of a branch decomposition: same classpath/budget/solver, the
-     *  given [entryFunction] (the original for the parent, the synthetic enforce method for the leaf),
-     *  the branch run set, and the domain-split run cleared (a proof is one or the other). */
-    private fun branchRequest(request: BmcRequest, entryFunction: String,
+    /**
+     * A [BmcRequest] for one derived [run] of a branch decomposition. [entryClass]/[entryFunction] are
+     * what the ENGINE runs (the proof entry for the parent; the leaf's synthetic enforce method on its
+     * OWNER class for a leaf - that class may be a callee below the proof). The PROOF entry that branch
+     * discovery + the classpath rewrite key off is preserved in branchEntry* (always the original proof
+     * entry). Same classpath/budget/solver; the domain-split run is cleared (a proof is one or the
+     * other).
+     */
+    private fun branchRequest(request: BmcRequest, entryClass: String, entryFunction: String,
                               run: org.bmc4j.engine.BranchDecomposeBytecode.RunPlan): BmcRequest =
-            BmcRequest(request.entryClass, entryFunction, request.classpath, request.unwind,
+            BmcRequest(entryClass, entryFunction, request.classpath, request.unwind,
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, null, request.externalSatPath, request.stringRefinementOff,
-                    request.removeExceptionMessages, request.stringMode, request.profile, run)
+                    request.removeExceptionMessages, request.stringMode, request.profile, run,
+                    request.entryClass, request.entryFunction)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the

@@ -267,8 +267,12 @@ class JbmcBackend : VerificationBackend {
             // proof (branchRun == null).
             val branchRun = request.branchRun
             if (branchRun != null) {
+                // Discovery is call-graph-wide off the PROOF entry (request.branchEntryFunction), not
+                // this request's entryFunction - which for a leaf run is the synthetic enforce method,
+                // not the proof whose branches we discover. The two coincide for the parent run.
                 classpath = t("branch-decompose") {
-                    BranchDecomposeBytecode.rewrite(classpath, request.entryClass, branchRun)
+                    BranchDecomposeBytecode.rewrite(classpath, request.branchEntryClass,
+                            entryMethodName(request.branchEntryFunction), branchRun)
                 }
                 classpath = t("branch-decompose") { ReachabilityBytecode.rewrite(classpath) }
             }
