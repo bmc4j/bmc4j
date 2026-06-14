@@ -34,7 +34,8 @@ class Jbmc(private val executable: String) {
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath, stringMode))
-        return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds)
+        return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
+                stringMode == org.bmc4j.StringMode.NONE)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
@@ -361,9 +362,10 @@ class Jbmc(private val executable: String) {
          */
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0,
                           userClasspath: String? = null, profile: Boolean = false,
-                          pipelineSeconds: Map<String, Double>? = null): JbmcResult {
+                          pipelineSeconds: Map<String, Double>? = null,
+                          reconstructStrings: Boolean = false): JbmcResult {
             val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile,
-                    pipelineSeconds)
+                    pipelineSeconds, reconstructStrings)
             val kind = first.undecidedKind
             if (kind == null || !kind.retryable) {
                 return first // a real verdict, or a deterministic (non-retryable) UNKNOWN
@@ -371,7 +373,7 @@ class Jbmc(private val executable: String) {
             println("  bmc4j: $entryFunction came back UNKNOWN[$kind] (retryable)" +
                     " - re-running the engine once")
             val second = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile,
-                    pipelineSeconds)
+                    pipelineSeconds, reconstructStrings)
             // Keep the better outcome. The retry recovering a real verdict (VERIFIED/REFUTED) wins; a
             // still-undecided retry stays UNKNOWN (never promoted to a pass), annotated when the SAME
             // retryable kind recurred so a persisted flake is named as such.
@@ -386,7 +388,8 @@ class Jbmc(private val executable: String) {
 
         private fun execOnce(command: List<String>, entryFunction: String, timeoutSeconds: Int,
                              userClasspath: String?, profile: Boolean = false,
-                             pipelineSeconds: Map<String, Double>? = null): JbmcResult {
+                             pipelineSeconds: Map<String, Double>? = null,
+                             reconstructStrings: Boolean = false): JbmcResult {
             INVOCATIONS.incrementAndGet() // ground-truth engine-launch counter for the verdict cache
             val pb = ProcessBuilder(command)
             pb.redirectErrorStream(false)
@@ -448,7 +451,7 @@ class Jbmc(private val executable: String) {
                 }
                 // STREAM-parse straight from the spill file: only the verdict element + opaque-symbol
                 // STATUS-MESSAGEs are materialized; the flood is read and discarded (heap stays bounded).
-                return JbmcOutputParser.parse(outFile, entryFunction, userClasspath)
+                return JbmcOutputParser.parse(outFile, entryFunction, userClasspath, reconstructStrings)
                         .withProfile(parseProfileIfRequested(profile, outFile, engineStartNanos, pipelineSeconds))
             } catch (e: IOException) {
                 throw IllegalStateException(
