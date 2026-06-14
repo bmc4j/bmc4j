@@ -191,10 +191,48 @@ class BmcPlugin : Plugin<Project> {
             }
         }
 
+        // Contracts DSL lowering: after the test classes compile, scan them for @BmcContracts
+        // registrations, decode each contractFor(...) site, and generate <Class>__BmcDslEnforce @BmcProof
+        // classes into a dedicated dir put on the test classpath so JUnit discovers them. Runs in an
+        // isolated worker whose classpath is bmc-runtime (the decoder lives there), exactly like the
+        // mirror task. Inert (empty output dir) when the consumer declares no DSL contracts.
+        val dslWorker = project.configurations.create("bmcContractsDslWorker") { c ->
+            c.isCanBeConsumed = false
+            c.isCanBeResolved = true
+        }
+        project.dependencies.add(dslWorker.name, "$GROUP:bmc-runtime:$VERSION")
+        val dslTask = project.tasks.register(
+                "bmcContractsDsl", BmcContractsDslTask::class.java) { task ->
+            task.group = "verification"
+            task.description =
+                    "Lower the contracts DSL (contractFor) to generated enforce-proof classes."
+            task.dslWorker.from(dslWorker)
+            task.outputDir.set(project.layout.buildDirectory.dir("bmc4j/contracts-dsl"))
+        }
+        project.afterEvaluate { p ->
+            val ss = p.extensions.getByType(SourceSetContainer::class.java)
+            val testOutput = ss.getByName("test").output.classesDirs
+            dslTask.configure { task ->
+                task.testClasses.from(testOutput)
+                task.dependsOn(ss.getByName("test").classesTaskName)
+            }
+            // The generated enforce-proof classes must reach the test JVM AND be analysed by JBMC exactly
+            // like the annotation-form __BmcEnforce classes - which means they must flow through the same
+            // classpath mirror / in-JVM rewrite. Adding the dir to testRuntimeClasspath puts it on
+            // java.class.path; the mirror task (below) also covers it so it is rewritten identically.
+            p.dependencies.add("testRuntimeOnly",
+                    p.files(dslTask.flatMap { it.outputDir }).builtBy(dslTask))
+        }
+
         project.tasks.withType(Test::class.java).configureEach { test ->
             test.useJUnitPlatform()
             // Consumer models must be compiled before proofs run.
             test.dependsOn(bmcModel.classesTaskName)
+            // The DSL enforce-proofs must be generated before proofs run, and JUnit only DISCOVERS proofs
+            // under the test task's testClassesDirs - so add the generated dir as a discovery root (it is
+            // already on testRuntimeClasspath above for resolution). Empty dir = nothing discovered.
+            test.dependsOn(dslTask)
+            test.testClassesDirs = test.testClassesDirs + project.files(dslTask.flatMap { it.outputDir })
             // The pre-mirrored classpath must exist before proofs run; the runtime substitutes it.
             test.dependsOn(mirrorTask)
             test.inputs.dir(mirrorTask.flatMap { it.outputDir })

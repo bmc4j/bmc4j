@@ -1,6 +1,6 @@
 <!-- bmc:metadata
-proofs: 21
-proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
+proofs: 23
+proof-execution: 340s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
 
@@ -178,3 +178,38 @@ still rejects a real `this`-mutation — `Accumulator.add` is an **impure** susp
 the audit rejects with a `ContractPurityError` naming the receiver `PUTFIELD` (its enforce-proof is
 excluded, exactly like `purity`'s; `SuspendPurityAuditDemoTest` documents it). *(3 caller proofs: 2 pass
 + 1 undecided-on-purpose; plus 1 green + 1 refuted enforce proof; plus 1 plain rejection-demo test.)*
+
+## `dslbasics` — the contracts DSL (typed pre/post authoring)
+
+The first increment of the **typed pre/post-condition DSL** — a front-end over the same enforce-proof
+backend the `@Requires`/`@Ensures` form uses. Instead of stringly-typed annotations naming separate
+predicate methods, a contract is written inline as typed lambdas over an unbound method reference:
+
+```kotlin
+@BmcContracts
+class DoublerDslContract {
+    init {
+        contractFor(Doubler::twice) {                                   // (Doubler, Int) -> Int
+            whenPrecondition("amount in range") { self, amount -> amount in 0..8 }
+                .thenPostCondition("result non-negative and even") { before, after, amount, ret ->
+                    ret >= 0 && ret % 2 == 0
+                }
+        }
+    }
+}
+```
+
+`self` is the receiver, `before`/`after` its pre/post state, `ret` the result — all typed from the
+reference signature, refactor-safe and IDE-checked. The bmc4j Gradle plugin's `bmcContractsDsl` task
+decodes each `@BmcContracts` registration from bytecode (reading the method reference and the predicate
+lambdas statically, the same indy-bootstrap-handle read `Bmc.assumeEvery` uses — never executing the
+markers) and generates a `<Class>__BmcDslEnforce` `@BmcProof` that assumes the precondition, runs the
+REAL body with a symbolic receiver, and asserts the postcondition. `DoublerDslContract` VERIFIES;
+`DoublerDslContractWrong` ships a deliberately-false postcondition pinned `@BmcContracts(REFUTED)` and
+passes BY refutation — "annotating is not asserting", carried over to the typed-lambda form.
+
+This first increment covers a single-argument instance method whose predicates relate the call argument
+and the result. Later increments: a postcondition reading a receiver field (`before.field`), `before`/
+`after` for arg-mutating / multi-subject methods, the `updatesOnly` frame, `thenThrows<E>`, the
+enforcement levels (MUST_BE_PURE / TRUSTED_PURE / NONE), the plugin-compiled spec source set, and the
+Java lowering target. *(1 green + 1 refuted DSL enforce proof.)*
