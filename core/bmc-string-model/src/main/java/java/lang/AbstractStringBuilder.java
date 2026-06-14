@@ -94,9 +94,11 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
         }
         int len = str.length();
         ensureCapacityInternal(count + len);
-        for (int i = 0; i < len; i++) {
-            value[count++] = str.charAt(i);
-        }
+        // Bulk-copy off the String's backing array directly (mirrors the real JDK getChars/arraycopy);
+        // do NOT route per char through the public bounds-checking charAt, whose throw branch under
+        // StringMode.NONE blows symex up against a symbolic length. The range is in-bounds by construction.
+        str.getChars(0, len, value, count);
+        count += len;
         return this;
     }
 
@@ -115,8 +117,16 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
             throw new IndexOutOfBoundsException();
         }
         ensureCapacityInternal(count + (end - start));
-        for (int i = start; i < end; i++) {
-            value[count++] = s.charAt(i);
+        if (s instanceof String) {
+            // Bulk-copy off the backing array directly (see append(String) / String.getChars).
+            ((String) s).getChars(start, end, value, count);
+            count += (end - start);
+        } else {
+            // A generic CharSequence has no exposed backing array; its public charAt is the only access
+            // path. Real JDK does the same per-char read here.
+            for (int i = start; i < end; i++) {
+                value[count++] = s.charAt(i);
+            }
         }
         return this;
     }
