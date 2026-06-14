@@ -45,8 +45,8 @@ class BmcPluginTest {
         assertNotNull(ext, "bmc extension")
         // Unset by convention - the runtime treats absent as REFINEMENT (the default mode).
         assertTrue(!ext!!.stringMode.isPresent, "stringMode should be unset (refinement) by default")
-        ext.stringMode.set("none")
-        assertEquals("none", ext.stringMode.get())
+        ext.stringMode.set("char_array_model")
+        assertEquals("char_array_model", ext.stringMode.get())
     }
 
     @Test

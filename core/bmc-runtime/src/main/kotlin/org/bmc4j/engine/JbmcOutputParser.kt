@@ -1122,13 +1122,13 @@ object JbmcOutputParser {
         // (`dynamic_array`), and the concrete elements arrive as per-index assignments to that backing
         // store. So we harvest the three links across the whole trace and stitch them together after.
         val heap = ArrayHeap()
-        // The heap state needed to reconstruct a NONE-mode char-array-backed model String back to a
-        // readable `name = "abc"`. Under StringMode.NONE java.lang.String is the bmc-string-model class,
+        // The heap state needed to reconstruct a CHAR_ARRAY_MODEL-mode char-array-backed model String back to a
+        // readable `name = "abc"`. Under StringMode.CHAR_ARRAY_MODEL java.lang.String is the bmc-string-model class,
         // whose content lives in a real `char[] value` field; in the trace a proof-local String variable
         // (`s`) is a POINTER to a String `dynamic_object$N`, whose `value` member points to a char[] array
         // object, whose backing store + per-index chars the ArrayHeap below already harvests. So we follow
         // the String-specific `s -> stringObj` and `stringObj.value -> charArrayObj` links here and assemble
-        // the chars via the shared ArrayHeap char-element resolution. Inert (and unbuilt) outside NONE,
+        // the chars via the shared ArrayHeap char-element resolution. Inert (and unbuilt) outside CHAR_ARRAY_MODEL,
         // where JBMC supplies its own opaque String model and this reconstruction would not apply.
         val strings = if (reconstructStrings) StringHeap() else null
         val entryPrefix = if (entryFunctionFqn != null) "java::$entryFunctionFqn" else null
@@ -1202,9 +1202,9 @@ object JbmcOutputParser {
                 bindings.add(JbmcResult.Binding(name, arr.kind, arr.render()))
             }
         }
-        // NONE-mode char-array-backed String inputs (StringHeap is null outside NONE, so REFINEMENT-mode
+        // CHAR_ARRAY_MODEL-mode char-array-backed String inputs (StringHeap is null outside CHAR_ARRAY_MODEL, so REFINEMENT-mode
         // rendering is untouched): assemble each user String variable's char[] backing into a readable
-        // `name = "abc"` binding, so a NONE-mode refutation shows the string content instead of leaving the
+        // `name = "abc"` binding, so a CHAR_ARRAY_MODEL-mode refutation shows the string content instead of leaving the
         // String an opaque object the witness drops. The chars come from the ArrayHeap (which already
         // harvested the char[] array object's backing store + per-index chars); we just follow the
         // String-specific `s -> stringObj.value -> charArrayObj` links to find which object holds them.
@@ -1490,7 +1490,7 @@ object JbmcOutputParser {
         /**
          * The concrete elements (index order, as raw value `data`) of the char[] ARRAY OBJECT [objId],
          * following the same `object.data -> backing-store -> per-index elements` chain [resolveArrays]
-         * uses, or null when the object's backing/elements were not fully observed. Used by the NONE-mode
+         * uses, or null when the object's backing/elements were not fully observed. Used by the CHAR_ARRAY_MODEL-mode
          * [StringHeap] to read a model String's char[] backing (the String's `value` field points at this
          * array object). Pure.
          */
@@ -1520,8 +1520,8 @@ object JbmcOutputParser {
     }
 
     /**
-     * Reconstructs NONE-mode model-String inputs from a refutation trace back to a READABLE String. Used
-     * ONLY under StringMode.NONE (built only when `reconstructStrings` is set), where `java.lang.String`
+     * Reconstructs CHAR_ARRAY_MODEL-mode model-String inputs from a refutation trace back to a READABLE String. Used
+     * ONLY under StringMode.CHAR_ARRAY_MODEL (built only when `reconstructStrings` is set), where `java.lang.String`
      * is the char-array-backed bmc-string-model class. A proof-local String variable surfaces as a
      * two-link chain we harvest, then a third link the [ArrayHeap] already harvested:
      *

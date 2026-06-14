@@ -123,12 +123,12 @@ internal class VerdictCacheTest {
 
     @Test
     fun stringMode_perturbsKey() {
-        // A verdict proven with JBMC string refinement OFF (StringMode.NONE) is NOT interchangeable
+        // A verdict proven with JBMC string refinement OFF (StringMode.CHAR_ARRAY_MODEL) is NOT interchangeable
         // with one proven with it ON (StringMode.REFINEMENT) - the analysed decision procedure differs.
         // So the per-proof stringMode must bust the cache (it rides the verdict-relevant flag signature
         // AND is folded in as an explicit field). Default == REFINEMENT, so baseReq is the refinement key.
         val none = BmcRequest("pkg.C", "pkg.C.proof", "/some/classes",
-                16, true, 16, "", 0, stringMode = org.bmc4j.StringMode.NONE)
+                16, true, 16, "", 0, stringMode = org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
         assertNotEquals(VerdictCache.computeKey(baseReq(), ENGINE),
                 VerdictCache.computeKey(none, ENGINE),
                 "flipping StringMode (refinement vs none) must change the cache key")

@@ -1366,7 +1366,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
          *  - resolves a named fast solver (`"kissat"`) to its bundled binary, gracefully declining to
          *    the default solver (with a plain-language log) when none is bundled on this platform;
          *  - applies the text-use guard ([StringUseClassifier]): the fast solver engages for a proof
-         *    proven text-free OR any proof under [org.bmc4j.StringMode.NONE] (where the char-array String
+         *    proven text-free OR any proof under [org.bmc4j.StringMode.CHAR_ARRAY_MODEL] (where the char-array String
          *    model makes a text proof bit-blast to the same sound CNF the built-in solver handles); a text
          *    proof under REFINEMENT that asked for it FAILS LOUD by default, or (with the opt-out) falls
          *    back to the SOUND default solver — never runs refinement-off-and-unmodelled and passes.
@@ -1508,10 +1508,10 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         /**
          * The string-modelling mode this proof runs under: its per-proof `@BmcProof(stringMode = …)`
          * when set to a non-REFINEMENT value (the explicit opt-in), otherwise the build-wide
-         * `bmc { stringMode = … }` / `-Dbmc.stringMode` default ("refinement"/"none", case-insensitive),
-         * otherwise REFINEMENT. A per-proof REFINEMENT yields to the build default so a project can flip
-         * a whole module to NONE; an unrecognized property value falls back to REFINEMENT (fail-safe —
-         * the sound, complete default, never a silent refinement-off).
+         * `bmc { stringMode = … }` / `-Dbmc.stringMode` default ("refinement"/"char_array_model",
+         * case-insensitive), otherwise REFINEMENT. A per-proof REFINEMENT yields to the build default so
+         * a project can flip a whole module to CHAR_ARRAY_MODEL; an unrecognized property value falls back
+         * to REFINEMENT (fail-safe — the sound, complete default, never a silent refinement-off).
          */
         internal fun resolveStringMode(config: BmcProof?): org.bmc4j.StringMode {
             val perProof = config?.stringMode
@@ -1520,7 +1520,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             }
             val prop = System.getProperty(STRING_MODE_PROP)?.trim()?.lowercase()
             return when (prop) {
-                "none" -> org.bmc4j.StringMode.NONE
+                "char_array_model" -> org.bmc4j.StringMode.CHAR_ARRAY_MODEL
                 else -> org.bmc4j.StringMode.REFINEMENT
             }
         }

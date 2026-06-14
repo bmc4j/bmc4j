@@ -38,7 +38,7 @@ consumed by the `examples/` via `includeBuild`):
   Proven sound by the two-axis conformance harness — see [model soundness](model-soundness.md).
 - **`core/bmc-string-model`** — sound char-array-backed models of `java.lang.String` /
   `StringBuilder` / `AbstractStringBuilder` / `StringBuffer`, used **only** when string
-  refinement is OFF (`--no-refine-strings` / `StringMode.NONE`). Under refinement (the default)
+  refinement is OFF (`--no-refine-strings` / `StringMode.CHAR_ARRAY_MODEL`). Under refinement (the default)
   JBMC's refinement solver supplies the sound String model and these classes are NOT on the
   classpath; with refinement off the cbmc `core-models.jar` String/StringBuilder are degenerate
   intrinsic-only shells (`length()` → `nondetInt`, `charAt` → a placeholder, `StringBuilder.toString`

@@ -158,7 +158,7 @@ tasks.named("processResources") {
 }
 
 // Sound char-array-backed java.lang.String / StringBuilder / AbstractStringBuilder / StringBuffer
-// models for JBMC's analysis classpath, used ONLY under --no-refine-strings (StringMode.NONE). Same
+// models for JBMC's analysis classpath, used ONLY under --no-refine-strings (StringMode.CHAR_ARRAY_MODEL). Same
 // packaging discipline as the kotlin models above: these classes carry real JDK names, so they ship as
 // inert RESOURCES (NEVER on a runtime classpath - the bootstrap loader wins for java.*, and a stray
 // test-classpath copy would break tests). BundledStringModel extracts them and the no-refine path

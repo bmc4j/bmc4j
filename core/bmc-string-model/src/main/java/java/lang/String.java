@@ -5,7 +5,7 @@ package java.lang;
 
 /**
  * Sound char-array-backed BMC model of {@link java.lang.String} for JBMC's analysis classpath, used
- * ONLY when string refinement is OFF (--no-refine-strings / StringMode.NONE). Under refinement (the
+ * ONLY when string refinement is OFF (--no-refine-strings / StringMode.CHAR_ARRAY_MODEL). Under refinement (the
  * default) JBMC supplies its own sound String model and this class is NOT on the classpath.
  *
  * <p><b>The model.</b> A String is backed by a genuine {@code char[] value}. {@link #length()} returns
@@ -177,7 +177,7 @@ public final class String implements CharSequence, Comparable<String> {
      * <p>This mirrors the real JDK {@code String.getChars}, which bulk-copies via {@code System.arraycopy}
      * with no per-element bounds check. It exists so that INTERNAL char copies (e.g.
      * {@code AbstractStringBuilder.append(String)}) do not route through the public bounds-checking
-     * {@code charAt}. Under StringMode.NONE a public {@code charAt} bounds-checks against the SYMBOLIC
+     * {@code charAt}. Under StringMode.CHAR_ARRAY_MODEL a public {@code charAt} bounds-checks against the SYMBOLIC
      * backing length and symex cannot prove the loop index in range, so it explores the throw branch on
      * every copied char and recursively builds a StringIndexOutOfBoundsException message (itself an
      * append/charAt) - a blowup that never happens in real execution. Here the index range is in-bounds

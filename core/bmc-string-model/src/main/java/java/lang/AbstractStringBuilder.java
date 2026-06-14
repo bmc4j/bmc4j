@@ -96,7 +96,7 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence {
         ensureCapacityInternal(count + len);
         // Bulk-copy off the String's backing array directly (mirrors the real JDK getChars/arraycopy);
         // do NOT route per char through the public bounds-checking charAt, whose throw branch under
-        // StringMode.NONE blows symex up against a symbolic length. The range is in-bounds by construction.
+        // StringMode.CHAR_ARRAY_MODEL blows symex up against a symbolic length. The range is in-bounds by construction.
         str.getChars(0, len, value, count);
         count += len;
         return this;

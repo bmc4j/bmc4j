@@ -307,7 +307,7 @@ object VerdictCache {
         // overrides. Over-keying is sound; under-keying could serve an elided verdict for a non-eliding
         // request.
         update(md, "removeExceptionMessages", request.removeExceptionMessages.name)
-        // String-modelling mode (see StringMode): NONE turns JBMC string refinement OFF
+        // String-modelling mode (see StringMode): CHAR_ARRAY_MODEL turns JBMC string refinement OFF
         // (--no-refine-strings, no --max-nondet-string-length); REFINEMENT leaves it on. A verdict
         // proven with refinement off is NOT interchangeable with one proven with it on, so the mode
         // must bust the cache. It already rides the flag SIGNATURE above (the --no-refine-strings /

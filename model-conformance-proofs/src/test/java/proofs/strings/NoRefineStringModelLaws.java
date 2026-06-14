@@ -6,10 +6,10 @@ import org.bmc4j.StringMode;
 
 /**
  * Conformance proofs for the sound char-array-backed String model used under string refinement OFF
- * (--no-refine-strings / StringMode.NONE). See {@code core/bmc-string-model} and
+ * (--no-refine-strings / StringMode.CHAR_ARRAY_MODEL). See {@code core/bmc-string-model} and
  * {@code BundledStringModel}.
  *
- * <p><b>How they run.</b> Each proof is pinned to {@code @BmcProof(stringMode = StringMode.NONE)} so it
+ * <p><b>How they run.</b> Each proof is pinned to {@code @BmcProof(stringMode = StringMode.CHAR_ARRAY_MODEL)} so it
  * exercises the char-array model with JBMC string refinement OFF (the production knob from the StringMode
  * PR; it both passes {@code --no-refine-strings} and prepends the bundled model). The same shapes also
  * verify under refinement, so they pin the model surface without depending on a test-only flag.
@@ -43,7 +43,7 @@ class NoRefineStringModelLaws {
 
     // ---- new String(char[]) construction + readback (SOUND under no-refine) ----
 
-    @BmcProof(stringMode = StringMode.NONE)
+    @BmcProof(stringMode = StringMode.CHAR_ARRAY_MODEL)
     void newStringFromChars_readback() {
         char[] data = {'a', 'b'};
         String s = new String(data);
@@ -52,7 +52,7 @@ class NoRefineStringModelLaws {
         Bmc.check(s.charAt(1) == 'b');
     }
 
-    @BmcProof(stringMode = StringMode.NONE)
+    @BmcProof(stringMode = StringMode.CHAR_ARRAY_MODEL)
     void newStringFromCharsRange_readback() {
         char[] data = {'x', 'a', 'b', 'y'};
         String s = new String(data, 1, 2);
@@ -63,7 +63,7 @@ class NoRefineStringModelLaws {
 
     // ---- StringBuilder.append(char) + toString() (the bmc4j construction primitive) ----
 
-    @BmcProof(unwind = 4, stringMode = StringMode.NONE)
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL)
     void stringBuilderBuild_readback() {
         StringBuilder sb = new StringBuilder();
         sb.append('a');
@@ -80,9 +80,9 @@ class NoRefineStringModelLaws {
 
     // ---- symbolic String via construction (SOUND under no-refine) ----
 
-    // Symbolic length 0..1 (kept small: under NONE there is no refinement to compress the symbolic
+    // Symbolic length 0..1 (kept small: under CHAR_ARRAY_MODEL there is no refinement to compress the symbolic
     // char-array reasoning, so a larger bound times out in CI - 0..1 is enough to pin symbolic readback).
-    @BmcProof(unwind = 2, stringMode = StringMode.NONE)
+    @BmcProof(unwind = 2, stringMode = StringMode.CHAR_ARRAY_MODEL)
     void symbolicViaConstruction_lengthAndCharsAgree() {
         int n = Bmc.anyInt(0, 1);
         char[] data = new char[n];
@@ -98,7 +98,7 @@ class NoRefineStringModelLaws {
 
     // ---- equals over constructed strings (rebuilt from the backing) ----
 
-    @BmcProof(unwind = 3, stringMode = StringMode.NONE)
+    @BmcProof(unwind = 3, stringMode = StringMode.CHAR_ARRAY_MODEL)
     void equals_overConstructedStrings() {
         String a = new String(new char[]{'h', 'i'});
         String b = new String(new char[]{'h', 'i'});

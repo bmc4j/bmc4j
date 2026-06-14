@@ -374,7 +374,7 @@ internal class BmcProofExtensionTest {
         @BmcProof
         fun usesDefaultMode() {}
 
-        @BmcProof(stringMode = org.bmc4j.StringMode.NONE)
+        @BmcProof(stringMode = org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
         fun usesNone() {}
 
         @BmcProof(stringMode = org.bmc4j.StringMode.REFINEMENT)
@@ -383,9 +383,9 @@ internal class BmcProofExtensionTest {
 
     @Test
     fun resolveStringMode_prefersPerProofOverride_thenDefaults() {
-        assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+        assertEquals(org.bmc4j.StringMode.CHAR_ARRAY_MODEL, BmcProofExtension.resolveStringMode(
                 annotationOn(MixedStringModeProofs::class.java, "usesNone")),
-                "per-proof @BmcProof(stringMode = NONE) wins")
+                "per-proof @BmcProof(stringMode = CHAR_ARRAY_MODEL) wins")
         assertEquals(org.bmc4j.StringMode.REFINEMENT, BmcProofExtension.resolveStringMode(
                 annotationOn(MixedStringModeProofs::class.java, "usesDefaultMode")),
                 "the annotation default REFINEMENT resolves to REFINEMENT when no build default is set")
@@ -394,19 +394,19 @@ internal class BmcProofExtensionTest {
     @Test
     fun resolveStringMode_honorsBuildDefaultProp_andPerProofOverrides() {
         val prev = System.getProperty("bmc.stringMode")
-        System.setProperty("bmc.stringMode", "none")
+        System.setProperty("bmc.stringMode", "char_array_model")
         try {
-            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+            assertEquals(org.bmc4j.StringMode.CHAR_ARRAY_MODEL, BmcProofExtension.resolveStringMode(
                     annotationOn(MixedStringModeProofs::class.java, "usesDefaultMode")),
-                    "-Dbmc.stringMode=none must apply when the proof leaves stringMode on the default")
-            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                    "-Dbmc.stringMode=char_array_model must apply when the proof leaves stringMode on the default")
+            assertEquals(org.bmc4j.StringMode.CHAR_ARRAY_MODEL, BmcProofExtension.resolveStringMode(
                     annotationOn(MixedStringModeProofs::class.java, "usesRefinementExplicit")),
                     "a per-proof REFINEMENT (the annotation default) yields to the build default, " +
                             "exactly like AUTO does for removeExceptionMessages - so the module-wide " +
-                            "bmc.stringMode=none wins; only a non-default per-proof value (NONE) overrides")
-            assertEquals(org.bmc4j.StringMode.NONE, BmcProofExtension.resolveStringMode(
+                            "bmc.stringMode=char_array_model wins; only a non-default per-proof value (CHAR_ARRAY_MODEL) overrides")
+            assertEquals(org.bmc4j.StringMode.CHAR_ARRAY_MODEL, BmcProofExtension.resolveStringMode(
                     annotationOn(MixedStringModeProofs::class.java, "usesNone")),
-                    "a per-proof NONE override stands even under a different build default")
+                    "a per-proof CHAR_ARRAY_MODEL override stands even under a different build default")
         } finally {
             restore("bmc.stringMode", prev)
         }

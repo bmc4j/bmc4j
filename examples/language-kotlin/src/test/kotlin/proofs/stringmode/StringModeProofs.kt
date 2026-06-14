@@ -15,10 +15,10 @@ import org.bmc4j.StringMode
  * where (on the real okio example) refinement can explode formula construction while it stays tractable
  * with refinement OFF.
  *
- * Both modes VERIFY this proof. [StringMode.NONE] is a COMPLETENESS tradeoff, never a soundness one: it
+ * Both modes VERIFY this proof. [StringMode.CHAR_ARRAY_MODEL] is a COMPLETENESS tradeoff, never a soundness one: it
  * is the right mode for string-as-DATA / encoding proofs like this. A string-CONTENT op that relies on
  * refinement (or a `CProverString` helper the shim does not implement, e.g. the char-array `String`
- * constructor `CProverString.ofCharArray`) would nondet-stub to UNKNOWN under NONE - never a false
+ * constructor `CProverString.ofCharArray`) would nondet-stub to UNKNOWN under CHAR_ARRAY_MODEL - never a false
  * VERIFIED - which is why CONTENT proofs keep the default [StringMode.REFINEMENT]. We pin both modes
  * here so the toggle is shown actually reaching the engine and producing the same sound verdict.
  */
@@ -42,7 +42,7 @@ class StringModeProofs {
     // SAME proof, with string refinement turned OFF via the per-proof knob. The toggle reaches the
     // engine (it emits --no-refine-strings and omits --max-nondet-string-length) and the proof still
     // VERIFIES over the byte-buffer arithmetic.
-    @BmcProof(unwind = 4, stringMode = StringMode.NONE)
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL)
     fun decimal_round_trip_under_string_mode_none() {
         val value = Bmc.anyInt(0, 99)
         Bmc.check(decimalRoundTrip(value) == value)

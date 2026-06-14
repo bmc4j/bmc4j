@@ -62,7 +62,7 @@ class BmcRequest @JvmOverloads constructor(
         /**
          * How JBMC models `java.lang.String` for this proof (see [org.bmc4j.StringMode]).
          * [REFINEMENT][org.bmc4j.StringMode.REFINEMENT] (the default) runs JBMC's string-refinement
-         * solver and passes `--max-nondet-string-length`; [NONE][org.bmc4j.StringMode.NONE] turns
+         * solver and passes `--max-nondet-string-length`; [CHAR_ARRAY_MODEL][org.bmc4j.StringMode.CHAR_ARRAY_MODEL] turns
          * refinement off (`--no-refine-strings`) and OMITS `--max-nondet-string-length` (JBMC rejects
          * the two together). A verdict proven under one mode is NOT interchangeable with the other, so
          * this is part of the verdict-cache identity (it rides the verdict-relevant flag signature in

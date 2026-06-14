@@ -161,21 +161,22 @@ public @interface BmcProof {
      *       {@code String} CONTENT operations ({@code equals}/{@code contains}/{@code substring}/…)
      *       are reasoned end-to-end and {@code --max-nondet-string-length} bounds symbolic input
      *       strings. The right mode for <b>string-content</b> proofs.</li>
-     *   <li>{@link StringMode#NONE} — string refinement is OFF ({@code --no-refine-strings}): strings
-     *       are modelled purely as their char-array bytecode + the {@code org.cprover.CProverString}
-     *       shim. Use it for <b>string-as-DATA / throughput</b> proofs (encoding into buffers,
+     *   <li>{@link StringMode#CHAR_ARRAY_MODEL} — substitutes a char-array {@code String} model with string
+     *       refinement OFF ({@code --no-refine-strings}): {@code java.lang.String} is the bundled
+     *       char-array-backed model + the {@code org.cprover.CProverString} shim. Use it for
+     *       <b>string-as-DATA / throughput</b> proofs (encoding into buffers,
      *       {@code byte}&lt;-&gt;{@code char}, decimal/numeric formatting) where refinement is the
      *       bottleneck and can explode formula construction.</li>
      * </ul>
      *
-     * <p><b>This is a COMPLETENESS knob, never a soundness one.</b> {@link StringMode#NONE} can only
+     * <p><b>This is a COMPLETENESS knob, never a soundness one.</b> {@link StringMode#CHAR_ARRAY_MODEL} can only
      * turn a would-be verdict into {@code UNKNOWN} (a string-content op the shim cannot decide
      * nondet-stubs), never a false {@code VERIFIED}. So it is opt-in for string-encoding/throughput
      * proofs; {@link StringMode#REFINEMENT} stays the default for string-content proofs. Note that
-     * {@code --max-nondet-string-length} is NOT passed under {@code NONE} (JBMC rejects it together
-     * with {@code --no-refine-strings}).
+     * {@code --max-nondet-string-length} is NOT passed under {@code CHAR_ARRAY_MODEL} (JBMC rejects it
+     * together with {@code --no-refine-strings}).
      *
-     * <p>The build-wide default is {@code bmc { stringMode = "refinement"|"none" }} /
+     * <p>The build-wide default is {@code bmc { stringMode = "refinement"|"char_array_model" }} /
      * {@code -Dbmc.stringMode}; a per-proof value other than {@link StringMode#REFINEMENT} overrides it.
      */
     StringMode stringMode() default StringMode.REFINEMENT;
