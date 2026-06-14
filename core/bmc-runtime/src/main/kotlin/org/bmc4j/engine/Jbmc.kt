@@ -241,6 +241,14 @@ class Jbmc(private val executable: String) {
             when (stringMode) {
                 org.bmc4j.StringMode.NONE -> {
                     cmd.add("--no-refine-strings")
+                    // Formula slicing (drops SSA steps the asserted property cannot depend on) gives a
+                    // large size/speed win but was reverted globally because it breaks jbmc's STRING
+                    // REFINEMENT (symbolic string proofs falsely REFUTE under it). NONE turns refinement
+                    // OFF - strings are plain char arrays the slicer sees through, exactly like the
+                    // string-free proofs slicing was always sound on - so it is safe HERE only. Gated to
+                    // NONE like the external-SAT path; the NONE string-model conformance proofs run under
+                    // it and must stay sound (never a false REFUTE).
+                    cmd.add("--slice-formula")
                     // Under NONE the length bound is NOT a jbmc flag (the engine rejects
                     // --max-nondet-string-length with --no-refine-strings); it is enforced by the
                     // StringLengthBytecode transform, which bounds a bare symbolic string's char-array
