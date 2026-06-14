@@ -12,7 +12,7 @@ import org.bmc4j.StringMode
  *
  * The mapping has one HARD constraint: JBMC rejects `--max-nondet-string-length` together with
  * `--no-refine-strings` ("cannot use --max-nondet-string-length with --no-refine-strings"), so under
- * [StringMode.NONE] the two are mutually exclusive - `--no-refine-strings` is emitted and
+ * [StringMode.CHAR_ARRAY_MODEL] the two are mutually exclusive - `--no-refine-strings` is emitted and
  * `--max-nondet-string-length` is omitted. Under [StringMode.REFINEMENT] (the default) neither
  * `--no-refine-strings` appears nor is the existing max-nondet behaviour changed.
  */
@@ -24,11 +24,11 @@ internal class JbmcStringModeTest {
 
     @Test
     fun none_emitsNoRefineStrings_andOmitsMaxNondetStringLength() {
-        val a = args(StringMode.NONE, maxStringLength = 16)
+        val a = args(StringMode.CHAR_ARRAY_MODEL, maxStringLength = 16)
         assertTrue(a.contains("--no-refine-strings"),
-                "StringMode.NONE must emit --no-refine-strings: $a")
+                "StringMode.CHAR_ARRAY_MODEL must emit --no-refine-strings: $a")
         assertFalse(a.contains("--max-nondet-string-length"),
-                "StringMode.NONE must OMIT --max-nondet-string-length (JBMC rejects the two together): $a")
+                "StringMode.CHAR_ARRAY_MODEL must OMIT --max-nondet-string-length (JBMC rejects the two together): $a")
     }
 
     @Test
@@ -46,7 +46,7 @@ internal class JbmcStringModeTest {
 
     @Test
     fun refinement_withZeroMaxStringLength_emitsNeither() {
-        // maxStringLength <= 0 already means "do not pass the flag"; NONE behaviour is independent of it.
+        // maxStringLength <= 0 already means "do not pass the flag"; CHAR_ARRAY_MODEL behaviour is independent of it.
         val a = args(StringMode.REFINEMENT, maxStringLength = 0)
         assertFalse(a.contains("--no-refine-strings"), a.toString())
         assertFalse(a.contains("--max-nondet-string-length"), a.toString())
@@ -57,32 +57,32 @@ internal class JbmcStringModeTest {
         val refinement = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
                 16, true, 16, "", 0, stringMode = StringMode.REFINEMENT)
         val none = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
-                16, true, 16, "", 0, stringMode = StringMode.NONE)
+                16, true, 16, "", 0, stringMode = StringMode.CHAR_ARRAY_MODEL)
         assertNotEquals(Jbmc.verdictRelevantFlags(refinement), Jbmc.verdictRelevantFlags(none),
-                "the verdict-relevant flag signature must differ between StringMode.REFINEMENT and NONE " +
+                "the verdict-relevant flag signature must differ between StringMode.REFINEMENT and CHAR_ARRAY_MODEL " +
                         "so a cached verdict for one mode is never reused for the other")
     }
 
     @Test
     fun verdictRelevantFlags_underNone_dependOnMaxStringLength() {
-        // Under NONE the length bound is enforced by the bytecode transform (StringLengthBytecode), not a
-        // jbmc flag, so two NONE proofs differing only in maxStringLength produce DIFFERENT analysed
+        // Under CHAR_ARRAY_MODEL the length bound is enforced by the bytecode transform (StringLengthBytecode), not a
+        // jbmc flag, so two CHAR_ARRAY_MODEL proofs differing only in maxStringLength produce DIFFERENT analysed
         // bytecode. The verdict-cache signature must therefore differ too, or one's verdict would be
         // served for the other (a stale-cache soundness hole).
         val none2 = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
-                16, true, 2, "", 0, stringMode = StringMode.NONE)
+                16, true, 2, "", 0, stringMode = StringMode.CHAR_ARRAY_MODEL)
         val none8 = BmcRequest("pkg.C", "pkg.C.proof", "/cp",
-                16, true, 8, "", 0, stringMode = StringMode.NONE)
+                16, true, 8, "", 0, stringMode = StringMode.CHAR_ARRAY_MODEL)
         assertNotEquals(Jbmc.verdictRelevantFlags(none2), Jbmc.verdictRelevantFlags(none8),
-                "under NONE the verdict signature must fold in maxStringLength (it changes the bytecode)")
+                "under CHAR_ARRAY_MODEL the verdict signature must fold in maxStringLength (it changes the bytecode)")
     }
 
     @Test
     fun none_realCommand_neverCarriesTheCacheOnlyMarker() {
         // The cache-only length marker must NEVER reach the engine (jbmc rejects a string-length flag
         // with --no-refine-strings); args() builds the real command, so it must be absent there.
-        val a = args(StringMode.NONE, maxStringLength = 8)
+        val a = args(StringMode.CHAR_ARRAY_MODEL, maxStringLength = 8)
         assertFalse(a.contains("--bmc-norefine-string-length"),
-                "the NONE cache-only length marker must not be passed to jbmc: $a")
+                "the CHAR_ARRAY_MODEL cache-only length marker must not be passed to jbmc: $a")
     }
 }

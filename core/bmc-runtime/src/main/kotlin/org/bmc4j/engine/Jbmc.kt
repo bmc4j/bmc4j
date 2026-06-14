@@ -35,7 +35,7 @@ class Jbmc(private val executable: String) {
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath, stringMode))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
-                stringMode == org.bmc4j.StringMode.NONE)
+                stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
@@ -202,7 +202,7 @@ class Jbmc(private val executable: String) {
          * key can never diverge from the flags actually passed.
          *
          * INCLUDES: `--unwind`, `--unwinding-assertions`, the string-mode flags
-         * (`--no-refine-strings` under [org.bmc4j.StringMode.NONE]) / `--max-nondet-string-length`
+         * (`--no-refine-strings` under [org.bmc4j.StringMode.CHAR_ARRAY_MODEL]) / `--max-nondet-string-length`
          * (under [org.bmc4j.StringMode.REFINEMENT]; the two are mutually exclusive), the full solver
          * selection (`--external-sat-solver` / `--smt2`+`--external-smt2-solver` / `--z3` / `--boolector`
          * / `--cvc4` / `--cvc5` / `--sat-solver`), and any future HARD-CODED engine flag added here.
@@ -230,30 +230,30 @@ class Jbmc(private val executable: String) {
             if (unwindingAssertions) {
                 cmd.add("--unwinding-assertions")
             }
-            // String-modelling mode (see [org.bmc4j.StringMode]). NONE turns JBMC's string refinement
+            // String-modelling mode (see [org.bmc4j.StringMode]). CHAR_ARRAY_MODEL turns JBMC's string refinement
             // OFF; REFINEMENT (the default) leaves it on. The two are MUTUALLY EXCLUSIVE with
             // --max-nondet-string-length: JBMC hard-errors ("cannot use --max-nondet-string-length with
-            // --no-refine-strings") if both are present, so under NONE we emit --no-refine-strings and
+            // --no-refine-strings") if both are present, so under CHAR_ARRAY_MODEL we emit --no-refine-strings and
             // OMIT --max-nondet-string-length; under REFINEMENT we pass --max-nondet-string-length as
             // before. This is the SINGLE place the mode reaches the command, so the verdict-cache key
-            // tracks it automatically (see [verdictRelevantFlags]). Under NONE the bundled char-array
+            // tracks it automatically (see [verdictRelevantFlags]). Under CHAR_ARRAY_MODEL the bundled char-array
             // String model is prepended (see JbmcBackend), keyed on this same StringMode.
             when (stringMode) {
-                org.bmc4j.StringMode.NONE -> {
+                org.bmc4j.StringMode.CHAR_ARRAY_MODEL -> {
                     cmd.add("--no-refine-strings")
                     // Formula slicing (drops SSA steps the asserted property cannot depend on) gives a
                     // large size/speed win but was reverted globally because it breaks jbmc's STRING
-                    // REFINEMENT (symbolic string proofs falsely REFUTE under it). NONE turns refinement
+                    // REFINEMENT (symbolic string proofs falsely REFUTE under it). CHAR_ARRAY_MODEL turns refinement
                     // OFF - strings are plain char arrays the slicer sees through, exactly like the
                     // string-free proofs slicing was always sound on - so it is safe HERE only. Gated to
-                    // NONE like the external-SAT path; the NONE string-model conformance proofs run under
+                    // CHAR_ARRAY_MODEL like the external-SAT path; the CHAR_ARRAY_MODEL string-model conformance proofs run under
                     // it and must stay sound (never a false REFUTE).
                     cmd.add("--slice-formula")
-                    // Under NONE the length bound is NOT a jbmc flag (the engine rejects
+                    // Under CHAR_ARRAY_MODEL the length bound is NOT a jbmc flag (the engine rejects
                     // --max-nondet-string-length with --no-refine-strings); it is enforced by the
                     // StringLengthBytecode transform, which bounds a bare symbolic string's char-array
                     // backing by this value. So it changes the analysed BYTECODE without changing the
-                    // command - meaning the verdict-cache key MUST still fold it in, or two NONE proofs
+                    // command - meaning the verdict-cache key MUST still fold it in, or two CHAR_ARRAY_MODEL proofs
                     // differing only in maxStringLength would collide on a stale cached verdict. Append a
                     // CACHE-ONLY marker (never passed to the engine) so the signature tracks it.
                     if (forCacheKey && maxStringLength > 0) {

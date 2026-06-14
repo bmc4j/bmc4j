@@ -23,7 +23,7 @@ public final class CProverString {
      * Character at {@code index} of {@code s}, JBMC's no-bounds-exception variant.
      *
      * <p>Under string refinement (the default) JBMC recognises this by FQN and lowers it to its sound
-     * built-in character read; the body is ignored. With refinement OFF (StringMode.NONE) that intrinsic
+     * built-in character read; the body is ignored. With refinement OFF (StringMode.CHAR_ARRAY_MODEL) that intrinsic
      * lowering does NOT fire, so the literal body is linked - and the old placeholder ({@code '\0'}) was
      * then unsound: every {@code BmcStrings} content op (equals/contains/hashCode), which is rebuilt from
      * {@code CProverString.charAt}, read a constant nul. We instead delegate to {@link String#charAt}.

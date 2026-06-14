@@ -1086,15 +1086,15 @@ internal class JbmcOutputParserTest {
         assertTrue(r.undecidedReason!!.contains("unwind bound is too small"), r.undecidedReason)
     }
 
-    // --- NONE-mode char-array String witness reconstruction ----------
-    // Under StringMode.NONE java.lang.String is the char-array-backed bmc-string-model class, so a
+    // --- CHAR_ARRAY_MODEL-mode char-array String witness reconstruction ----------
+    // Under StringMode.CHAR_ARRAY_MODEL java.lang.String is the char-array-backed bmc-string-model class, so a
     // proof-local String surfaces as `s -> stringObj`, `stringObj.value -> charArrayObj`,
     // `charArrayObj.data -> backing`, then per-index chars. With reconstructStrings the witness must
     // stitch that back to a READABLE `s = "hi"`; without it (REFINEMENT, the default) the String is an
     // opaque object the witness drops. This mirrors the exact shape jbmc 6.9.0 emits for
     // `String s = new String(symbolicChars)`.
 
-    /** The NONE-mode model-String trace fixture: `s` is "hi" via the value/backing/element chain. */
+    /** The CHAR_ARRAY_MODEL-mode model-String trace fixture: `s` is "hi" via the value/backing/element chain. */
     private val noneModeStringTrace = """
         [
           {"result":[

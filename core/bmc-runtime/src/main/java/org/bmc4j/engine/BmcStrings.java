@@ -25,13 +25,13 @@ public final class BmcStrings {
 
     /**
      * Sound introduction of a SYMBOLIC {@code String} whose length is bounded by {@code maxLength},
-     * for string refinement OFF ({@link org.bmc4j.StringMode#NONE}). {@code StringLengthBytecode}
-     * redirects the symbolic-string introduction sites here under NONE: the {@code Bmc.anyString} /
+     * for string refinement OFF ({@link org.bmc4j.StringMode#CHAR_ARRAY_MODEL}). {@code StringLengthBytecode}
+     * redirects the symbolic-string introduction sites here under CHAR_ARRAY_MODEL: the {@code Bmc.anyString} /
      * {@code anyAsciiString} helper bodies (bound = the helper's own {@code maxLength} parameter, so a
      * per-call bound is honored as-is) and bare {@code CProver.nondetWithoutNull()} String sites (bound
      * = the run's global {@code maxStringLength}).
      *
-     * <p>Under NONE a bare {@code nondetWithoutNull()} String has a char-array backing JBMC re-havocs
+     * <p>Under CHAR_ARRAY_MODEL a bare {@code nondetWithoutNull()} String has a char-array backing JBMC re-havocs
      * across reads, so an {@code assume(length <= n)} pinned only one read and a later read could
      * exceed {@code n} (the length bound was effectively dropped). Building the string from a real
      * char-array of nondet length {@code 0..maxLength} gives it a STABLE backing (see the char-array

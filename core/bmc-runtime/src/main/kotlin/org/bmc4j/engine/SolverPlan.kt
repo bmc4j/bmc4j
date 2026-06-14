@@ -13,7 +13,7 @@ import java.io.File
  * text it is NOT sound — running with String reasoning off can report a false pass. So:
  *
  *  - the fast solver engages for a proof [StringUseClassifier] proves text-free;
- *  - it ALSO engages for a text/String-using proof when [StringMode.NONE] is in effect (see below);
+ *  - it ALSO engages for a text/String-using proof when [StringMode.CHAR_ARRAY_MODEL] is in effect (see below);
  *  - a text/String-using proof under [StringMode.REFINEMENT] that explicitly asked for the fast solver
  *    **fails loud by default** (a plain-language message: this proof uses text operations the fast
  *    solver can't verify soundly under refinement);
@@ -21,14 +21,14 @@ import java.io.File
  *    solver** (a sound result, just no speedup) — there is NO REFINEMENT path that runs the fast
  *    (string-refinement-off) solver on a text proof and reports a pass.
  *
- * ## Why a text proof IS sound on the fast solver under [StringMode.NONE]
+ * ## Why a text proof IS sound on the fast solver under [StringMode.CHAR_ARRAY_MODEL]
  * The historical hazard was: external SAT forces string REFINEMENT off, and refinement-off also used to
- * leave [String] unmodelled, so a text proof could report a false pass. Under [StringMode.NONE] that
+ * leave [String] unmodelled, so a text proof could report a false pass. Under [StringMode.CHAR_ARRAY_MODEL] that
  * hazard is gone: refinement is ALREADY off, AND the char-array String model supplies sound String
- * semantics (strings are real char[] array constraints in the formula). So a text proof under NONE
+ * semantics (strings are real char[] array constraints in the formula). So a text proof under CHAR_ARRAY_MODEL
  * bit-blasts to exactly the same CNF the built-in solver already handles soundly — the external SAT
  * solver is just a faster backend for that same CNF, not a weaker decision procedure. Hence external SAT
- * is SOUND for a String-using proof when stringMode == NONE.
+ * is SOUND for a String-using proof when stringMode == CHAR_ARRAY_MODEL.
  *
  * It is still NOT sound under [StringMode.REFINEMENT]: jbmc cannot combine an external SAT solver with
  * its string-refinement loop at all (the two are mutually exclusive), so a refinement text proof routed
@@ -100,7 +100,7 @@ internal object SolverPlan {
             @JvmField val entryClass: String,
             @JvmField val classpath: String?,
             /** The effective per-proof string decision-procedure mode (`@BmcProof(stringMode)` else
-             *  `bmc{stringMode}` / `-Dbmc.stringMode`). Under [StringMode.NONE] a text proof is sound on
+             *  `bmc{stringMode}` / `-Dbmc.stringMode`). Under [StringMode.CHAR_ARRAY_MODEL] a text proof is sound on
              *  external SAT (refinement already off + the char-array String model gives sound String
              *  semantics, the same CNF the built-in solver handles); defaults to [StringMode.REFINEMENT]. */
             @JvmField val stringMode: StringMode = StringMode.REFINEMENT)
@@ -135,13 +135,13 @@ internal object SolverPlan {
                         "the fast solver isn't available on this platform, using the default solver")
 
         // 3) The text guard. The fast solver is sound when EITHER the proof is text-free OR
-        //    stringMode == NONE. Under NONE, refinement is already off and the char-array String model
+        //    stringMode == CHAR_ARRAY_MODEL. Under CHAR_ARRAY_MODEL, refinement is already off and the char-array String model
         //    supplies sound String semantics, so a text proof bit-blasts to exactly the same CNF the
         //    built-in solver handles soundly; external SAT is just a faster backend for that CNF. (A text
         //    proof under REFINEMENT is NOT eligible: jbmc cannot combine external SAT with its string-
         //    refinement loop, so it must keep declining below.)
         val classification = StringUseClassifier.classify(req.entryClass, req.classpath)
-        if (!classification.usesText || req.stringMode == StringMode.NONE) {
+        if (!classification.usesText || req.stringMode == StringMode.CHAR_ARRAY_MODEL) {
             return Decision.ExternalSat(path)
         }
 

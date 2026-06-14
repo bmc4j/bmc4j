@@ -63,8 +63,8 @@ class JbmcBackend : VerificationBackend {
                     request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver,
                     request.timeoutSeconds, request.externalSatPath,
-                    // String-modelling mode (REFINEMENT default / NONE = --no-refine-strings). Threaded
-                    // through so a per-proof @BmcProof(stringMode = NONE) reaches the engine command.
+                    // String-modelling mode (REFINEMENT default / CHAR_ARRAY_MODEL = --no-refine-strings). Threaded
+                    // through so a per-proof @BmcProof(stringMode = CHAR_ARRAY_MODEL) reaches the engine command.
                     request.stringMode,
                     // The ORIGINAL (un-rewritten) test classpath drives witness rendering: it carries the
                     // consumer's own class output dirs with full debug info, so the parser can tell the
@@ -158,7 +158,7 @@ class JbmcBackend : VerificationBackend {
                     && GradleClasspathMirror.configMatches(unionClasspath(request.classpath, userModels),
                             Path.of(mirrorDir))
             // Loud guard against a SILENT mirror miss: when the mirror is trusted (config + identity match)
-            // but matches NONE of the analysis classpath, that is almost certainly a path-format mismatch
+            // but matches CHAR_ARRAY_MODEL of the analysis classpath, that is almost certainly a path-format mismatch
             // (e.g. the Windows backslash spelling that silently disabled the mirror for several releases),
             // not a legitimately-uncovered classpath. Warn once per mirror; the run stays sound either way
             // (every uncovered entry is still rewritten in-JVM below), so this never fails a run -- it only
@@ -266,7 +266,7 @@ class JbmcBackend : VerificationBackend {
                 classpath = spliceAfter(classpath, userModelEntries, kotlinModels)
             }
             // Sound char-array-backed java.lang.String / StringBuilder model, ONLY under no-refine
-            // (StringMode.NONE). Under string refinement (the default) JBMC's refinement solver IS the
+            // (StringMode.CHAR_ARRAY_MODEL). Under string refinement (the default) JBMC's refinement solver IS the
             // sound String model and these classes must NOT shadow it; with refinement OFF the cbmc
             // core-models' String/StringBuilder are degenerate intrinsic-only shells (length->nondetInt,
             // charAt->placeholder, StringBuilder.toString->possibly-null nondet), so a correct String
@@ -274,7 +274,7 @@ class JbmcBackend : VerificationBackend {
             // char[] so construction/length()/charAt() are sound array operations. Spliced at the same
             // position as the Kotlin models (after user models, so a user override still wins) and BEFORE
             // core-models (appended below), so it shadows the degenerate cbmc String by classpath order.
-            if (request.stringMode == org.bmc4j.StringMode.NONE) {
+            if (request.stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL) {
                 val stringModel = BundledStringModel.extractRoot()
                 if (stringModel != null) {
                     classpath = spliceAfter(classpath, userModelEntries, stringModel)

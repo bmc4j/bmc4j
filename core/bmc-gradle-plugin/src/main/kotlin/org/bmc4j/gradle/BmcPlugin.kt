@@ -397,7 +397,7 @@ class BmcPlugin : Plugin<Project> {
                 }
 
                 // No-refine enablement: forward -Dbmc.noRefineStrings to the test JVM so the char-array
-                // String model engages under jbmc --no-refine-strings (StringMode.NONE). A build-wide
+                // String model engages under jbmc --no-refine-strings (StringMode.CHAR_ARRAY_MODEL). A build-wide
                 // CLI -D wins; with it unset the default (string refinement ON) is unchanged. The
                 // per-proof StringMode knob (a separate PR) layers on top, resolving to the same property.
                 val cliNoRefine = System.getProperty("bmc.noRefineStrings")
@@ -504,18 +504,18 @@ class BmcPlugin : Plugin<Project> {
                     }
                 }
 
-                // String-modelling mode default (refinement|none). A command-line -Dbmc.stringMode wins
-                // over the build default (so flipping it also invalidates the verdict cache, since the
-                // mode is in the cache key). `refinement` is the runtime default; only forward an explicit
-                // override. Validated loudly - only refinement|none accepted.
+                // String-modelling mode default (refinement|char_array_model). A command-line
+                // -Dbmc.stringMode wins over the build default (so flipping it also invalidates the verdict
+                // cache, since the mode is in the cache key). `refinement` is the runtime default; only
+                // forward an explicit override. Validated loudly - only refinement|char_array_model accepted.
                 val stringMode = System.getProperty("bmc.stringMode")?.takeUnless { it.isBlank() }
                         ?: ext.stringMode.orNull
                 if (!stringMode.isNullOrBlank()) {
                     val normalized = stringMode.trim().lowercase()
-                    if (normalized !in setOf("refinement", "none")) {
+                    if (normalized !in setOf("refinement", "char_array_model")) {
                         throw GradleException(
                                 "bmc { stringMode } / -Dbmc.stringMode must be one of " +
-                                        "refinement|none, was \"$stringMode\".")
+                                        "refinement|char_array_model, was \"$stringMode\".")
                     }
                     if (normalized != "refinement") {
                         test.systemProperty("bmc.stringMode", normalized)

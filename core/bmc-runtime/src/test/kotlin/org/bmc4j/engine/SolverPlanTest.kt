@@ -119,14 +119,14 @@ internal class SolverPlanTest {
 
     @Test
     fun textProof_underStringModeNone_getsTheFastSolver(@TempDir dir: Path) {
-        // Under StringMode.NONE refinement is already off AND the char-array String model gives sound
+        // Under StringMode.CHAR_ARRAY_MODEL refinement is already off AND the char-array String model gives sound
         // String semantics, so a text proof bit-blasts to the same CNF the built-in solver handles
         // soundly. External SAT is just a faster backend for that CNF -> ExternalSat, NOT FailLoud.
         val fast = stageFakeSolver(dir, "fast")
         val d = SolverPlan.resolve(SolverPlan.SolverRequest(
-                fast, "", "Entry", textClasspath(dir), org.bmc4j.StringMode.NONE))
+                fast, "", "Entry", textClasspath(dir), org.bmc4j.StringMode.CHAR_ARRAY_MODEL))
         assertInstanceOf(SolverPlan.Decision.ExternalSat::class.java, d,
-                "a text proof under StringMode.NONE is sound on the fast solver")
+                "a text proof under StringMode.CHAR_ARRAY_MODEL is sound on the fast solver")
         assertEquals(fast, (d as SolverPlan.Decision.ExternalSat).path)
     }
 

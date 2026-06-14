@@ -13,7 +13,7 @@ import java.security.NoSuchAlgorithmException
  * Extracts the sound char-array-backed `java.lang.String` / `StringBuilder` / `AbstractStringBuilder` /
  * `StringBuffer` models (bundled as resources under `bmc-string-model/` in this jar) to a local
  * directory, so JBMC can be pointed at them - but ONLY under string refinement OFF (the
- * `--no-refine-strings` / `StringMode.NONE` path; prepended when `request.stringMode == NONE`).
+ * `--no-refine-strings` / `StringMode.CHAR_ARRAY_MODEL` path; prepended when `request.stringMode == CHAR_ARRAY_MODEL`).
  *
  * ## Why these are resources, not a classpath dependency
  * They carry the real fully-qualified JDK names (`java.lang.String`, ...). On a real JVM the bootstrap

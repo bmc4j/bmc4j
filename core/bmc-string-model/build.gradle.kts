@@ -1,6 +1,6 @@
 // Sound char-array-backed models of java.lang.String / StringBuilder / AbstractStringBuilder for
 // JBMC's ANALYSIS classpath, used ONLY when string refinement is OFF (--no-refine-strings, the
-// StringMode.NONE path).
+// StringMode.CHAR_ARRAY_MODEL path).
 //
 // WHY THIS MODULE EXISTS
 // Under string refinement (the default), JBMC supplies its OWN sound String model via the refinement
