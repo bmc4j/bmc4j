@@ -191,8 +191,64 @@ class BmcPlugin : Plugin<Project> {
             }
         }
 
+        // Contracts DSL lowering: after the test classes compile, EXECUTE each contractFor(...) facade
+        // (running its <clinit> self-registers the definitions), drain the registry, and generate
+        // <Facade>__BmcDslEnforce @BmcProof classes into a dedicated dir put on the test classpath +
+        // JUnit discovery roots. Runs in an isolated worker whose classpath is bmc-runtime (the DSL +
+        // registry + decoder), exactly like the mirror task. Inert (empty output dir) when the consumer
+        // declares no DSL contracts.
+        val dslWorker = project.configurations.create("bmcContractsDslWorker") { c ->
+            c.isCanBeConsumed = false
+            c.isCanBeResolved = true
+        }
+        project.dependencies.add(dslWorker.name, "$GROUP:bmc-runtime:$VERSION")
+        val dslTask = project.tasks.register(
+                "bmcContractsDsl", BmcContractsDslTask::class.java) { task ->
+            task.group = "verification"
+            task.description =
+                    "Lower the contracts DSL (contractFor) to generated enforce-proof classes."
+            task.dslWorker.from(dslWorker)
+            task.outputDir.set(project.layout.buildDirectory.dir("bmc4j/contracts-dsl"))
+        }
+        project.afterEvaluate { p ->
+            val ss = p.extensions.getByType(SourceSetContainer::class.java)
+            val testSs = ss.getByName("test")
+            dslTask.configure { task ->
+                task.contractsClasses.from(testSs.output.classesDirs)
+                // The facade <clinit> loads the app under contract + stdlib + deps (NOT bmc-runtime: the
+                // worker already has it on its parent loader, where ContractRegistry must resolve). Use
+                // testCompileClasspath (the resolved deps WITHOUT this task's own runtime-only output dir)
+                // plus the consumer's compiled output, so the load classpath does not depend on us (which
+                // would be a cycle via the testRuntimeOnly wiring below).
+                task.loadClasspath.from(
+                        ss.getByName("main").output,
+                        testSs.output.classesDirs,
+                        p.configurations.getByName("testCompileClasspath"))
+                // Fork the worker on the consumer's test toolchain so it can LOAD the consumer's compiled
+                // facade bytecode (which may target a newer Java than the Gradle daemon's JVM).
+                val javaExt = p.extensions.findByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
+                val toolchains = p.extensions.findByType(
+                        org.gradle.jvm.toolchain.JavaToolchainService::class.java)
+                if (javaExt != null && toolchains != null) {
+                    val launcher = toolchains.launcherFor(javaExt.toolchain)
+                    task.javaExecutable.set(launcher.map {
+                        it.executablePath.asFile.absolutePath
+                    })
+                }
+                task.dependsOn(testSs.classesTaskName)
+            }
+            // The generated enforce-proof classes must reach the test JVM AND be rewritten by the mirror,
+            // exactly like the annotation-form __BmcEnforce classes: add the dir to testRuntimeClasspath.
+            p.dependencies.add("testRuntimeOnly",
+                    p.files(dslTask.flatMap { it.outputDir }).builtBy(dslTask))
+        }
+
         project.tasks.withType(Test::class.java).configureEach { test ->
             test.useJUnitPlatform()
+            // The DSL enforce-proofs must be generated before proofs run, and JUnit only DISCOVERS proofs
+            // under the test task's testClassesDirs - so add the generated dir as a discovery root.
+            test.dependsOn(dslTask)
+            test.testClassesDirs = test.testClassesDirs + project.files(dslTask.flatMap { it.outputDir })
             // Consumer models must be compiled before proofs run.
             test.dependsOn(bmcModel.classesTaskName)
             // The pre-mirrored classpath must exist before proofs run; the runtime substitutes it.

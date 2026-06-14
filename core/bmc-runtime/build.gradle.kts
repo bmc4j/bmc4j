@@ -92,6 +92,8 @@ dependencies {
     shaded("com.google.code.gson:gson:2.11.0")
     // Internal: LVT-stripping coroutine bytecode for JBMC (see CoroutineBytecode). Shaded.
     shaded("org.ow2.asm:asm:9.8")
+    // Internal: instruction-list rewriting (the contracts-DSL predicate inliner). Shaded + relocated.
+    shaded("org.ow2.asm:asm-tree:9.8")
     // Test-only: compile a generated Kotlin replay file in-process (the Kotlin analog of the
     // JDK's javax.tools compiler the Java replay-writer test uses) to prove it is valid Kotlin.
     testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")

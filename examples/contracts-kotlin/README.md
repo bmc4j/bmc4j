@@ -6,8 +6,42 @@ proof-execution: 320s summed across the module (JBMC time, MiniSat; approximate)
 
 # Contracts (Kotlin)
 
+Method contracts declared **test-side from Kotlin**, so production code carries no bmc references. The
+Kotlin counterpart of [`examples/contracts`](../contracts).
+
+## The typed contracts DSL (`contracts.dsl`)
+
+A contract is a top-level `val` in a contracts source file - nothing wrapping it:
+
+```kotlin
+val deposit = contractFor(BankAccount::deposit) {            // (BankAccount, Int) -> Unit ; receiver is `self`
+    whenPrecondition("amount in range") { self, amount -> self.balance in 0..1000 && amount in 0..1000 }
+        .thenPostCondition("balance grew by amount") { before, after, amount, ret ->
+            after.balance == before.balance + amount
+        }
+        .updatesOnly { self, amount -> self.balance }       // the frame: only `balance` changes
+}
+```
+
+The unbound method reference threads the receiver in as `self`, so instance and static are uniform (a
+static target's first argument is `self`); the predicate lambdas are typed directly from the reference
+signature. `whenPrecondition` binds `(self, args...)`; `thenPostCondition` binds `(before, after, args...,
+ret)` so it relates pre- and post-state directly (no `old(...)`); `thenThrows<E>` is the must-throw
+exceptional exit (no `ret`); `updatesOnly { ... }` names the frame (the state a case may change).
+
+The block **executes** at build time and self-registers; the plugin (`bmcContractsDsl` task) drains the
+registry and lowers each contract onto the existing enforce-proof backend - one generated `@BmcProof` per
+case, discovered and run by the test task. The contracted method **may mutate freely** (`deposit` mutates
+`balance`); the frame captures what it changes and the postcondition relates `before`/`after`. The
+deliberately-false `frameViolation` contract pins `expect = ExpectEnforce.REFUTED` IN the DSL and refutes
+because the body writes a field outside its declared frame. (`contracts.dsl.BankAccountContracts`:
+mutating `deposit` VERIFIES, static `clamp` VERIFIES, `depositChecked` proves its `thenThrows`, the frame
+violation REFUTES.)
+
+## The annotation form
+
 Method contracts (`@Requires`/`@Ensures`) declared **test-side from Kotlin** with `@BmcContractsFor`,
-so production code carries no bmc references. The Kotlin counterpart of [`examples/contracts`](../contracts).
+the Java-native lowering target the DSL is a front-end over.
 
 `bmc-contracts` ships a native **KSP** `SymbolProcessor` for the Kotlin path (KSP replaces the
 deprecated kapt). The `org.bmc4j` plugin wires it for you: apply the Kotlin plugin and the bmc4j
