@@ -158,8 +158,14 @@ object BranchDecomposeBytecode {
      * One discovered branch's identity, as the orchestration needs it: its global [index] (the leaf
      * key), and the OWNER class (dotted) + synthetic leaf method that the leaf run must target. The
      * orchestration builds one leaf [BmcRequest] per [BranchSite].
+     *
+     * The remaining fields are observability only (the per-branch extraction report): [liveMethod] is
+     * the method the branch lives in, [inputs] are short descriptors of its live-in locals, and
+     * [inEntry] is true when the branch was found in the proof entry method itself (vs an inlined
+     * callee). None of these affect the leaf [BmcRequest] - they only feed the printed summary.
      */
-    data class BranchSite(val index: Int, val ownerClassDotted: String, val leafMethod: String)
+    data class BranchSite(val index: Int, val ownerClassDotted: String, val leafMethod: String,
+                          val liveMethod: String, val inputs: List<String>, val inEntry: Boolean)
 
     /**
      * The static analysis of one proof's reachable branch structure. [sites] is every decomposable
@@ -233,10 +239,9 @@ object BranchDecomposeBytecode {
      */
     @JvmStatic
     fun analyze(classpath: String, entryClass: String, methodName: String): Plan {
-        val branches = discoverAll(classpath, entryClass.replace('.', '/'), methodName)
-        return Plan(branches.map {
-            BranchSite(it.index, it.ownerInternal.replace('/', '.'), leafEntryMethod(it.index))
-        })
+        val entryInternal = entryClass.replace('.', '/')
+        val branches = discoverAll(classpath, entryInternal, methodName)
+        return Plan(branches.map { siteOf(it, entryInternal, methodName) })
     }
 
     /** [analyze] of a single method's own body over already-loaded class bytes (no call-graph walk).
@@ -246,10 +251,21 @@ object BranchDecomposeBytecode {
         val method = cn.methods.firstOrNull { it.name == methodName } ?: return Plan(emptyList())
         val branches = ArrayList<DiscoveredBranch>()
         discoverInMethod(cn.name, method, branches)
-        return Plan(branches.map {
-            BranchSite(it.index, it.ownerInternal.replace('/', '.'), leafEntryMethod(it.index))
-        })
+        return Plan(branches.map { siteOf(it, cn.name, methodName) })
     }
+
+    /** Build the observability [BranchSite] for a discovered branch. [inEntry] is true when the branch
+     *  lives in the proof entry method itself (the analysed [entryInternal].[entryMethod]) rather than
+     *  an inlined callee. [inputs] are short, stable descriptors of the branch's live-in locals. */
+    private fun siteOf(branch: DiscoveredBranch, entryInternal: String,
+                       entryMethod: String): BranchSite =
+            BranchSite(
+                    branch.index,
+                    branch.ownerInternal.replace('/', '.'),
+                    leafEntryMethod(branch.index),
+                    branch.methodName,
+                    branch.inputs.map { "${it.slot}:${it.type.className.substringAfterLast('.')}" },
+                    branch.ownerInternal == entryInternal && branch.methodName == entryMethod)
 
     /**
      * Walk the call graph from [entryInternal].[entryMethod] (bounded by [MAX_CALL_DEPTH]) and collect

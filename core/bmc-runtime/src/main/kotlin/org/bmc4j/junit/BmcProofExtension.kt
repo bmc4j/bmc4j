@@ -708,10 +708,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
     }
 
-    /** A classified result of one derived split run: its [verdict], the framed error/counterexample to
-     *  surface if this run decides the proof (null for a VERIFIED run), and the typed UNKNOWN cause. */
+    /** A classified result of one derived split/branch run: its [verdict], the framed
+     *  error/counterexample to surface if this run decides the proof (null for a VERIFIED run), the
+     *  typed UNKNOWN cause, and [elapsedMs] - this run's OWN wall time around [backend.verify] (the
+     *  derived runs fan out concurrently, so these overlap; never sum them as if serial). */
     private class DerivedRun(val verdict: Verdict, val framed: BmcVerificationError?,
-                             val unknownKind: UnknownKind?)
+                             val unknownKind: UnknownKind?, val elapsedMs: Long = 0)
 
     /** Cancel every given fan-out future (interrupt → kills the run's jbmc process if still alive). */
     private fun cancelAll(futures: Collection<java.util.concurrent.Future<DerivedRun>>) {
@@ -735,28 +737,34 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
     private fun evaluateDerived(method: Method, entryFunction: String,
                                 backend: org.bmc4j.engine.VerificationBackend, req: BmcRequest,
                                 label: String): DerivedRun {
+        // This run's OWN wall time. The derived runs execute concurrently on the fan-out pool, so these
+        // intervals overlap - each is reported alongside its verdict; they are never summed as serial.
+        val startNanos = System.nanoTime()
+        fun elapsedMs(): Long = (System.nanoTime() - startNanos) / 1_000_000
+
         val result: JbmcResult
         try {
             result = backend.verify(req)
         } catch (e: org.bmc4j.engine.ContractPurityError) {
             throw e
         } catch (e: BmcUndecidedError) {
-            return DerivedRun(Verdict.UNKNOWN, labelDerived(e, label), e.kind)
+            return DerivedRun(Verdict.UNKNOWN, labelDerived(e, label), e.kind, elapsedMs())
         } catch (e: BmcVerificationError) {
-            return DerivedRun(Verdict.REFUTED, labelDerived(e, label), null)
+            return DerivedRun(Verdict.REFUTED, labelDerived(e, label), null, elapsedMs())
         } catch (e: RuntimeException) {
             val infra = engineInfraUndecided(backend.id(), entryFunction, e)
-            return DerivedRun(Verdict.UNKNOWN, labelDerived(infra, label), infra.kind)
+            return DerivedRun(Verdict.UNKNOWN, labelDerived(infra, label), infra.kind, elapsedMs())
         }
 
         val actual = actualVerdict(result)
         if (actual == Verdict.VERIFIED) {
             println("  bmc4j: $entryFunction -> $label VERIFIED")
-            return DerivedRun(Verdict.VERIFIED, null, null)
+            return DerivedRun(Verdict.VERIFIED, null, null, elapsedMs())
         }
         val kind = if (actual == Verdict.UNKNOWN || actual == Verdict.TIMEOUT) result.undecidedKind else null
         return DerivedRun(actual,
-                labelDerived(toError(backend.id(), entryFunction, result, method), label), kind)
+                labelDerived(toError(backend.id(), entryFunction, result, method), label), kind,
+                elapsedMs())
     }
 
     /** Prefix a derived run's framed failure with which slice/cover produced it, so an aggregated
@@ -867,6 +875,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             byFuture.keys.forEach { it.cancel(true) } // never leak a jbmc process on any exit path
         }
 
+        // Decomposition observability: WHICH branches were extracted (owner.method, branch index, locus,
+        // live-in inputs) and HOW LONG each derived run took alongside its verdict. Cheap text, printed
+        // on every branch-decompose run (not gated behind @BmcProfile). The runs fanned out concurrently,
+        // so the times overlap - the "(parallel)" tag makes that explicit; they are never summed.
+        printBranchDecomposeReport(entryFunction, plan, results)
+
         // The lowest-priority DECISIVE run decides (parent = -1 outranks every leaf); parent AND every
         // leaf VERIFIED is a sound, full-precision green.
         val decisive = results.entries
@@ -887,6 +901,38 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             outcome.unknownKind = decisive.unknownKind
         }
         enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
+    }
+
+    /**
+     * Print the per-branch extraction + timing report after a branch-decompose fan-out: which branches
+     * were extracted (owner class.method, branch index, in-entry vs callee locus, live-in inputs) and how
+     * long each derived run took alongside its verdict. The parent and the N leaves ran CONCURRENTLY on
+     * the fan-out pool, so each line reports that run's OWN wall time (they overlap; the "(parallel)" tag
+     * on the header says so) - the times are never summed as serial.
+     *
+     * Pure observability, always printed (not @BmcProfile-gated). [results] is keyed by run priority:
+     * the parent at -1, each leaf at its branch index. A missing entry (only on a thrown fan-out failure
+     * before this point) renders as "-".
+     */
+    private fun printBranchDecomposeReport(entryFunction: String,
+                                           plan: org.bmc4j.engine.BranchDecomposeBytecode.Plan,
+                                           results: Map<Int, DerivedRun>) {
+        fun verdictOf(run: DerivedRun?) = run?.verdict?.name ?: "-"
+        fun timeOf(run: DerivedRun?) = if (run == null) "-" else "%.1fs".format(run.elapsedMs / 1000.0)
+
+        println("  bmc4j: $entryFunction -> branchDecompose: ${plan.branchCount} leaf + 1 parent" +
+                " (parallel)")
+        val parent = results[-1]
+        println("    %-8s %-26s %-10s %s".format(
+                "parent", "", verdictOf(parent), timeOf(parent)))
+        for (site in plan.sites) {
+            val run = results[site.index]
+            val locus = if (site.inEntry) "in-entry" else "callee"
+            val where = "${site.ownerClassDotted}.${site.liveMethod} ($locus)"
+            val inputs = "in=[${site.inputs.joinToString(",")}]"
+            println("    %-8s %-26s %-10s %s   %s".format(
+                    "leaf #${site.index}", where, verdictOf(run), timeOf(run), inputs))
+        }
     }
 
     /**
