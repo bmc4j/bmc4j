@@ -70,7 +70,8 @@ class Jbmc(private val executable: String) {
      * paths read a bounded head+tail for their error message (see [headTail]). The file is deleted by
      * the caller (`execOnce`'s `finally`).
      */
-    private class FileGobbler(private val input: InputStream, val file: File) :
+    private class FileGobbler(private val input: InputStream, val file: File,
+                              private val progress: EngineProgress? = null) :
             Thread("bmc-jbmc-gobbler") {
 
         init {
@@ -79,7 +80,28 @@ class Jbmc(private val executable: String) {
 
         override fun run() {
             try {
-                file.outputStream().buffered().use { out -> input.copyTo(out, COPY_BUFFER) }
+                if (progress == null) {
+                    // The normal (non-profiled) path: a blind, line-agnostic streaming copy - cheapest, and
+                    // nothing is watching the stream live.
+                    file.outputStream().buffered().use { out -> input.copyTo(out, COPY_BUFFER) }
+                } else {
+                    // Live-progress path (@BmcProfile / -Dbmc.streamEngine): tee the stream to the spill
+                    // file AND feed it to [EngineProgress] in bounded chunks as it arrives, so phase
+                    // transitions print to the console DURING the run and survive a SIGKILL (the markers
+                    // are flushed as soon as the engine emits them, not read post-mortem from the file).
+                    file.outputStream().buffered().use { out ->
+                        val buf = ByteArray(COPY_BUFFER)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) {
+                                break
+                            }
+                            out.write(buf, 0, n)
+                            progress.feed(buf, n)
+                        }
+                    }
+                    progress.finish() // flush the retained tail so a last-bytes transition isn't lost
+                }
             } catch (e: IOException) {
                 // Stream closed by a kill mid-read — keep whatever was spilled so far (possibly empty).
             }
@@ -406,10 +428,11 @@ class Jbmc(private val executable: String) {
             // jbmc's stdout is SPILLED to this temp file as it streams, never buffered whole in heap (the
             // latent-OOM fix); the parser reads it incrementally and we delete it in `finally`.
             val outFile = Files.createTempFile("bmc-jbmc-out", ".json").toFile()
-            // Engine subprocess wall-clock (launch -> exit/kill), in nanos, for @BmcProfile. On a
-            // symex-timeout jbmc emits NO `Runtime` phase line, so this harness-measured wall-clock is the
-            // ONLY way to attribute the engine's time to the (incomplete) symex phase. Measured only when
-            // profiling, so the normal path is unaffected.
+            // Engine subprocess wall-clock (launch -> exit/kill), in nanos, for @BmcProfile. On a TIMEOUT
+            // the killed phase emits no `Runtime <Phase>:` completion line, so this harness-measured
+            // wall-clock is what lets the profiler attribute the UNACCOUNTED time to the phase the engine
+            // was actually in (its in-progress marker survives the kill). Measured only when profiling, so
+            // the normal path is unaffected.
             val engineStartNanos = System.nanoTime()
             try {
                 p = pb.start()
@@ -418,7 +441,10 @@ class Jbmc(private val executable: String) {
                 // process while we're blocked in waitFor(timeout) (a single-threaded readAllBytes would
                 // also ignore the timeout entirely — it blocks until EOF, i.e. until the process exits).
                 // STDOUT spills to a temp file (it can be hundreds of MB); STDERR stays in heap (tiny).
-                val out = FileGobbler(p.inputStream, outFile)
+                // Under @BmcProfile (or -Dbmc.streamEngine) an [EngineProgress] tees the live stream to the
+                // console as phase markers arrive; otherwise the gobbler does its cheap blind copy.
+                val progress = if (EngineProgress.isEnabled(profile)) EngineProgress(::println) else null
+                val out = FileGobbler(p.inputStream, outFile, progress)
                 val err = StreamGobbler(p.errorStream)
                 out.start()
                 err.start()
@@ -501,9 +527,9 @@ class Jbmc(private val executable: String) {
             }
             val engineWall = (System.nanoTime() - engineStartNanos) / 1_000_000_000.0
             // Fold in the HARNESS-measured timings: bmc4j's own pre-engine pipeline passes and the engine
-            // subprocess wall-clock. The engine wall-clock is what lets the renderer derive a Symex
-            // entry on a symex-timeout (no `Runtime` phase line emitted) — symex IS the unwinding phase,
-            // so the full engine wall-clock is symex when no phase completed.
+            // subprocess wall-clock. On a TIMEOUT the engine wall-clock minus the completed phase times is
+            // attributed to the phase the engine was killed inside (Convert SSA for a bit-blasting-bound
+            // proof, Symex for a symex-bound one), keyed off the in-progress markers the profile captured.
             return JbmcProfile.parse(outFile).withHarnessTimings(pipelineSeconds, engineWall)
         }
 
