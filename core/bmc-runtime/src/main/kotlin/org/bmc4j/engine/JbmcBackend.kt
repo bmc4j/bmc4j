@@ -257,6 +257,21 @@ class JbmcBackend : VerificationBackend {
                 // pass, so no in-JVM Reachability scan is paid for the common (non-split) proof.
                 classpath = t("domain-split") { ReachabilityBytecode.rewrite(classpath) }
             }
+            // Branch decomposition: when this request is ONE derived run of a @BmcBranchDecompose proof,
+            // discover a branch in the entry method by CFG analysis and EXTRACT it into synthetic methods
+            // (the extracted branch, its relation predicate, and a summarize stub), then either rewrite
+            // the parent (the branch replaced by the stub call) or run the synthetic leaf enforce proof.
+            // Runs AFTER the desugars so a branch using strings/concat/lambdas is already sound. The
+            // synthetic methods carry fresh returns the (hoisted) Reachability pass did not see, so re-run
+            // it AFTER the extraction (idempotent on already-marked returns). A no-op for an ordinary
+            // proof (branchRun == null).
+            val branchRun = request.branchRun
+            if (branchRun != null) {
+                classpath = t("branch-decompose") {
+                    BranchDecomposeBytecode.rewrite(classpath, request.entryClass, branchRun)
+                }
+                classpath = t("branch-decompose") { ReachabilityBytecode.rewrite(classpath) }
+            }
             // Add the bundled Kotlin models (clean Intrinsics / coroutine runtime); harmless for Java.
             // It must sit AFTER the consumer's user models so a user model still shadows first: the user
             // models are the leading entries of the (now-rewritten) classpath, so splice the Kotlin models

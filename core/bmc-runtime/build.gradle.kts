@@ -92,9 +92,16 @@ dependencies {
     shaded("com.google.code.gson:gson:2.11.0")
     // Internal: LVT-stripping coroutine bytecode for JBMC (see CoroutineBytecode). Shaded.
     shaded("org.ow2.asm:asm:9.8")
+    // Internal: ASM tree + analysis APIs - the branch-decomposition pass walks a method's CFG
+    // (Analyzer) and rewrites its instruction list (MethodNode) to discover and extract branches.
+    // Same org.objectweb.asm.* prefix as asm, so the existing relocate rule covers it.
+    shaded("org.ow2.asm:asm-tree:9.8")
+    shaded("org.ow2.asm:asm-analysis:9.8")
     // Test-only: compile a generated Kotlin replay file in-process (the Kotlin analog of the
     // JDK's javax.tools compiler the Java replay-writer test uses) to prove it is valid Kotlin.
     testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
+    // Test-only: ASM CheckClassAdapter to verify the branch-decompose pass emits well-formed bytecode.
+    testImplementation("org.ow2.asm:asm-util:9.8")
 }
 
 // Build the published jar by bundling ONLY the `shaded` configuration's classes,

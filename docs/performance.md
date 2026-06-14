@@ -37,6 +37,7 @@ long-string blow-up seen from the RAM side, and the toolbox has levers for that 
 | Throughput (many proofs) **and** peak memory | **parallelism** (capped) | `bmc { parallelism = N }` |
 | Whole-suite wall-clock | **sharding** | `-Dbmc.shard.count` / `-Dbmc.shard.index` per worker |
 | A wide symbolic **interval** (one slow proof) | **domain splitting** | `Bmc.domainSplit` / `Bmc.slice` |
+| A **branchy** proof whose arms tangle the formula | **branch decomposition** | `@BmcBranchDecompose` |
 | **Recursion / unbounded depth** | **contracts** | `@Requires`/`@Ensures` |
 | (Always available) tighten symbolic inputs | **range reduction** | `anyInt(lo, hi)`, `anyAsciiString(n)` |
 
@@ -190,6 +191,33 @@ site. See [docs/contracts.md](contracts.md) for the full annotation surface (Kot
 interface SumToContract {
     @Requires("inRange") @Ensures("closedForm") int sumTo(int n);
     // static boolean predicates inRange(n) / closedForm(result, n)
+}
+```
+
+### 6. Branch decomposition — *for branchy proofs whose arms tangle the formula*
+
+**What it does.** `@BmcBranchDecompose` makes bmc4j **discover** the first top-level value branch in
+the proof method by CFG analysis (you mark nothing), **extract** it into a separately-proven synthetic
+method, prove that method against an automatically-derived summary of its input/output relation (the
+**leaf**), and discharge the summary back into the proof at the call site (the **parent**). The parent
+then calls the summarized method instead of inlining the branch body, so a branch with complex internal
+control flow becomes a single flat relation predicate in the parent's formula — the solver simplifies it
+independently of the rest of the proof. Leaf and parent are an assume-guarantee pair proven concurrently
+on the same jbmc pool; the proof passes iff **both** verified.
+
+**Blow-up it addresses.** A proof whose branch arms tangle with the surrounding logic at the merge
+points, so the monolithic formula is harder to collapse than its parts. Decomposing **restructures** the
+formula without losing precision: the summary is the branch's *exact* relation, so a wrong branch value
+surfaces in the parent and a wrong remainder surfaces too — it is the sound successor to dead-branch
+pruning, not a heuristic.
+
+```java
+@BmcProof
+@BmcBranchDecompose
+void clamp_stays_in_range() {
+    int x = Bmc.anyInt();
+    int r = (x < -10) ? -10 : (x > 10) ? 10 : x;   // discovered + extracted automatically
+    Bmc.check(r >= -10 && r <= 10);
 }
 ```
 
