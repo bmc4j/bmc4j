@@ -90,6 +90,28 @@ import java.util.zip.ZipFile
  * information the inlined arms carried. The proof VERIFIES iff the parent AND every leaf VERIFIED. A
  * wrong branch value fails its leaf's relation OR surfaces in the parent's downstream check; a wrong
  * remainder fails the parent.
+ *
+ * ## Effectful branches
+ *
+ * Beyond the pure value branch above, a branch may also MUTATE state:
+ *
+ * - **LOCAL-mutating (rung 2)** - an `if/else` whose arms WRITE live-out LOCALS (`x++`, `x += k`,
+ *   reassigning a local read afterwards) and reconverge at a join LABEL (no single value join). Its
+ *   summary is a MULTI-OUTPUT relation: it relates EACH mutated local's after-value to the live-in
+ *   inputs (each output's before-value is threaded in, so an arm that leaves a local unchanged is
+ *   captured exactly). NO frame is needed - locals are not shared/aliased heap state, so the relation
+ *   stays exact and sound. The parent discharges it by havocing each mutated local and assuming the
+ *   relation; the leaf certifies the real region satisfies the relation under the path condition. A wrong
+ *   local-update relation surfaces in the parent's check (or fails the leaf), exactly like a wrong value.
+ *   See [tryExtractStatementBranch], [buildPostRelationMulti], [buildEnforceProofMulti],
+ *   [appendMultiOutputDischarge].
+ * - **HEAP-effecting (rung 3)** - a branch that does a field/array store or calls a method with heap
+ *   effects needs a FRAME (modifies-set) summary. We do NOT yet derive a sound modifies-set for these, so
+ *   - rather than risk an UNSOUND under-approximated frame - such a branch FALLS BACK TO INLINING: it is
+ *   not decomposed and runs as part of the ordinary (parent) symex, the sound default. Discovery rejects
+ *   any region with a heap effect / call / allocation (see [isDisallowedInRegion] for value branches,
+ *   [isHeapOrCallOrTrapping] for statement branches), so a heap-effecting branch is never decomposed with
+ *   an unsound summary.
  */
 object BranchDecomposeBytecode {
 
@@ -182,10 +204,27 @@ object BranchDecomposeBytecode {
             val inputs: List<InputLocal>,
             val preGuards: List<PreGuard>,
             val startIndex: Int,
-            val endIndex: Int)
+            val endIndex: Int,
+            /** RUNG 2 - the live-out LOCALS this branch mutates (writes a value read after the region).
+             *  Empty for a pure value branch (the single result is [resultLocal]/[returnJoin]); non-empty
+             *  for a local-mutating statement branch, whose summary is a MULTI-OUTPUT relation over each
+             *  mutated local's after-value. The region itself contains the stores; the synthetic methods
+             *  replay it and relate each output. */
+            val outputs: List<OutputLocal> = emptyList(),
+            /** RUNG 2 - the original JOIN label the arms reconverge at (just past the region). The arms'
+             *  GOTOs target it; replaying the region must remap it to a fresh trailing label. Null for a
+             *  pure value branch. */
+            val joinLabel: LabelNode? = null) {
+        /** True for a local-mutating statement branch (rung 2): no single value result, one+ live-out
+         *  locals. Its summary relates each output's after-value to the inputs. */
+        val isMultiOutput: Boolean get() = outputs.isNotEmpty()
+    }
 
     /** A live-in local the branch reads: its slot in the owner method and its type. */
     private class InputLocal(val slot: Int, val type: Type)
+
+    /** A live-out local the branch WRITES (rung 2): its slot in the owner method and its (store) type. */
+    private class OutputLocal(val slot: Int, val type: Type)
 
     /**
      * Analyse [entryClass].[methodName] on [classpath]: walk the call graph and discover EVERY
@@ -304,8 +343,13 @@ object BranchDecomposeBytecode {
             }
             val node = arr[i]
             if (node is JumpInsnNode && isConditionalIntJump(node.opcode)) {
+                // Prefer the pure value-branch shape (rung 1, single result). If the region is not a
+                // clean value branch, try the local-mutating statement-branch shape (rung 2, multi-output
+                // over live-out locals). Both are sound; neither matching falls through to an ordinary run.
                 val branch = tryExtractValueBranch(ownerInternal, method, arr, i, stackHeights,
                         out.size, resumeFrom)
+                        ?: tryExtractStatementBranch(ownerInternal, method, arr, i, stackHeights,
+                                out.size, resumeFrom)
                 if (branch != null) {
                     out.add(branch)
                     resumeFrom = branch.endIndex
@@ -446,6 +490,158 @@ object BranchDecomposeBytecode {
         val inputs = collectInputs(arr, preGuards, startIdx, storeIdx)
         return DiscoveredBranch(globalIndex, ownerInternal, method.name, method.desc, resultType,
                 resultLocal, returnJoin, regionNodes, inputs, preGuards, startIdx, storeIdx + 1)
+    }
+
+    /**
+     * RUNG 2: try to read a LOCAL-MUTATING statement branch starting at the conditional jump [jumpIdx].
+     * This is the `if (c) <stmt> [else <stmt>]` shape whose arms WRITE live-out LOCALS (e.g. `x++`,
+     * `x += k`, reassigning `x`) and reconverge at a JOIN LABEL (not a single value-store). The summary
+     * is a MULTI-OUTPUT relation over each mutated local's after-value - exact and sound because locals
+     * are not shared/aliased heap state, so no frame is needed.
+     *
+     * The region [startIdx, joinIdx) must be self-contained (its jumps target only labels inside it, the
+     * arms' forward GOTOs landing exactly at the join), stack-balanced (height 0 at the join, so it leaves
+     * nothing on the stack - it is statements, not a value), contain NO heap effect / call / allocation /
+     * trapping division (those are rung 3, not handled here), and write at least one local. A shape we
+     * cannot bound this way returns null (the sound default - it is not decomposed, or a richer shape may
+     * still match it elsewhere).
+     */
+    private fun tryExtractStatementBranch(ownerInternal: String, method: MethodNode,
+                                          arr: Array<AbstractInsnNode>, jumpIdx: Int,
+                                          stackHeights: IntArray, globalIndex: Int,
+                                          scanFrom: Int): DiscoveredBranch? {
+        // Region start: back up to the latest height-0 point so the guard's operand push is included.
+        var startIdx = jumpIdx
+        while (startIdx > 0 && stackHeights[startIdx] != 0) {
+            startIdx--
+        }
+        if (stackHeights[startIdx] != 0) {
+            return null
+        }
+        // The join is where the arms reconverge: the FARTHEST forward target among all jumps in the
+        // candidate region, taken at stack height 0 (statements leave nothing on the stack). We grow the
+        // region jump-by-jump: every conditional/GOTO must target forward (no loop back-edge) and stay
+        // within the eventual region; the region ends at the maximum such target.
+        var joinIdx = -1
+        var k = jumpIdx
+        // The first jump (the guard) bounds the minimum region; expand to cover every arm's join GOTO.
+        while (k < arr.size) {
+            val n = arr[k]
+            if (n is JumpInsnNode) {
+                if (n.opcode == Opcodes.JSR || n.opcode == Opcodes.RET) {
+                    return null
+                }
+                val targetIdx = indexOfLabel(arr, n.label)
+                if (targetIdx <= k) {
+                    return null // backward jump = loop skeleton; not a forward if/else
+                }
+                if (targetIdx > joinIdx) {
+                    joinIdx = targetIdx
+                }
+            }
+            // An early RETURN/THROW inside the region would mean an arm exits the method, not reconverges.
+            if (isReturnOrThrow(n.opcode)) {
+                return null
+            }
+            // Reached the running join candidate at height 0 with no later jump pending: that's the join.
+            if (k >= jumpIdx + 1 && k == joinIdx && stackHeights[k] == 0) {
+                break
+            }
+            // Past the candidate join without landing on it cleanly: give up.
+            if (joinIdx in 0 until k) {
+                return null
+            }
+            k++
+        }
+        if (joinIdx < 0 || joinIdx >= arr.size || stackHeights[joinIdx] != 0) {
+            return null
+        }
+        if (arr[joinIdx] !is LabelNode) {
+            return null
+        }
+        // The region must be stack-balanced throughout (every instruction entered at height 0 is a
+        // statement boundary we could split on; we only require the join to be height 0, but reject if any
+        // interior point dips below 0 - the analyzer would have failed then, giving -1).
+        // Collect region nodes, forbidding heap effects / calls / allocations / trapping division. LOCAL
+        // stores and IINC are ALLOWED here (that is the whole point of rung 2).
+        val regionNodes = ArrayList<AbstractInsnNode>()
+        val storedSlots = LinkedHashMap<Int, Type>()
+        var sawStore = false
+        for (idx in startIdx until joinIdx) {
+            val n = arr[idx]
+            if (stackHeights[idx] < 0) {
+                return null
+            }
+            if (isHeapOrCallOrTrapping(n)) {
+                return null
+            }
+            val st = storeTypeOf(n)
+            if (st != null) {
+                storedSlots[(n as VarInsnNode).`var`] = st
+                sawStore = true
+            } else if (n.opcode == Opcodes.IINC) {
+                storedSlots[(n as org.objectweb.asm.tree.IincInsnNode).`var`] = Type.INT_TYPE
+                sawStore = true
+            }
+            regionNodes.add(n)
+        }
+        if (!sawStore) {
+            return null // no local mutation - nothing for rung 2 to summarize as an output
+        }
+        if (!jumpsStayWithinRegionForward(arr, startIdx, joinIdx)) {
+            return null
+        }
+        // Pre-guard path condition (same as the value-branch path).
+        val preGuards = collectPreGuards(arr, scanFrom, startIdx, stackHeights) ?: return null
+        // Inputs: locals the region + pre-guards LOAD, PLUS every output local's BEFORE-value. An output
+        // an arm leaves unchanged (e.g. `if (c) x = 5;` with no else) is `x_after = c ? 5 : x_before`, so
+        // its before-value must be a threaded input for the relation to be exact. We therefore force every
+        // output slot (and every IINC-read slot) into the input set.
+        val loaded = collectInputs(arr, preGuards, startIdx, joinIdx).associateByTo(LinkedHashMap()) {
+            it.slot
+        }
+        for ((slot, type) in storedSlots) {
+            loaded.putIfAbsent(slot, InputLocal(slot, type))
+        }
+        val inputs = loaded.values.toList()
+        val outputs = storedSlots.entries.map { OutputLocal(it.key, it.value) }
+        return DiscoveredBranch(globalIndex, ownerInternal, method.name, method.desc, Type.VOID_TYPE,
+                -1, false, regionNodes, inputs, preGuards, startIdx, joinIdx, outputs,
+                arr[joinIdx] as LabelNode)
+    }
+
+    /** True iff every jump in [start, end) targets a label inside [start, end] (LabelNodes by identity).
+     *  Unlike [jumpsStayWithinRegion] the end is EXCLUSIVE (the join label is the region boundary, so a
+     *  GOTO to it is allowed - the join label index itself is treated as in-region). */
+    private fun jumpsStayWithinRegionForward(arr: Array<AbstractInsnNode>, start: Int, end: Int): Boolean {
+        val regionLabels = HashSet<LabelNode>()
+        for (idx in start..end) {
+            (arr[idx] as? LabelNode)?.let { regionLabels.add(it) }
+        }
+        for (idx in start until end) {
+            val n = arr[idx]
+            if (n is JumpInsnNode && n.label !in regionLabels) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /** Heap effect / call / allocation / trapping-division test for the RUNG 2 region (which DOES allow
+     *  local stores + IINC, unlike [isDisallowedInRegion]). A true here means the region touches the heap
+     *  or calls out - that is rung 3, not handled by the local-mutating path. */
+    private fun isHeapOrCallOrTrapping(n: AbstractInsnNode): Boolean = when (n.opcode) {
+        Opcodes.PUTFIELD, Opcodes.PUTSTATIC, Opcodes.GETFIELD, Opcodes.GETSTATIC,
+        Opcodes.IASTORE, Opcodes.LASTORE, Opcodes.FASTORE, Opcodes.DASTORE, Opcodes.AASTORE,
+        Opcodes.BASTORE, Opcodes.CASTORE, Opcodes.SASTORE,
+        Opcodes.IALOAD, Opcodes.LALOAD, Opcodes.FALOAD, Opcodes.DALOAD, Opcodes.AALOAD,
+        Opcodes.BALOAD, Opcodes.CALOAD, Opcodes.SALOAD, Opcodes.ARRAYLENGTH,
+        Opcodes.MONITORENTER, Opcodes.MONITOREXIT, Opcodes.NEW, Opcodes.NEWARRAY,
+        Opcodes.ANEWARRAY, Opcodes.MULTIANEWARRAY,
+        Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESTATIC, Opcodes.INVOKEINTERFACE,
+        Opcodes.INVOKESPECIAL, Opcodes.INVOKEDYNAMIC,
+        Opcodes.IDIV, Opcodes.LDIV, Opcodes.IREM, Opcodes.LREM -> true
+        else -> false
     }
 
     /** The value type of an `xRETURN` that returns a VALUE (not the void RETURN / ATHROW), or null. */
@@ -772,8 +968,27 @@ object BranchDecomposeBytecode {
     private fun preDescriptor(branch: DiscoveredBranch): String =
             Type.getMethodDescriptor(Type.BOOLEAN_TYPE, *branch.inputs.map { it.type }.toTypedArray())
 
-    /** Add the synthetic STATIC methods for [branch] to its owner class [cn]. */
+    /** The descriptor of the MULTI-OUTPUT `branch$N$post(out_0..out_{K-1}, inputs): boolean`: the K
+     *  candidate after-values of the mutated locals, then the live-in inputs. */
+    private fun postDescriptorMulti(branch: DiscoveredBranch): String {
+        val params = ArrayList<Type>(branch.outputs.size + branch.inputs.size)
+        params.addAll(branch.outputs.map { it.type })
+        params.addAll(branch.inputs.map { it.type })
+        return Type.getMethodDescriptor(Type.BOOLEAN_TYPE, *params.toTypedArray())
+    }
+
+    /** Add the synthetic STATIC methods for [branch] to its owner class [cn]. A pure value branch
+     *  (rung 1) gets the single-result extracted/post/stub/enforce set; a local-mutating branch (rung 2)
+     *  gets the MULTI-OUTPUT post + enforce (no extracted/stub - the parent inlines havoc+assume). */
     private fun synthesizeBranchMethods(cn: ClassNode, branch: DiscoveredBranch) {
+        if (branch.isMultiOutput) {
+            cn.methods.add(buildPostRelationMulti(branch))
+            if (branch.preGuards.isNotEmpty()) {
+                cn.methods.add(buildPreRelation(branch))
+            }
+            cn.methods.add(buildEnforceProofMulti(branch, cn.name))
+            return
+        }
         cn.methods.add(buildExtractedBranch(branch))
         cn.methods.add(buildPostRelation(branch))
         if (branch.preGuards.isNotEmpty()) {
@@ -944,6 +1159,133 @@ object BranchDecomposeBytecode {
     }
 
     /**
+     * RUNG 2 `private static boolean branch$N$post(out_0..out_{K-1}, inputs)`: the MULTI-OUTPUT relation.
+     * Seed a private working-local copy of each input (the before-values), REPLAY the region (its arm
+     * stores write the working locals), then return `AND_i (working[output_i] == out_i)` - true iff the
+     * candidate after-values are EXACTLY what the branch computes for those inputs. Exact and sound (no
+     * heap, locals unaliased), so the parent may assume it and the leaf certifies it.
+     */
+    private fun buildPostRelationMulti(branch: DiscoveredBranch): MethodNode {
+        val mv = MethodNode(STATIC, "${baseName(branch)}\$post", postDescriptorMulti(branch), null, null)
+        val il = mv.instructions
+        // Param layout: outputs [0..), then inputs. Working locals start past all params.
+        var outBase = 0
+        val outSlot = HashMap<Int, Int>()
+        for (o in branch.outputs) {
+            outSlot[o.slot] = outBase
+            outBase += o.type.size
+        }
+        var inBase = outBase
+        val inParam = HashMap<Int, Int>()
+        for (input in branch.inputs) {
+            inParam[input.slot] = inBase
+            inBase += input.type.size
+        }
+        // Working locals: one per input slot, seeded from the input param. The region reads+writes these.
+        var workBase = inBase
+        val workSlot = HashMap<Int, Int>()
+        for (input in branch.inputs) {
+            il.add(VarInsnNode(loadOpcode(input.type), inParam[input.slot]!!))
+            il.add(VarInsnNode(storeOpcode(input.type), workBase))
+            workSlot[input.slot] = workBase
+            workBase += input.type.size
+        }
+        // Replay the region; its stores land in the working locals. Arms reconverge at `done`.
+        val done = LabelNode()
+        appendRegionWithStores(il, branch, workSlot, done)
+        il.add(done)
+        // AND_i (working[output_i] == out_i): short-circuit to `fail` on the first mismatch.
+        val fail = LabelNode()
+        for (o in branch.outputs) {
+            il.add(VarInsnNode(loadOpcode(o.type), workSlot[o.slot]!!))
+            il.add(VarInsnNode(loadOpcode(o.type), outSlot[o.slot]!!))
+            appendJumpIfNotEqual(il, o.type, fail)
+        }
+        il.add(InsnNode(Opcodes.ICONST_1))
+        il.add(InsnNode(Opcodes.IRETURN))
+        il.add(fail)
+        il.add(InsnNode(Opcodes.ICONST_0))
+        il.add(InsnNode(Opcodes.IRETURN))
+        return mv
+    }
+
+    /**
+     * RUNG 2 `@BmcProof void branch$N$enforce()`: havoc each input local, `assume(pre)` (the path
+     * condition), REPLAY the real region (its stores write the input locals in place), then
+     * `check(branch$N$post(local_after_0..., inputs_before))`. But the region overwrites the input locals,
+     * so we must capture the BEFORE-values (for inputs the relation references) before replaying. We do
+     * this by keeping the before-values in their own slots and replaying into a SEPARATE working copy -
+     * identical to how `post` is structured - then checking the post relation holds for the real
+     * computation. The leaf thus certifies the exact multi-output relation under the path condition.
+     */
+    private fun buildEnforceProofMulti(branch: DiscoveredBranch, owner: String): MethodNode {
+        val mv = MethodNode(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, "${baseName(branch)}\$enforce",
+                "()V", null, null)
+        mv.visitAnnotation(BMC_PROOF_DESC, true).visitEnd()
+        val il = mv.instructions
+        // Slot 0..: before-value of each input (nondet). Then a working copy the region mutates.
+        var slot = 0
+        val beforeSlot = HashMap<Int, Int>()
+        for (input in branch.inputs) {
+            appendNondet(il, input.type)
+            il.add(VarInsnNode(storeOpcode(input.type), slot))
+            beforeSlot[input.slot] = slot
+            slot += input.type.size
+        }
+        // assume(pre(before-inputs)) - the path condition, when present.
+        if (branch.preGuards.isNotEmpty()) {
+            for (input in branch.inputs) {
+                il.add(VarInsnNode(loadOpcode(input.type), beforeSlot[input.slot]!!))
+            }
+            il.add(MethodInsnNode(Opcodes.INVOKESTATIC, owner, "${baseName(branch)}\$pre",
+                    preDescriptor(branch), false))
+            il.add(MethodInsnNode(Opcodes.INVOKESTATIC, CPROVER, "assume", BOOL_DESC, false))
+        }
+        // Working copy = before-values; replay the real region into it (its stores mutate the copy).
+        val workSlot = HashMap<Int, Int>()
+        for (input in branch.inputs) {
+            il.add(VarInsnNode(loadOpcode(input.type), beforeSlot[input.slot]!!))
+            il.add(VarInsnNode(storeOpcode(input.type), slot))
+            workSlot[input.slot] = slot
+            slot += input.type.size
+        }
+        val done = LabelNode()
+        appendRegionWithStores(il, branch, workSlot, done)
+        il.add(done)
+        // check(post(after_0.., before-inputs)): the after-values are the working copies of the outputs.
+        for (o in branch.outputs) {
+            il.add(VarInsnNode(loadOpcode(o.type), workSlot[o.slot]!!))
+        }
+        for (input in branch.inputs) {
+            il.add(VarInsnNode(loadOpcode(input.type), beforeSlot[input.slot]!!))
+        }
+        il.add(MethodInsnNode(Opcodes.INVOKESTATIC, owner, "${baseName(branch)}\$post",
+                postDescriptorMulti(branch), false))
+        il.add(MethodInsnNode(Opcodes.INVOKESTATIC, BMC, "check", BOOL_DESC, false))
+        il.add(InsnNode(Opcodes.RETURN))
+        return mv
+    }
+
+    /** Emit a conditional jump to [target] when the two stack values of [type] are NOT equal (consuming
+     *  both). Used by the multi-output relation's short-circuit AND. */
+    private fun appendJumpIfNotEqual(il: InsnList, type: Type, target: LabelNode) {
+        when (type.sort) {
+            Type.INT, Type.SHORT, Type.BYTE, Type.CHAR, Type.BOOLEAN ->
+                il.add(JumpInsnNode(Opcodes.IF_ICMPNE, target))
+            Type.LONG -> {
+                il.add(InsnNode(Opcodes.LCMP)); il.add(JumpInsnNode(Opcodes.IFNE, target))
+            }
+            Type.FLOAT -> {
+                il.add(InsnNode(Opcodes.FCMPL)); il.add(JumpInsnNode(Opcodes.IFNE, target))
+            }
+            Type.DOUBLE -> {
+                il.add(InsnNode(Opcodes.DCMPL)); il.add(JumpInsnNode(Opcodes.IFNE, target))
+            }
+            else -> il.add(JumpInsnNode(Opcodes.IF_ACMPNE, target)) // reference identity (after-local)
+        }
+    }
+
+    /**
      * PARENT rewrite of one owner [method]: replace each of its discovered branch regions with a call to
      * `branch$N$stub(inputs)`, leaving the stub's (havoc'd, post-constrained) result on the stack
      * exactly where the original join STORE consumed it. [branches] all live in [method]; we splice
@@ -951,8 +1293,16 @@ object BranchDecomposeBytecode {
      */
     private fun rewriteParentMethod(method: MethodNode, branches: List<DiscoveredBranch>) {
         val arr = method.instructions.toArray()
+        // Scratch locals for the multi-output discharge (before-values). Allocated above the method's
+        // own locals; COMPUTE_MAXS recomputes the final frame size.
+        var scratchBase = method.maxLocals
         for (branch in branches.sortedByDescending { it.startIndex }) {
             val replacement = InsnList()
+            if (branch.isMultiOutput) {
+                scratchBase = appendMultiOutputDischarge(replacement, branch, scratchBase)
+                spliceReplacement(method, arr, branch, replacement)
+                continue
+            }
             for (input in branch.inputs) {
                 replacement.add(VarInsnNode(loadOpcode(input.type), input.slot))
             }
@@ -965,19 +1315,62 @@ object BranchDecomposeBytecode {
             } else {
                 replacement.add(VarInsnNode(storeOpcode(branch.resultType), branch.resultLocal))
             }
+            spliceReplacement(method, arr, branch, replacement)
+        }
+    }
 
-            val first = arr[branch.startIndex]
-            val last = arr[branch.endIndex - 1]
-            method.instructions.insertBefore(first, replacement)
-            var node: AbstractInsnNode? = first
-            while (node != null) {
-                val nextNode = node.next
-                method.instructions.remove(node)
-                if (node === last) {
-                    break
-                }
-                node = nextNode
+    /**
+     * RUNG 2 PARENT discharge for a local-mutating [branch]: emit, into [replacement], the havoc+assume
+     * that summarizes the branch at its call site. We (1) snapshot each input's BEFORE-value into a fresh
+     * scratch local (so a havoc of an output that is also a live-in doesn't destroy its before-value the
+     * relation references), (2) havoc each output local in place (`nondet -> store output.slot`), then
+     * (3) `assume(branch$N$post(output_after.., input_before..))`. The branch's interior control flow is
+     * gone; the parent carries only the flat relation. Returns the next free scratch slot.
+     */
+    private fun appendMultiOutputDischarge(replacement: InsnList, branch: DiscoveredBranch,
+                                           scratchBase: Int): Int {
+        var scratch = scratchBase
+        val beforeSlot = HashMap<Int, Int>()
+        for (input in branch.inputs) {
+            replacement.add(VarInsnNode(loadOpcode(input.type), input.slot))
+            replacement.add(VarInsnNode(storeOpcode(input.type), scratch))
+            beforeSlot[input.slot] = scratch
+            scratch += input.type.size
+        }
+        // Havoc each output local in place.
+        for (o in branch.outputs) {
+            appendNondet(replacement, o.type)
+            replacement.add(VarInsnNode(storeOpcode(o.type), o.slot))
+        }
+        // assume(post(output_after.., input_before..)).
+        for (o in branch.outputs) {
+            replacement.add(VarInsnNode(loadOpcode(o.type), o.slot))
+        }
+        for (input in branch.inputs) {
+            replacement.add(VarInsnNode(loadOpcode(input.type), beforeSlot[input.slot]!!))
+        }
+        replacement.add(MethodInsnNode(Opcodes.INVOKESTATIC, branch.ownerInternal,
+                "${baseName(branch)}\$post", postDescriptorMulti(branch), false))
+        replacement.add(MethodInsnNode(Opcodes.INVOKESTATIC, CPROVER, "assume", BOOL_DESC, false))
+        return scratch
+    }
+
+    /** Splice [replacement] in place of the branch region [startIndex, endIndex) in [method], using the
+     *  pre-captured [arr] node identities. The join label (just past the region for a statement branch,
+     *  or the join store for a value branch) is left in place so control flow continues naturally. */
+    private fun spliceReplacement(method: MethodNode, arr: Array<AbstractInsnNode>,
+                                  branch: DiscoveredBranch, replacement: InsnList) {
+        val first = arr[branch.startIndex]
+        val last = arr[branch.endIndex - 1]
+        method.instructions.insertBefore(first, replacement)
+        var node: AbstractInsnNode? = first
+        while (node != null) {
+            val nextNode = node.next
+            method.instructions.remove(node)
+            if (node === last) {
+                break
             }
+            node = nextNode
         }
     }
 
@@ -998,6 +1391,30 @@ object BranchDecomposeBytecode {
                 il.add(VarInsnNode(n.opcode, remap[n.`var`] ?: n.`var`))
             } else {
                 il.add(n.clone(labelMap))
+            }
+        }
+    }
+
+    /**
+     * RUNG 2 region replay for a local-mutating branch: append the [branch]'s region to [il], remapping
+     * EVERY local access (loads, stores, IINC) by [remap] (owner slot -> working slot) and mapping the
+     * branch's join label to [joinTarget] (so the arms' GOTOs land at the trailing reconvergence point).
+     * After this returns, each output's WORKING slot holds the branch's computed after-value for the
+     * inputs seeded into the working slots.
+     */
+    private fun appendRegionWithStores(il: InsnList, branch: DiscoveredBranch, remap: Map<Int, Int>,
+                                       joinTarget: LabelNode) {
+        val labelMap = HashMap<LabelNode, LabelNode>()
+        branch.joinLabel?.let { labelMap[it] = joinTarget }
+        for (n in branch.regionNodes) {
+            (n as? LabelNode)?.let { labelMap.putIfAbsent(it, LabelNode()) }
+        }
+        for (n in branch.regionNodes) {
+            when {
+                n is VarInsnNode -> il.add(VarInsnNode(n.opcode, remap[n.`var`] ?: n.`var`))
+                n is org.objectweb.asm.tree.IincInsnNode ->
+                    il.add(org.objectweb.asm.tree.IincInsnNode(remap[n.`var`] ?: n.`var`, n.incr))
+                else -> il.add(n.clone(labelMap))
             }
         }
     }

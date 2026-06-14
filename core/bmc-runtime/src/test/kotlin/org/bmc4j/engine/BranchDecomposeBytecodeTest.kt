@@ -164,6 +164,50 @@ internal class BranchDecomposeBytecodeTest {
         return cw.toByteArray()
     }
 
+    // RUNG 2: a LOCAL-MUTATING statement branch. `int x = anyInt(); if (x < 0) x = -x; else x = x + 1;
+    // check(x >= 0)`. The arms WRITE the live-out local x (no single value join) and reconverge at a join
+    // label - a multi-output relation over x's after-value.
+    private fun localMutateClass(): ByteArray {
+        val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "C", null, "java/lang/Object", null)
+        defaultCtor(cw)
+        val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null)
+        mv.visitCode()
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "anyInt", "()I", false)
+        mv.visitVarInsn(Opcodes.ISTORE, 1)
+        // if (x < 0) x = -x; else x = x + 1;
+        val elseArm = Label()
+        val join = Label()
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitJumpInsn(Opcodes.IFGE, elseArm)
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitInsn(Opcodes.INEG)
+        mv.visitVarInsn(Opcodes.ISTORE, 1)
+        mv.visitJumpInsn(Opcodes.GOTO, join)
+        mv.visitLabel(elseArm)
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        mv.visitInsn(Opcodes.ICONST_1)
+        mv.visitInsn(Opcodes.IADD)
+        mv.visitVarInsn(Opcodes.ISTORE, 1)
+        mv.visitLabel(join)
+        // check(x >= 0)
+        mv.visitVarInsn(Opcodes.ILOAD, 1)
+        val ok = Label()
+        val end = Label()
+        mv.visitJumpInsn(Opcodes.IFGE, ok)
+        mv.visitInsn(Opcodes.ICONST_0)
+        mv.visitJumpInsn(Opcodes.GOTO, end)
+        mv.visitLabel(ok)
+        mv.visitInsn(Opcodes.ICONST_1)
+        mv.visitLabel(end)
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/bmc4j/Bmc", "check", "(Z)V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(0, 0)
+        mv.visitEnd()
+        cw.visitEnd()
+        return cw.toByteArray()
+    }
+
     private fun defaultCtor(cw: ClassWriter) {
         val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null)
         mv.visitCode()
@@ -257,6 +301,41 @@ internal class BranchDecomposeBytecodeTest {
         val calls = methodCalls(leaf, "branch\$0\$enforce")
         assertTrue(calls.any { it.contains("branch\$0\$pre") }, "enforce assumes the pre relation: $calls")
         assertTrue(calls.any { it.contains("CProver.assume") }, "enforce calls assume: $calls")
+    }
+
+    // ---- RUNG 2: local-mutating statement branches ----
+
+    @Test
+    fun discovers_a_local_mutating_branch() {
+        val plan = BranchDecomposeBytecode.analyzeBytes(localMutateClass(), "m")
+        assertTrue(plan.isDecomposed, "the if/else that mutates a live-out local is decomposable")
+        assertEquals(1, plan.branchCount)
+    }
+
+    @Test
+    fun parent_rewrite_of_a_local_mutating_branch_is_well_formed_and_assumes_the_relation() {
+        val parent = BranchDecomposeBytecode.rewriteClassForTest(
+                localMutateClass(), "C", "m", RunPlan.Parent)
+        assertVerifies(parent)
+        val names = methodNames(parent)
+        assertTrue("branch\$0\$post" in names, "multi-output relation present: $names")
+        // No single-result extracted/stub for a multi-output branch: the parent inlines havoc + assume.
+        assertFalse("branch\$0\$stub" in names, "no single-result stub for a multi-output branch: $names")
+        val calls = methodCalls(parent, "m")
+        assertTrue(calls.any { it.contains("branch\$0\$post") }, "parent assumes the relation: $calls")
+        assertTrue(calls.any { it.contains("CProver.assume") }, "parent havoc+assume present: $calls")
+    }
+
+    @Test
+    fun leaf_rewrite_of_a_local_mutating_branch_emits_the_enforce_proof() {
+        val leaf = BranchDecomposeBytecode.rewriteClassForTest(
+                localMutateClass(), "C", "m", RunPlan.Leaf(0))
+        assertVerifies(leaf)
+        val names = methodNames(leaf)
+        assertTrue("branch\$0\$enforce" in names, "leaf enforce proof present: $names")
+        val calls = methodCalls(leaf, "branch\$0\$enforce")
+        assertTrue(calls.any { it.contains("branch\$0\$post") }, "enforce checks the relation: $calls")
+        assertTrue(calls.any { it.contains("Bmc.check") }, "enforce checks: $calls")
     }
 
     // ---- helpers ----

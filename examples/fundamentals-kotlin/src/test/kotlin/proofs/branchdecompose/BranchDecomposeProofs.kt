@@ -45,6 +45,35 @@ class BranchDecomposeProofs {
             if (x < 0) return 0
             return if (x < 10) x else 11 // wrong: the capped value should be 10, not 11
         }
+
+        // ---- RUNG 2: branches that MUTATE a live-out LOCAL (multi-output relation, no heap) ----
+
+        /**
+         * A LOCAL-MUTATING branch: both arms WRITE the live-out local `y` (not a single value join), then
+         * `y` is read after. The summary is the EXACT relation over `y`'s after-value; no frame needed
+         * (locals are unaliased). For all x: y ends >= 1 (`-y` when y<0 is > 0, `y+1` when y>=0 is >= 1).
+         */
+        fun mutateLocalUp(x: Int): Int {
+            var y = x
+            if (y < 0) {
+                y = -y
+            } else {
+                y = y + 1
+            }
+            return y
+        }
+
+        /** A buggy local-mutating branch: the else arm leaves `y` unchanged instead of +1, so for x == 0
+         *  the result is 0, breaking the `>= 1` property. A wrong multi-output relation must REFUTE. */
+        fun badMutateLocalUp(x: Int): Int {
+            var y = x
+            if (y < 0) {
+                y = -y
+            } else {
+                y = y // wrong: should be y + 1; leaves y == 0 at x == 0
+            }
+            return y
+        }
     }
 
     // ---- proofs whose ENTRY only calls the SUT; the branch is decomposed in the callee ----
@@ -142,6 +171,37 @@ class BranchDecomposeProofs {
         val x = Bmc.anyInt(-1000, 1000)
         val r = Sut.clamp(x)
         Bmc.check(r in -5..5) // FALSE: clamp can return e.g. 8
+    }
+
+    // ---- RUNG 2: local-mutating branches decompose via a multi-output relation ----
+
+    /**
+     * VERIFIES via decomposition of a LOCAL-MUTATING callee branch (rung 2). `mutateLocalUp` writes the
+     * live-out local `y` in both arms; bmc4j summarizes it as the EXACT relation over `y`'s after-value
+     * (a multi-output relation - no frame, locals are unaliased), the leaf certifies it, the parent havocs
+     * `y` and assumes the relation. Full-domain VERIFIES.
+     */
+    @BmcProof
+    @BmcBranchDecompose
+    fun `local-mutating callee branch decomposes and verifies`() {
+        // Bounded away from the Int.MIN_VALUE / Int.MAX_VALUE overflow edges (where `-x` and `x + 1`
+        // wrap); the multi-output relation is EXACT, so the proof would otherwise REFUTE on that edge.
+        val x = Bmc.anyInt(-1000, 1000)
+        val r = Sut.mutateLocalUp(x)
+        Bmc.check(r >= 1)
+    }
+
+    /**
+     * SOUNDNESS GUARD (rung 2): a wrong local-update relation must REFUTE, never be assumed away. The else
+     * arm leaves `y` unchanged (should be +1), so at x == 0 the result is 0; the parent, assuming the
+     * EXACT (wrong) relation, finds `r >= 1` FALSE and REFUTES.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    @BmcBranchDecompose
+    fun `a wrong local-update relation is refuted`() {
+        val x = Bmc.anyInt()
+        val r = Sut.badMutateLocalUp(x)
+        Bmc.check(r >= 1) // FALSE at x == 0 (result 0); surfaces via the exact multi-output relation
     }
 
     // ---- the original in-method (level 0) demo still holds ----
