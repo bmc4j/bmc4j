@@ -37,6 +37,7 @@ long-string blow-up seen from the RAM side, and the toolbox has levers for that 
 | Throughput (many proofs) **and** peak memory | **parallelism** (capped) | `bmc { parallelism = N }` |
 | Whole-suite wall-clock | **sharding** | `-Dbmc.shard.count` / `-Dbmc.shard.index` per worker |
 | A wide symbolic **interval** (one slow proof) | **domain splitting** | `Bmc.domainSplit` / `Bmc.slice` |
+| A **cold, expensive branch** (one slow proof) | **branch decomposition** | `@BmcBranchDecompose` + `Bmc.coldBranch` |
 | **Recursion / unbounded depth** | **contracts** | `@Requires`/`@Ensures` |
 | (Always available) tighten symbolic inputs | **range reduction** | `anyInt(lo, hi)`, `anyAsciiString(n)` |
 
@@ -172,11 +173,51 @@ restored**, making the proof *strictly stronger* than the reduced one. The lever
 *interval size*, not operand bit-width (equal-width bands solve in the same time at any
 magnitude), so a plain contiguous sub-range split is the right shape.
 
-### 5. Contracts — *for recursion / unbounded depth*
+### 4b. Branch decomposition - *for a cold, expensive branch*
+
+**What it does.** `@BmcBranchDecompose` + `Bmc.coldBranch(cond)` extract a marked cold branch
+into a separately-proven LEAF (the body under `assume(cond)` - the branch path-condition as its
+precondition) and discharge its trivial summary back into the PARENT (the body under
+`assume(!cond)`). Leaf + parent cover `cond || !cond`, the full domain, so the proof passes iff
+both VERIFIED - a **sound case split**, not dead-branch pruning: the branch is proven, then
+summarized, never deleted. This is the sound form of "I think that branch is cold" - instead of
+trusting it, you extract and prove it.
+
+```java
+@BmcProof @BmcBranchDecompose
+void proof() {
+    int x = Bmc.anyInt();
+    Bmc.coldBranch(x == Integer.MIN_VALUE);   // the cold, expensive branch
+    Bmc.check(property(x));
+}
+```
+
+```kotlin
+@BmcProof @BmcBranchDecompose
+fun proof() {
+    val x = Bmc.anyInt()
+    coldBranch(x == Int.MIN_VALUE)            // Kotlin sugar
+    Bmc.check(property(x))
+}
+```
+
+**Why it helps (it is NOT about avoiding re-solving).** jbmc already solves incrementally with
+the built-in solver, so this is not a re-solving optimisation. Its value is three-fold:
+**(a) parallelisation** - the leaf and the parent are independent obligations that prove
+concurrently on the same `JbmcConcurrency` fan-out pool that bounds domainSplit, so wall-clock
+is the critical path, not the sum; **(b) hot-path identification** - the harness prints a
+`bmc4j[branch-decompose]: ... localized-cost breakdown` line per proof reporting each
+obligation's engine formula size and wall-clock, and when one side dominates it reports
+"cost-follows-extraction = localized" naming the hot spot (on a small proof jbmc's symex +
+slicing often minimises both arms, so it honestly says "spread" rather than fabricating a hot
+spot); **(c) solver-agnostic** - it works the same with an external SAT solver (kissat), where
+jbmc's incrementality does not apply. One `coldBranch` per proof in this increment.
+
+### 5. Contracts - *for recursion / unbounded depth*
 
 **What it does.** `@Requires`/`@Ensures` method contracts (declared in your tests via
 `@BmcContractsFor`) make proofs **modular**: prove a method's postcondition *once*, then let
-every caller **assume** it instead of re-analysing — and re-unwinding — the body. That's
+every caller **assume** it instead of re-analysing - and re-unwinding - the body. That's
 induction over the call boundary: a recursive or deeply-nested helper is **summarized**, not
 unwound at every site.
 

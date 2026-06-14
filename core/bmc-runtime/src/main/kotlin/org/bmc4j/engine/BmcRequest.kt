@@ -82,4 +82,13 @@ class BmcRequest @JvmOverloads constructor(
          * cache miss on that account (instead the extension bypasses the cache short-circuit so a live run
          * actually happens to profile). Defaults to off, so the normal path is unaffected.
          */
-        @get:JvmName("profile") val profile: Boolean = false)
+        @get:JvmName("profile") val profile: Boolean = false,
+        /**
+         * When non-null, this request is ONE derived run of a `@BmcBranchDecompose` proof: the
+         * [BranchDecomposeBytecode] pass rewrites the entry method's `coldBranch` marker for this run (a
+         * leaf's `assume(cond)`, or the parent's `assume(!cond)`) before analysis. Null for an ordinary
+         * proof. The orchestration (how the leaf + parent runs are launched, their verdicts aggregated,
+         * and the localised-cost report emitted) lives in [org.bmc4j.junit.BmcProofExtension]. Mutually
+         * exclusive with [domainSplitRun] at the proof level (a proof is either split or decomposed).
+         */
+        @get:JvmName("branchRun") val branchRun: BranchDecomposeBytecode.RunPlan? = null)

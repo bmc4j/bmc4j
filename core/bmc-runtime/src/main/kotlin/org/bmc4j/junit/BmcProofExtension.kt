@@ -182,6 +182,25 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             return
         }
 
+        // Branch decomposition: a proof annotated @BmcBranchDecompose that marks a cold branch with
+        // Bmc.coldBranch(...) is expanded into a leaf run (the extracted branch under assume(cond)) and a
+        // parent run (the branch discharged as its trivial summary under assume(!cond)), proven
+        // concurrently and aggregated. A marker without the annotation, or the annotation without a
+        // marker, is a no-op here (the proof falls through to the ordinary path). A malformed marker set
+        // (two coldBranch) throws a BranchDecomposeError that fails the proof loud.
+        if (method.isAnnotationPresent(org.bmc4j.BmcBranchDecompose::class.java)) {
+            val branchPlan = org.bmc4j.engine.BranchDecomposeBytecode.analyze(
+                    request.classpath, entryClass, method.name)
+            if (branchPlan.isDecomposed) {
+                // AUTO unwind is not (yet) composed with the fan-out, so pin the build-default cap for
+                // the derived runs (mirrors the domainSplit treatment); an explicit bound is honored.
+                val branchBase = if (request.unwind == BmcProof.AUTO) pinUnwind(request, autoUnwindCap())
+                        else request
+                runBranchDecomposeProof(method, entryFunction, config, branchBase, backend, outcome)
+                return
+            }
+        }
+
         // Verdict cache: a proof's deterministic verdict is a pure function of its inputs, so a PASS
         // (VERIFIED for a normal proof; REFUTED/VACUOUS for a fail-on-purpose demo expecting exactly
         // that) whose inputs haven't changed need not be re-verified. Consult the cache on the per-proof
@@ -687,6 +706,205 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
     }
 
+    /**
+     * Run a `@BmcBranchDecompose` proof: prove the extracted cold branch (the LEAF run, the body under
+     * `assume(branchCondition)` - the branch path-condition as its precondition) and the branch's
+     * discharged summary (the PARENT run, the body under `assume(!branchCondition)`) CONCURRENTLY, then
+     * aggregate. This reuses the existing contracts identity - enforce the precondition at the leaf,
+     * assume only the proven (trivial) post at the parent - and the existing domain-split fan-out, so it
+     * is built ON both rather than reinventing either.
+     *
+     * Verdict rule: the proof PASSES iff BOTH the leaf and the parent VERIFIED - leaf + parent cover
+     * `cond || !cond`, the full input domain, so a sound case split. A refutation in either surfaces its
+     * counterexample (parent reported first when both are decisive, deterministic regardless of finish
+     * order); any UNKNOWN run yields an UNKNOWN proof.
+     *
+     * Parallelism: the two derived runs are independent `BmcRequest`s submitted to the shared
+     * [JbmcConcurrency.fanOutPool], bounded by the same JVM-wide jbmc-process budget that gates every
+     * other proof - so even a single decomposition exercises the parallel path. Wall-clock is the
+     * critical path through the leaf/parent pair, not their sum.
+     *
+     * Localised-cost report: each run is profiled (the derived requests carry `profile = true`), and the
+     * breakdown is driven off FORMULA SIZE (the engine-reported program-expression steps) - an
+     * overhead-free signal that, unlike total wall-clock, is not swamped by the fixed per-process engine
+     * startup / model-load floor that dominates small proofs. When one obligation's formula dominates,
+     * the breakdown emits "cost-follows-extraction = localized" naming it: when extracting the cold
+     * branch makes the parent's formula dramatically smaller, the leaf (the extracted branch) is the
+     * proof's hot spot. Wall-clock is reported alongside as a secondary, human-facing number. This is the
+     * hot-path-localiser angle (NOT a re-solving optimisation - jbmc solves incrementally with the
+     * built-in solver; the value is parallelisation, this localisation, and solver-agnostic behaviour
+     * with external SAT).
+     */
+    @Throws(Throwable::class)
+    private fun runBranchDecomposeProof(method: Method, entryFunction: String, config: BmcProof?,
+                                        request: BmcRequest,
+                                        backend: org.bmc4j.engine.VerificationBackend,
+                                        outcome: ProofOutcome) {
+        val expected = config?.expect ?: Verdict.VERIFIED
+        println("  bmc4j: $entryFunction -> branchDecompose: 1 leaf + 1 parent run" +
+                " (fan-out, jbmc cap=${JbmcConcurrency.permits})")
+
+        // The two derived runs. PARENT is index 0 (priority -1) so its result is preferred when both are
+        // decisive - a parent refutation is the more fundamental failure (the discharge itself does not
+        // hold), exactly as the cover outranks a slice in a domain split.
+        data class BranchSpec(val req: BmcRequest, val label: String, val priority: Int)
+        val specs = listOf(
+                BranchSpec(branchRequest(request, org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Parent),
+                        "parent (branch discharged: assume(!cond))", -1),
+                BranchSpec(branchRequest(request, org.bmc4j.engine.BranchDecomposeBytecode.RunPlan.Leaf),
+                        "leaf (extracted branch: assume(cond))", 0))
+
+        // Fan out: submit both runs to the shared pool. Each task captures its own FORMULA SIZE (the
+        // engine-reported program steps, the overhead-free localiser signal) and wall-clock around the
+        // (side-effect-free) classification, so the localised-cost report can name the dominant run; the
+        // jbmc-process budget is enforced inside the backend, not by this pool's size. We always WAIT for
+        // BOTH so the report has both runs' costs, then aggregate by priority - the runs are only two, so
+        // the early-exit complexity a many-slice split needs is not worth it here.
+        val pool = JbmcConcurrency.fanOutPool
+        val completion = java.util.concurrent.ExecutorCompletionService<TimedRun>(pool)
+        val byFuture = HashMap<java.util.concurrent.Future<TimedRun>, BranchSpec>(specs.size)
+        for (spec in specs) {
+            val f = completion.submit(java.util.concurrent.Callable {
+                evaluateBranchRun(method, entryFunction, backend, spec.req, spec.label)
+            })
+            byFuture[f] = spec
+        }
+
+        val results = HashMap<Int, TimedRun>(specs.size) // priority -> timed run
+        var pending = specs.size
+        try {
+            while (pending > 0) {
+                val f = completion.take()
+                pending--
+                val timed = try {
+                    f.get()
+                } catch (e: java.util.concurrent.ExecutionException) {
+                    // A non-engine failure inside a task (e.g. a rethrown ContractPurityError): cancel
+                    // the rest and propagate, like the sequential path let it escape.
+                    byFuture.keys.forEach { it.cancel(true) }
+                    throw e.cause ?: e
+                }
+                results[byFuture[f]!!.priority] = timed
+            }
+        } finally {
+            byFuture.keys.forEach { it.cancel(true) } // never leak a jbmc process on any exit path
+        }
+
+        // Localised-cost report: both runs are in, so name the dominant side. Purely diagnostic - never
+        // touches the verdict (emitted before the expectation is judged, like @BmcProfile's breakdown).
+        emitLocalizedCostReport(entryFunction, results, specs.map { it.priority to it.label }.toMap())
+
+        // Aggregate: the lowest-priority DECISIVE run decides (parent = -1 outranks leaf = 0); if both
+        // VERIFIED the proof is a sound full-domain green.
+        val decisive = results.entries
+                .filter { it.value.run.verdict != Verdict.VERIFIED }
+                .minByOrNull { it.key }
+                ?.value?.run
+        if (decisive == null) {
+            if (expected != Verdict.VERIFIED) {
+                throw expectationMismatch(entryFunction, expected, Verdict.VERIFIED, null)
+            }
+            outcome.verdict = Verdict.VERIFIED
+            println("  bmc4j: $entryFunction -> VERIFIED (leaf + parent cover the full domain)")
+            return
+        }
+        outcome.verdict = decisive.verdict
+        if (decisive.verdict == Verdict.UNKNOWN || decisive.verdict == Verdict.TIMEOUT) {
+            outcome.unknownKind = decisive.unknownKind
+        }
+        enforce(outcome, entryFunction, expected, decisive.verdict, decisive.framed!!)
+    }
+
+    /** A [DerivedRun] plus its cost metrics for the localised-cost report: the engine-reported formula
+     *  sizes ([satClauses] and [vccRemaining] - POST-assume signals that actually differ between the
+     *  leaf and the parent; null when the engine emitted none), the pre-assume [programSteps] (a coarse
+     *  whole-program size), and the harness-measured [wallSeconds]. The report auto-selects whichever
+     *  available metric DISCRIMINATES most between the two runs. */
+    private class TimedRun(val run: DerivedRun, val satClauses: Long?, val vccRemaining: Long?,
+                           val programSteps: Long?, val wallSeconds: Double)
+
+    /**
+     * Verify + classify one branch-decomposition run (like [evaluateDerived], but capturing the run's
+     * FORMULA SIZE for the localised-cost report). Safe to run concurrently - it neither throws an
+     * expectation error nor mutates shared state. Times its own wall-clock and reads the profiled
+     * result's program-expression steps (the derived request carries `profile = true`). A failing run
+     * (REFUTED / UNKNOWN) has no program-steps to read; its cost is then wall-clock-only.
+     */
+    @Throws(Throwable::class)
+    private fun evaluateBranchRun(method: Method, entryFunction: String,
+                                  backend: org.bmc4j.engine.VerificationBackend, req: BmcRequest,
+                                  label: String): TimedRun {
+        val started = System.nanoTime()
+        val result: JbmcResult
+        try {
+            result = backend.verify(req)
+        } catch (e: org.bmc4j.engine.ContractPurityError) {
+            throw e
+        } catch (e: BmcUndecidedError) {
+            return TimedRun(DerivedRun(Verdict.UNKNOWN, labelDerived(e, label), e.kind),
+                    null, null, null, wallSecondsSince(started))
+        } catch (e: BmcVerificationError) {
+            return TimedRun(DerivedRun(Verdict.REFUTED, labelDerived(e, label), null),
+                    null, null, null, wallSecondsSince(started))
+        } catch (e: RuntimeException) {
+            val infra = engineInfraUndecided(backend.id(), entryFunction, e)
+            return TimedRun(DerivedRun(Verdict.UNKNOWN, labelDerived(infra, label), infra.kind),
+                    null, null, null, wallSecondsSince(started))
+        }
+        val wall = wallSecondsSince(started)
+        val p = result.profile
+        val actual = actualVerdict(result)
+        if (actual == Verdict.VERIFIED) {
+            println("  bmc4j: $entryFunction -> $label VERIFIED")
+            return TimedRun(DerivedRun(Verdict.VERIFIED, null, null),
+                    p?.satClauses, p?.vccRemaining, p?.programSteps, wall)
+        }
+        val kind = if (actual == Verdict.UNKNOWN || actual == Verdict.TIMEOUT) result.undecidedKind else null
+        return TimedRun(
+                DerivedRun(actual, labelDerived(toError(backend.id(), entryFunction, result, method), label), kind),
+                p?.satClauses, p?.vccRemaining, p?.programSteps, wall)
+    }
+
+    private fun wallSecondsSince(startNanos: Long): Double =
+            (System.nanoTime() - startNanos) / 1_000_000_000.0
+
+    /** One obligation's row in the localised-cost report: its [label] and [priority] (parent = -1,
+     *  leaf = 0), the engine size signals it reported ([satClauses], [vccRemaining], [programSteps];
+     *  null when absent), the harness [wallSeconds], and the run's [verdictName] (shown when no size
+     *  signal exists). Pure data so [buildLocalizedCostReport] is unit-testable without an engine. */
+    internal class CostRow(val label: String, val priority: Int, val satClauses: Long?,
+                           val vccRemaining: Long?, val programSteps: Long?, val wallSeconds: Double,
+                           val verdictName: String)
+
+    /**
+     * Emit the LOCALISED-COST breakdown for a branch decomposition (delegates the rendering to the pure,
+     * unit-tested [buildLocalizedCostReport]; this method only maps the [TimedRun]s and prints). Purely
+     * diagnostic (like [renderProfile]), never consulted by the verdict.
+     */
+    private fun emitLocalizedCostReport(entryFunction: String, results: Map<Int, TimedRun>,
+                                        labels: Map<Int, String>) {
+        if (results.isEmpty()) {
+            return
+        }
+        val rows = results.entries.sortedBy { it.key }.map { e ->
+            CostRow(labels[e.key] ?: "run", e.key, e.value.satClauses, e.value.vccRemaining,
+                    e.value.programSteps, e.value.wallSeconds, e.value.run.verdict.name)
+        }
+        println(buildLocalizedCostReport(entryFunction, rows))
+    }
+
+    /** A [BmcRequest] for one derived [run] of a branch decomposition: same entry/classpath/budget, with
+     *  the branch run set (and the domain-split run cleared - a proof is one or the other) and PROFILING
+     *  ON so the localised-cost report can read each run's formula size. Profiling is additive (it never
+     *  changes the verdict); these are fresh derived runs, not the user's @BmcProof method, so it adds no
+     *  extra engine run beyond the two the decomposition already makes. */
+    private fun branchRequest(request: BmcRequest,
+                              run: org.bmc4j.engine.BranchDecomposeBytecode.RunPlan): BmcRequest =
+            BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
+                    request.unwindingAssertions, request.maxStringLength, request.solver,
+                    request.timeoutSeconds, null, request.externalSatPath, request.stringRefinementOff,
+                    request.removeExceptionMessages, request.stringMode, /* profile = */ true, run)
+
     /** A classified result of one derived split run: its [verdict], the framed error/counterexample to
      *  surface if this run decides the proof (null for a VERIFIED run), and the typed UNKNOWN cause. */
     private class DerivedRun(val verdict: Verdict, val framed: BmcVerificationError?,
@@ -701,12 +919,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
     /**
      * Verify one derived run of a split and CLASSIFY it, without throwing an expectation error or
-     * mutating shared state — so it is safe to run concurrently. Returns a [DerivedRun] carrying the
+     * mutating shared state - so it is safe to run concurrently. Returns a [DerivedRun] carrying the
      * run's verdict, its framed counterexample/error (for a decisive run) and its UNKNOWN kind. The
      * coordinator ([runSplitProof]) owns the single aggregate decision.
      *
      * The classification reuses the single-proof verdict mapping ([actualVerdict] / [toError]) so a
-     * split run is judged exactly like an ordinary proof — same demotions, same messages — just scoped
+     * split run is judged exactly like an ordinary proof - same demotions, same messages - just scoped
      * to its slice/cover via [labelDerived]. A [ContractPurityError] is rethrown unchanged (it is a
      * build-config soundness failure, not a per-run verdict).
      */
@@ -769,7 +987,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
      * caller stores the verdict under the right bound and runs the downstream demotions on it.
      *
      * The climb keeps `--unwinding-assertions` on at every rung (it's on the request throughout), so a
-     * too-small bound can only fail closed to UNKNOWN, never a false VERIFIED — see [AutoUnwind].
+     * too-small bound can only fail closed to UNKNOWN, never a false VERIFIED - see [AutoUnwind].
      */
     private fun climbUnwind(request: BmcRequest,
                             backend: org.bmc4j.engine.VerificationBackend, engineIdentity: String,
@@ -788,7 +1006,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
     companion object {
 
         private const val UNWIND_PROP = "bmc.unwind"
-        /** The auto-unwind climb CAP (highest bound), separate from the `bmc.unwind` PIN — see
+        /** The auto-unwind climb CAP (highest bound), separate from the `bmc.unwind` PIN - see
          *  [autoUnwindCap]. The plugin forwards `bmc { unwind }` here when it is left on AUTO. */
         private const val UNWIND_CAP_PROP = "bmc.unwindCap"
         private const val MAX_STRING_PROP = "bmc.maxStringLength"
@@ -796,6 +1014,10 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         private const val DEFAULT_UNWIND = 16
         private const val DEFAULT_MAX_STRING = 16
         private const val DEFAULT_TIMEOUT = 0 // 0 = no timeout (run to completion)
+
+        /** The wall-time share one branch-decompose obligation must exceed for the localised-cost report
+         *  to declare it the hot spot ("cost-follows-extraction = localized"). */
+        private const val LOCALIZED_COST_DOMINANCE_PCT = 65.0
 
         private const val SOLVER_PROP = "bmc.solver"
         private const val STRICT_STUBS_PROP = "bmc.strictStubs"
@@ -805,6 +1027,79 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         private const val ACK_UNMODELLED_PROP = "bmc.acknowledgeUnmodelled"
         private const val REMOVE_EXCEPTION_MESSAGES_PROP = "bmc.removeExceptionMessages"
         private const val STRING_MODE_PROP = "bmc.stringMode"
+
+        /**
+         * Build the LOCALISED-COST breakdown string for a branch decomposition (pure; the I/O wrapper is
+         * [emitLocalizedCostReport]). It AUTO-SELECTS the cost metric that best DISCRIMINATES the leaf
+         * from the parent, in this preference order: SAT clauses, then VCCs-remaining-after-simplification,
+         * then program-expression steps, then wall-clock. The first three are engine-reported formula
+         * signals; wall-clock is the last resort (it is swamped by the fixed per-process engine startup /
+         * model-load floor on small proofs). A metric is usable only when EVERY row reported it; among the
+         * usable metrics the first whose rows DIFFER by more than a small relative epsilon is chosen, so
+         * the report keys its dominance call on a signal that actually separates the obligations. Every
+         * size signal a row has is still SHOWN in its line regardless of which metric was chosen.
+         *
+         * When one obligation exceeds [LOCALIZED_COST_DOMINANCE_PCT] of the chosen metric, the
+         * "cost-follows-extraction = localized" headline names it (the leaf carries the extracted cold
+         * branch, so a dominant leaf means extracting it shrank the parent - the branch is the hot spot);
+         * otherwise the report says the cost is spread. Never throws; verdict-neutral.
+         */
+        internal fun buildLocalizedCostReport(entryFunction: String, rows: List<CostRow>): String {
+            // Candidate metrics, most-discriminating-first.
+            data class Metric(val name: String, val valueOf: (CostRow) -> Double?)
+            val candidates = listOf(
+                    Metric("SAT clauses") { it.satClauses?.toDouble() },
+                    Metric("VCCs (remaining after simplification)") { it.vccRemaining?.toDouble() },
+                    Metric("formula size (program steps)") { it.programSteps?.toDouble() },
+                    Metric("wall-clock (seconds)") { it.wallSeconds })
+            fun usable(m: Metric) = rows.isNotEmpty() && rows.all { m.valueOf(it) != null }
+            fun discriminates(m: Metric): Boolean {
+                val vals = rows.map { m.valueOf(it)!! }
+                val max = vals.max(); val min = vals.min()
+                return max > 0.0 && (max - min) / max > 0.05 // > 5% relative spread
+            }
+            val chosen = candidates.firstOrNull { usable(it) && discriminates(it) }
+                    ?: candidates.last { usable(it) } // wall-clock is always usable
+            fun cost(r: CostRow): Double = chosen.valueOf(r)!!
+            val total = rows.sumOf { cost(it) }
+
+            val sb = StringBuilder()
+            sb.append("  bmc4j[branch-decompose]: ").append(entryFunction)
+                    .append(" -> localized-cost breakdown (dominance metric: ").append(chosen.name)
+                    .append(")\n")
+            for (r in rows) {
+                val pct = if (total > 0.0) (cost(r) / total * 100.0) else 0.0
+                val sizes = buildList {
+                    r.satClauses?.let { add("$it clauses") }
+                    r.vccRemaining?.let { add("$it VCCs") }
+                    r.programSteps?.let { add("$it steps") }
+                }
+                val sizeCol = if (sizes.isEmpty()) "(no engine size: ${r.verdictName})"
+                        else sizes.joinToString(", ")
+                sb.append("       ").append(r.label.padEnd(44)).append("  ")
+                        .append(sizeCol.padEnd(34)).append("  ")
+                        .append(String.format("%.3fs", r.wallSeconds)).append("  (")
+                        .append(String.format("%.0f%%", pct)).append(" of fan-out ").append(chosen.name)
+                        .append(")\n")
+            }
+            val hottest = rows.maxByOrNull { cost(it) }!!
+            val hottestPct = if (total > 0.0) cost(hottest) / total * 100.0 else 0.0
+            if (hottestPct >= LOCALIZED_COST_DOMINANCE_PCT) {
+                sb.append("       cost-follows-extraction = localized: ")
+                        .append(String.format("%.0f%%", hottestPct))
+                        .append(" of the ").append(chosen.name).append(" is in the ").append(hottest.label)
+                        .append(" - that extracted obligation is this proof's hot spot")
+                if (hottest.priority == 0) {
+                    sb.append(" (the cold branch); the parent proof shrank to the cheap remainder")
+                }
+                sb.append('.')
+            } else {
+                sb.append("       cost is spread across both obligations (no single hot spot at the ")
+                        .append(LOCALIZED_COST_DOMINANCE_PCT.toInt()).append("% threshold on ")
+                        .append(chosen.name).append(").")
+            }
+            return sb.toString()
+        }
 
         /** The residual-invokedynamic marker stubs harvested for this result (dot-form FQNs), deduped. */
         internal fun residualIndyMarkers(result: JbmcResult): List<String> =
@@ -1391,7 +1686,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
                             decision.path, true, request.removeExceptionMessages, request.stringMode,
-                            request.profile)
+                            request.profile, request.branchRun)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1403,7 +1698,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
-                                request.removeExceptionMessages, request.stringMode, request.profile)
+                                request.removeExceptionMessages, request.stringMode, request.profile,
+                                request.branchRun)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1596,7 +1892,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile)
+                        request.profile, request.branchRun)
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */

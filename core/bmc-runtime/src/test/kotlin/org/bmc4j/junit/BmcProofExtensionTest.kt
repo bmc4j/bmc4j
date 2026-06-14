@@ -920,6 +920,66 @@ internal class BmcProofExtensionTest {
                 "an unresolved interface devirtualization (owner interface present) demotes to UNKNOWN")
     }
 
+    // --- branch-decompose localized-cost report (pure rendering) --------------
+
+    /** A leaf that dominates the SAT-clause metric (the preferred signal) yields the
+     *  "cost-follows-extraction = localized" headline naming the leaf as the cold branch's hot spot. */
+    @Test
+    fun localized_cost_report_localizes_to_the_dominant_leaf_on_sat_clauses() {
+        val rows = listOf(
+                BmcProofExtension.CostRow("parent (assume(!cond))", -1, 100L, 2L, 3000L, 5.0, "VERIFIED"),
+                BmcProofExtension.CostRow("leaf (assume(cond))", 0, 9000L, 40L, 3000L, 6.0, "VERIFIED"))
+        val report = BmcProofExtension.buildLocalizedCostReport("Demo.proof", rows)
+        assertTrue(report.contains("dominance metric: SAT clauses"),
+                "SAT clauses is the preferred discriminating metric: $report")
+        assertTrue(report.contains("cost-follows-extraction = localized"),
+                "a dominant leaf must localize: $report")
+        assertTrue(report.contains("leaf (assume(cond))") && report.contains("the cold branch"),
+                "the headline must name the leaf as the cold-branch hot spot: $report")
+    }
+
+    /** When SAT clauses are equal but program-steps differ, the report falls THROUGH to steps (clauses
+     *  don't discriminate) and still localizes. */
+    @Test
+    fun localized_cost_report_falls_through_to_a_discriminating_metric() {
+        val rows = listOf(
+                BmcProofExtension.CostRow("parent", -1, 500L, 5L, 200L, 5.0, "VERIFIED"),
+                BmcProofExtension.CostRow("leaf", 0, 500L, 5L, 4000L, 5.1, "VERIFIED"))
+        val report = BmcProofExtension.buildLocalizedCostReport("Demo.proof", rows)
+        assertTrue(report.contains("dominance metric: formula size (program steps)"),
+                "equal clauses/VCCs must fall through to the discriminating steps metric: $report")
+        assertTrue(report.contains("cost-follows-extraction = localized"), report)
+    }
+
+    /** Equal metrics across the board: no hot spot, the report says cost is SPREAD (and never fabricates
+     *  a localization). The fixed-floor wall-clock-equal case real proofs hit. */
+    @Test
+    fun localized_cost_report_reports_spread_when_no_metric_discriminates() {
+        val rows = listOf(
+                BmcProofExtension.CostRow("parent", -1, 720L, 2L, 2493L, 5.0, "VERIFIED"),
+                BmcProofExtension.CostRow("leaf", 0, 720L, 2L, 2493L, 5.0, "VERIFIED"))
+        val report = BmcProofExtension.buildLocalizedCostReport("Demo.proof", rows)
+        assertTrue(report.contains("cost is spread across both obligations"),
+                "equal costs must report spread, never a fabricated hot spot: $report")
+        assertFalse(report.contains("cost-follows-extraction = localized"), report)
+        // With no engine signal discriminating, the dominance metric falls back to wall-clock.
+        assertTrue(report.contains("dominance metric: wall-clock"), report)
+    }
+
+    /** A run with NO engine size signal (a refuting/UNKNOWN leaf) still renders: its line shows the
+     *  verdict in place of a size, and the dominance metric falls back to wall-clock. */
+    @Test
+    fun localized_cost_report_handles_a_run_with_no_engine_size() {
+        val rows = listOf(
+                BmcProofExtension.CostRow("parent", -1, 800L, 3L, 2500L, 5.0, "VERIFIED"),
+                BmcProofExtension.CostRow("leaf", 0, null, null, null, 12.0, "REFUTED"))
+        val report = BmcProofExtension.buildLocalizedCostReport("Demo.proof", rows)
+        assertTrue(report.contains("(no engine size: REFUTED)"),
+                "a run with no size signal must show its verdict in the size column: $report")
+        assertTrue(report.contains("dominance metric: wall-clock"),
+                "mixed size availability falls back to wall-clock: $report")
+    }
+
     companion object {
         /** Write an empty .class so the model scanner counts `fqn` as present on the classpath. */
         private fun writeModelClass(root: java.nio.file.Path, fqn: String) {

@@ -646,6 +646,42 @@ public final class Bmc {
         // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
     }
 
+    // --- branch decomposition (sound compositional verification) -------------
+    // A proof annotated @BmcBranchDecompose can mark a COLD, expensive branch with coldBranch(...).
+    // bmc4j then extracts that branch into a separately-proven LEAF and discharges its trivial summary
+    // back into the PARENT, expanding the ONE proof into two independent derived runs it fans across
+    // cores (the same fan-out as domainSplit):
+    //   - LEAF run:   the proof re-verified under assume(branchCondition) - the branch proven on its
+    //                 own, carrying the branch path-condition as its precondition.
+    //   - PARENT run: the proof re-verified under assume(!branchCondition) - the branch's proven
+    //                 (trivial) summary discharged at the call site, so the parent never re-explores it.
+    // Leaf and parent cover (cond || !cond), the full domain, so this is a SOUND case-split discharge,
+    // NOT dead-branch pruning: the branch is proven, not deleted. The proof passes iff both VERIFIED.
+    //
+    // Like domainSplit/slice, coldBranch is a MARKER: the boolean is analysed as bytecode, never
+    // executed (BranchDecomposeBytecode rewrites the call). At most one coldBranch per proof in this
+    // increment. The value is parallelisation + hot-path localisation + solver-agnostic behaviour, NOT
+    // avoiding re-solving (jbmc already solves incrementally with the built-in solver). See
+    // @BmcBranchDecompose for the full semantics.
+    //
+    //   @BmcProof @BmcBranchDecompose
+    //   void proof() {
+    //       int x = Bmc.anyInt();
+    //       Bmc.coldBranch(x == Integer.MIN_VALUE);   // the cold branch
+    //       Bmc.check(property(x));
+    //   }
+
+    /**
+     * Mark a COLD branch of a {@link BmcBranchDecompose}-annotated proof for extraction. bmc4j proves
+     * the branch on its own (under {@code assume(condition)}, the branch path-condition as its
+     * precondition) and discharges its trivial summary back into the parent (under
+     * {@code assume(!condition)}). A marker, like {@link #slice(boolean)}: the boolean is analysed as
+     * bytecode, never executed. At most one per proof in this increment.
+     */
+    public static void coldBranch(boolean __condition) {
+        // No-op at runtime; BranchDecomposeBytecode rewrites this call into the derived runs.
+    }
+
     /**
      * Witness-tagging sink for a USER symbolic input (counterexample-witness plumbing).
      *
