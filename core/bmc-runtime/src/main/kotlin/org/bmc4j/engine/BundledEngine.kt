@@ -87,12 +87,19 @@ object BundledEngine {
                         Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
                     }
                 }
-                val tmpExe = tmp.resolve(exeRel)
-                tmpExe.toFile().setExecutable(true)
+                // Every bundled bin/ entry is an executable (jbmc AND, when present, the kissat SAT
+                // solver). Extraction copies files without the exec bit, so on POSIX an un-chmod'd
+                // kissat fails execvp with EACCES ("Permission denied") - mark them all runnable.
+                val binExes = files.filter { it.startsWith("bin/") }.map { tmp.resolve(it) }
+                for (binExe in binExes) {
+                    binExe.toFile().setExecutable(true)
+                }
                 if (platform.isMac) {
-                    // Clear Gatekeeper quarantine and ad-hoc sign so a relocated binary runs.
+                    // Clear Gatekeeper quarantine and ad-hoc sign so the relocated binaries run.
                     bestEffort("xattr", "-dr", "com.apple.quarantine", tmp.toString())
-                    bestEffort("codesign", "--force", "--sign", "-", tmpExe.toString())
+                    for (binExe in binExes) {
+                        bestEffort("codesign", "--force", "--sign", "-", binExe.toString())
+                    }
                 }
                 try {
                     Files.move(tmp, cacheDir, StandardCopyOption.ATOMIC_MOVE)
