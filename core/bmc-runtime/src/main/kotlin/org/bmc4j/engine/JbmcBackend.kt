@@ -78,7 +78,10 @@ class JbmcBackend : VerificationBackend {
                     // harness-measured prep phases (and the engine wall-clock it measures) into the profile.
                     timing?.snapshot(),
                     // Raw @JbmcOptions passthrough appended verbatim to the jbmc command for this proof.
-                    request.jbmcOptions)
+                    request.jbmcOptions,
+                    // Per-loop unwind overrides (smart unwinding): emitted as --unwindset <loopId>:<bound>
+                    // so only the under-bounded loops are raised; empty for an ordinary single-bound run.
+                    request.unwindSet)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

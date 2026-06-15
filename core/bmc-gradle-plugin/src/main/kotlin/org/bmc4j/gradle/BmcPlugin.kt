@@ -362,6 +362,10 @@ class BmcPlugin : Plugin<Project> {
                 // (AUTO) -Dbmc.unwind never pollutes it.
                 forwardCli(test, "bmc.unwind", ext.unwind.get().toString())
                 forwardCli(test, "bmc.unwindCap", ext.unwindCap.get().toString())
+                // Per-loop "smart" unwinding is default-ON in the runtime; forward a command-line
+                // -Dbmc.smartUnwind=false (or =true) so the documented opt-out actually reaches the forked
+                // test JVM (which doesn't inherit the Gradle JVM's properties). Unset = the runtime default.
+                forwardCli(test, "bmc.smartUnwind", null)
                 // maxStringLength is read by the runtime from system properties; forward a
                 // command-line override so the documented -D flag actually reaches the forked test JVM
                 // (which doesn't inherit the Gradle JVM's properties) and busts the verdict cache.

@@ -37,6 +37,13 @@ object UnwindCache {
     /** The unwind value a discovered-bound key is normalized to, so the key is bound-independent. */
     private const val NORMALIZED_UNWIND = org.bmc4j.BmcProof.AUTO
 
+    /** A discovered per-loop "smart" unwind record: the global [base] bound plus the per-loop overrides
+     *  ([unwindSet]) the climb landed a conclusive verdict at. The single-int [store]/[lookup] can't carry
+     *  the per-loop map, so the smart path records this richer shape under a sibling key. */
+    class SmartRecord internal constructor(
+            @JvmField val base: Int,
+            @JvmField val unwindSet: Map<String, Int>)
+
     /** Cache directory: `<module>/build/bmc4j/unwind-cache/` — a sibling of the verdict cache, removed
      *  by `gradlew clean`, redirected by tests via `user.dir`. */
     private fun cacheDir(): Path =
@@ -97,10 +104,99 @@ object UnwindCache {
         }
     }
 
+    /**
+     * The previously-discovered per-loop "smart" record for [request] under [engineIdentity], or `null`
+     * on a miss / disabled cache / unparseable entry / any error (fail-open). Lets an unchanged smart-AUTO
+     * proof go STRAIGHT to its discovered (base, unwindSet) and hit the verdict cache, instead of
+     * re-running the whole per-loop climb every time. [request]'s `unwind` is normalized away (the key is
+     * bound-independent, like [lookup]).
+     */
+    @JvmStatic
+    fun lookupSmart(request: BmcRequest, engineIdentity: String?): SmartRecord? {
+        if (disabled()) {
+            return null
+        }
+        return try {
+            val entry = cacheDir().resolve(smartKey(request, engineIdentity))
+            if (!Files.isRegularFile(entry)) {
+                null
+            } else {
+                parseSmart(Files.readAllLines(entry, StandardCharsets.UTF_8))
+            }
+        } catch (e: RuntimeException) {
+            null
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    /**
+     * Record the discovered ([base], [unwindSet]) as the winning per-loop configuration for [request]
+     * under [engineIdentity]. No-op when the cache is disabled, [base] is non-positive, or on any write
+     * error (fail-open). Written atomically (temp + move), like [store].
+     */
+    @JvmStatic
+    fun storeSmart(request: BmcRequest, engineIdentity: String?, base: Int, unwindSet: Map<String, Int>) {
+        if (disabled() || base <= 0) {
+            return
+        }
+        try {
+            val k = smartKey(request, engineIdentity)
+            Files.createDirectories(cacheDir())
+            val entry = cacheDir().resolve(k)
+            val tmp = cacheDir().resolve(k + ".tmp." + java.lang.Long.toHexString(System.nanoTime()))
+            Files.writeString(tmp, renderSmart(base, unwindSet), StandardCharsets.UTF_8)
+            try {
+                Files.move(tmp, entry, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (atomicUnsupported: IOException) {
+                Files.move(tmp, entry, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (e: RuntimeException) {
+        } catch (e: IOException) {
+        }
+    }
+
+    /** Serialize a smart record: `base <n>` on line 1, then one `<loopId>\t<bound>` per override (sorted
+     *  so the file is deterministic). Loop ids may contain ':' and '/', so they go in the CONTENT (never
+     *  the filename) and the bound is split off at the LAST tab (ids never contain a tab). */
+    private fun renderSmart(base: Int, unwindSet: Map<String, Int>): String {
+        val sb = StringBuilder()
+        sb.append("base ").append(base).append('\n')
+        for ((id, bound) in unwindSet.toSortedMap()) {
+            sb.append(id).append('\t').append(bound).append('\n')
+        }
+        return sb.toString()
+    }
+
+    /** Inverse of [renderSmart]; null if the first line isn't a positive `base <n>`. */
+    private fun parseSmart(lines: List<String>): SmartRecord? {
+        val first = lines.firstOrNull()?.trim() ?: return null
+        if (!first.startsWith("base ")) {
+            return null
+        }
+        val base = first.removePrefix("base ").trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val map = LinkedHashMap<String, Int>()
+        for (i in 1 until lines.size) {
+            val line = lines[i]
+            val tab = line.lastIndexOf('\t')
+            if (tab <= 0) {
+                continue
+            }
+            val bound = line.substring(tab + 1).trim().toIntOrNull()?.takeIf { it > 0 } ?: continue
+            map[line.substring(0, tab)] = bound
+        }
+        return SmartRecord(base, map)
+    }
+
     /** The discovered-bound key: the verdict-cache key over a request normalized to the AUTO sentinel
      *  unwind, so all of a proof's climb rungs (and re-runs) share one bound-independent key. */
     private fun key(request: BmcRequest, engineIdentity: String?): String =
             VerdictCache.computeKey(normalized(request), engineIdentity)
+
+    /** The per-loop smart record's key: a sibling of [key] (same normalized identity, `.smart` suffix),
+     *  so a smart record and a single-bound record for the same proof never collide. */
+    private fun smartKey(request: BmcRequest, engineIdentity: String?): String =
+            key(request, engineIdentity) + ".smart"
 
     /** [request] with `unwind` normalized to the AUTO sentinel (bound-independent identity). */
     private fun normalized(request: BmcRequest): BmcRequest =

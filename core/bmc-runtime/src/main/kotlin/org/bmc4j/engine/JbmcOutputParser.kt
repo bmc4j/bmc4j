@@ -420,14 +420,19 @@ object JbmcOutputParser {
      */
     private fun unwindingLoop(p: JsonObject): JbmcResult.UnwindingLoop? {
         val sl = if (p.has("sourceLocation")) p.getAsJsonObject("sourceLocation") else null
-        val recursion = str(p, "property")?.endsWith(".recursion") == true
+        val property = str(p, "property")
+        val recursion = property?.endsWith(".recursion") == true
                 || str(p, "description")?.startsWith("recursion") == true
         val method = (str(sl, "function")?.let(::loopMethodFromFunction)
-                ?: str(p, "property")?.let(::loopMethodFromProperty))?.takeIf { it.isNotBlank() }
+                ?: property?.let(::loopMethodFromProperty))?.takeIf { it.isNotBlank() }
                 ?: return null
         val file = str(sl, "file")
         val line = if (sl != null) intOr(sl, "line", 0) else 0
-        return JbmcResult.UnwindingLoop(method, file, line, recursion)
+        // The engine's --unwindset / --show-loops loop id, for per-loop smart unwinding. Only a LOOP
+        // overrun (property `<func>.unwind.<n>`) has a targetable id; a recursion overrun has no
+        // per-site unwindset handle, so leave it null (the smart climb falls back to the global bound).
+        val loopId = if (!recursion) property?.let(::loopIdFromProperty) else null
+        return JbmcResult.UnwindingLoop(method, file, line, recursion, loopId)
     }
 
     /** `java::okio.Buffer.readDecimalLong:(...)J` -> `okio.Buffer.readDecimalLong` (dot form, no sig). */
@@ -437,6 +442,25 @@ object JbmcOutputParser {
     /** `okio.Buffer.readDecimalLong.unwind.3` / `...recursion` -> `okio.Buffer.readDecimalLong`. */
     private fun loopMethodFromProperty(property: String): String =
             property.substringBefore(".unwind.").removeSuffix(".recursion")
+
+    /**
+     * The engine loop id for `--unwindset`, recovered from a LOOP unwinding-assertion property name by
+     * collapsing its `.unwind.` infix back to a `.`: `java::pkg.Cls.m:()V.unwind.3` -> `java::pkg.Cls.m:()V.3`
+     * (the exact form `--show-loops` prints and `--unwindset <id>:<bound>` accepts — the `java::` prefix
+     * and signature are kept verbatim). Null when the property is not a loop-unwind property (so it never
+     * fabricates an id for a recursion overrun, which has no `.unwind.<n>` and no per-site unwindset handle).
+     */
+    private fun loopIdFromProperty(property: String): String? {
+        val at = property.lastIndexOf(".unwind.")
+        if (at < 0) {
+            return null
+        }
+        val number = property.substring(at + ".unwind.".length)
+        if (number.isEmpty() || number.any { !it.isDigit() }) {
+            return null
+        }
+        return property.substring(0, at) + "." + number
+    }
 
     /** The UNKNOWN reason for a bound-too-small run (the extension appends the remedies). */
     private fun unwindingReason(count: Int): String =
