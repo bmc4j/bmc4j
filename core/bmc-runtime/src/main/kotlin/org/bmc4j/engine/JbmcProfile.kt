@@ -74,6 +74,16 @@ class JbmcProfile private constructor(
                       @get:JvmName("count") val count: Int)
 
     /**
+     * One derived run of a domainSplit fan-out, paired with the label/verdict it should self-report under
+     * and its parsed engine [profile] (null when the run produced nothing profilable). Buffered by the
+     * coordinator and rendered AFTER the fan-out finishes via [renderRunProfiles] / [renderAggregate],
+     * never streamed live (concurrent slices would interleave their lines into noise).
+     */
+    class LabeledRun(@get:JvmName("label") val label: String,
+                     @get:JvmName("verdict") val verdict: String,
+                     @get:JvmName("profile") val profile: JbmcProfile?)
+
+    /**
      * The ORDERED engine phases, used to attribute a timeout's unaccounted wall-clock to the phase the
      * engine was actually IN. jbmc emits a STATUS-MESSAGE on ENTERING each (not just on completing it):
      * `Starting Bounded Model Checking` marks [SYMEX] (symbolic execution / loop unwinding), `converting
@@ -138,6 +148,22 @@ class JbmcProfile private constructor(
     }
 
     /**
+     * The phase that dominated this run's engine wall-clock, as a `(label, seconds)` pair, or null when
+     * there is nothing to attribute. Used by the domainSplit aggregate to name "which phase dominated the
+     * long-pole slice". The candidates are the engine-REPORTED completed phases ([phaseSeconds]) plus, for
+     * an incomplete/killed run, the DERIVED in-progress tail ([derivedInProgressPhase]) - so a symex-bound
+     * timeout that reported no completed phase still names "Symex (incomplete)" as its dominant cost. The
+     * largest-by-seconds candidate wins.
+     */
+    fun dominantPhase(): Pair<String, Double>? {
+        val candidates = buildList {
+            phaseSeconds.forEach { (phase, secs) -> add(phase to secs) }
+            derivedInProgressPhase()?.let { (phase, secs) -> add("${phase.label} (incomplete)" to secs) }
+        }
+        return candidates.maxByOrNull { it.second }
+    }
+
+    /**
      * Return a copy of this engine-parsed profile carrying the HARNESS-measured timings: bmc4j's own
      * [pipeline] pass wall-times and the engine subprocess [engineWall] (launch → exit/kill) in seconds.
      * The engine-reported fields ([phaseSeconds], unwinding, formula stats, [reachedSat]) are unchanged —
@@ -170,7 +196,16 @@ class JbmcProfile private constructor(
      * easy to grep. [entryFunction] names the proof; [verdict] is its resolved verdict (so the profile
      * self-labels what run it describes).
      */
-    fun render(entryFunction: String, verdict: String): String {
+    fun render(entryFunction: String, verdict: String): String = render(entryFunction, verdict, null)
+
+    /**
+     * Render the breakdown, optionally tagged with a derived-run [runLabel] (e.g. `slice 3/8`, `cover`).
+     * When [runLabel] is non-null the header reads `<runLabel>: <entryFunction> -> <verdict> - ...`, so
+     * the per-run blocks of a domainSplit fan-out are each self-identifying. The single-proof path passes
+     * null for the unlabeled header. Everything else (phases, offenders, formula size) is identical.
+     */
+    fun render(entryFunction: String, verdict: String, runLabel: String?): String {
+        val headerPrefix = if (runLabel == null) "" else "$runLabel: "
         // Build the breakdown one line at a time — a row per list entry, no '\n' or string concatenation.
         // Each timed row is "<label> <name>  <secs>", padded so the seconds column lines up.
         fun MutableList<String>.timed(label: String, name: String, secs: Double) =
@@ -183,7 +218,7 @@ class JbmcProfile private constructor(
         }
 
         val lines = buildList {
-            add(" $entryFunction -> $verdict - performance breakdown (bmc4j prep + engine)")
+            add(" $headerPrefix$entryFunction -> $verdict - performance breakdown (bmc4j prep + engine)")
             add("   legend: $LBL_BMC4J/$LBL_HARNESS = bmc4j-measured wall-clock, $LBL_ENGINE = jbmc-reported")
 
             // bmc4j's OWN pipeline (HARNESS-measured): classpath mirroring + the bytecode rewrites we run
@@ -263,6 +298,79 @@ class JbmcProfile private constructor(
     }
 
     companion object {
+
+        /**
+         * Render the grouped PER-RUN profile blocks for a domainSplit fan-out: one labeled
+         * [JbmcProfile.render] block per derived [runs] entry (`cover`, `slice i/N`), plus a one-line note
+         * for any run that produced no profilable output. [entryFunction] names the proof. Returns a
+         * single newline-joined string (empty when there is nothing to show), emitted by the coordinator
+         * after the fan-out completes.
+         */
+        @JvmStatic
+        fun renderRunProfiles(entryFunction: String, runs: List<LabeledRun>): String {
+            val blocks = buildList {
+                runs.forEach { run ->
+                    val p = run.profile
+                    if (p == null || p.isEmpty()) {
+                        add("  bmc4j[profile]: ${run.label}: $entryFunction -> ${run.verdict} - no engine" +
+                                " performance breakdown was captured (no profilable verbose output).")
+                    } else {
+                        add(p.render(entryFunction, run.verdict, run.label))
+                    }
+                }
+            }
+            return blocks.joinToString("\n")
+        }
+
+        /**
+         * Render the AGGREGATE summary across a domainSplit fan-out's derived [runs]. Two parts:
+         *  - a per-verdict TALLY (how many runs VERIFIED / REFUTED / etc.), and
+         *  - the PARALLEL CRITICAL PATH: because the runs execute CONCURRENTLY, the wall-clock is the MAX
+         *    engine wall-clock across runs (the long pole), NOT their sum. We name that slowest run and
+         *    the phase that dominated IT (so a reader sees "slice 5/8 was the long pole, dominated by
+         *    Convert SSA"). Runs that never recorded an engine wall-clock (cancelled by early-exit, or
+         *    unprofiled) simply don't contribute a critical-path candidate.
+         *
+         * [entryFunction] names the proof. Lines carry the same `  bmc4j[profile]:` tag as the per-run
+         * blocks. Purely additive diagnostic output - it never touches the verdict.
+         */
+        @JvmStatic
+        fun renderAggregate(entryFunction: String, runs: List<LabeledRun>): String {
+            // Per-verdict tally, in first-seen order so the printed order is stable.
+            val tally = LinkedHashMap<String, Int>()
+            runs.forEach { tally[it.verdict] = (tally[it.verdict] ?: 0) + 1 }
+
+            // Parallel critical path: the run with the MAX engine wall-clock is the long pole.
+            val slowest = runs
+                    .mapNotNull { run -> run.profile?.engineWallSeconds?.let { run to it } }
+                    .maxByOrNull { it.second }
+
+            val lines = buildList {
+                add(" $entryFunction -> domainSplit aggregate (${runs.size} run(s), executed concurrently)")
+                add("   verdict tally: " + tally.entries.joinToString(", ") { "${it.value}x ${it.key}" })
+                if (slowest == null) {
+                    add("   critical path: (no engine wall-clock recorded on any run - cancelled by" +
+                            " early-exit, or unprofiled)")
+                } else {
+                    val (run, wall) = slowest
+                    add("   critical path (MAX engine wall-clock across the concurrent runs, NOT the sum):")
+                    add("       long pole: ${run.label}  ${fmtSeconds(wall)}")
+                    val dominant = run.profile?.dominantPhase()
+                    if (dominant != null) {
+                        add("       dominated by phase: ${dominant.first}  ${fmtSeconds(dominant.second)}")
+                    }
+                }
+            }
+            return lines.joinToString("\n") { "  bmc4j[profile]:$it" }
+        }
+
+        /** Companion-level seconds formatter, identical to the instance [render] one (fixed-point, never
+         *  scientific notation), used by the aggregate which has no per-run instance to call. */
+        private fun fmtSeconds(secs: Double): String = when {
+            secs >= 0.001 -> String.format("%.3fs", secs)
+            secs > 0.0 -> "<0.001s"
+            else -> "0.000s"
+        }
 
         /** Top-N offenders shown in the rendered table (the full list is in the parsed object). */
         private const val TOP_N = 8
