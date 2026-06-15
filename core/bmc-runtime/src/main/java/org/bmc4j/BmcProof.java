@@ -56,6 +56,21 @@ public @interface BmcProof {
     int AUTO = -1;
 
     /**
+     * The MAXIMUM bound that AUTO unwind-discovery (and per-loop smart unwinding) may climb to for THIS
+     * proof, when {@link #unwind()} is left on {@link #AUTO}.
+     *
+     * <p>Raises the per-proof climb CAP above the build default (currently 16) WITHOUT pinning the
+     * bound: the climb still discovers the smallest sufficient bound per loop, it is just permitted to
+     * go higher. Use this instead of a fixed {@code unwind = N} when a single loop needs a bound over
+     * the default cap but you still want auto/smart unwinding (a fixed {@code unwind = N} is non-AUTO,
+     * so it pins one global bound on EVERY loop and disables discovery).
+     *
+     * <p>{@code 0} (default) uses the build-configured cap ({@code -Dbmc.unwindCap}, else 16). Ignored
+     * when {@link #unwind()} pins a concrete bound (a pin runs that bound directly, no climb).
+     */
+    int unwindMax() default 0;
+
+    /**
      * Bound on the length of symbolic ({@link org.bmc4j.Bmc#anyString} / parameter) strings for this
      * proof. The bundled sound string operations reason character-by-character, so a tighter bound
      * keeps a proof tractable while a looser one covers longer inputs — exactly the kind of thing you
