@@ -79,6 +79,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         val config: BmcProof? = method.getAnnotation(BmcProof::class.java)
         val expectedV = config?.expect ?: Verdict.VERIFIED
 
+        // @ConformProofsAgainstModel: when present, this proof runs TWICE and BOTH legs must reach the
+        // expected verdict — the model leg (normal overlay) and the real leg (named models excluded). The
+        // single semantics is "both legs pass"; failing either fails the proof, naming which leg failed.
+        val conformedModels = conformedModels(method)
+
         // Time + emit ONE machine-readable summary record per proof, regardless of how it exits
         // (cache hit, live pass, or a thrown failure). The summary sink is a no-op unless
         // -Dbmc.summaryDir is set (CI), so local/IDE runs are unaffected. runProof reports its
@@ -86,13 +91,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // IS the human-readable counterexample/issue, captured here for the record. Emission is
         // fail-open and never alters the verdict.
         if (!ProofSummary.enabled) {
-            runProof(method, entryClass, entryFunction, config, ProofOutcome())
+            runConform(method, entryClass, entryFunction, config, ProofOutcome(), conformedModels)
             return
         }
         val outcome = ProofOutcome()
         val started = System.nanoTime()
         try {
-            runProof(method, entryClass, entryFunction, config, outcome)
+            runConform(method, entryClass, entryFunction, config, outcome, conformedModels)
         } catch (t: Throwable) {
             val ms = (System.nanoTime() - started) / 1_000_000
             // The typed UNKNOWN kind (telemetry): prefer the one the run recorded, else recover it
@@ -148,9 +153,76 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         enforceExpectation(entryFunction, expected, actual, framed)
     }
 
+    /**
+     * Run a proof, honoring [org.bmc4j.ConformProofsAgainstModel]. With no conformed models
+     * ([conformed] empty) this is exactly one ordinary [runProof]. With one or more, it runs the proof
+     * TWICE and requires BOTH legs to reach the expected verdict:
+     *  - the MODEL leg: the normal run (full overlay, [excludedModels] empty);
+     *  - the REAL leg: the same proof with [conformed] excluded from the overlay, so it analyses the
+     *    real implementation.
+     *
+     * The proof PASSES iff both legs pass; if EITHER leg fails its framed failure is re-thrown PREFIXED
+     * with which leg (real vs model) failed, so the message names the leg + its verdict. The model leg
+     * runs first so an ordinary model bug surfaces before the (typically heavier) real leg. The reported
+     * [outcome] is the LAST leg's (the real leg on a full pass), which is the one whose soundness the
+     * annotation exists to establish.
+     */
+    @Throws(Throwable::class)
+    private fun runConform(method: Method, entryClass: String, entryFunction: String,
+                           config: BmcProof?, outcome: ProofOutcome, conformed: Set<String>) {
+        if (conformed.isEmpty()) {
+            runProof(method, entryClass, entryFunction, config, outcome)
+            return
+        }
+        println("  bmc4j: $entryFunction -> conform-against-model: model leg + real leg" +
+                " (real excludes ${conformed.sorted().joinToString(", ")})")
+        // MODEL leg first (full overlay).
+        runLeg(method, entryClass, entryFunction, config, outcome, emptySet(), "model")
+        // REAL leg: re-run with the named models excluded. Its outcome overwrites the model leg's, so the
+        // summary reflects the soundness-establishing run.
+        runLeg(method, entryClass, entryFunction, config, outcome, conformed, "real")
+        println("  bmc4j: $entryFunction -> conform-against-model: both legs reached the expected verdict")
+    }
+
+    /** One leg of a conform proof: a [runProof] whose failure is reframed PREFIXED with the [leg] name
+     *  (real vs model) so a two-leg failure tells the author which side disagreed and its verdict. */
+    @Throws(Throwable::class)
+    private fun runLeg(method: Method, entryClass: String, entryFunction: String, config: BmcProof?,
+                       outcome: ProofOutcome, excluded: Set<String>, leg: String) {
+        try {
+            runProof(method, entryClass, entryFunction, config, outcome, excluded)
+        } catch (e: BmcUndecidedError) {
+            throw legFailure(leg, entryFunction, outcome.verdict, e, true)
+        } catch (e: BmcVerificationError) {
+            throw legFailure(leg, entryFunction, outcome.verdict, e, false)
+        }
+    }
+
+    /** Reframe a leg's framed failure, naming the leg + its verdict, preserving the original as cause and
+     *  its type (an UNKNOWN stays a [BmcUndecidedError] so the runner still prints UNKNOWN). */
+    private fun legFailure(leg: String, entryFunction: String, verdict: Verdict,
+                           cause: BmcVerificationError, undecided: Boolean): BmcVerificationError {
+        val header = "conform-against-model: the $leg leg of $entryFunction failed (verdict $verdict).\n" +
+                (if (leg == "real")
+                    "  The proof holds against the MODEL but not the real implementation -> the model is" +
+                            " UNSOUND for what this proof exercises.\n"
+                else
+                    "  The proof did not pass against the model itself.\n") +
+                (cause.message ?: "")
+        val out = if (undecided && cause is BmcUndecidedError) {
+            BmcUndecidedError(header, cause.isEngineInfrastructure(), cause.kind)
+        } else {
+            BmcVerificationError(header)
+        }
+        out.stackTrace = cause.stackTrace
+        out.initCause(cause)
+        return out
+    }
+
     @Throws(Throwable::class)
     private fun runProof(method: Method, entryClass: String, entryFunction: String,
-                         config: BmcProof?, outcome: ProofOutcome) {
+                         config: BmcProof?, outcome: ProofOutcome,
+                         excludedModels: Set<String> = emptySet()) {
         // Resolve the SAFE solver plan FIRST: the fast external SAT solver runs with text/String
         // reasoning off, so it engages ONLY for a proof proven text-free. This bakes the resolved
         // external-SAT binary path (+ refinement-off mode) into the request so BOTH the verdict cache
@@ -163,13 +235,18 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // Raw @JbmcOptions passthrough (unguarded escape hatch): the annotation's tokens are appended
         // verbatim to the jbmc command for this proof and folded into the verdict-cache key.
         val jbmcOptions = method.getAnnotation(org.bmc4j.JbmcOptions::class.java)?.value ?: ""
-        // @ExcludeModels: the FQNs of user models this proof opts OUT of. Method-level MERGES with
-        // class-level (the union applies), like the other proof annotations. Excluding a model means
-        // analysing the real class instead of the model -- strictly MORE faithful, so it can only make a
-        // proof harder/UNKNOWN, never a false VERIFIED (no soundness handling needed). Threaded onto the
-        // request, dropped from the userModels overlay by JbmcBackend, and folded into the verdict-cache
-        // key (so an exclusion change forces a fresh run).
-        val excludeModels = resolveExcludedModels(method)
+        // The per-proof model exclusion set. Two sources feed the SAME primitive (BmcRequest.excludeModels),
+        // unioned here:
+        //  - @ExcludeModels (resolveExcludedModels): the FQNs this proof opts OUT of permanently;
+        //    method-level MERGES with class-level, like the other proof annotations.
+        //  - the [excludedModels] argument: the REAL leg of a @ConformProofsAgainstModel proof passes the
+        //    conformed models so it analyses the real implementation; empty for the model leg and every
+        //    ordinary proof.
+        // Excluding a model means analysing the real class instead of the model -- strictly MORE faithful,
+        // so it can only make a proof harder/UNKNOWN, never a false VERIFIED (no soundness handling needed).
+        // Threaded onto the request, dropped from the userModels overlay by JbmcBackend, and folded into the
+        // verdict-cache key (so an exclusion change forces a fresh run; each conform leg keys distinctly).
+        val excludeModels = resolveExcludedModels(method) + excludedModels
         val request = applySolverPlan(
                 requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions, excludeModels))
 
@@ -1729,6 +1806,36 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
                         request.profile, request.jbmcOptions, unwindSet, request.excludeModels)
+
+        /**
+         * The model classes to conform on the REAL leg of a proof, gathered from
+         * [org.bmc4j.ConformProofsAgainstModel] on the method MERGED with the same annotation on the
+         * declaring class (a class-level value applies to every proof in the class). Each class is named
+         * by its FQN; the set is empty when the proof is not opted in. Routed into the shared
+         * [BmcRequest.excludeModels] primitive (unioned with `@ExcludeModels`) on the real leg. Visible
+         * for unit testing.
+         */
+        internal fun conformedModels(method: Method): Set<String> {
+            val out = LinkedHashSet<String>()
+            addConformed(out,
+                    method.declaringClass.getAnnotation(org.bmc4j.ConformProofsAgainstModel::class.java))
+            addConformed(out,
+                    method.getAnnotation(org.bmc4j.ConformProofsAgainstModel::class.java))
+            return out
+        }
+
+        /** Add each named model's FQN from an annotation occurrence. The `Class<?>[]` reads back as a
+         *  java.lang.Class from Java callers and (depending on the Kotlin compiler) may surface as a
+         *  KClass from a Kotlin proof's annotation literal, so accept both. */
+        private fun addConformed(out: MutableSet<String>, ann: org.bmc4j.ConformProofsAgainstModel?) {
+            ann?.value?.forEach { c -> out.add(fqnOf(c)) }
+        }
+
+        private fun fqnOf(c: Any): String = when (c) {
+            is Class<*> -> c.name
+            is kotlin.reflect.KClass<*> -> c.java.name
+            else -> c.toString()
+        }
 
         /**
          * Whether per-loop "smart" unwinding is enabled for this build. Default ON; opt OUT with

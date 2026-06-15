@@ -198,7 +198,9 @@ object UnwindCache {
     private fun smartKey(request: BmcRequest, engineIdentity: String?): String =
             key(request, engineIdentity) + ".smart"
 
-    /** [request] with `unwind` normalized to the AUTO sentinel (bound-independent identity). */
+    /** [request] with `unwind` normalized to the AUTO sentinel (bound-independent identity). The model
+     *  exclusion set is PRESERVED: the real leg of a conform-against-model proof analyses a different
+     *  classpath than the model leg, so their discovered-bound records must not collide. */
     private fun normalized(request: BmcRequest): BmcRequest =
             if (request.unwind == NORMALIZED_UNWIND) request
             else BmcRequest(request.entryClass, request.entryFunction, request.classpath,

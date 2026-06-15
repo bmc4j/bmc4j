@@ -104,10 +104,11 @@ class BmcRequest @JvmOverloads constructor(
          */
         @get:JvmName("unwindSet") val unwindSet: Map<String, Int> = emptyMap(),
         /**
-         * Fully-qualified names of user models (`org.bmc4j.ExcludeModels`) this proof opts OUT of:
+         * Fully-qualified names of user models this proof opts OUT of (the shared exclusion primitive
+         * used by both `org.bmc4j.ExcludeModels` and the real leg of `org.bmc4j.ConformProofsAgainstModel`):
          * their `.class` entries are dropped from the `bmc.userModels` overlay before analysis, so the
          * REAL class is linked instead of the model. Empty for the common case (every model applies),
-         * so a proof with no `@ExcludeModels` is unaffected.
+         * so a proof with no exclusion is unaffected.
          *
          * SOUNDNESS: excluding a model means analysing the real class, which is strictly more faithful
          * than the model, so it can only ever make a proof harder/slower/UNKNOWN, never a false VERIFIED.
