@@ -777,7 +777,7 @@ internal class VerdictCacheTest {
             // Mirror VerdictCache.cacheDir(): build/bmc4j/verdict-cache under the (redirected) user.dir.
             val entry = Path.of(System.getProperty("user.dir"), "build", "bmc4j", "verdict-cache", key)
             Files.createDirectories(entry.parent)
-            Files.write(entry, "GARBAGE    not a verdict".toByteArray(StandardCharsets.UTF_8))
+            Files.write(entry, "GARBAGE \u0000\u0000 not a verdict".toByteArray(StandardCharsets.UTF_8))
             assertFalse(VerdictCache.isVerified(r, ENGINE),
                     "a scribbled cache entry must be treated as a miss (fail-open), not a hit")
         }
