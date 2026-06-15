@@ -208,13 +208,15 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // the expert opt-out and every hand-tuned bound behave exactly as before.
         val isAuto = request.unwind == BmcProof.AUTO
         val smartOn = isAuto && smartUnwindEnabled()
-        // Per-loop "smart" record (base + unwindset) takes precedence on the smart path; the single-bound
-        // record is the global-climb path's. A proof uses exactly one, so they never both hit.
+        // Per-loop "smart" record (base + unwindset) takes precedence on the smart path. On a miss BOTH
+        // paths consult the single-bound discovered cache: a verdict cached under a global bound — from a
+        // non-smart run, or the restored CI snapshot — is a valid hit for a smart-AUTO proof too, so the
+        // smart path goes STRAIGHT to that bound (and the verdict cache) instead of re-climbing live. This
+        // is what lets smart-AUTO proofs reuse the existing cache exactly like [AutoUnwind] does.
         val discoveredSmart: UnwindCache.SmartRecord? =
                 if (smartOn) UnwindCache.lookupSmart(request, engineIdentity) else null
         val discoveredBound: Int? =
-                if (isAuto && discoveredSmart == null && !smartOn) UnwindCache.lookup(request, engineIdentity)
-                else null
+                if (isAuto && discoveredSmart == null) UnwindCache.lookup(request, engineIdentity) else null
         // The request the verdict cache + engine run see: pinned to the discovered config (per-loop record,
         // or single bound, or explicit). When AUTO with no recorded config it stays AUTO and we skip the
         // bound-specific short-circuit (it climbs, each rung consulting the cache itself).
@@ -279,20 +281,30 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         var storeRequest = cacheRequest
         try {
             if (isAuto && !haveConcreteBound && smartUnwindEnabled()) {
-                // Per-loop "smart" unwinding (opt-in): pin every loop at the base bound and raise ONLY the
-                // loops that under-bound each round, so one heavy loop no longer inflates the formula on
-                // every other loop. Intermediate rounds are UNKNOWN (never cached); on a conclusive
-                // landing the verdict is stored under the discovered per-loop unwindset (which keys the
-                // verdict cache via the request's unwindSet), so an unchanged re-run short-circuits.
+                // Per-loop "smart" unwinding: pin every loop at the base bound and raise ONLY the loops
+                // that under-bound each round, so one heavy loop no longer inflates the formula on every
+                // other loop. Intermediate rounds are UNKNOWN (never cached); on a conclusive landing the
+                // verdict is stored under the discovered per-loop unwindset (which keys the verdict cache
+                // via the request's unwindSet), so an unchanged re-run short-circuits.
                 val smart = climbSmartUnwind(request, backend)
-                result = smart.result
-                storeRequest = cacheKeyRequest(
-                        withUnwindSet(pinUnwind(request, smart.base), smart.unwindSet), config)
-                if (smart.discovered && isConclusive(result)) {
+                if (smart.discovered && isConclusive(smart.result)) {
+                    result = smart.result
+                    storeRequest = cacheKeyRequest(
+                            withUnwindSet(pinUnwind(request, smart.base), smart.unwindSet), config)
                     outcome.detail = smartUnwindDetail(smart.unwindSet)
                     // Record the winning (base, unwindset) so an unchanged re-run replays it directly and
                     // hits the verdict cache (zero extra solves) instead of re-climbing every round.
                     UnwindCache.storeSmart(request, engineIdentity, smart.base, smart.unwindSet)
+                } else {
+                    // Smart unwinding is a best-effort OPTIMIZATION: when the per-loop climb can't land a
+                    // conclusive verdict (a loop/recursion whose bound `--unwindset` can't drive the way
+                    // the global `--unwind` does), fall back to the single global-bound [AutoUnwind] climb
+                    // — which bounds every loop AND recursion uniformly — so smart unwinding can never
+                    // REGRESS a proof the global climb decides; worst case it is the same verdict at extra
+                    // cost. The discovered global bound is recorded by [climbUnwind] for the re-run.
+                    val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome)
+                    result = climbed.result
+                    storeRequest = cacheKeyRequest(pinUnwind(request, climbed.bound), config)
                 }
             } else if (isAuto && !haveConcreteBound) {
                 // No recorded bound: climb low→high (live runs; intermediate rungs are UNKNOWN and never
