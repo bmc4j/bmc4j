@@ -40,6 +40,12 @@ internal class BmcProofExtensionTest {
     internal class TunedProof {
         @BmcProof(unwind = 8)
         fun unwind8() {}
+
+        @BmcProof(unwindMax = 20)
+        fun raisedCap() {}
+
+        @BmcProof
+        fun defaultCap() {}
     }
 
     @Disabled("reflection-only fixture; not a runnable proof suite")
@@ -58,6 +64,19 @@ internal class BmcProofExtensionTest {
 
         @BmcProof
         fun unacked() {}
+    }
+
+    // --- per-proof auto/smart-unwind cap (@BmcProof.unwindMax) -----------------
+
+    @Test
+    fun effectiveUnwindCap_usesPerProofUnwindMaxWhenSet_elseTheGlobalCap() {
+        fun proof(name: String) =
+                TunedProof::class.java.getDeclaredMethod(name).getAnnotation(BmcProof::class.java)
+        // unwindMax = 20 raises the per-proof cap above the global default.
+        assertEquals(20, BmcProofExtension.effectiveUnwindCap(proof("raisedCap")))
+        // unset (default 0) falls back to the build-global cap; null config does too.
+        assertEquals(BmcProofExtension.autoUnwindCap(), BmcProofExtension.effectiveUnwindCap(proof("defaultCap")))
+        assertEquals(BmcProofExtension.autoUnwindCap(), BmcProofExtension.effectiveUnwindCap(null))
     }
 
     // --- unmodelled-member acknowledgment (verdict honesty + opt-out) ----------

@@ -170,6 +170,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // README's Lincheck guidance — @BmcProof proves logic soundness.
         val backend = VerificationBackends.select(request)
 
+        // The auto/smart-unwind climb CAP for THIS proof: @BmcProof(unwindMax) when set, else the
+        // build-global cap. Only meaningful on the AUTO path (a pinned `unwind = N` runs that bound
+        // directly, no climb).
+        val unwindCap = effectiveUnwindCap(config)
+
         // domainSplit: if this proof partitions its domain (a domainSplit/slice marker pair), expand
         // it into N slice runs + 1 cover run and aggregate. Analysed off the ORIGINAL classpath; a
         // malformed split (two domainSplit, an orphan slice) throws a DomainSplitError that fails the
@@ -181,7 +186,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             // split pins to the build-default cap for its derived runs — the pre-AUTO behaviour. (A
             // split proof's derived runs each need a concrete bound; climbing every slice is a separate
             // optimization.) An explicit per-proof bound is honored unchanged.
-            val splitBase = if (request.unwind == BmcProof.AUTO) pinUnwind(request, autoUnwindCap())
+            val splitBase = if (request.unwind == BmcProof.AUTO) pinUnwind(request, unwindCap)
                     else request
             runSplitProof(method, entryFunction, config, splitBase, backend, splitPlan, outcome)
             return
@@ -286,7 +291,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 // other loop. Intermediate rounds are UNKNOWN (never cached); on a conclusive landing the
                 // verdict is stored under the discovered per-loop unwindset (which keys the verdict cache
                 // via the request's unwindSet), so an unchanged re-run short-circuits.
-                val smart = climbSmartUnwind(request, backend)
+                val smart = climbSmartUnwind(request, backend, unwindCap)
                 if (smart.discovered && isConclusive(smart.result)) {
                     result = smart.result
                     storeRequest = cacheKeyRequest(
@@ -302,7 +307,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     // — which bounds every loop AND recursion uniformly — so smart unwinding can never
                     // REGRESS a proof the global climb decides; worst case it is the same verdict at extra
                     // cost. The discovered global bound is recorded by [climbUnwind] for the re-run.
-                    val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome)
+                    val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome, unwindCap)
                     result = climbed.result
                     storeRequest = cacheKeyRequest(pinUnwind(request, climbed.bound), config)
                 }
@@ -311,7 +316,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 // cached anyway), and record the WINNING bound in the unwind cache so the next unchanged
                 // run skips the climb and hits the verdict cache at that bound. Surfaces the discovered
                 // bound on a conclusive verdict.
-                val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome)
+                val climbed = climbUnwind(request, backend, engineIdentity, entryFunction, outcome, unwindCap)
                 result = climbed.result
                 storeRequest = cacheKeyRequest(pinUnwind(request, climbed.bound), config)
             } else {
@@ -824,8 +829,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
      */
     private fun climbUnwind(request: BmcRequest,
                             backend: org.bmc4j.engine.VerificationBackend, engineIdentity: String,
-                            entryFunction: String, outcome: ProofOutcome): AutoUnwind.Outcome {
-        val cap = autoUnwindCap()
+                            entryFunction: String, outcome: ProofOutcome, cap: Int): AutoUnwind.Outcome {
         val seed = autoUnwindSeed()
         val out = AutoUnwind.climb(seed, cap) { bound -> backend.verify(pinUnwind(request, bound)) }
         if (out.discovered && isConclusive(out.result)) {
@@ -850,9 +854,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
      * bound and round count, so a symbolic-guard loop fails closed to UNKNOWN instead of hanging.
      */
     private fun climbSmartUnwind(request: BmcRequest,
-                                 backend: org.bmc4j.engine.VerificationBackend): SmartUnwind.Outcome {
+                                 backend: org.bmc4j.engine.VerificationBackend, cap: Int): SmartUnwind.Outcome {
         val base = autoUnwindSeed()
-        val cap = autoUnwindCap()
         return SmartUnwind.climb(base, cap) { climbedBase, unwindSet ->
             backend.verify(withUnwindSet(pinUnwind(request, climbedBase), unwindSet))
         }
@@ -1658,6 +1661,17 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
          * AUTO sentinel a default-forwarding plugin may place in `-Dbmc.unwind`.
          */
         internal fun autoUnwindCap(): Int = intProp(UNWIND_CAP_PROP, DEFAULT_UNWIND).coerceAtLeast(1)
+
+        /**
+         * The auto/smart-unwind climb CAP for a single proof: the per-proof `@BmcProof(unwindMax)` when
+         * set (a positive value), else the build-global [autoUnwindCap]. Lets one proof climb above the
+         * default cap while STAYING on the AUTO path (so discovery / per-loop smart unwinding still run)
+         * instead of pinning a fixed `unwind = N` that disables them. Only consulted in AUTO mode.
+         */
+        internal fun effectiveUnwindCap(config: BmcProof?): Int {
+            val perProof = config?.unwindMax ?: 0
+            return if (perProof > 0) perProof.coerceAtLeast(1) else autoUnwindCap()
+        }
 
         /**
          * The bound the auto-unwind climb STARTS at. Defaults to 1 (climb from low) — a clean,
