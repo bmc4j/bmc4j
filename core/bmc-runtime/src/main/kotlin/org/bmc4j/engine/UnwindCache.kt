@@ -206,5 +206,8 @@ object UnwindCache {
                     request.solver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff,
                     request.removeExceptionMessages, request.stringMode, request.profile,
-                    request.jbmcOptions)
+                    // unwindSet is deliberately normalized away (the single-bound discovered key); the
+                    // per-loop smart record keys separately. excludeModels IS preserved: a different
+                    // exclusion set links different bytecode, so it can discover a different bound.
+                    request.jbmcOptions, emptyMap(), request.excludeModels)
 }

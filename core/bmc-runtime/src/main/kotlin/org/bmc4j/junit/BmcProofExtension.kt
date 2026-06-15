@@ -163,8 +163,15 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // Raw @JbmcOptions passthrough (unguarded escape hatch): the annotation's tokens are appended
         // verbatim to the jbmc command for this proof and folded into the verdict-cache key.
         val jbmcOptions = method.getAnnotation(org.bmc4j.JbmcOptions::class.java)?.value ?: ""
+        // @ExcludeModels: the FQNs of user models this proof opts OUT of. Method-level MERGES with
+        // class-level (the union applies), like the other proof annotations. Excluding a model means
+        // analysing the real class instead of the model -- strictly MORE faithful, so it can only make a
+        // proof harder/UNKNOWN, never a false VERIFIED (no soundness handling needed). Threaded onto the
+        // request, dropped from the userModels overlay by JbmcBackend, and folded into the verdict-cache
+        // key (so an exclusion change forces a fresh run).
+        val excludeModels = resolveExcludedModels(method)
         val request = applySolverPlan(
-                requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions))
+                requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions, excludeModels))
 
         // JBMC backend (symbolic, all-inputs). For concurrency correctness, see the
         // README's Lincheck guidance — @BmcProof proves logic soundness.
@@ -814,7 +821,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
                     request.removeExceptionMessages, request.stringMode, request.profile,
-                    request.jbmcOptions, request.unwindSet)
+                    request.jbmcOptions, request.unwindSet, request.excludeModels)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -1469,7 +1476,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
                             decision.path, true, request.removeExceptionMessages, request.stringMode,
-                            request.profile, request.jbmcOptions, request.unwindSet)
+                            request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1482,7 +1489,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
                                 request.removeExceptionMessages, request.stringMode, request.profile,
-                                request.jbmcOptions, request.unwindSet)
+                                request.jbmcOptions, request.unwindSet, request.excludeModels)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1514,7 +1521,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
-                    request.stringMode, request.profile, request.jbmcOptions, request.unwindSet)
+                    request.stringMode, request.profile, request.jbmcOptions, request.unwindSet,
+                    request.excludeModels)
         }
 
         /**
@@ -1546,7 +1554,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
         @JvmOverloads
         internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?,
-                                profile: Boolean = false, jbmcOptions: String = ""): BmcRequest =
+                                profile: Boolean = false, jbmcOptions: String = "",
+                                excludeModels: Set<String> = emptySet()): BmcRequest =
                 BmcRequest(
                         entryClass,
                         entryFunction,
@@ -1562,7 +1571,30 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         resolveRemoveExceptionMessages(config),
                         resolveStringMode(config),
                         profile,
-                        jbmcOptions)
+                        jbmcOptions,
+                        emptyMap(),
+                        excludeModels)
+
+        /**
+         * The fully-qualified names of the user models this proof opts OUT of, via
+         * [org.bmc4j.ExcludeModels]. The method-level annotation is MERGED with the declaring class's
+         * (the union of both `value()` sets), matching how the other proof annotations let a method add
+         * to a class-wide setting. Empty when neither is present, so an ordinary proof is unaffected. The
+         * names are the JVM binary class names (`Class.name`, dotted, with `$` for nested classes), which
+         * is exactly the form [JbmcBackend] maps back to a `pkg/Class.class` overlay entry.
+         */
+        internal fun resolveExcludedModels(method: Method): Set<String> {
+            val out = LinkedHashSet<String>()
+            // A Java annotation's Class<?>[] attribute surfaces in Kotlin as Array<KClass<*>>; .java.name
+            // is the JVM BINARY name (dotted package + '$'-separated nested classes), the form the
+            // userModels overlay's .class entries are keyed by.
+            fun add(annotation: org.bmc4j.ExcludeModels?) {
+                annotation?.value?.forEach { cls -> out.add(cls.java.name) }
+            }
+            add(method.declaringClass.getAnnotation(org.bmc4j.ExcludeModels::class.java))
+            add(method.getAnnotation(org.bmc4j.ExcludeModels::class.java))
+            return out
+        }
 
         /**
          * The exception-message elision mode this proof runs under: its per-proof
@@ -1687,7 +1719,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile, request.jbmcOptions, request.unwindSet)
+                        request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels)
 
         /** [request] carrying the per-loop [unwindSet] overrides (every other field unchanged) — the
          *  per-loop "smart" unwinding handle threaded to the engine as `--unwindset <loopId>:<bound>`. */
@@ -1696,7 +1728,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile, request.jbmcOptions, unwindSet)
+                        request.profile, request.jbmcOptions, unwindSet, request.excludeModels)
 
         /**
          * Whether per-loop "smart" unwinding is enabled for this build. Default ON; opt OUT with

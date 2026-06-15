@@ -330,6 +330,12 @@ object VerdictCache {
         //    so editing a user model must invalidate here or a stale green is served.
         val userModels = System.getProperty("bmc.userModels", "")
         update(md, "userModels", memoized(DIGEST_MEMO, userModels, ::classpathContentDigest))
+        // 5b) per-proof @ExcludeModels — JbmcBackend DROPS these FQNs' .class entries from the
+        //     userModels overlay (5) for this proof, so it analyses the real class instead of the model.
+        //     The overlaid bytecode differs from a proof that keeps the model, so the exclusion set must
+        //     bust the cache or a verdict proven against the real class could be served for a request that
+        //     keeps the model (or vice versa). Sorted so set order never perturbs the key.
+        update(md, "excludeModels", request.excludeModels.sorted().joinToString(","))
         // 6) Kotlin parameter semantics (bmc.kotlinNullableParams) — KotlinParamBytecode rewrites
         //    proof prologues at analysis time, AFTER this key is built, and the app .class files
         //    don't change when the flag flips — so fold the mode in, or flipping to honest-JVM
