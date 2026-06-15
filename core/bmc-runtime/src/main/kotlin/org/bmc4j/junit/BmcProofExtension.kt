@@ -1653,14 +1653,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.profile, request.jbmcOptions, unwindSet)
 
         /**
-         * Whether per-loop "smart" unwinding is enabled for this build. Default ON; opt OUT with
-         * `-Dbmc.smartUnwind=false`. When on, an AUTO proof with no cached bound discovers each loop's
-         * own minimal bound via [SmartUnwind]; when off, AUTO proofs use the single global-bound climb
-         * ([AutoUnwind]) instead. An explicit `@BmcProof(unwind = N)` is unaffected either way (it never
-         * climbs).
+         * Whether per-loop "smart" unwinding is enabled for this build (opt-in `-Dbmc.smartUnwind=true`;
+         * default OFF). When off, AUTO proofs use the single global-bound climb ([AutoUnwind]) exactly as
+         * before; when on, an AUTO proof with no cached bound discovers each loop's own minimal bound via
+         * [SmartUnwind]. An explicit `@BmcProof(unwind = N)` is unaffected either way (it never climbs).
          */
         internal fun smartUnwindEnabled(): Boolean =
-                System.getProperty(SMART_UNWIND_PROP)?.trim()?.equals("false", ignoreCase = true) != true
+                System.getProperty(SMART_UNWIND_PROP)?.trim()?.equals("true", ignoreCase = true) == true
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */
