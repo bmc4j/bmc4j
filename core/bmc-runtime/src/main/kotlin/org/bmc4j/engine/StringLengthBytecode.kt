@@ -62,7 +62,7 @@ object StringLengthBytecode {
     private const val BMC_STRINGS = "org/bmc4j/engine/BmcStrings"
     private const val ANY_CHAR_BACKED = "anyCharBacked"
     private const val ANY_CHAR_BACKED_DESC = "(I)Ljava/lang/String;"
-    private const val OF_CHARS = "ofChars"
+    private const val OF_CHARS_LITERAL = "ofCharsLiteral"
     private const val OF_CHARS_DESC = "([C)Ljava/lang/String;"
 
     /** Constant-pool tag for a CONSTANT_String entry (a `ldc "..."` literal). */
@@ -98,7 +98,7 @@ object StringLengthBytecode {
             }
 
     private fun doRewrite(classpath: String, maxStringLength: Int): String =
-            ClasspathMirror.mirror(classpath, "strlen2-$maxStringLength", { b ->
+            ClasspathMirror.mirror(classpath, "strlen4-$maxStringLength", { b ->
                 ClasspathMirror.Transformed(rewriteClass(b, maxStringLength))
             })
 
@@ -135,15 +135,20 @@ object StringLengthBytecode {
                 // The bound for sites in THIS method: the helper's own maxLength slot when this is a
                 // recognized Bmc symbolic-string helper, else null (use the global constant).
                 val helperSlot = if (BMC_OWNER == owner[0]) BMC_STRING_HELPERS[name + " " + desc] else null
-                return Rewriter(mv, helperSlot, maxStringLength)
+                // Constant-length LITERAL pinning fires only in USER proof code. Pinning a literal in a
+                // substituted JDK model / runtime class re-emits it in a way the no-refinement char-array
+                // engine unwinds far more expensively; that re-emission regressed the conformance suite.
+                val pinLiterals = !isModelOrRuntime(owner[0])
+                return Rewriter(mv, helperSlot, maxStringLength, pinLiterals)
             }
         }
         cr.accept(cv, 0)
         return cw.toByteArray()
     }
 
-    /** Does [cr]'s constant pool name `nondetWithoutNull`? A class that never references it can't
-     *  introduce a symbolic string through it. */
+    /** Does [cr] need rewriting: does its constant pool name `nondetWithoutNull` (a symbolic-string
+     *  introduction to bound) OR hold a String constant (an `ldc` literal whose length must be pinned)?
+     *  A class with neither can't be touched by this pass. */
     private fun needsRewrite(cr: ClassReader): Boolean {
         for (i in 1 until cr.itemCount) {
             val item = cr.getItem(i)
@@ -164,6 +169,28 @@ object StringLengthBytecode {
         return false
     }
 
+    /** A synthetic source line stamped by an instrumentation pass that runs BEFORE this one
+     *  ([ReachabilityBytecode]'s vacuity marker, [NondetTagBytecode]'s nondet witness): the string
+     *  literals those passes inject (the marker text, the witness variable name) sit on these lines.
+     *  They feed framework sinks, not length-bounded ops, so pinning them is pure cost - it re-emits a
+     *  char-array build at every proof exit / witness site and regresses the no-refinement suite. */
+    private fun isSyntheticLine(line: Int): Boolean =
+            line == BmcReachability.SENTINEL_LINE || line == NondetTagBytecode.TAG_LINE
+
+    /** True for a substituted JDK model, a Kotlin/runtime class, or the bmc4j runtime / CProver - the
+     *  classes whose bytecode is the product (not user proof code). Their string literals are NOT pinned
+     *  (re-emitting them regressed the no-refinement char-array conformance suite); user proof literals are. */
+    private fun isModelOrRuntime(internalName: String?): Boolean {
+        if (internalName == null) return false
+        return internalName.startsWith("java/") ||
+                internalName.startsWith("javax/") ||
+                internalName.startsWith("jdk/") ||
+                internalName.startsWith("sun/") ||
+                internalName.startsWith("kotlin/") ||
+                internalName.startsWith("org/bmc4j/") ||
+                internalName.startsWith("org/cprover/")
+    }
+
     /**
      * Rewrites `nondetWithoutNull()` + `CHECKCAST String` into a bounded [BmcStrings.anyCharBacked]
      * call. Buffers a pending `nondetWithoutNull()` (it has no stack inputs to disturb) and resolves it
@@ -172,10 +199,17 @@ object StringLengthBytecode {
      * for a non-String type - anyRef, a generic nondet - is left untouched).
      */
     private class Rewriter(mv: MethodVisitor, private val helperSlot: Int?,
-                           private val globalMax: Int) : MethodVisitor(Opcodes.ASM9, mv) {
+                           private val globalMax: Int, private val pinLiterals: Boolean)
+        : MethodVisitor(Opcodes.ASM9, mv) {
 
         /** True when the immediately-preceding instruction was `INVOKESTATIC nondetWithoutNull()`. */
         private var pendingNondet = false
+
+        /** The source line of the instruction currently being visited (-1 before the first
+         *  `visitLineNumber`). Used to leave instrumentation-injected literals - which the earlier
+         *  reachability / nondet-witness passes stamp on a [synthetic sentinel line][isSyntheticLine] -
+         *  unpinned. */
+        private var currentLine = -1
 
         /** Replay a buffered, unconsumed `nondetWithoutNull()` verbatim. */
         private fun flushNondet() {
@@ -239,26 +273,24 @@ object StringLengthBytecode {
         override fun visitFieldInsn(o: Int, w: String?, n: String?, d: String?) { flushNondet(); super.visitFieldInsn(o, w, n, d) }
         override fun visitLdcInsn(value: Any?) {
             flushNondet()
-            if (value is String) {
-                // A String CONSTANT. Under CHAR_ARRAY_MODEL jbmc backs an ldc literal with a SYMBOLIC-length
-                // char array (the literal's known length is lost), so any length-bounded op over it
-                // (String.<init>, writeUtf8, charAt loops) iterates on a symbolic bound and symex explodes.
-                // Build the literal as a FIXED char array and route it through the same sound char-backed
-                // factory the symbolic path uses, pinning the length to the literal's ACTUAL length.
+            if (pinLiterals && value is String && !isSyntheticLine(currentLine)) {
+                // A String CONSTANT in USER proof code. Under CHAR_ARRAY_MODEL jbmc backs an `ldc` literal
+                // with a SYMBOLIC-length char array (the literal's known length is lost), so a
+                // length-bounded op over it iterates on a symbolic bound and symex explodes. Build the
+                // literal as a FIXED char array and route it through the loop-free literal factory, pinning
+                // the length to its ACTUAL value. (Skipped for model/runtime classes - see visitMethod -
+                // and for literals INJECTED by the reachability / nondet-witness passes, which stamp them
+                // on a synthetic sentinel line; pinning those re-emits a char-array build into every proof
+                // exit / witness site, regressing the no-refinement conformance suite.)
                 emitFixedString(value)
                 return
             }
             super.visitLdcInsn(value)
         }
 
-        /**
-         * Emit a fixed-length char-backed String for a String constant [s]:
-         * `BmcStrings.ofChars(new char[]{ <literal chars> })`. The char[] build is UNROLLED (one CASTORE
-         * per char, no loop), and [BmcStrings.ofChars] is the sound char-array String construction the
-         * symbolic path already uses. The literal's actual length is now concrete, so downstream
-         * length()/charAt loops (String.<init>, writeUtf8) bind to that real length instead of the
-         * symbolic char-array backing JBMC would otherwise give an `ldc` constant under CHAR_ARRAY_MODEL.
-         */
+        /** Emit `BmcStrings.ofCharsLiteral(new char[]{ <literal chars> })` for a String constant [s] - the
+         *  char[] build is UNROLLED (no loop) and ofCharsLiteral is loop-free, so the literal's length is
+         *  concrete and a literal longer than the unwind bound is not truncated by a per-char append. */
         private fun emitFixedString(s: String) {
             pushInt(s.length)
             super.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR)
@@ -268,11 +300,11 @@ object StringLengthBytecode {
                 pushInt(s[i].code)
                 super.visitInsn(Opcodes.CASTORE)
             }
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, OF_CHARS, OF_CHARS_DESC, false)
+            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, OF_CHARS_LITERAL, OF_CHARS_DESC, false)
         }
         override fun visitJumpInsn(o: Int, l: org.objectweb.asm.Label?) { flushNondet(); super.visitJumpInsn(o, l) }
         override fun visitLabel(l: org.objectweb.asm.Label?) { flushNondet(); super.visitLabel(l) }
-        override fun visitLineNumber(line: Int, start: org.objectweb.asm.Label?) { flushNondet(); super.visitLineNumber(line, start) }
+        override fun visitLineNumber(line: Int, start: org.objectweb.asm.Label?) { flushNondet(); currentLine = line; super.visitLineNumber(line, start) }
         override fun visitIincInsn(varIdx: Int, increment: Int) { flushNondet(); super.visitIincInsn(varIdx, increment) }
         override fun visitInvokeDynamicInsn(n: String?, d: String?, h: org.objectweb.asm.Handle?, vararg a: Any?) { flushNondet(); super.visitInvokeDynamicInsn(n, d, h, *a) }
         override fun visitTableSwitchInsn(mn: Int, mx: Int, d: org.objectweb.asm.Label?, vararg ls: org.objectweb.asm.Label?) { flushNondet(); super.visitTableSwitchInsn(mn, mx, d, *ls) }

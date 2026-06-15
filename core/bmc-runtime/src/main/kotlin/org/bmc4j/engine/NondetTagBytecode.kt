@@ -75,7 +75,7 @@ object NondetTagBytecode {
     /** Synthetic source line stamped on the injected tag instructions (kept off real-line collisions,
      *  mirroring [BmcReachability.SENTINEL_LINE]; informational only — the parser keys on the frame id,
      *  not the line). */
-    private const val TAG_LINE = 65_534
+    internal const val TAG_LINE = 65_534
 
     /** The witness VALUE kind a tagged store carries — selects the [RECORD_DESC_*] overload and the
      *  reload/widen sequence used to feed the sink. */
