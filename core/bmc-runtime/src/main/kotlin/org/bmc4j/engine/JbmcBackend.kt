@@ -3,6 +3,7 @@ package org.bmc4j.engine
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 /**
  * The default backend: JBMC (diffblue/cbmc's Java bytecode model checker).
@@ -223,13 +224,24 @@ class JbmcBackend : VerificationBackend {
             // later be inserted AFTER all of them (the user override must still win by classpath order).
             var userModelEntries = 0
             if (!userModels.isNullOrBlank()) {
+                // Per-proof @ExcludeModels: drop the named models' .class entries from the overlay so this
+                // proof links the REAL class instead of the model. A dir containing an excluded class is
+                // replaced by a filtered temp copy minus those entries; every other dir passes through
+                // unchanged. SOUND: the real class is strictly more faithful than the model, so an
+                // exclusion can only make a proof harder/UNKNOWN, never a false VERIFIED. The filtered dir
+                // is a fresh path, so it falls out of the plugin mirror's covered set and gets rewritten
+                // in-JVM below (correct, just unmirrored for the excluded proof). A no-op (same string)
+                // when the proof excludes nothing -- the overwhelmingly common case. The exclusion set is
+                // also folded into the verdict-cache key (VerdictCache.computeKey), so it can't serve a
+                // model-kept verdict for a model-excluded request.
+                val overlayModels = excludeFromUserModels(userModels, request.excludeModels)
                 // With a plugin mirror the bmcModel output is a covered task input — substitute it for its
                 // already-rewritten mirror; an uncovered entry (fallback) is rewritten in-JVM. With no
                 // plugin mirror, run the hoistable passes on it directly. Either way it ends up
                 // rewritten exactly once.
                 val foldedUserModels = t("user-models") {
-                    if (preMirrored) hoistableWithGradleMirror(userModels, Path.of(mirrorDir))
-                    else applyHoistablePasses(userModels)
+                    if (preMirrored) hoistableWithGradleMirror(overlayModels, Path.of(mirrorDir))
+                    else applyHoistablePasses(overlayModels)
                 }
                 classpath = foldedUserModels + File.pathSeparator + classpath
                 userModelEntries = foldedUserModels.split(File.pathSeparator).count { it.isNotEmpty() }
@@ -513,5 +525,66 @@ class JbmcBackend : VerificationBackend {
             val coreModels = bin.parent.resolve("lib").resolve("core-models.jar")
             return if (Files.isRegularFile(coreModels)) coreModels.toString() else null
         }
+    }
+}
+
+/**
+ * Drop the [excluded] models' `.class` files from the [userModels] overlay classpath, so a proof
+ * that opts out of a model (via `@org.bmc4j.ExcludeModels`) links the REAL class instead. Each entry
+ * is a `bmcModel` source-set output dir holding individual model `.class` files at `pkg/Name.class`.
+ * For an entry that contains at least one excluded class we build a filtered temp copy of that dir
+ * WITHOUT those files (and without the nested-class `Name$Inner.class` companions of an excluded
+ * top-level model); every other dir, and every jar, passes through UNCHANGED. Returns [userModels]
+ * verbatim when nothing is excluded (the common case) so the normal overlay is byte-for-byte
+ * unaffected.
+ *
+ * SOUNDNESS: using the real class is strictly more faithful than any model, so this can only ever
+ * make a proof harder/slower/UNKNOWN -- never turn a real refutation into a false VERIFIED. The
+ * exclusion set is folded into the verdict-cache key by [VerdictCache.computeKey], so a filtered
+ * overlay never serves a verdict proven against the unfiltered one.
+ *
+ * Top-level (not in the private companion) so the focused unit test can exercise it directly.
+ */
+internal fun excludeFromUserModels(userModels: String, excluded: Set<String>): String {
+    if (excluded.isEmpty() || userModels.isBlank()) {
+        return userModels
+    }
+    // The relative .class resource paths to drop: pkg/Name for each excluded FQN (the .class suffix
+    // and the dir separator are normalized away when we compare).
+    val excludedRoots = excluded.map { it.replace('.', '/') }.toSet()
+    // True when [rel] (a forward-slashed, .class-stripped relative path) is an excluded model or a
+    // nested class of one (pkg/Name or pkg/Name$Inner) -- both belong to the excluded top-level class.
+    fun isExcluded(rel: String): Boolean =
+            rel in excludedRoots || excludedRoots.any { rel.startsWith("$it$") }
+    return userModels.split(File.pathSeparator).joinToString(File.pathSeparator) { entry ->
+        if (entry.isEmpty()) {
+            return@joinToString entry
+        }
+        val dir = Path.of(entry)
+        if (!Files.isDirectory(dir)) {
+            return@joinToString entry // a jar (or missing entry): models live in dirs; leave it
+        }
+        // Snapshot the dir's files; only rebuild it if it actually holds an excluded class.
+        val files = ArrayList<Path>()
+        Files.walk(dir).use { walk ->
+            walk.forEach { p -> if (!Files.isDirectory(p)) files.add(p) }
+        }
+        fun relKey(p: Path): String =
+                dir.relativize(p).toString().replace('\\', '/').removeSuffix(".class")
+        val hasExcluded = files.any { it.toString().endsWith(".class") && isExcluded(relKey(it)) }
+        if (!hasExcluded) {
+            return@joinToString entry // nothing to drop from this dir: pass through untouched
+        }
+        val out = Files.createTempDirectory("bmc4j-exclude-models-")
+        out.toFile().deleteOnExit()
+        for (src in files) {
+            if (src.toString().endsWith(".class") && isExcluded(relKey(src))) {
+                continue // the excluded model's class: omit so the real class is linked
+            }
+            val target = out.resolve(dir.relativize(src).toString())
+            Files.createDirectories(target.parent)
+            Files.copy(src, target, StandardCopyOption.REPLACE_EXISTING)
+        }
+        out.toString()
     }
 }

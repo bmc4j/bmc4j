@@ -102,4 +102,19 @@ class BmcRequest @JvmOverloads constructor(
          * proven at one per-loop bound set for a request with a different one). Empty for an ordinary
          * single-bound run (the default), so a proof that never engages smart unwinding is unaffected.
          */
-        @get:JvmName("unwindSet") val unwindSet: Map<String, Int> = emptyMap())
+        @get:JvmName("unwindSet") val unwindSet: Map<String, Int> = emptyMap(),
+        /**
+         * Fully-qualified names of user models (`org.bmc4j.ExcludeModels`) this proof opts OUT of:
+         * their `.class` entries are dropped from the `bmc.userModels` overlay before analysis, so the
+         * REAL class is linked instead of the model. Empty for the common case (every model applies),
+         * so a proof with no `@ExcludeModels` is unaffected.
+         *
+         * SOUNDNESS: excluding a model means analysing the real class, which is strictly more faithful
+         * than the model, so it can only ever make a proof harder/slower/UNKNOWN, never a false VERIFIED.
+         *
+         * Part of the verdict-cache identity: the per-proof analysis classpath varies by this set (a
+         * dropped model changes which bytecode JBMC links), so it is folded into [VerdictCache.computeKey]
+         * — adding/removing an exclusion forces a fresh run; the empty default keys identically to a proof
+         * with no exclusion.
+         */
+        @get:JvmName("excludeModels") val excludeModels: Set<String> = emptySet())
