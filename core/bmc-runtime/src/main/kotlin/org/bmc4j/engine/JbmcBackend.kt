@@ -76,7 +76,9 @@ class JbmcBackend : VerificationBackend {
                     request.profile,
                     // The bmc4j-pipeline timings collected above + the request, so the driver can fold our
                     // harness-measured prep phases (and the engine wall-clock it measures) into the profile.
-                    timing?.snapshot())
+                    timing?.snapshot(),
+                    // Raw @JbmcOptions passthrough appended verbatim to the jbmc command for this proof.
+                    request.jbmcOptions)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

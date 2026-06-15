@@ -109,5 +109,6 @@ object UnwindCache {
                     NORMALIZED_UNWIND, request.unwindingAssertions, request.maxStringLength,
                     request.solver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff,
-                    request.removeExceptionMessages, request.stringMode)
+                    request.removeExceptionMessages, request.stringMode, request.profile,
+                    request.jbmcOptions)
 }
