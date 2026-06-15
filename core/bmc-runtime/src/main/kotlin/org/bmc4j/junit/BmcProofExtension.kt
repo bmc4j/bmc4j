@@ -159,7 +159,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // performance breakdown out of the verbose stream it already captures and attach it to the result.
         // It NEVER changes the verdict; it only emits extra diagnostic output, rendered below.
         val profileRequested = method.isAnnotationPresent(org.bmc4j.BmcProfile::class.java)
-        val request = applySolverPlan(requestFor(entryClass, entryFunction, config, profileRequested))
+        // Raw @JbmcOptions passthrough (unguarded escape hatch): the annotation's tokens are appended
+        // verbatim to the jbmc command for this proof and folded into the verdict-cache key.
+        val jbmcOptions = method.getAnnotation(org.bmc4j.JbmcOptions::class.java)?.value ?: ""
+        val request = applySolverPlan(
+                requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions))
 
         // JBMC backend (symbolic, all-inputs). For concurrency correctness, see the
         // README's Lincheck guidance — @BmcProof proves logic soundness.
@@ -758,7 +762,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
-                    request.removeExceptionMessages, request.stringMode, request.profile)
+                    request.removeExceptionMessages, request.stringMode, request.profile,
+                    request.jbmcOptions)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -1391,7 +1396,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
                             decision.path, true, request.removeExceptionMessages, request.stringMode,
-                            request.profile)
+                            request.profile, request.jbmcOptions)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1403,7 +1408,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         BmcRequest(request.entryClass, request.entryFunction, request.classpath,
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
-                                request.removeExceptionMessages, request.stringMode, request.profile)
+                                request.removeExceptionMessages, request.stringMode, request.profile,
+                                request.jbmcOptions)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1435,7 +1441,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
-                    request.stringMode, request.profile)
+                    request.stringMode, request.profile, request.jbmcOptions)
         }
 
         /**
@@ -1467,7 +1473,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
 
         @JvmOverloads
         internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?,
-                                profile: Boolean = false): BmcRequest =
+                                profile: Boolean = false, jbmcOptions: String = ""): BmcRequest =
                 BmcRequest(
                         entryClass,
                         entryFunction,
@@ -1482,7 +1488,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         false,
                         resolveRemoveExceptionMessages(config),
                         resolveStringMode(config),
-                        profile)
+                        profile,
+                        jbmcOptions)
 
         /**
          * The exception-message elision mode this proof runs under: its per-proof
@@ -1596,7 +1603,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile)
+                        request.profile, request.jbmcOptions)
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */

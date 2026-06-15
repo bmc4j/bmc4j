@@ -29,11 +29,12 @@ class Jbmc(private val executable: String) {
             solver: String?, timeoutSeconds: Int = 0, externalSatPath: String = "",
             stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
             userClasspath: String? = null, profile: Boolean = false,
-            pipelineSeconds: Map<String, Double>? = null): JbmcResult {
+            pipelineSeconds: Map<String, Double>? = null,
+            jbmcOptions: String = ""): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, solver, externalSatPath, stringMode))
+                maxStringLength, solver, externalSatPath, stringMode, jbmcOptions))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
                 stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
     }
@@ -190,7 +191,8 @@ class Jbmc(private val executable: String) {
         internal fun args(entryClass: String, entryFunction: String, classpath: String,
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
                           solver: String?, externalSatPath: String = "",
-                          stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT): List<String> {
+                          stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
+                          jbmcOptions: String = ""): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
@@ -214,6 +216,14 @@ class Jbmc(private val executable: String) {
             // what we can OBSERVE, not the verdict.
             cmd.add("--verbosity")
             cmd.add("10")
+            // Raw @JbmcOptions passthrough: tokenized on whitespace and appended verbatim, LAST, so a
+            // user-supplied flag can override anything bmc4j set. Intentionally unguarded — no
+            // validation, no soundness checks; the user owns the result (see [org.bmc4j.JbmcOptions]).
+            for (token in jbmcOptions.trim().split(Regex("\\s+"))) {
+                if (token.isNotEmpty()) {
+                    cmd.add(token)
+                }
+            }
             return cmd
         }
 

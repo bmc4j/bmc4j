@@ -82,4 +82,11 @@ class BmcRequest @JvmOverloads constructor(
          * cache miss on that account (instead the extension bypasses the cache short-circuit so a live run
          * actually happens to profile). Defaults to off, so the normal path is unaffected.
          */
-        @get:JvmName("profile") val profile: Boolean = false)
+        @get:JvmName("profile") val profile: Boolean = false,
+        /**
+         * Raw extra jbmc arguments from `@JbmcOptions`, tokenized on whitespace and appended verbatim
+         * to the command for this proof. An UNGUARDED passthrough (no validation/soundness checks). It
+         * is part of the verdict-cache identity — setting or changing it forces a fresh engine run; the
+         * empty default keys identically to a proof with no `@JbmcOptions`.
+         */
+        @get:JvmName("jbmcOptions") val jbmcOptions: String = "")
