@@ -2,6 +2,7 @@ package org.bmc4j.engine
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
@@ -115,6 +116,22 @@ internal class StringLengthBytecodeTest {
         }
         assertArrayEquals(bytes, StringLengthBytecode.rewriteClass(bytes, 7),
                 "a class that never references nondetWithoutNull comes back byte-for-byte unchanged")
+    }
+
+    @Test
+    fun constant_string_literal_is_routed_through_ofChars() {
+        // A `ldc "ab"` String constant is rewritten to a fixed-length char-backed construction
+        // (new char[]{'a','b'} -> BmcStrings.ofChars), so the literal's KNOWN length is concrete and
+        // downstream length-bounded ops do not loop on the symbolic char-array backing JBMC would
+        // otherwise give an ldc constant under CHAR_ARRAY_MODEL.
+        val bytes = methodWith("pkg/P", METHOD_NAME, "()V") { mv ->
+            mv.visitLdcInsn("ab")
+            mv.visitVarInsn(Opcodes.ASTORE, 0)
+            mv.visitInsn(Opcodes.RETURN)
+        }
+        val t = trace(StringLengthBytecode.rewriteClass(bytes, 7))
+        assertTrue(t.none { it.startsWith("ldc ") }, "the String literal should be rewritten away: $t")
+        assertTrue(t.any { it.contains("BmcStrings.ofChars") }, "should route through ofChars: $t")
     }
 
     /** Like [trace] but for a method named [name] (the helper-slot test uses a non-default name). */

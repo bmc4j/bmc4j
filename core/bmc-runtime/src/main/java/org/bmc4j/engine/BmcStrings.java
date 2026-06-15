@@ -86,12 +86,22 @@ public final class BmcStrings {
         return sb.toString();
     }
 
-    /** Sound stand-in for {@code new String(char[])} / {@code String.valueOf(char[])} (whole array). */
+    /**
+     * Sound stand-in for {@code new String(char[])} / {@code String.valueOf(char[])} (whole array).
+     *
+     * <p>Loop-free: inside {@code BmcStrings} (an owner {@code StringBytecode} excludes from construction
+     * redirection) {@code new String(char[])} resolves straight to the char-array String model's copying
+     * constructor - the same path {@link #anyCharBacked} relies on - so it materializes the whole array in
+     * one shot with no unwound loop. The {@code (data, offset, count)} overload keeps the append rebuild
+     * because a sub-range needs the bounds checks; this whole-array form is what fixed string literals
+     * (and full-array {@code new String(char[])} sites) lower to, so they no longer cost a per-char
+     * {@code StringBuilder.append} unwind - that loop was the symex wall on string-literal-heavy code.
+     */
     public static String ofChars(char[] data) {
         if (data == null) {
             throw new NullPointerException();
         }
-        return ofChars(data, 0, data.length);
+        return new String(data);
     }
 
     /** Sound stand-in for {@code String.valueOf(char)} / {@code Character.toString(char)} (single char). */
