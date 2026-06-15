@@ -285,12 +285,19 @@ class JbmcResult private constructor(
      * the engine emits the property without one), and [recursion] distinguishes a recursion overrun from
      * a loop overrun. Rendered by [describe] as the "method (file:line)" hint in the data-dependent-bound
      * diagnostic — naming WHERE to look, without any dataflow/slice analysis.
+     *
+     * [loopId] is the engine's own loop identifier in `--unwindset`/`--show-loops` form (the failing
+     * property name with `.unwind.` collapsed back to `.`, e.g. `java::pkg.Cls.m:()V.0`), or null for a
+     * recursion overrun (which `--unwindset` cannot target per-site). It is what the per-loop "smart"
+     * unwinding ([SmartUnwind]) bumps in isolation — raising only the loops that under-bounded, leaving
+     * every other loop where it is.
      */
-    class UnwindingLoop(
+    class UnwindingLoop @JvmOverloads constructor(
             @get:JvmName("method") val method: String,
             @get:JvmName("file") val file: String?,
             @get:JvmName("line") val line: Int,
-            @get:JvmName("recursion") val recursion: Boolean = false) {
+            @get:JvmName("recursion") val recursion: Boolean = false,
+            @get:JvmName("loopId") val loopId: String? = null) {
 
         /** "method (file:line)", or just "method" when no source location is available. */
         fun describe(): String = buildString {

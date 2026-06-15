@@ -89,4 +89,17 @@ class BmcRequest @JvmOverloads constructor(
          * is part of the verdict-cache identity — setting or changing it forces a fresh engine run; the
          * empty default keys identically to a proof with no `@JbmcOptions`.
          */
-        @get:JvmName("jbmcOptions") val jbmcOptions: String = "")
+        @get:JvmName("jbmcOptions") val jbmcOptions: String = "",
+        /**
+         * Per-loop unwind overrides for this run, each `<engine loopId> -> bound`, emitted as
+         * `--unwindset <loopId>:<bound>` (see [Jbmc]). Raises the bound for ONLY those loops, leaving
+         * every other loop on the global [unwind] — the mechanism behind per-loop "smart" unwinding
+         * ([SmartUnwind]), which discovers under-bounded loops with `--unwinding-assertions` and bumps
+         * just them, so one loop needing a high bound no longer inflates the formula on every other loop.
+         *
+         * Part of the verdict-cache identity: it rides the verdict-relevant flag signature in
+         * [Jbmc.appendVerdictRelevantFlags] (over-keying is sound; under-keying could serve a verdict
+         * proven at one per-loop bound set for a request with a different one). Empty for an ordinary
+         * single-bound run (the default), so a proof that never engages smart unwinding is unaffected.
+         */
+        @get:JvmName("unwindSet") val unwindSet: Map<String, Int> = emptyMap())

@@ -19,9 +19,12 @@ class Jbmc(private val executable: String) {
      * @param entryClass    fully qualified class containing the proof method
      * @param entryFunction `Class.method` entry point
      * @param classpath     classpath JBMC loads the bytecode from
-     * @param unwind        loop unwinding bound
+     * @param unwind        global loop unwinding bound (the default applied to every loop)
      * @param unwindingAssertions add --unwinding-assertions to flag insufficient bounds
      * @param maxStringLength bound on nondeterministic (input) string length; ignored if `<= 0`
+     * @param unwindSet      per-loop overrides emitted as `--unwindset <loopId>:<bound>` — raises the
+     *                       bound for ONLY those loops, leaving every other loop on the global [unwind].
+     *                       Empty for the ordinary single-bound run.
      */
     @JvmOverloads
     fun run(entryClass: String, entryFunction: String, classpath: String,
@@ -30,11 +33,11 @@ class Jbmc(private val executable: String) {
             stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
             userClasspath: String? = null, profile: Boolean = false,
             pipelineSeconds: Map<String, Double>? = null,
-            jbmcOptions: String = ""): JbmcResult {
+            jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap()): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, solver, externalSatPath, stringMode, jbmcOptions))
+                maxStringLength, solver, externalSatPath, stringMode, jbmcOptions, unwindSet))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
                 stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
     }
@@ -192,19 +195,19 @@ class Jbmc(private val executable: String) {
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
                           solver: String?, externalSatPath: String = "",
                           stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
-                          jbmcOptions: String = ""): List<String> {
+                          jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap()): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
             cmd.add(classpath)
             cmd.add("--function")
             cmd.add(entryFunction)
-            // The verdict-relevant flags (unwind, unwinding-assertions, max-nondet-string-length, the
-            // solver selection, AND any hard-coded engine flags) come from ONE builder, so the command
-            // and the verdict-cache key can never drift apart — see [appendVerdictRelevantFlags] /
-            // [verdictRelevantFlags].
+            // The verdict-relevant flags (unwind, the per-loop unwindset, unwinding-assertions,
+            // max-nondet-string-length, the solver selection, AND any hard-coded engine flags) come from
+            // ONE builder, so the command and the verdict-cache key can never drift apart — see
+            // [appendVerdictRelevantFlags] / [verdictRelevantFlags].
             appendVerdictRelevantFlags(cmd, unwind, unwindingAssertions, maxStringLength,
-                    solver, externalSatPath, stringMode)
+                    solver, externalSatPath, stringMode, unwindSet = unwindSet)
             // Pure OUTPUT/UI flags below — they change what we can OBSERVE, never the verdict, so they
             // are deliberately NOT part of the verdict-cache signature.
             cmd.add("--json-ui")
@@ -256,9 +259,20 @@ class Jbmc(private val executable: String) {
                                                unwindingAssertions: Boolean, maxStringLength: Int,
                                                solver: String?, externalSatPath: String,
                                                stringMode: org.bmc4j.StringMode,
-                                               forCacheKey: Boolean = false) {
+                                               forCacheKey: Boolean = false,
+                                               unwindSet: Map<String, Int> = emptyMap()) {
             cmd.add("--unwind")
             cmd.add(unwind.toString())
+            // Per-loop overrides: one `--unwindset <loopId>:<bound>` arg per entry, raising the bound for
+            // ONLY those loops while every other loop stays on the global --unwind above. Emitted in a
+            // STABLE (sorted-by-loopId) order so the command — and the verdict-cache signature derived
+            // from this same builder — is deterministic regardless of map iteration order.
+            if (unwindSet.isNotEmpty()) {
+                for ((loopId, bound) in unwindSet.toSortedMap()) {
+                    cmd.add("--unwindset")
+                    cmd.add("$loopId:$bound")
+                }
+            }
             if (unwindingAssertions) {
                 cmd.add("--unwinding-assertions")
             }
@@ -319,7 +333,7 @@ class Jbmc(private val executable: String) {
             val flags = mutableListOf<String>()
             appendVerdictRelevantFlags(flags, request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver, request.externalSatPath, request.stringMode,
-                    forCacheKey = true)
+                    forCacheKey = true, unwindSet = request.unwindSet)
             return flags.joinToString(" ")
         }
 

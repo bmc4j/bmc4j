@@ -14,6 +14,7 @@ import org.bmc4j.engine.ModelPolicy
 import org.bmc4j.engine.ReplayRenderer
 import org.bmc4j.engine.ReplayTestWriter
 import org.bmc4j.engine.ResidualIndyBytecode
+import org.bmc4j.engine.SmartUnwind
 import org.bmc4j.engine.StubPolicy
 import org.bmc4j.engine.UnknownKind
 import org.bmc4j.engine.UnwindCache
@@ -260,7 +261,20 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // than the one effectiveRequest carried (a cache miss that re-climbed to a different bound).
         var storeRequest = cacheRequest
         try {
-            if (isAuto && !haveConcreteBound) {
+            if (isAuto && !haveConcreteBound && smartUnwindEnabled()) {
+                // Per-loop "smart" unwinding (opt-in): pin every loop at the base bound and raise ONLY the
+                // loops that under-bound each round, so one heavy loop no longer inflates the formula on
+                // every other loop. Intermediate rounds are UNKNOWN (never cached); on a conclusive
+                // landing the verdict is stored under the discovered per-loop unwindset (which keys the
+                // verdict cache via the request's unwindSet), so an unchanged re-run short-circuits.
+                val smart = climbSmartUnwind(request, backend)
+                result = smart.result
+                storeRequest = cacheKeyRequest(
+                        withUnwindSet(pinUnwind(request, autoUnwindSeed()), smart.unwindSet), config)
+                if (smart.discovered && isConclusive(result)) {
+                    outcome.detail = smartUnwindDetail(smart.unwindSet)
+                }
+            } else if (isAuto && !haveConcreteBound) {
                 // No recorded bound: climb low→high (live runs; intermediate rungs are UNKNOWN and never
                 // cached anyway), and record the WINNING bound in the unwind cache so the next unchanged
                 // run skips the climb and hits the verdict cache at that bound. Surfaces the discovered
@@ -763,7 +777,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
                     request.removeExceptionMessages, request.stringMode, request.profile,
-                    request.jbmcOptions)
+                    request.jbmcOptions, request.unwindSet)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -790,12 +804,36 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         return out
     }
 
+    /**
+     * Run the per-loop "smart" unwinding climb for an AUTO [request] (opt-in via `-Dbmc.smartUnwind`):
+     * pin every loop at a small base bound, run with `--unwinding-assertions`, and raise ONLY the loops
+     * that under-bounded each round — so one loop needing a high bound no longer inflates the formula on
+     * every other loop. Returns the chosen [SmartUnwind.Outcome] so the caller stores the verdict under
+     * the discovered per-loop unwindset and runs the downstream demotions on it.
+     *
+     * Unlike the global climb this is NOT recorded in the single-bound [UnwindCache] (the discovered
+     * bound is a per-loop MAP, not one int), but the verdict-cache store still keys on the unwindset (it
+     * rides [BmcRequest.unwindSet] -> the verdict-relevant flag signature), so an unchanged re-run still
+     * short-circuits. The climb keeps `--unwinding-assertions` on every round and hard-caps both per-loop
+     * bound and round count, so a symbolic-guard loop fails closed to UNKNOWN instead of hanging.
+     */
+    private fun climbSmartUnwind(request: BmcRequest,
+                                 backend: org.bmc4j.engine.VerificationBackend): SmartUnwind.Outcome {
+        val base = autoUnwindSeed()
+        val cap = autoUnwindCap()
+        return SmartUnwind.climb(base, cap) { unwindSet ->
+            backend.verify(withUnwindSet(pinUnwind(request, base), unwindSet))
+        }
+    }
+
     companion object {
 
         private const val UNWIND_PROP = "bmc.unwind"
         /** The auto-unwind climb CAP (highest bound), separate from the `bmc.unwind` PIN — see
          *  [autoUnwindCap]. The plugin forwards `bmc { unwind }` here when it is left on AUTO. */
         private const val UNWIND_CAP_PROP = "bmc.unwindCap"
+        /** Opt-in flag for per-loop "smart" unwinding (default off) — see [smartUnwindEnabled]. */
+        private const val SMART_UNWIND_PROP = "bmc.smartUnwind"
         private const val MAX_STRING_PROP = "bmc.maxStringLength"
         private const val TIMEOUT_PROP = "bmc.timeoutSeconds"
         private const val DEFAULT_UNWIND = 16
@@ -1396,7 +1434,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
                             decision.path, true, request.removeExceptionMessages, request.stringMode,
-                            request.profile, request.jbmcOptions)
+                            request.profile, request.jbmcOptions, request.unwindSet)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1409,7 +1447,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
                                 request.removeExceptionMessages, request.stringMode, request.profile,
-                                request.jbmcOptions)
+                                request.jbmcOptions, request.unwindSet)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1441,7 +1479,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwind, request.unwindingAssertions, request.maxStringLength,
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
-                    request.stringMode, request.profile, request.jbmcOptions)
+                    request.stringMode, request.profile, request.jbmcOptions, request.unwindSet)
         }
 
         /**
@@ -1603,7 +1641,25 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile, request.jbmcOptions)
+                        request.profile, request.jbmcOptions, request.unwindSet)
+
+        /** [request] carrying the per-loop [unwindSet] overrides (every other field unchanged) — the
+         *  per-loop "smart" unwinding handle threaded to the engine as `--unwindset <loopId>:<bound>`. */
+        internal fun withUnwindSet(request: BmcRequest, unwindSet: Map<String, Int>): BmcRequest =
+                BmcRequest(request.entryClass, request.entryFunction, request.classpath, request.unwind,
+                        request.unwindingAssertions, request.maxStringLength, request.solver,
+                        request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
+                        request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
+                        request.profile, request.jbmcOptions, unwindSet)
+
+        /**
+         * Whether per-loop "smart" unwinding is enabled for this build (opt-in `-Dbmc.smartUnwind=true`;
+         * default OFF). When off, AUTO proofs use the single global-bound climb ([AutoUnwind]) exactly as
+         * before; when on, an AUTO proof with no cached bound discovers each loop's own minimal bound via
+         * [SmartUnwind]. An explicit `@BmcProof(unwind = N)` is unaffected either way (it never climbs).
+         */
+        internal fun smartUnwindEnabled(): Boolean =
+                System.getProperty(SMART_UNWIND_PROP)?.trim()?.equals("true", ignoreCase = true) == true
 
         /** True when [result] is a conclusive verdict (VERIFIED / REFUTED / VACUOUS) the climb may land
          *  on and record — never an UNKNOWN (unwinding-too-small, timeout, OOM, parse, crash). */
@@ -1613,6 +1669,16 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         internal fun autoUnwindDetail(bound: Int): String =
                 "auto-unwind: discovered unwind=$bound — pin with @BmcProof(unwind = $bound)" +
                         " to skip the search."
+
+        /** The structured-summary `detail` for a smart (per-loop) climb: the per-loop bounds it raised,
+         *  or a "every loop covered at the base bound" note when no loop needed raising. */
+        internal fun smartUnwindDetail(unwindSet: Map<String, Int>): String =
+                if (unwindSet.isEmpty()) {
+                    "smart-unwind: every loop covered at the base bound (no per-loop raise needed)."
+                } else {
+                    val raised = unwindSet.toSortedMap().entries.joinToString(", ") { "${it.key}=${it.value}" }
+                    "smart-unwind: discovered per-loop bounds [$raised] (only the under-bounded loops raised)."
+                }
 
         /**
          * The symbolic-string length bound a proof will actually run under: its per-proof
