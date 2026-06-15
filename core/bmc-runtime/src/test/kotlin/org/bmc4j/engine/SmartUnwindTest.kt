@@ -38,7 +38,7 @@ internal class SmartUnwindTest {
         // Two loops; loop A is fine at the base, loop B under-bounds and needs raising. The climb must
         // raise ONLY B (A stays absent from the unwindset = runs at the base), then VERIFY.
         val seen = mutableListOf<Map<String, Int>>()
-        val out = SmartUnwind.climb(base = 2, cap = 16) { us ->
+        val out = SmartUnwind.climb(seedBase = 2, cap = 16) { _, us ->
             seen.add(us.toSortedMap())
             // Under-bounded until B's own bound reaches 4.
             if ((us["pkg.Cls.m.1"] ?: 2) >= 4) verified() else tooSmallAt("pkg.Cls.m.1")
@@ -56,7 +56,7 @@ internal class SmartUnwindTest {
     fun raises_multiple_firing_loops_independently_in_one_round() {
         // Two loops fire in the SAME run (the whole point of --unwinding-assertions: discover all at once).
         // Both get raised in the next round; a third loop never fires so it is never touched.
-        val out = SmartUnwind.climb(base = 1, cap = 16) { us ->
+        val out = SmartUnwind.climb(seedBase = 1, cap = 16) { _, us ->
             val a = us["f.0"] ?: 1
             val b = us["f.1"] ?: 1
             when {
@@ -74,7 +74,7 @@ internal class SmartUnwindTest {
         // The crux: a single loop fires at EVERY finite bound (symbolic trip count). The per-loop bound
         // must cap and the climb must STOP with the last UNKNOWN, never loop forever.
         var calls = 0
-        val out = SmartUnwind.climb(base = 1, cap = 8, step = 2, maxRounds = 100) { _ ->
+        val out = SmartUnwind.climb(seedBase = 1, cap = 8, step = 2, maxRounds = 100) { _, _ ->
             calls++
             tooSmallAt("f.0") // never converges
         }
@@ -91,7 +91,7 @@ internal class SmartUnwindTest {
         // Even before the per-loop cap, the hard round budget must stop the climb (belt-and-suspenders
         // against a never-converging loop). With maxRounds=3 the engine runs at most 3 times.
         var calls = 0
-        val out = SmartUnwind.climb(base = 1, cap = 1024, step = 2, maxRounds = 3) { _ ->
+        val out = SmartUnwind.climb(seedBase = 1, cap = 1024, step = 2, maxRounds = 3) { _, _ ->
             calls++
             tooSmallAt("f.0")
         }
@@ -102,22 +102,37 @@ internal class SmartUnwindTest {
     }
 
     @Test
-    fun a_recursion_overrun_has_no_loop_id_so_the_climb_stops_immediately() {
-        // A recursion overrun carries no targetable loop id; --unwindset cannot raise it, so the climb
-        // makes no progress and STOPS on the first UNKNOWN rather than spinning.
-        var calls = 0
-        val out = SmartUnwind.climb(base = 1, cap = 16) { _ -> calls++; recursionTooSmall() }
+    fun a_recursion_overrun_climbs_the_global_base_then_caps() {
+        // A recursion overrun has no per-loop --unwindset handle; only the GLOBAL --unwind bounds it. The
+        // climb must RAISE THE GLOBAL BASE (not give up on round one), and stop only once base hits the
+        // ceiling. This is the fix for the under-bounding regression on recursion-heavy proofs.
+        val bases = mutableListOf<Int>()
+        val out = SmartUnwind.climb(seedBase = 1, cap = 8) { base, _ -> bases.add(base); recursionTooSmall() }
         assertTrue(out.result.isUnknown)
         assertFalse(out.discovered)
-        assertEquals(1, calls, "no targetable loop -> no progress -> stop after one run")
-        assertTrue(out.unwindSet.isEmpty(), "nothing was raised")
+        assertTrue(out.unwindSet.isEmpty(), "recursion is not targetable per-loop, so no override is set")
+        // base climbs 1 -> 2 -> 4 -> 8 (cap); the round at the cap confirms no raise is possible and stops.
+        assertEquals(listOf(1, 2, 4, 8), bases)
+        assertEquals(8, out.base, "the global base climbed to the ceiling")
+    }
+
+    @Test
+    fun a_recursion_overrun_verifies_once_the_global_base_is_high_enough() {
+        // The hybrid pays off: raising the global base eventually covers a recursion needing depth <= cap.
+        val out = SmartUnwind.climb(seedBase = 1, cap = 16) { base, _ ->
+            if (base >= 4) verified() else recursionTooSmall()
+        }
+        assertTrue(out.result.isVerified)
+        assertTrue(out.discovered)
+        assertEquals(4, out.base, "the global base climbed to cover the recursion")
+        assertTrue(out.unwindSet.isEmpty(), "no per-loop override was needed")
     }
 
     @Test
     fun a_rung_that_falls_over_stops_with_that_unknown() {
         // A non-unwinding UNKNOWN (timeout) won't be fixed by a bigger bound: surface it, don't climb.
         var calls = 0
-        val out = SmartUnwind.climb(base = 1, cap = 16) { us ->
+        val out = SmartUnwind.climb(seedBase = 1, cap = 16) { _, us ->
             calls++
             if (us.isEmpty()) tooSmallAt("f.0") else timedOut()
         }
@@ -131,7 +146,7 @@ internal class SmartUnwindTest {
     fun a_conclusive_first_round_needs_no_unwindset() {
         // Every loop already covers at the base bound: the very first (empty-unwindset) run is conclusive.
         val seen = mutableListOf<Map<String, Int>>()
-        val out = SmartUnwind.climb(base = 4, cap = 16) { us -> seen.add(us); verified() }
+        val out = SmartUnwind.climb(seedBase = 4, cap = 16) { _, us -> seen.add(us); verified() }
         assertTrue(out.result.isVerified)
         assertTrue(out.discovered)
         assertTrue(out.unwindSet.isEmpty(), "no loop needed raising")
@@ -141,7 +156,7 @@ internal class SmartUnwindTest {
     @Test
     fun refuted_within_the_bound_is_surfaced_not_climbed() {
         // A real counterexample within the per-loop bounds is a refutation; the climb lands on it.
-        val out = SmartUnwind.climb(base = 1, cap = 16) { us ->
+        val out = SmartUnwind.climb(seedBase = 1, cap = 16) { _, us ->
             if (us.isEmpty()) tooSmallAt("f.0") else refuted()
         }
         assertFalse(out.result.isVerified)

@@ -44,12 +44,13 @@ package org.bmc4j.engine
  */
 object SmartUnwind {
 
-    /** The outcome of a smart climb: the engine [result] to surface, the per-loop [unwindSet] it was
-     *  produced under (the discovered minimal bounds, worth caching/surfacing on a conclusive landing),
-     *  whether the landing is a conclusive verdict worth recording ([discovered]), and how many engine
-     *  rounds ran (telemetry). */
+    /** The outcome of a smart climb: the engine [result] to surface, the global [base] bound and the
+     *  per-loop [unwindSet] it was produced under (the discovered minimal bounds, worth caching/surfacing
+     *  on a conclusive landing), whether the landing is a conclusive verdict worth recording
+     *  ([discovered]), and how many engine rounds ran (telemetry). */
     class Outcome internal constructor(
             @JvmField val result: JbmcResult,
+            @JvmField val base: Int,
             @JvmField val unwindSet: Map<String, Int>,
             @JvmField val discovered: Boolean,
             @JvmField val rounds: Int)
@@ -63,43 +64,59 @@ object SmartUnwind {
      */
     @JvmStatic
     @JvmOverloads
-    fun climb(base: Int, cap: Int, step: Int = 2, maxRounds: Int = 8,
-              runAt: (Map<String, Int>) -> JbmcResult): Outcome {
+    fun climb(seedBase: Int, cap: Int, step: Int = 2, maxRounds: Int = 8,
+              runAt: (base: Int, unwindSet: Map<String, Int>) -> JbmcResult): Outcome {
         val ceiling = if (cap < 1) 1 else cap
-        val floor = base.coerceIn(1, ceiling)
         val factor = if (step < 2) 2 else step
         val rounds = if (maxRounds < 1) 1 else maxRounds
+        // The GLOBAL bound, applied to every loop without an override AND to recursion. It climbs when a
+        // firing item has no per-loop handle (see below); a loop with an override is bounded by that
+        // override instead. Starts at [seedBase], capped at [ceiling].
+        var base = seedBase.coerceIn(1, ceiling)
         // Current per-loop overrides; a loop absent here runs at the global [base]. We only ever ADD or
         // RAISE entries, so the map grows monotonically and each value is bounded by [ceiling].
         val unwindSet = LinkedHashMap<String, Int>()
         var round = 0
         var last: JbmcResult? = null
         while (round < rounds) {
-            val result = runAt(unwindSet.toMap())
+            val result = runAt(base, unwindSet.toMap())
             round++
             last = result
             when {
                 // Conclusive: a covered VERIFIED, a real REFUTED, or a VACUOUS (the vacuity check fired).
-                // Stop and record the per-loop bounds that got us there.
+                // Stop and record the bounds that got us there.
                 result.isVerified || result.isVacuous || isRefuted(result) ->
-                    return Outcome(result, unwindSet.toMap(), discovered = true, rounds = round)
-                // The bound truncated SOME loops: raise only those, if any can still be raised.
+                    return Outcome(result, base, unwindSet.toMap(), discovered = true, rounds = round)
                 isUnwindingTooSmall(result) -> {
-                    if (!raiseFiringLoops(result, unwindSet, floor, ceiling, factor)) {
-                        // No progress possible this round — every firing loop is already at the cap, or
-                        // none carries a targetable loop id (e.g. a recursion overrun). Raising again
-                        // would just re-run the identical command forever; stop on the last UNKNOWN.
-                        return Outcome(result, unwindSet.toMap(), discovered = false, rounds = round)
+                    // Raise the per-loop bound for every firing loop that carries a targetable id.
+                    val raisedLoops = raiseFiringLoops(result, unwindSet, base, ceiling, factor)
+                    // An untargetable firing (a recursion overrun, or a loop whose id did not parse) has
+                    // NO `--unwindset` handle — only the GLOBAL `--unwind` bounds it. Raise the global
+                    // base for those, so a recursion-heavy proof degrades to the AutoUnwind global climb
+                    // instead of giving up on round one. (--unwind bounds recursion; --unwindset does not.)
+                    var raisedBase = false
+                    if (result.unwindingLoops.any { it.loopId == null } && base < ceiling) {
+                        val next = (base.toLong() * factor).coerceAtMost(ceiling.toLong()).toInt()
+                        if (next > base) {
+                            base = next
+                            raisedBase = true
+                        }
+                    }
+                    if (!raisedLoops && !raisedBase) {
+                        // Neither a per-loop bound nor the global base can grow any further (every firing
+                        // loop is at the cap / untargetable, and the global base is at the cap). Raising
+                        // again would re-run the identical command forever; stop on the last UNKNOWN.
+                        return Outcome(result, base, unwindSet.toMap(), discovered = false, rounds = round)
                     }
                 }
                 // A round fell over for a reason a bigger bound won't fix (timeout / OOM / parse / crash):
                 // stop and surface it rather than multiplying the cost across more rounds.
-                else -> return Outcome(result, unwindSet.toMap(), discovered = false, rounds = round)
+                else -> return Outcome(result, base, unwindSet.toMap(), discovered = false, rounds = round)
             }
         }
         // Round budget spent and still under-bounded: stop on the last UNKNOWN (it names the loops still
         // firing) rather than running forever. A symbolic-guard loop lands here — it never converges.
-        return Outcome(last!!, unwindSet.toMap(), discovered = false, rounds = round)
+        return Outcome(last!!, base, unwindSet.toMap(), discovered = false, rounds = round)
     }
 
     /**
