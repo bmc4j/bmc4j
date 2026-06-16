@@ -118,4 +118,20 @@ class BmcRequest @JvmOverloads constructor(
          * — adding/removing an exclusion forces a fresh run; the empty default keys identically to a proof
          * with no exclusion.
          */
-        @get:JvmName("excludeModels") val excludeModels: Set<String> = emptySet())
+        @get:JvmName("excludeModels") val excludeModels: Set<String> = emptySet(),
+        /**
+         * Raw extra options from `@SolverLaunchOptions`, tokenized on whitespace and handed to the
+         * EXTERNAL SAT solver (e.g. kissat) ahead of the DIMACS file, so the solver runs as
+         * `kissat <options> <dimacs>`. An UNGUARDED passthrough (no validation/soundness checks).
+         *
+         * Applies ONLY when an external SAT solver is actually engaged ([externalSatPath] non-empty);
+         * on any other solver path it is an inert no-op (the engine driver warns rather than dropping it
+         * silently or corrupting an unrelated arg). Because CBMC runs the `--external-sat-solver` value as
+         * a single executable (no shell, no whitespace split), these options are attached via a generated
+         * wrapper script (see [SolverWrapper]); the wrapper PATH is volatile, so the verdict-cache keys on
+         * the STABLE solver-path+options instead (see [Jbmc.appendVerdictRelevantFlags]).
+         *
+         * Part of the verdict-cache identity — setting or changing it forces a fresh engine run; the empty
+         * default keys identically to a proof with no `@SolverLaunchOptions`.
+         */
+        @get:JvmName("solverLaunchOptions") val solverLaunchOptions: String = "")

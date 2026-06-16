@@ -33,11 +33,13 @@ class Jbmc(private val executable: String) {
             stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
             userClasspath: String? = null, profile: Boolean = false,
             pipelineSeconds: Map<String, Double>? = null,
-            jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap()): JbmcResult {
+            jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap(),
+            solverLaunchOptions: String = ""): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
-                maxStringLength, solver, externalSatPath, stringMode, jbmcOptions, unwindSet))
+                maxStringLength, solver, externalSatPath, stringMode, jbmcOptions, unwindSet,
+                solverLaunchOptions))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
                 stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
     }
@@ -195,7 +197,8 @@ class Jbmc(private val executable: String) {
                           unwind: Int, unwindingAssertions: Boolean, maxStringLength: Int,
                           solver: String?, externalSatPath: String = "",
                           stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
-                          jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap()): List<String> {
+                          jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap(),
+                          solverLaunchOptions: String = ""): List<String> {
             val cmd = mutableListOf<String>()
             cmd.add(entryClass)
             cmd.add("--classpath")
@@ -203,11 +206,12 @@ class Jbmc(private val executable: String) {
             cmd.add("--function")
             cmd.add(entryFunction)
             // The verdict-relevant flags (unwind, the per-loop unwindset, unwinding-assertions,
-            // max-nondet-string-length, the solver selection, AND any hard-coded engine flags) come from
-            // ONE builder, so the command and the verdict-cache key can never drift apart — see
-            // [appendVerdictRelevantFlags] / [verdictRelevantFlags].
+            // max-nondet-string-length, the solver selection + its launch options, AND any hard-coded
+            // engine flags) come from ONE builder, so the command and the verdict-cache key can never
+            // drift apart — see [appendVerdictRelevantFlags] / [verdictRelevantFlags].
             appendVerdictRelevantFlags(cmd, unwind, unwindingAssertions, maxStringLength,
-                    solver, externalSatPath, stringMode, unwindSet = unwindSet)
+                    solver, externalSatPath, stringMode, unwindSet = unwindSet,
+                    solverLaunchOptions = solverLaunchOptions)
             // Pure OUTPUT/UI flags below — they change what we can OBSERVE, never the verdict, so they
             // are deliberately NOT part of the verdict-cache signature.
             cmd.add("--json-ui")
@@ -260,7 +264,8 @@ class Jbmc(private val executable: String) {
                                                solver: String?, externalSatPath: String,
                                                stringMode: org.bmc4j.StringMode,
                                                forCacheKey: Boolean = false,
-                                               unwindSet: Map<String, Int> = emptyMap()) {
+                                               unwindSet: Map<String, Int> = emptyMap(),
+                                               solverLaunchOptions: String = "") {
             cmd.add("--unwind")
             cmd.add(unwind.toString())
             // Per-loop overrides: one `--unwindset <loopId>:<bound>` arg per entry, raising the bound for
@@ -313,7 +318,7 @@ class Jbmc(private val executable: String) {
                         cmd.add(maxStringLength.toString())
                     }
             }
-            addSolver(cmd, solver, externalSatPath)
+            addSolver(cmd, solver, externalSatPath, solverLaunchOptions, forCacheKey)
         }
 
         /**
@@ -333,7 +338,8 @@ class Jbmc(private val executable: String) {
             val flags = mutableListOf<String>()
             appendVerdictRelevantFlags(flags, request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver, request.externalSatPath, request.stringMode,
-                    forCacheKey = true, unwindSet = request.unwindSet)
+                    forCacheKey = true, unwindSet = request.unwindSet,
+                    solverLaunchOptions = request.solverLaunchOptions)
             return flags.joinToString(" ")
         }
 
@@ -351,7 +357,8 @@ class Jbmc(private val executable: String) {
          * already-vetted [externalSatPath]. A text-using proof never reaches this method with a non-empty
          * path, so external SAT (String reasoning off) can never engage on a text proof here.
          */
-        private fun addSolver(cmd: MutableList<String>, override: String?, externalSatPath: String) {
+        private fun addSolver(cmd: MutableList<String>, override: String?, externalSatPath: String,
+                              solverLaunchOptions: String = "", forCacheKey: Boolean = false) {
             // Resolved external SAT solver via DIMACS — the ONE solver swap that actually works on jbmc:
             // it bit-blasts to CNF and hands it to a modern SAT solver, running with string refinement
             // OFF (so numeric/boolean proofs only — the safety guard in SolverPlan guarantees this path
@@ -359,8 +366,26 @@ class Jbmc(private val executable: String) {
             // crashes converting Java string types to SMT2).
             if (externalSatPath.isNotBlank()) {
                 cmd.add("--external-sat-solver")
-                cmd.add(externalSatPath.trim())
+                cmd.add(externalSatValue(externalSatPath.trim(), solverLaunchOptions, forCacheKey))
+                if (forCacheKey && solverLaunchOptions.isNotBlank()) {
+                    // CACHE-ONLY marker: the real command's value is a per-machine wrapper-script PATH
+                    // (volatile), so keying on it would churn the cache. Key instead on the STABLE pair
+                    // (solver path + options) — what actually changes the run — exactly like the
+                    // --bmc-norefine-string-length cache-only marker above. Never passed to the engine.
+                    cmd.add("--bmc-solver-launch-options")
+                    cmd.add(solverLaunchOptions.trim())
+                }
                 return
+            }
+            // @SolverLaunchOptions only has somewhere to go on the external-SAT path. On any other solver
+            // (built-in MiniSat / SMT / refinement) there is no external SAT subprocess to tune, so the
+            // options are inert. Warn once (on the REAL command build, never the cache-key build) rather
+            // than dropping them silently or splicing them into an unrelated solver arg.
+            if (!forCacheKey && solverLaunchOptions.isNotBlank()) {
+                println("  bmc4j: @SolverLaunchOptions(\"" + solverLaunchOptions.trim() + "\") was set but" +
+                        " no external SAT solver is in use for this proof, so it is a no-op." +
+                        " It applies only when the proof runs on the fast external SAT solver" +
+                        " (solver = \"kissat\"/\"fast\", a text-free proof or StringMode.CHAR_ARRAY_MODEL).")
             }
             val external = System.getProperty("bmc.solverCmd")
             if (!external.isNullOrBlank()) {
@@ -574,6 +599,39 @@ class Jbmc(private val executable: String) {
                     detail = detail.substring(0, 600) + " ..."
                 }
                 append('\n').append(detail)
+            }
+        }
+
+        /**
+         * The value to pass as `--external-sat-solver`. With no `@SolverLaunchOptions` (the common case)
+         * this is the bare solver path. With options set it is a generated wrapper that execs
+         * `<solver> <options> "$@"` — the ONLY way to attach options, because CBMC runs the value as a
+         * single executable (execvp / CreateProcessW, no shell, no whitespace split) and appends only the
+         * DIMACS file (see [SolverWrapper]).
+         *
+         * For the cache-key build ([forCacheKey]) the BARE path is returned (the volatile wrapper path is
+         * never keyed; the stable solver-path+options marker is added by [addSolver] instead). On a
+         * platform where a shell-script wrapper can't be exec'd (Windows — where the fast solver is never
+         * bundled anyway), the bare path is returned with a one-line warning, so the run still works (just
+         * without the options) rather than handing CBMC an unrunnable value.
+         */
+        private fun externalSatValue(solverPath: String, solverLaunchOptions: String,
+                                     forCacheKey: Boolean): String {
+            val opts = solverLaunchOptions.trim()
+            if (opts.isEmpty() || forCacheKey) {
+                return solverPath
+            }
+            if (!SolverWrapper.supportedOnThisPlatform()) {
+                println("  bmc4j: @SolverLaunchOptions is not supported on this platform; running the" +
+                        " external SAT solver without them.")
+                return solverPath
+            }
+            return try {
+                SolverWrapper.forSolver(solverPath, opts)
+            } catch (e: IOException) {
+                println("  bmc4j: could not create the solver-options wrapper (" + e.message +
+                        "); running the external SAT solver without @SolverLaunchOptions.")
+                solverPath
             }
         }
 

@@ -82,7 +82,10 @@ class JbmcBackend : VerificationBackend {
                     request.jbmcOptions,
                     // Per-loop unwind overrides (smart unwinding): emitted as --unwindset <loopId>:<bound>
                     // so only the under-bounded loops are raised; empty for an ordinary single-bound run.
-                    request.unwindSet)
+                    request.unwindSet,
+                    // Raw @SolverLaunchOptions passed to the EXTERNAL SAT solver (via a wrapper script);
+                    // inert (warns) when this proof isn't on the external SAT path. Empty for the common case.
+                    request.solverLaunchOptions)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a

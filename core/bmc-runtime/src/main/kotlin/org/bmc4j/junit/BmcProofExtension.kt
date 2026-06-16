@@ -248,6 +248,10 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // Raw @JbmcOptions passthrough (unguarded escape hatch): the annotation's tokens are appended
         // verbatim to the jbmc command for this proof and folded into the verdict-cache key.
         val jbmcOptions = method.getAnnotation(org.bmc4j.JbmcOptions::class.java)?.value ?: ""
+        // Raw @SolverLaunchOptions passthrough (unguarded escape hatch): handed to the EXTERNAL SAT
+        // solver (via a wrapper script) ahead of the DIMACS file, and folded into the verdict-cache key.
+        // Inert (warns) when this proof isn't on the external SAT path.
+        val solverLaunchOptions = method.getAnnotation(org.bmc4j.SolverLaunchOptions::class.java)?.value ?: ""
         // The per-proof model exclusion set. Two sources feed the SAME primitive (BmcRequest.excludeModels),
         // unioned here:
         //  - @ExcludeModels (resolveExcludedModels): the FQNs this proof opts OUT of permanently;
@@ -268,7 +272,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         val pinnedLoops = resolvePinnedLoops(method)
         val request = applySolverPlan(
                 requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions, excludeModels,
-                        pinnedLoops))
+                        pinnedLoops, solverLaunchOptions))
 
         // JBMC backend (symbolic, all-inputs). For concurrency correctness, see the
         // README's Lincheck guidance — @BmcProof proves logic soundness.
@@ -1008,7 +1012,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     request.unwindingAssertions, request.maxStringLength, request.solver,
                     request.timeoutSeconds, run, request.externalSatPath, request.stringRefinementOff,
                     request.removeExceptionMessages, request.stringMode, request.profile,
-                    request.jbmcOptions, request.unwindSet, request.excludeModels)
+                    request.jbmcOptions, request.unwindSet, request.excludeModels,
+                    request.solverLaunchOptions)
 
     /**
      * Run the automatic unwind-discovery climb for an AUTO [request] (no recorded bound yet): run the
@@ -1668,7 +1673,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                             request.unwind, request.unwindingAssertions, request.maxStringLength,
                             request.solver, request.timeoutSeconds, request.domainSplitRun,
                             decision.path, true, request.removeExceptionMessages, request.stringMode,
-                            request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels)
+                            request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels,
+                            request.solverLaunchOptions)
                 is org.bmc4j.engine.SolverPlan.Decision.Builtin -> {
                     if (decision.note != null) {
                         println("  bmc4j: ${request.entryFunction} -> ${decision.note}")
@@ -1681,7 +1687,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                                 request.unwind, request.unwindingAssertions, request.maxStringLength,
                                 request.solver, request.timeoutSeconds, request.domainSplitRun, "", false,
                                 request.removeExceptionMessages, request.stringMode, request.profile,
-                                request.jbmcOptions, request.unwindSet, request.excludeModels)
+                                request.jbmcOptions, request.unwindSet, request.excludeModels,
+                                request.solverLaunchOptions)
                     }
                 }
                 is org.bmc4j.engine.SolverPlan.Decision.FailLoud -> {
@@ -1714,7 +1721,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     effSolver, request.timeoutSeconds, request.domainSplitRun,
                     request.externalSatPath, request.stringRefinementOff, request.removeExceptionMessages,
                     request.stringMode, request.profile, request.jbmcOptions, request.unwindSet,
-                    request.excludeModels)
+                    request.excludeModels, request.solverLaunchOptions)
         }
 
         /**
@@ -1748,7 +1755,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?,
                                 profile: Boolean = false, jbmcOptions: String = "",
                                 excludeModels: Set<String> = emptySet(),
-                                pinnedLoops: Map<String, Int> = emptyMap()): BmcRequest =
+                                pinnedLoops: Map<String, Int> = emptyMap(),
+                                solverLaunchOptions: String = ""): BmcRequest =
                 BmcRequest(
                         entryClass,
                         entryFunction,
@@ -1768,7 +1776,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         // @LoopUnwind pins seed the unwindSet so they reach the engine on every path
                         // (explicit / AUTO / smart / cached); an unpinned proof keys identically to before.
                         pinnedLoops,
-                        excludeModels)
+                        excludeModels,
+                        solverLaunchOptions)
 
         /**
          * The loops this proof PINS to a fixed bound via [org.bmc4j.LoopUnwind] (repeatable): each
@@ -1939,7 +1948,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels)
+                        request.profile, request.jbmcOptions, request.unwindSet, request.excludeModels,
+                        request.solverLaunchOptions)
 
         /** [request] carrying the per-loop [unwindSet] overrides (every other field unchanged) — the
          *  per-loop "smart" unwinding handle threaded to the engine as `--unwindset <loopId>:<bound>`. */
@@ -1948,7 +1958,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         request.unwindingAssertions, request.maxStringLength, request.solver,
                         request.timeoutSeconds, request.domainSplitRun, request.externalSatPath,
                         request.stringRefinementOff, request.removeExceptionMessages, request.stringMode,
-                        request.profile, request.jbmcOptions, unwindSet, request.excludeModels)
+                        request.profile, request.jbmcOptions, unwindSet, request.excludeModels,
+                        request.solverLaunchOptions)
 
         /**
          * The model classes to conform on the REAL leg of a proof, gathered from

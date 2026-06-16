@@ -319,6 +319,13 @@ object VerdictCache {
         // MUST bust the cache — a proof with options set or changed re-runs the engine, while the empty
         // default leaves the key byte-identical to a proof with no @JbmcOptions.
         update(md, "jbmcOptions", request.jbmcOptions)
+        // Raw @SolverLaunchOptions passed to the EXTERNAL SAT solver (e.g. kissat --shrink). They change
+        // how the solver runs and thus can change the verdict, so they MUST bust the cache — tuning the
+        // options re-runs the engine, while the empty default keys identically to a proof with none. They
+        // already ride the flag SIGNATURE above as a STABLE cache-only marker (--bmc-solver-launch-options
+        // <opts>, never the volatile wrapper-script path); this is the redundant belt-and-suspenders
+        // per-field update, matching @JbmcOptions. Over-keying is always sound.
+        update(md, "solverLaunchOptions", request.solverLaunchOptions)
         // 4) reachable-cone content — only the classes this proof transitively reaches, so a change to
         //    an unrelated class no longer busts this proof's cache. Falls back to the whole-classpath
         //    digest when the cone can't be bounded soundly (see coneContentDigest / ReachableCone).
