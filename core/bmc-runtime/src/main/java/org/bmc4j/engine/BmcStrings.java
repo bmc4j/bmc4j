@@ -48,7 +48,10 @@ public final class BmcStrings {
     public static String anyCharBacked(int maxLength) {
         int bound = maxLength < 0 ? 0 : maxLength;
         int n = CProver.nondetInt();
-        CProver.assume(n >= 0 && n <= bound);
+        // Split into atomic bounds, not one `&&`: JBMC prunes dead branches off each atomic assume but
+        // not off the conjunction (see Bmc.anyInt(int, int)).
+        CProver.assume(n >= 0);
+        CProver.assume(n <= bound);
         char[] data = new char[n];
         for (int i = 0; i < n; i++) {
             data[i] = CProver.nondetChar();

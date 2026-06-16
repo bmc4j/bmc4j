@@ -56,7 +56,9 @@ public final class BmcSortWitness {
         boolean[] used = new boolean[n];
         for (int i = 0; i < n; i++) {
             int p = CProver.nondetInt();
-            CProver.assume(p >= 0 && p < n);
+            // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+            CProver.assume(p >= 0);
+            CProver.assume(p < n);
             CProver.assume(!used[p]);   // each source index chosen at most once
             used[p] = true;             // ... over n picks => exactly once => a bijection
             perm[i] = p;
@@ -90,7 +92,9 @@ public final class BmcSortWitness {
         boolean[] used = new boolean[n];
         for (int i = 0; i < n; i++) {
             int p = CProver.nondetInt();
-            CProver.assume(p >= 0 && p < n);
+            // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+            CProver.assume(p >= 0);
+            CProver.assume(p < n);
             CProver.assume(!used[p]);
             used[p] = true;
             perm[i] = p;

@@ -162,7 +162,9 @@ public class Random {
     @BmcModelConforms("nondet-in-range [0,1) double — proven for every outcome (JavaRandomLaws model proofs)")
     public double nextDouble() {
         double v = CProver.nondetDouble();
-        CProver.assume(v >= 0.0 && v < 1.0);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= 0.0);
+        CProver.assume(v < 1.0);
         return v;
     }
 
@@ -173,7 +175,9 @@ public class Random {
             throw new IllegalArgumentException("bound must be finite and positive");
         }
         double v = CProver.nondetDouble();
-        CProver.assume(v >= 0.0 && v < bound);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= 0.0);
+        CProver.assume(v < bound);
         return v;
     }
 
@@ -184,7 +188,9 @@ public class Random {
             throw new IllegalArgumentException("bound must be greater than origin and the range finite");
         }
         double v = CProver.nondetDouble();
-        CProver.assume(v >= origin && v < bound);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= origin);
+        CProver.assume(v < bound);
         return v;
     }
 
@@ -192,7 +198,9 @@ public class Random {
     @BmcModelConforms("nondet-in-range [0,1) float — proven for every outcome (JavaRandomLaws model proofs)")
     public float nextFloat() {
         float v = CProver.nondetFloat();
-        CProver.assume(v >= 0.0f && v < 1.0f);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= 0.0f);
+        CProver.assume(v < 1.0f);
         return v;
     }
 
@@ -203,7 +211,9 @@ public class Random {
             throw new IllegalArgumentException("bound must be finite and positive");
         }
         float v = CProver.nondetFloat();
-        CProver.assume(v >= 0.0f && v < bound);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= 0.0f);
+        CProver.assume(v < bound);
         return v;
     }
 
@@ -214,7 +224,9 @@ public class Random {
             throw new IllegalArgumentException("bound must be greater than origin and the range finite");
         }
         float v = CProver.nondetFloat();
-        CProver.assume(v >= origin && v < bound);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)); each still excludes NaN.
+        CProver.assume(v >= origin);
+        CProver.assume(v < bound);
         return v;
     }
 
@@ -343,13 +355,17 @@ public class Random {
 
     private static int Bmc_anyIntInRange(int lo, int hi) {
         int v = CProver.nondetInt();
-        CProver.assume(v >= lo && v <= hi);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+        CProver.assume(v >= lo);
+        CProver.assume(v <= hi);
         return v;
     }
 
     private static long Bmc_anyLongInRange(long lo, long hi) {
         long v = CProver.nondetLong();
-        CProver.assume(v >= lo && v <= hi);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+        CProver.assume(v >= lo);
+        CProver.assume(v <= hi);
         return v;
     }
 }

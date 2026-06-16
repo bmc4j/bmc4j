@@ -34,7 +34,11 @@ public final class Bmc {
      */
     public static int anyInt(int __minInclusive, int __maxInclusive) {
         int value = CProver.nondetInt();
-        CProver.assume(value >= __minInclusive && value <= __maxInclusive);
+        // Two SEPARATE atomic assumes, not one `lo <= x && x <= hi`. Logically identical, but JBMC
+        // propagates each bound out of an atomic assume to prune downstream dead branches whereas it
+        // does NOT pull the conjuncts back out of a `&&` -- the split form simplifies the formula better.
+        CProver.assume(value >= __minInclusive);
+        CProver.assume(value <= __maxInclusive);
         return value;
     }
 
@@ -59,7 +63,10 @@ public final class Bmc {
     /** A symbolic long constrained to {@code [minInclusive, maxInclusive]}. */
     public static long anyLong(long __minInclusive, long __maxInclusive) {
         long value = CProver.nondetLong();
-        CProver.assume(value >= __minInclusive && value <= __maxInclusive);
+        // Split, not `lo <= x && x <= hi`: see anyInt(int, int) -- JBMC prunes dead branches off the
+        // atomic bounds but not off the conjunction, so the split form leaves fewer VCCs.
+        CProver.assume(value >= __minInclusive);
+        CProver.assume(value <= __maxInclusive);
         return value;
     }
 
@@ -281,7 +288,9 @@ public final class Bmc {
      */
     public static double anyDouble(double __minInclusive, double __maxInclusive) {
         double value = CProver.nondetDouble();
-        CProver.assume(value >= __minInclusive && value <= __maxInclusive);
+        // Split, not `lo <= x && x <= hi` (see anyInt(int, int)); each bound still excludes NaN on its own.
+        CProver.assume(value >= __minInclusive);
+        CProver.assume(value <= __maxInclusive);
         return value;
     }
 
@@ -300,7 +309,9 @@ public final class Bmc {
      */
     public static float anyFloat(float __minInclusive, float __maxInclusive) {
         float value = CProver.nondetFloat();
-        CProver.assume(value >= __minInclusive && value <= __maxInclusive);
+        // Split, not `lo <= x && x <= hi` (see anyInt(int, int)); each bound still excludes NaN on its own.
+        CProver.assume(value >= __minInclusive);
+        CProver.assume(value <= __maxInclusive);
         return value;
     }
 
@@ -350,7 +361,9 @@ public final class Bmc {
      */
     public static String anyString(int maxLength) {
         String s = CProver.nondetWithoutNull();
-        CProver.assume(s.length() >= 0 && s.length() <= maxLength);
+        // Split, not one `&&` (see anyInt(int, int)).
+        CProver.assume(s.length() >= 0);
+        CProver.assume(s.length() <= maxLength);
         return s;
     }
 
@@ -380,7 +393,9 @@ public final class Bmc {
                             + ", maxLength=" + maxLength);
         }
         String s = CProver.nondetWithoutNull();
-        CProver.assume(s.length() >= minLength && s.length() <= maxLength);
+        // Split, not one `&&` (see anyInt(int, int)).
+        CProver.assume(s.length() >= minLength);
+        CProver.assume(s.length() <= maxLength);
         return s;
     }
 
@@ -423,7 +438,9 @@ public final class Bmc {
         }
         String s = CProver.nondetWithoutNull();
         int len = s.length();
-        CProver.assume(len >= 0 && len <= maxLength);
+        // Split, not one `&&` (see anyInt(int, int)).
+        CProver.assume(len >= 0);
+        CProver.assume(len <= maxLength);
         int alphaLen = alphabet.length();
         // Loop bound is the STATIC maxLength so JBMC unwinds it deterministically. For each position
         // that is actually within the symbolic length, assume its char is one of the alphabet chars.
@@ -480,11 +497,15 @@ public final class Bmc {
         }
         String s = CProver.nondetWithoutNull();
         int len = s.length();
-        CProver.assume(len >= 0 && len <= maxLength);
+        // Split, not one `&&` (see anyInt(int, int)).
+        CProver.assume(len >= 0);
+        CProver.assume(len <= maxLength);
         for (int i = 0; i < maxLength; i++) {
             if (i < len) {
                 char c = CProverString.charAt(s, i);
-                CProver.assume(c >= ASCII_PRINTABLE_MIN && c <= ASCII_PRINTABLE_MAX);
+                // Split, not one `&&` (see anyInt(int, int)).
+                CProver.assume(c >= ASCII_PRINTABLE_MIN);
+                CProver.assume(c <= ASCII_PRINTABLE_MAX);
             }
         }
         return s;
