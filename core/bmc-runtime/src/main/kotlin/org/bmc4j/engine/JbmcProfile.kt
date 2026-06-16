@@ -56,6 +56,12 @@ class JbmcProfile private constructor(
         /** Per-method loop-unwinding counts (method FQN → number of `Unwinding loop` iterations seen),
          *  highest-first then by name. The "top offenders" list — the hot method is at the top. */
         val unwindingByMethod: List<MethodCount>,
+        /** Per-LOOP unwinding detail (one entry per distinct engine loop id observed), highest-iteration
+         *  first then by id. Each carries the FULL `--unwindset`-form loop id, its source file:line, and
+         *  the iterations seen — the data behind the copy-pasteable `@org.bmc4j.LoopUnwind` suggestions
+         *  the render emits. NB: this lists only loops that ACTUALLY unwound in this run; a loop the
+         *  global bound never reached does not appear (the list is the observed loops, possibly partial). */
+        val unwindingLoops: List<LoopInfo>,
         /** Per-method recursion-unwinding counts (`Unwinding recursion` lines), highest-first. */
         val recursionByMethod: List<MethodCount>,
         /** `size of program expression: <N> steps`, or null if not emitted. */
@@ -82,6 +88,25 @@ class JbmcProfile private constructor(
     class LabeledRun(@get:JvmName("label") val label: String,
                      @get:JvmName("verdict") val verdict: String,
                      @get:JvmName("profile") val profile: JbmcProfile?)
+
+    /**
+     * One observed loop: its FULL `--unwindset`-form engine [loopId] (the exact id
+     * `@org.bmc4j.LoopUnwind(loop = ...)` takes, e.g. `java::okio.Buffer.writeUtf8:(...)V.0`), the
+     * source [file]/[line] it sits at, and the [iterations] it unwound this run. The id form matches
+     * [JbmcOutputParser]'s `loopIdFromProperty` so a pin authored from this output targets the same loop
+     * the engine reports. [suggestion] renders the ready-to-paste annotation line.
+     */
+    class LoopInfo(@get:JvmName("loopId") val loopId: String,
+                   @get:JvmName("file") val file: String?,
+                   @get:JvmName("line") val line: Int,
+                   @get:JvmName("iterations") val iterations: Int) {
+
+        /** A ready-to-paste pin for THIS loop: `@LoopUnwind(loop = "<id>", bound = <iterations>)`. The
+         *  bound defaults to the iterations observed — a sound starting point (it covers what this run
+         *  reached); raise it if the loop is still under-bounded, lower it to cap cost. */
+        fun suggestion(): String =
+                "@LoopUnwind(loop = \"$loopId\", bound = $iterations)"
+    }
 
     /**
      * The ORDERED engine phases, used to attribute a timeout's unaccounted wall-clock to the phase the
@@ -182,6 +207,7 @@ class JbmcProfile private constructor(
                 reachedSat = reachedSat,
                 lastPhaseEntered = lastPhaseEntered,
                 unwindingByMethod = unwindingByMethod,
+                unwindingLoops = unwindingLoops,
                 recursionByMethod = recursionByMethod,
                 programSteps = programSteps,
                 vccGenerated = vccGenerated,
@@ -270,6 +296,26 @@ class JbmcProfile private constructor(
 
             methods("top unwound loops (method x iterations):", unwindingByMethod, showMore = true)
             methods("recursion unwinding (method x firings):", recursionByMethod, showMore = false)
+
+            // Targetable loop ids + ready-to-paste @LoopUnwind suggestions. Each observed loop shows its
+            // FULL --unwindset-form id (what @LoopUnwind takes) and a copy-pasteable pin line, so a user
+            // can fix a loop's bound without having to discover the engine id by hand. The list is the
+            // loops that ACTUALLY unwound this run (a loop the global bound never reached won't appear),
+            // so it is noted as possibly partial.
+            if (unwindingLoops.isNotEmpty()) {
+                add("   targetable loops (paste a @LoopUnwind to pin one's bound):")
+                unwindingLoops.take(TOP_N).forEach { loop ->
+                    val where = if (loop.file != null) "  (${loop.file}:${loop.line})" else ""
+                    add("       ${loop.loopId}  x${loop.iterations}$where")
+                    add("           ${loop.suggestion()}")
+                }
+                if (unwindingLoops.size > TOP_N) {
+                    add("       (+ ${unwindingLoops.size - TOP_N} more)")
+                }
+                add("       NOTE: only loops that unwound in THIS run are listed (a loop the bound never" +
+                        " reached won't appear); the suggested bound is the iterations observed - raise it" +
+                        " if a loop is still under-bounded.")
+            }
 
             // Formula size.
             val stats = buildList {
@@ -453,10 +499,13 @@ class JbmcProfile private constructor(
             return acc.build()
         }
 
-        /** `Unwinding loop java::pkg.Class.method.<n> iteration <N> file ... line ...` — the per-loop
-         *  firing the engine logs at verbosity 10. We count one per line and attribute it to the method. */
+        /** `Unwinding loop java::pkg.Class.method:(sig)ret.<n> iteration <N> file <f> line <l>` — the
+         *  per-loop firing the engine logs at verbosity 10. Group 1 is the FULL `--unwindset`-form loop id
+         *  (the trailing `.<n>` KEPT — it is part of the id @org.bmc4j.LoopUnwind targets); group 2/3 are
+         *  the source file/line when present. We count one firing per line, attribute it to the loop id
+         *  (and, via [renderMethod], to its method for the by-method offenders list). */
         private val UNWIND_LOOP_RE =
-                Regex("""^Unwinding loop (\S+?)(?:\.\d+)? iteration \d+""")
+                Regex("""^Unwinding loop (\S+) iteration \d+(?: file (.+?) line (\d+))?""")
         /** `Unwinding recursion java::pkg.Class.method ...`. */
         private val UNWIND_RECURSION_RE =
                 Regex("""^Unwinding recursion (\S+)""")
@@ -493,6 +542,9 @@ class JbmcProfile private constructor(
             private val phases = LinkedHashMap<String, Double>()
             private var reachedSat = false
             private val loopCounts = LinkedHashMap<String, Int>()
+            // Per-LOOP detail keyed by the FULL --unwindset-form loop id: iterations seen + the first
+            // file/line observed for it. Drives the targetable-loops / @LoopUnwind suggestion output.
+            private val loopInfos = LinkedHashMap<String, LoopAcc>()
             private val recursionCounts = LinkedHashMap<String, Int>()
             private var programSteps: Long? = null
             private var vccGenerated: Long? = null
@@ -527,8 +579,15 @@ class JbmcProfile private constructor(
                     return
                 }
                 UNWIND_LOOP_RE.find(line)?.let {
-                    val m = renderMethod(it.groupValues[1])
+                    val loopId = it.groupValues[1]
+                    val m = renderMethod(loopId)
                     loopCounts[m] = (loopCounts[m] ?: 0) + 1
+                    // Per-loop detail: bump the iteration count for this FULL id and remember its source
+                    // location the first time we see it (later iterations repeat the same file/line).
+                    val acc = loopInfos.getOrPut(loopId) {
+                        LoopAcc(it.groupValues[2].ifEmpty { null }, it.groupValues[3].toIntOrNull() ?: 0)
+                    }
+                    acc.iterations++
                     return
                 }
                 UNWIND_RECURSION_RE.find(line)?.let {
@@ -586,6 +645,7 @@ class JbmcProfile private constructor(
                     reachedSat = reachedSat,
                     lastPhaseEntered = lastPhaseEntered,
                     unwindingByMethod = sorted(loopCounts),
+                    unwindingLoops = sortedLoops(loopInfos),
                     recursionByMethod = sorted(recursionCounts),
                     programSteps = programSteps,
                     vccGenerated = vccGenerated,
@@ -598,6 +658,18 @@ class JbmcProfile private constructor(
                             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }
                                     .thenBy { it.key })
                             .map { MethodCount(it.key, it.value) }
+
+            /** The per-loop detail, highest-iteration first then by id (a stable, deterministic order). */
+            private fun sortedLoops(infos: Map<String, LoopAcc>): List<LoopInfo> =
+                    infos.entries
+                            .sortedWith(compareByDescending<Map.Entry<String, LoopAcc>> { it.value.iterations }
+                                    .thenBy { it.key })
+                            .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.iterations) }
+        }
+
+        /** Mutable per-loop tally: the iterations seen plus the (first-observed) source location. */
+        private class LoopAcc(@JvmField val file: String?, @JvmField val line: Int) {
+            @JvmField var iterations: Int = 0
         }
 
         /** `java::pkg.Class.method:(sig)ret` (or a bare `java::pkg.Class.method`) -> `pkg.Class.method`.

@@ -359,4 +359,89 @@ internal class JbmcProfileTest {
         assertEquals("pkg.R.fib", p.recursionByMethod.single().method)
         assertEquals(2, p.recursionByMethod.single().count)
     }
+
+    // --- Targetable loop ids + @LoopUnwind suggestions (the "annotation output") ------------------
+
+    @Test
+    fun captures_the_full_targetable_loop_id_with_file_line_and_iterations() {
+        // Two distinct loops in the SAME method (`.0` and `.1`) must surface as two separate targetable
+        // ids — the trailing `.N` is part of the id @LoopUnwind takes, not stripped to the method.
+        val json = """
+            [
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 1 file Buffer.java line 41"},
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 2 file Buffer.java line 41"},
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.1 iteration 1 file Buffer.java line 55"}
+            ]""".trimIndent()
+        val p = JbmcProfile.parse(json)
+
+        // Highest-iteration first: .0 (2x) before .1 (1x). The id keeps its `.N`, file/line captured.
+        assertEquals(2, p.unwindingLoops.size)
+        val hot = p.unwindingLoops[0]
+        assertEquals("java::okio.Buffer.readDecimalLong:()J.0", hot.loopId,
+                "the FULL --unwindset-form id (with trailing .N) is preserved")
+        assertEquals("Buffer.java", hot.file)
+        assertEquals(41, hot.line)
+        assertEquals(2, hot.iterations)
+        assertEquals("java::okio.Buffer.readDecimalLong:()J.1", p.unwindingLoops[1].loopId)
+        assertEquals(55, p.unwindingLoops[1].line)
+    }
+
+    @Test
+    fun the_loop_id_matches_the_parsers_unwindset_form() {
+        // The id @LoopUnwind takes MUST equal what JbmcOutputParser recovers from an unwinding property,
+        // so a pin authored from the profile output targets the exact loop the engine reports/accepts.
+        val func = "java::pkg.Tests.proof:()V"
+        val profileJson =
+                """[{"messageText":"Unwinding loop $func.3 iteration 1 file T.java line 9"}]"""
+        val profileId = JbmcProfile.parse(profileJson).unwindingLoops.single().loopId
+
+        val parserJson = """
+            [
+              {"result":[
+                {"name":"u","status":"FAILURE","property":"$func.unwind.3",
+                 "description":"unwinding assertion loop 3",
+                 "sourceLocation":{"file":"T.java","line":"9","function":"$func"}},
+                {"name":"m","status":"FAILURE","description":"assertion ...",
+                 "sourceLocation":{"file":"V.java","line":"${BmcReachability.SENTINEL_LINE}","function":"$func"}}
+              ]},
+              {"cProverStatus":"failure"}
+            ]""".trimIndent()
+        val parserId = JbmcOutputParser.parse(parserJson, "pkg.Tests.proof").unwindingLoops.single().loopId
+
+        assertEquals(parserId, profileId,
+                "the profile's targetable id must equal the parser's --unwindset id form")
+    }
+
+    @Test
+    fun renders_a_copy_pasteable_loop_unwind_suggestion_per_loop() {
+        val json = """
+            [
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 1 file Buffer.java line 41"},
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 2 file Buffer.java line 41"}
+            ]""".trimIndent()
+        val p = JbmcProfile.parse(json)
+
+        // The per-loop object renders the exact annotation line.
+        assertEquals("@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)",
+                p.unwindingLoops.single().suggestion())
+
+        val rendered = p.render("okio.Tests.decimal", "TIMEOUT")
+        assertTrue(rendered.contains("targetable loops (paste a @LoopUnwind"),
+                "the targetable-loops section is present: $rendered")
+        assertTrue(rendered.contains("java::okio.Buffer.readDecimalLong:()J.0  x2  (Buffer.java:41)"),
+                "the full id + iterations + location is shown: $rendered")
+        assertTrue(rendered.contains(
+                "@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)"),
+                "a ready-to-paste @LoopUnwind line is emitted: $rendered")
+        assertTrue(rendered.contains("only loops that unwound in THIS run"),
+                "the partial-list caveat is noted: $rendered")
+    }
+
+    @Test
+    fun no_loops_means_no_targetable_loops_section() {
+        val json = """[{"messageText":"Runtime Solver: 1.0s"}]"""
+        val rendered = JbmcProfile.parse(json).render("pkg.Tests.proof", "VERIFIED")
+        assertFalse(rendered.contains("targetable loops"),
+                "a run with no observed loops emits no targetable-loops section: $rendered")
+    }
 }

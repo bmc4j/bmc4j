@@ -61,10 +61,18 @@ object SmartUnwind {
      * (>= 2); [maxRounds] is the hard round budget (>= 1). [runAt] runs the engine with the given per-loop
      * unwindset and returns its [JbmcResult] (the caller wires it to `backend.verify` with the unwindset
      * set on the request and the global bound pinned to [base]).
+     *
+     * [pinned] is the set of loops the user FIXED via `@org.bmc4j.LoopUnwind`: each `<loopId> -> bound`
+     * is seeded into the unwindset from round one and the climb NEVER raises it (a pinned loop is a fixed
+     * completeness/cost knob, not something the climb may grow). The pin's exact bound rides into every
+     * round's unwindset, so the engine runs that loop at the user's bound while the climb discovers the
+     * rest. Sound either way: `--unwinding-assertions` stays on, so a pin set too low fails closed to
+     * UNKNOWN (its unwinding assertion fires), never a false VERIFIED. Empty for an ordinary climb.
      */
     @JvmStatic
     @JvmOverloads
     fun climb(seedBase: Int, cap: Int, step: Int = 2, maxRounds: Int = 8,
+              pinned: Map<String, Int> = emptyMap(),
               runAt: (base: Int, unwindSet: Map<String, Int>) -> JbmcResult): Outcome {
         val ceiling = if (cap < 1) 1 else cap
         val factor = if (step < 2) 2 else step
@@ -74,8 +82,11 @@ object SmartUnwind {
         // override instead. Starts at [seedBase], capped at [ceiling].
         var base = seedBase.coerceIn(1, ceiling)
         // Current per-loop overrides; a loop absent here runs at the global [base]. We only ever ADD or
-        // RAISE entries, so the map grows monotonically and each value is bounded by [ceiling].
+        // RAISE entries, so the map grows monotonically and each value is bounded by [ceiling]. The
+        // user's @LoopUnwind PINS seed it and are honored verbatim — they ride every round but are never
+        // raised by [raiseFiringLoops] (they're in [pinned]).
         val unwindSet = LinkedHashMap<String, Int>()
+        unwindSet.putAll(pinned)
         var round = 0
         var last: JbmcResult? = null
         while (round < rounds) {
@@ -88,8 +99,9 @@ object SmartUnwind {
                 result.isVerified || result.isVacuous || isRefuted(result) ->
                     return Outcome(result, base, unwindSet.toMap(), discovered = true, rounds = round)
                 isUnwindingTooSmall(result) -> {
-                    // Raise the per-loop bound for every firing loop that carries a targetable id.
-                    val raisedLoops = raiseFiringLoops(result, unwindSet, base, ceiling, factor)
+                    // Raise the per-loop bound for every firing loop that carries a targetable id —
+                    // EXCEPT a user-pinned loop (@LoopUnwind), whose bound is fixed and must not climb.
+                    val raisedLoops = raiseFiringLoops(result, unwindSet, base, ceiling, factor, pinned.keys)
                     // An untargetable firing (a recursion overrun, or a loop whose id did not parse) has
                     // NO `--unwindset` handle — only the GLOBAL `--unwind` bounds it. Raise the global
                     // base for those, so a recursion-heavy proof degrades to the AutoUnwind global climb
@@ -128,10 +140,14 @@ object SmartUnwind {
      * uses that as the "made progress" signal that prevents an infinite climb.
      */
     private fun raiseFiringLoops(result: JbmcResult, unwindSet: MutableMap<String, Int>,
-                                 floor: Int, ceiling: Int, factor: Int): Boolean {
+                                 floor: Int, ceiling: Int, factor: Int,
+                                 pinned: Set<String>): Boolean {
         var raised = false
         for (loop in result.unwindingLoops) {
             val id = loop.loopId ?: continue // recursion overrun / unparsed id: not targetable per-loop
+            if (id in pinned) {
+                continue // a user @LoopUnwind pin is FIXED — never raised by the climb
+            }
             val current = unwindSet[id] ?: floor
             if (current >= ceiling) {
                 continue // already at the hard per-loop cap; raising it again is futile

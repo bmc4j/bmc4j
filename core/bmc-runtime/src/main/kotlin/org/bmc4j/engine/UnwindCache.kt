@@ -194,9 +194,24 @@ object UnwindCache {
             VerdictCache.computeKey(normalized(request), engineIdentity)
 
     /** The per-loop smart record's key: a sibling of [key] (same normalized identity, `.smart` suffix),
-     *  so a smart record and a single-bound record for the same proof never collide. */
+     *  so a smart record and a single-bound record for the same proof never collide. The request's
+     *  unwindSet — which on the smart-discovery path is exactly the proof's `@LoopUnwind` PINS (the climb
+     *  discovers the rest fresh, so the request carries only the user's fixed pins) — is folded into the
+     *  suffix so a pin change yields a DIFFERENT record file. Without this the bound-normalized [key]
+     *  would alias the old and new pin sets and a stale record could replay a superseded pin. Empty for
+     *  an unpinned proof, so its key is unchanged. */
     private fun smartKey(request: BmcRequest, engineIdentity: String?): String =
-            key(request, engineIdentity) + ".smart"
+            key(request, engineIdentity) + ".smart" + pinSuffix(request.unwindSet)
+
+    /** A deterministic, filename-safe signature of the request's pinned unwindSet, appended to the smart
+     *  record's filename so a pin change can't read a stale record. Empty when there are no pins. */
+    private fun pinSuffix(unwindSet: Map<String, Int>): String {
+        if (unwindSet.isEmpty()) {
+            return ""
+        }
+        val sig = unwindSet.toSortedMap().entries.joinToString(";") { "${it.key}:${it.value}" }
+        return ".pin" + Integer.toHexString(sig.hashCode())
+    }
 
     /** [request] with `unwind` normalized to the AUTO sentinel (bound-independent identity). The model
      *  exclusion set is PRESERVED: the real leg of a conform-against-model proof analyses a different
