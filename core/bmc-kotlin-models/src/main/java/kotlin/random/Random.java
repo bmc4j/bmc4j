@@ -168,13 +168,17 @@ public class Random {
 
     private static int anyIntInRange(int lo, int hi) {
         int v = CProver.nondetInt();
-        CProver.assume(v >= lo && v <= hi);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+        CProver.assume(v >= lo);
+        CProver.assume(v <= hi);
         return v;
     }
 
     private static long anyLongInRange(long lo, long hi) {
         long v = CProver.nondetLong();
-        CProver.assume(v >= lo && v <= hi);
+        // Split into atomic bounds, not one `&&` (see Bmc.anyInt(int, int)).
+        CProver.assume(v >= lo);
+        CProver.assume(v <= hi);
         return v;
     }
 
