@@ -1,6 +1,7 @@
 package org.bmc4j.junit
 
 import org.bmc4j.Shard
+import org.bmc4j.ShardSlices
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -84,6 +85,13 @@ internal class ShardFilterTest {
     private class ClassPinnedToTwo {
         fun inheritsClassPin() {}
         @Shard(3) fun overridesToThree() {}
+    }
+
+    @Suppress("unused") // methods are resolved reflectively by the filter
+    private class SliceSharded {
+        @ShardSlices fun sliceSharded() {}
+        // @ShardSlices wins over a @Shard pin on the same method (runs on EVERY shard, not pinned).
+        @ShardSlices @Shard(2) fun sliceShardedAndPinned() {}
     }
 
     // --- Inert unless configured ----------------------------------------------
@@ -257,5 +265,31 @@ internal class ShardFilterTest {
                 "every proof (pinned or hashed) selected by some shard — no loss")
         assertTrue(timesSelected.values.all { it == 1 },
                 "every proof selected by EXACTLY one shard — no duplication across the shard union")
+    }
+
+    // --- @ShardSlices: method runs on EVERY shard ----------------------------
+
+    @Test
+    fun sliceSharded_runsOnEveryShard() {
+        val count = 4
+        assertEquals((1..count).toList(),
+                selectingShards(sourced(SliceSharded::class.java, "sliceSharded"), count),
+                "@ShardSlices proof is included on every shard (slices fan out within the split)")
+    }
+
+    @Test
+    fun sliceSharded_overridesShardPin_stillRunsOnEveryShard() {
+        val count = 3
+        assertEquals((1..count).toList(),
+                selectingShards(sourced(SliceSharded::class.java, "sliceShardedAndPinned"), count),
+                "@ShardSlices overrides a @Shard pin: runs on every shard, not pinned to one")
+    }
+
+    @Test
+    fun sliceSharded_isInert_whenUnsharded() {
+        System.setProperty("bmc.shard.count", "1")
+        System.setProperty("bmc.shard.index", "1")
+        assertTrue(included(sourced(SliceSharded::class.java, "sliceSharded")),
+                "@ShardSlices is inert when sharding is disabled (runs once, as today)")
     }
 }

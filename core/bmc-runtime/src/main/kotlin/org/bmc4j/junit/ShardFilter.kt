@@ -1,6 +1,7 @@
 package org.bmc4j.junit
 
 import org.bmc4j.Shard
+import org.bmc4j.ShardSlices
 import org.junit.platform.engine.FilterResult
 import org.junit.platform.engine.TestDescriptor
 import org.junit.platform.engine.support.descriptor.MethodSource
@@ -44,6 +45,15 @@ import org.junit.platform.launcher.PostDiscoveryFilter
  * pin folds back into range as `((value - 1) % count) + 1` (a pin never silently drops a proof — see
  * the fail-open philosophy above). Unpinned proofs keep the hash distribution, and the two sets stay
  * a partition of the suite (every proof is selected by exactly one shard).
+ *
+ * ## Slice-sharding ([@ShardSlices][ShardSlices])
+ * A proof annotated [@ShardSlices][ShardSlices] opts its `domainSplit` slices into being spread
+ * across shards instead of being pinned (with the whole method) to one. Such a method is INCLUDED on
+ * EVERY shard here -- neither hashed nor pinned -- so each shard can run its slice subset (the actual
+ * slice-to-shard partition + the single-shard cover live in the split fan-out; see [SliceShard] /
+ * `BmcProofExtension.runSplitProof`). This inclusion overrides any `@Shard` pin on the same method: a
+ * pin to one shard would defeat the cross-shard fan-out, so the two annotations must not be combined
+ * and the pin is ignored for a slice-sharded method.
  */
 class ShardFilter : PostDiscoveryFilter {
 
@@ -58,6 +68,13 @@ class ShardFilter : PostDiscoveryFilter {
         // carry the proof, and excluding a container would drop its whole subtree).
         if (!active || descriptor.isContainer) {
             return FilterResult.included("not sharded")
+        }
+        // A @ShardSlices proof shards at the SLICE level, not the method level: it must run on EVERY
+        // shard so each can verify its slice subset (the partition + the single-shard cover are applied
+        // later in the split fan-out). So include it here unconditionally, overriding any hash bucket
+        // or @Shard pin (a pin to one shard would defeat slice distribution).
+        if (slicesSharded(descriptor)) {
+            return FilterResult.included("slice-sharded (runs on every shard) $index/$count")
         }
         // A @Shard pin overrides the hash distribution; an out-of-range pin folds back into range
         // (never a silent skip). An unpinned proof keeps its hash bucket. Both are 0-based here.
@@ -82,22 +99,30 @@ class ShardFilter : PostDiscoveryFilter {
         return Math.floorMod(pin.value - 1, count)
     }
 
+    /** True iff the proof method carries [ShardSlices] (slice-level sharding). Only meaningful on the
+     *  method (slices belong to a single fan-out), so unlike [Shard] there is no class-level fallback. */
+    private fun slicesSharded(descriptor: TestDescriptor): Boolean =
+            proofMethod(descriptor)?.isAnnotationPresent(ShardSlices::class.java) == true
+
     /** The [Shard] annotation on the proof method, else on its declaring class, else `null`. */
     private fun shardAnnotation(descriptor: TestDescriptor): Shard? {
+        val method = proofMethod(descriptor) ?: return null
+        // Method pin wins; fall back to the declaring class pin (Shard is @Inherited, reaching subclasses).
+        return method.getAnnotation(Shard::class.java) ?: method.declaringClass.getAnnotation(Shard::class.java)
+    }
+
+    /** Resolve the [java.lang.reflect.Method] backing a leaf proof descriptor, or `null` (not a method
+     *  source / class not loadable / no such method). Resolves via the context classloader without
+     *  initializing the class — reading an annotation needs no static init — and matches on name only:
+     *  a parameterless or symbolic-parameter @BmcProof has a unique simple name within its class, and
+     *  resolving exact parameter types would couple the filter to the proof's signature for no benefit.
+     *  Any failure yields null -> the proof keeps its hash bucket / no slice-sharding, fail-open. */
+    private fun proofMethod(descriptor: TestDescriptor): java.lang.reflect.Method? {
         val source = descriptor.source.orElse(null) as? MethodSource ?: return null
-        // Resolve via the context classloader (the test JVM's, which carries the proof classes) and
-        // do NOT initialize the class — reading an annotation needs no static init. Any failure
-        // (class not found, link error) yields null → the proof keeps its hash bucket, fail-open.
         val loader = Thread.currentThread().contextClassLoader ?: javaClass.classLoader
         val clazz = runCatching { Class.forName(source.className, false, loader) }.getOrNull()
                 ?: return null
-        // Match on name only: a parameterless or symbolic-parameter @BmcProof has a unique simple name
-        // within its class, and resolving exact parameter types here would couple the filter to the
-        // proof's signature for no benefit. Method pin wins; fall back to the declaring class pin.
-        val onMethod = clazz.declaredMethods
-                .firstOrNull { it.name == source.methodName }
-                ?.getAnnotation(Shard::class.java)
-        return onMethod ?: clazz.getAnnotation(Shard::class.java)
+        return clazz.declaredMethods.firstOrNull { it.name == source.methodName }
     }
 
     private companion object {

@@ -104,8 +104,13 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
             // from the thrown failure (a strict-stub/-model BmcUndecidedError on the VERIFIED path, or
             // a ContractPurityError, never set the outcome field).
             val kind = outcome.unknownKind ?: kindOf(t)
-            ProofSummary.record(entryFunction, entryClass, expectedV,
-                    outcome.verdict, outcome.cached, false, ms, t.message, kind)
+            // A slice-sharded split already emitted per-derived-run records (recordSlice) for what
+            // this shard ran; don't also emit a method-level record that the aggregator would
+            // double-count or mistake for the whole proof.
+            if (!outcome.sliceRecordsEmitted) {
+                ProofSummary.record(entryFunction, entryClass, expectedV,
+                        outcome.verdict, outcome.cached, false, ms, t.message, kind)
+            }
             throw t
         }
         val ms = (System.nanoTime() - started) / 1_000_000
@@ -114,8 +119,10 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // swallowed) outcome.detail carries the counterexample/issue text — record it instead of null so
         // the summary keeps the counterexample on the pass path too. Pure observability: detail never
         // touched the verdict.
-        ProofSummary.record(entryFunction, entryClass, expectedV,
-                outcome.verdict, outcome.cached, true, ms, outcome.detail, outcome.unknownKind)
+        if (!outcome.sliceRecordsEmitted) {
+            ProofSummary.record(entryFunction, entryClass, expectedV,
+                    outcome.verdict, outcome.cached, true, ms, outcome.detail, outcome.unknownKind)
+        }
     }
 
     /** The typed UNKNOWN/disqualification kind a thrown bmc failure carries, if any — used as a
@@ -141,6 +148,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
          *  the summary's `detail`: it NEVER influences a verdict or the pass/fail decision. Null on a
          *  VERIFIED pass. */
         @JvmField var detail: String? = null
+        /** Set true by [runSplitProof] when this proof is a slice-sharded (`@ShardSlices`) split that
+         *  has ALREADY emitted its own per-derived-run summary records ([ProofSummary.recordSlice]) for
+         *  the slices/cover THIS shard ran. When true, [interceptTestMethod] suppresses the single
+         *  method-level [ProofSummary.record] (the per-slice records replace it; the aggregator unions
+         *  per-slice instead). Pure observability bookkeeping — never affects the verdict. */
+        @JvmField var sliceRecordsEmitted: Boolean = false
     }
 
     /** Record the framed counterexample/issue text on [outcome] (pure observability — see
@@ -728,24 +741,57 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                               outcome: ProofOutcome) {
         val expected = config?.expect ?: Verdict.VERIFIED
         val scope = "the split's overall condition (a domain-SCOPED proof, NOT the full type domain)"
-        println("  bmc4j: $entryFunction -> domainSplit: 1 cover + ${plan.sliceCount} slice run(s)" +
+
+        // Slice-sharding (@ShardSlices): when active (bmc.shard.count > 1 and this proof opted in), THIS
+        // shard runs only its assigned subset of slices (floorMod(i, count) == index-1) plus the cover on
+        // shard 1 only. Inert otherwise (no annotation, or count<=1): selector.runs* return true for
+        // everything, so a normal/local run executes all slices + the cover exactly as today. The shard
+        // semantics are explicit because ShardFilter (discovery-time) can't know a proof will fan out and
+        // has already INCLUDED a @ShardSlices method on every shard for exactly this purpose.
+        val sliceSharded = method.isAnnotationPresent(org.bmc4j.ShardSlices::class.java)
+        val shard = SliceShard.fromProperties()
+        val sliceShardOn = sliceSharded && shard.active
+
+        val coverHere = !sliceShardOn || shard.runsCover()
+        val sliceIndices = (0 until plan.sliceCount).filter { !sliceShardOn || shard.runsSlice(it) }
+
+        println("  bmc4j: $entryFunction -> domainSplit: " +
+                (if (coverHere) "1 cover + " else "0 cover (other shard) + ") +
+                "${sliceIndices.size} of ${plan.sliceCount} slice run(s)" +
+                (if (sliceShardOn) " [slice-shard ${shard.index}/${shard.count}]" else "") +
                 " (fan-out, jbmc cap=${JbmcConcurrency.permits})")
 
-        // Build the N+1 derived runs: the cover (the soundness gate) and one per slice. Cover is index
-        // 0 in the dispatch list so its result is preferred when several runs are decisive (see below);
-        // slices keep their declared order.
-        // `label` is the verbose run label used in progress/failure framing; `profileLabel` is the short
-        // self-identifying tag for the per-run @BmcProfile block + the aggregate ("cover", "slice i/N").
+        // Build the derived runs THIS shard executes: the cover (only on shard 1 when slice-sharded) and
+        // its assigned slices. Cover is dispatched first so its result is preferred when several runs are
+        // decisive (see below); slices keep their declared order. `label` is the verbose run label used in
+        // progress/failure framing; `profileLabel` is the short self-identifying tag for the per-run
+        // @BmcProfile block + the aggregate ("cover", "slice i/N").
         data class DerivedSpec(val req: BmcRequest, val label: String, val profileLabel: String,
                                val isCover: Boolean, val sliceIndex: Int)
-        val specs = ArrayList<DerivedSpec>(plan.sliceCount + 1)
-        specs.add(DerivedSpec(
-                splitRequest(request, org.bmc4j.engine.DomainSplitBytecode.RunPlan.Cover),
-                "cover (overall => union of slices)", "cover", true, -1))
-        for (i in 0 until plan.sliceCount) {
+        val specs = ArrayList<DerivedSpec>(sliceIndices.size + 1)
+        if (coverHere) {
+            specs.add(DerivedSpec(
+                    splitRequest(request, org.bmc4j.engine.DomainSplitBytecode.RunPlan.Cover),
+                    "cover (overall => union of slices)", "cover", true, -1))
+        }
+        for (i in sliceIndices) {
             specs.add(DerivedSpec(
                     splitRequest(request, org.bmc4j.engine.DomainSplitBytecode.RunPlan.Slice(i)),
                     "slice #$i", "slice ${i + 1}/${plan.sliceCount}", false, i))
+        }
+
+        // This shard has nothing assigned (slice-sharding with more shards than slices+cover): it
+        // verifies trivially -- the slices and cover it skipped are run by OTHER shards, and the
+        // aggregator's completeness check unions them. Mark records as "emitted" (zero of them) so the
+        // method-level record is suppressed, then return a domain-scoped green. expect != VERIFIED can't
+        // be meaningfully decided by an empty shard, so it is treated as a pass here too (the shard(s)
+        // that DO run the slices/cover decide the proof).
+        if (specs.isEmpty()) {
+            outcome.sliceRecordsEmitted = ProofSummary.enabled
+            outcome.verdict = Verdict.VERIFIED
+            println("  bmc4j: $entryFunction -> no slices/cover on this shard" +
+                    " [slice-shard ${shard.index}/${shard.count}] -> VERIFIED (run on other shards)")
+            return
         }
 
         // Fan out: submit every derived run to the shared pool and collect results as they finish.
@@ -836,6 +882,30 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                 println(perRun)
             }
             println(org.bmc4j.engine.JbmcProfile.renderAggregate(entryFunction, runs))
+        }
+
+        // Slice-sharded per-derived-run summary records: when slice-sharding is ACTIVE, emit one
+        // summary record per derived run THIS shard actually completed (each slice + the cover, when
+        // run here), carrying its 0-based slice index, the TOTAL slice count, and the is-cover flag, so
+        // the cross-shard aggregator can verify completeness (every slice 0..N-1 + the cover reported
+        // VERIFIED across the shard union). This REPLACES the single method-level record for this proof
+        // (see ProofOutcome.sliceRecordsEmitted) -- a slice-sharded split's verdict is the union of its
+        // per-slice records, not one shard's partial aggregate. A run cancelled by early-exit emits no
+        // record; that is sound because the decisive (non-VERIFIED) record IS emitted with ok=false, so
+        // the proof fails -- a missing slice never reads as a pass. No-op unless -Dbmc.summaryDir is set.
+        // ms is not tracked per-derived-run (purely informational in the record); recorded as 0.
+        if (sliceShardOn && ProofSummary.enabled) {
+            outcome.sliceRecordsEmitted = true
+            for ((spec, run) in completed) {
+                // Per-derived-run "ok" is "this slice/cover VERIFIED" -- the primitive the aggregator's
+                // completeness rule unions ("every slice + the cover VERIFIED"). The proof's aggregate
+                // `expected` is carried for context; slice-sharding targets the expect=VERIFIED scaling
+                // case, where ok == (verdict == VERIFIED) is exactly the aggregate verdict's basis.
+                val ok = run.verdict == Verdict.VERIFIED
+                ProofSummary.recordSlice(entryFunction, method.declaringClass.name, expected,
+                        run.verdict, false, ok, 0, run.framed?.message, run.unknownKind,
+                        spec.sliceIndex, plan.sliceCount, spec.isCover)
+            }
         }
 
         if (decisive == null) {
