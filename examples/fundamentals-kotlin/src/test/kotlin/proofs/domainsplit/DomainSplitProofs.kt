@@ -104,6 +104,40 @@ class DomainSplitProofs {
     }
 
     /**
+     * PASSES with MULTI-ARG slices: each slice's bounds are given as SEPARATE constraints
+     * (`slice(lo, hi)`) rather than one `slice(lo && hi)`. The rewriter emits each as its own atomic
+     * `assume` so CBMC's pre-SAT simplifier can propagate each bound (a conjoined `&&` would not be
+     * cracked open). Semantically identical to the single-arg conjunction: same partition, same cover,
+     * so the three half-open ranges still tile `0..300` and the clamp stays in range.
+     */
+    @BmcProof
+    fun `multi-arg slices split each bound into its own assume`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in 0..300) {
+            slice(x >= 0, x <= 100)
+            slice(x >= 101, x <= 200)
+            slice(x >= 201, x <= 300)
+        }
+        val r = if (x < 0) 0 else if (x > 300) 300 else x
+        Bmc.check(r in 0..300) // holds in every slice
+    }
+
+    /**
+     * FAILS LOUD with MULTI-ARG slices: the separate-bound slices leave a genuine GAP at `x == 100`
+     * (first slice ends at 99, second starts at 101), so the cover REFUTES — the AND-of-bounds fold
+     * still detects a real gap, exactly as the single-arg conjunction form would.
+     */
+    @BmcProof(expect = Verdict.REFUTED)
+    fun `multi-arg slices with a gap fail loud`() {
+        val x = Bmc.anyInt()
+        domainSplit(x in 0..200) {
+            slice(x >= 0, x <= 99)
+            slice(x >= 101, x <= 200) // GAP: x == 100 is covered by no slice
+        }
+        Bmc.check(x == x)
+    }
+
+    /**
      * FAILS LOUD with COMPOUND `in`-range slices: the `||`-of-ranges slices leave a genuine GAP at
      * `x == 50`, so the cover REFUTES — the compound-condition fold still detects a real gap.
      */
