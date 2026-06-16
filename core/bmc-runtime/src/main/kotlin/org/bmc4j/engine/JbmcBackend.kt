@@ -224,16 +224,17 @@ class JbmcBackend : VerificationBackend {
             // later be inserted AFTER all of them (the user override must still win by classpath order).
             var userModelEntries = 0
             if (!userModels.isNullOrBlank()) {
-                // Per-proof @ExcludeModels: drop the named models' .class entries from the overlay so this
-                // proof links the REAL class instead of the model. A dir containing an excluded class is
-                // replaced by a filtered temp copy minus those entries; every other dir passes through
-                // unchanged. SOUND: the real class is strictly more faithful than the model, so an
-                // exclusion can only make a proof harder/UNKNOWN, never a false VERIFIED. The filtered dir
-                // is a fresh path, so it falls out of the plugin mirror's covered set and gets rewritten
-                // in-JVM below (correct, just unmirrored for the excluded proof). A no-op (same string)
-                // when the proof excludes nothing -- the overwhelmingly common case. The exclusion set is
-                // also folded into the verdict-cache key (VerdictCache.computeKey), so it can't serve a
-                // model-kept verdict for a model-excluded request.
+                // Per-proof model exclusion (@ExcludeModels and the @ConformProofsAgainstModel real leg):
+                // drop the named models' .class entries from the overlay so this proof links the REAL class
+                // instead of the model. A dir containing an excluded class is replaced by a filtered temp
+                // copy minus those entries; every other dir passes through unchanged. SOUND: the real class
+                // is strictly more faithful than the model, so an exclusion can only make a proof
+                // harder/UNKNOWN, never a false VERIFIED. The filtered dir is a fresh path, so it falls out
+                // of the plugin mirror's covered set and gets rewritten in-JVM below (correct, just
+                // unmirrored for the excluded proof). A no-op (same string) when the proof excludes nothing
+                // -- the overwhelmingly common case. The exclusion set is also folded into the verdict-cache
+                // key (VerdictCache.computeKey), so it can't serve a model-kept verdict for a model-excluded
+                // request.
                 val overlayModels = excludeFromUserModels(userModels, request.excludeModels)
                 // With a plugin mirror the bmcModel output is a covered task input — substitute it for its
                 // already-rewritten mirror; an uncovered entry (fallback) is rewritten in-JVM. With no
