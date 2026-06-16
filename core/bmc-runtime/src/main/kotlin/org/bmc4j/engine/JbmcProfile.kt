@@ -37,8 +37,9 @@ class JbmcProfile private constructor(
         /** The engine subprocess wall-clock (launch → exit/kill) the harness timed, in seconds, or null
          *  when not measured. On a TIMEOUT, this minus the completed `Runtime <Phase>:` times is the
          *  UNACCOUNTED remainder, attributed to the phase the engine was killed inside (see
-         *  [derivedInProgressPhase] / [lastPhaseEntered]): Convert SSA for a bit-blasting-bound proof,
-         *  Symex for a symex-bound one. Harness-measured, never an engine-reported number. */
+         *  [derivedInProgressPhase] / [lastPhaseEntered]): Solver for a solver-bound proof killed mid-solve,
+         *  Convert SSA for a bit-blasting-bound one, Symex for a symex-bound one. Harness-measured, never an
+         *  engine-reported number. */
         val engineWallSeconds: Double?,
         /** True if the engine reached the SAT/SMT solver (it logged "Passing problem to propositional
          *  reduction" or a `<N> variables, <M> clauses` line). On a timeout this distinguishes a
@@ -144,25 +145,30 @@ class JbmcProfile private constructor(
      *    completed, so it is the full wall-clock; on a Convert-SSA-bound kill symex's ~10s is subtracted
      *    and the REMAINDER (the bit-blasting time) is what we surface.
      *  - The phase it is attributed to is [lastPhaseEntered] - the furthest in-progress marker seen
-     *    (`converting SSA` means Convert SSA, else `Starting Bounded Model Checking` means Symex). If no phase
-     *    marker was captured at all we fall back to Symex (the engine was killed before even symex
-     *    announced itself, so symbolic execution is the only phase it could have been in).
+     *    (the solver handoff means Solver, `converting SSA` means Convert SSA, else `Starting Bounded
+     *    Model Checking` means Symex). If no phase marker was captured at all we fall back to Symex (the
+     *    engine was killed before even symex announced itself, so symbolic execution is the only phase it
+     *    could have been in).
+     *
+     * The decision to derive a tail rests SOLELY on the remainder, NOT on whether a `Runtime Solver:` line
+     * is present. jbmc emits a `Runtime <Phase>:` line only when that phase COMPLETES, so on a kill
+     * MID-SOLVE the only Solver figure present is a stale/partial earlier sub-measurement and the long real
+     * solve is never reported - leaving a large remainder that must be attributed to the Solver phase the
+     * engine was killed inside. On a clean completion the `Runtime Solver:` line carries the FULL solve
+     * time, so the completed phases sum to ~the wall, the remainder falls below the floor, and we return
+     * null - no double-count, no phantom tail.
      *
      * Returns null only when there is no engine wall-clock to attribute, or when the remainder is not a
      * positive amount of time worth showing (the named completed phases already account for the wall). We
      * never invent a split across completed phases - only the single in-progress tail is derived. */
     fun derivedInProgressPhase(): Pair<Phase, Double>? {
         val wall = engineWallSeconds ?: return null
-        // A run that reached the solver and reported a Solver phase line is fully accounted - no in-progress
-        // tail to derive (the time is in named phases). Only an INCOMPLETE run (killed mid-phase) derives.
-        if (phaseSeconds.containsKey(Phase.SOLVER.label)) {
-            return null
-        }
         val completed = phaseSeconds.values.sum()
         val remainder = wall - completed
         if (remainder <= IN_PROGRESS_FLOOR_SECONDS) {
             // The completed phases already account for ~all the wall-clock: nothing meaningful was spent
-            // in an in-progress phase (the kill landed right at a phase boundary, or the run finished).
+            // in an in-progress phase (the kill landed right at a phase boundary, or the run finished - a
+            // clean solve reports its FULL Solver time, so phases ~= wall and we derive no tail here).
             return null
         }
         val phase = lastPhaseEntered
@@ -260,9 +266,10 @@ class JbmcProfile private constructor(
             // Where the ENGINE spent wall-time. First the phases jbmc REPORTED a completed `Runtime <Phase>:`
             // line for (engine-measured). Then, on a TIMEOUT, the unaccounted remainder is attributed to the
             // phase the engine was actually killed INSIDE - derived from the in-progress markers it streamed
-            // (`converting SSA` means Convert SSA; else symex). This is the attribution fix: a heavy proof whose
-            // symex finished but was then killed bit-blasting is shown as "Convert SSA (incomplete)", NOT
-            // mislabelled "Symex (incomplete)".
+            // (the solver handoff means Solver; `converting SSA` means Convert SSA; else symex). This is the
+            // attribution fix: a heavy proof killed bit-blasting after symex finished reads "Convert SSA
+            // (incomplete)", and one killed MID-SOLVE (only a partial engine Solver line present) reads
+            // "Solver (incomplete)" - never mislabelled, never silently dropped.
             add("   engine phases (where jbmc spent wall-time):")
             phaseSeconds.forEach { (phase, secs) -> timed(LBL_ENGINE, phase, secs) }
             val inProgress = derivedInProgressPhase()
@@ -270,12 +277,19 @@ class JbmcProfile private constructor(
                 inProgress != null -> {
                     val (phase, secs) = inProgress
                     timed(LBL_HARNESS, "${phase.label} (incomplete)", secs)
-                    val explain = if (phaseSeconds.isEmpty()) {
-                        "the engine reported no completed phase; it was killed inside ${phase.label}, so the" +
-                                " whole engine wall-clock above is ${phase.label}"
-                    } else {
-                        "the engine completed the phase(s) above (engine-reported), then was killed inside" +
-                                " ${phase.label}; this is the UNACCOUNTED remainder of the engine wall-clock"
+                    val explain = when {
+                        phaseSeconds.isEmpty() ->
+                            "the engine reported no completed phase; it was killed inside ${phase.label}, so the" +
+                                    " whole engine wall-clock above is ${phase.label}"
+                        // A partial engine Solver figure is present but the run was killed STILL inside the
+                        // solver: jbmc only reports a `Runtime <Phase>:` time when the phase completes, so the
+                        // figure above is a partial sub-measurement and the long real solve is this remainder.
+                        phaseSeconds.containsKey(phase.label) ->
+                            "the engine reported a PARTIAL ${phase.label} time above, then was killed STILL inside" +
+                                    " ${phase.label}; this is the UNACCOUNTED remainder of the engine wall-clock"
+                        else ->
+                            "the engine completed the phase(s) above (engine-reported), then was killed inside" +
+                                    " ${phase.label}; this is the UNACCOUNTED remainder of the engine wall-clock"
                     }
                     add("       ($explain - DERIVED by the harness from its phase markers, not a" +
                             " jbmc-reported time)")

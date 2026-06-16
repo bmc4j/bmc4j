@@ -139,10 +139,12 @@ internal class JbmcProfileTest {
               {"messageText":"Runtime Solver: 0.30s"}
             ]""".trimIndent())
         val pipeline = linkedMapOf("desugar" to 0.05, "reachability" to 0.01, "model-slice" to 0.02)
-        val p = engine.withHarnessTimings(pipeline, 0.60)
+        // A genuine clean completion: the engine wall ~= the sum of the completed phases (Symex 0.20 +
+        // Solver 0.30 = 0.50), so there is no unaccounted remainder and no derived in-progress tail.
+        val p = engine.withHarnessTimings(pipeline, 0.50)
 
         assertEquals(pipeline, p.pipelineSeconds)
-        assertEquals(0.60, p.engineWallSeconds)
+        assertEquals(0.50, p.engineWallSeconds)
         // The engine phases survive the overlay untouched.
         assertEquals(0.20, p.phaseSeconds["Symex"])
         assertTrue(p.reachedSat)
@@ -155,11 +157,11 @@ internal class JbmcProfileTest {
         assertTrue(rendered.contains("[engine] Symex"), "an engine phase, tagged engine-reported")
         assertTrue(rendered.contains("[harness] engine wall-clock"), "harness-measured engine wall")
         assertTrue(rendered.contains("reached SAT/SMT solver: YES"))
-        // No derived in-progress phase: the engine reached + reported a Solver phase, so the run is
-        // fully accounted - we never invent an incomplete tail.
+        // No derived in-progress phase: the engine reached + reported a completed Solver phase whose time
+        // accounts for the wall, so the run is fully accounted - we never invent an incomplete tail.
         assertNull(p.derivedInProgressPhase())
         // Sub-millisecond timings render as fixed-point, never scientific notation.
-        val tiny = engine.withHarnessTimings(mapOf("purity-audit" to 0.0004), 0.6)
+        val tiny = engine.withHarnessTimings(mapOf("purity-audit" to 0.0004), 0.50)
         val tinyRendered = tiny.render("pkg.Tests.proof", "VERIFIED")
         assertTrue(tinyRendered.contains("purity-audit"))
         assertFalse(tinyRendered.contains("E-"), "no scientific notation in the rendered timings")
@@ -258,6 +260,64 @@ internal class JbmcProfileTest {
         assertTrue(rendered.contains("[engine] Symex"), "the real completed Symex phase")
         assertTrue(rendered.contains("[harness] Convert SSA (incomplete)"), "the derived in-progress tail")
         assertTrue(rendered.contains("[harness] engine wall-clock"))
+    }
+
+    @Test
+    fun a_solver_bound_kill_mid_solve_attributes_the_remainder_to_solver_despite_a_partial_solver_line() {
+        // THE BUG-FIX CASE: the engine reached the solver, jbmc printed a PARTIAL `Runtime Solver:` figure
+        // (a stale earlier sub-measurement), then was killed STILL inside the solver while kissat churned at
+        // 99.9% CPU. jbmc only emits a `Runtime <Phase>:` line when the phase COMPLETES, so the long real
+        // solve is NEVER reported. The old guard ("a Solver line was seen => fully accounted") dropped the
+        // ~595s of real solving; the remainder-based rule must attribute it to "Solver (incomplete)".
+        val engine = JbmcProfile.parse("""
+            [
+              {"messageText":"Starting Bounded Model Checking"},
+              {"messageText":"Runtime Symex: 2.50s"},
+              {"messageText":"converting SSA"},
+              {"messageText":"Runtime Convert SSA: 2.00s"},
+              {"messageText":"Passing problem to propositional reduction"},
+              {"messageText":"Runtime Solver: 0.20s"}
+            ]""".trimIndent())
+        assertTrue(engine.reachedSat, "the propositional-reduction handoff => the solver was reached")
+        assertEquals(JbmcProfile.Phase.SOLVER, engine.lastPhaseEntered, "Solver was the furthest phase entered")
+        assertEquals(0.20, engine.phaseSeconds["Solver"], "only a PARTIAL Solver figure was reported")
+
+        // Engine ran 600s wall; Symex (2.5) + Convert SSA (2.0) + the partial Solver (0.2) = 4.7s completed.
+        // The remaining ~595.3s was real solving the engine was killed inside.
+        val p = engine.withHarnessTimings(emptyMap(), 600.0)
+        val derived = p.derivedInProgressPhase()
+        assertEquals(JbmcProfile.Phase.SOLVER, derived?.first,
+                "the unaccounted remainder is attributed to Solver, not dropped on the floor")
+        assertEquals(600.0 - (2.50 + 2.00 + 0.20), derived!!.second, 1e-6,
+                "remainder = wall - (Symex + Convert SSA + partial Solver)")
+
+        val rendered = p.render("proofs.profiling.solverBound", "TIMEOUT")
+        assertTrue(rendered.contains("[harness] Solver (incomplete)"),
+                "the ~595s of real solving surfaces as Solver (incomplete), not vanished")
+        assertTrue(rendered.contains("[engine] Solver"), "the partial engine Solver figure is still shown")
+        assertTrue(rendered.contains("STILL inside Solver"),
+                "the note explains a partial Solver line + a kill still inside the solver")
+        assertTrue(rendered.contains("reached SAT/SMT solver: YES"))
+    }
+
+    @Test
+    fun a_cleanly_solved_run_derives_no_in_progress_tail_even_with_an_engine_wall_clock() {
+        // The clean-completion guard: the solver genuinely FINISHED, so its `Runtime Solver:` line carries
+        // the FULL solve time and the phases sum to ~the wall. The remainder is below the floor, so there is
+        // NO spurious "Solver (incomplete)" tail - the fix must not regress this into a double-count.
+        val engine = JbmcProfile.parse("""
+            [
+              {"messageText":"Runtime Symex: 0.20s"},
+              {"messageText":"Passing problem to propositional reduction"},
+              {"messageText":"Runtime Convert SSA: 0.10s"},
+              {"messageText":"Runtime Solver: 1.50s"}
+            ]""".trimIndent())
+        // wall ~= sum of phases (0.20 + 0.10 + 1.50 = 1.80), only 0.02s of frame overhead, below the floor.
+        val p = engine.withHarnessTimings(emptyMap(), 1.82)
+        assertNull(p.derivedInProgressPhase(),
+                "a finished solver reports its full time => phases ~= wall => no derived tail")
+        val rendered = p.render("pkg.Tests.solved", "VERIFIED")
+        assertFalse(rendered.contains("(incomplete)"), "no phantom in-progress tail on a clean solve")
     }
 
     @Test
