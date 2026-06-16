@@ -74,6 +74,42 @@ internal class DomainSplitBytecodeTest {
     }
 
     @Test
+    fun multi_arg_slice_run_emits_one_atomic_assume_per_condition() {
+        // A 2-condition chosen slice must become TWO separate CProver.assume calls (atomic bounds),
+        // never one compound assume(c1 && c2) — that is the whole point of the split. Slice 1 is the
+        // 2-arg slice in multiArgSliceClass (slice 0 is single-arg).
+        val calls = methodCalls(DomainSplitBytecode.rewriteClass(
+                multiArgSliceClass(), "C", "m", RunPlan.Slice(1)), "m")
+        assertFalse(calls.any { it.contains("Bmc.slice") || it.contains("Bmc.domainSplit") },
+                "no domainSplit/slice marker calls should remain: $calls")
+        assertEquals(2, calls.count { it.contains("CProver.assume(Z)V") },
+                "a 2-condition chosen slice should become exactly two atomic assumes: $calls")
+    }
+
+    @Test
+    fun multi_arg_slice_run_is_well_formed() {
+        // The N atomic assumes (chosen multi-arg slice 1) + the POPs on the non-chosen slice must
+        // produce verifiable bytecode.
+        val rewritten = DomainSplitBytecode.rewriteClass(multiArgSliceClass(), "C", "m", RunPlan.Slice(1))
+        val loader = object : ClassLoader(javaClass.classLoader) {
+            fun define(b: ByteArray): Class<*> = defineClass("C", b, 0, b.size)
+        }
+        loader.define(rewritten) // throws VerifyError on malformed stack/locals
+    }
+
+    @Test
+    fun multi_arg_non_chosen_slice_pops_all_its_conditions() {
+        // Choosing slice 0 (the single-arg one) must POP all conditions of the non-chosen multi-arg
+        // slice and assume nothing from it — exactly one assume total (slice 0's single condition).
+        val calls = methodCalls(DomainSplitBytecode.rewriteClass(
+                mixedAritySliceClass(), "C", "m", RunPlan.Slice(0)), "m")
+        assertEquals(1, calls.count { it.contains("CProver.assume(Z)V") },
+                "only the chosen single-arg slice 0 should assume: $calls")
+        assertFalse(calls.any { it.contains("Bmc.slice") || it.contains("Bmc.domainSplit") },
+                "markers must be gone: $calls")
+    }
+
+    @Test
     fun slice_run_pops_every_marker_when_none_chosen() {
         // Choosing an out-of-range slice (defensive): no assume, all markers discarded.
         val calls = methodCalls(DomainSplitBytecode.rewriteClass(
@@ -96,6 +132,30 @@ internal class DomainSplitBytecodeTest {
                 "markers must be gone in the cover run: $calls")
         assertFalse(calls.any { it.contains("CProver.assume") },
                 "the cover run assumes nothing: $calls")
+    }
+
+    @Test
+    fun multi_arg_slice_is_counted_as_one_slice() {
+        // A slice(c1, c2) is ONE sub-domain, not two — the plan's sliceCount counts markers, not args.
+        val plan = DomainSplitBytecode.analyzeBytes(multiArgSliceClass(), "m")
+        assertTrue(plan.isSplit)
+        assertEquals(2, plan.sliceCount, "one single-arg + one 2-arg slice => 2 sub-domains")
+    }
+
+    @Test
+    fun cover_run_folds_multi_arg_slice_and_stays_well_formed() {
+        // The cover must AND a multi-arg slice's conditions into one disjunct then OR into the union;
+        // the result must be verifiable bytecode and still emit exactly one cover check.
+        val rewritten = DomainSplitBytecode.rewriteClass(multiArgSliceClass(), "C", "m", RunPlan.Cover)
+        val calls = methodCalls(rewritten, "m")
+        assertEquals(1, calls.count { it.contains("Bmc.check(Z)V") },
+                "the cover run emits exactly one cover check: $calls")
+        assertFalse(calls.any { it.contains("Bmc.slice") || it.contains("Bmc.domainSplit") },
+                "markers must be gone in the cover run: $calls")
+        val loader = object : ClassLoader(javaClass.classLoader) {
+            fun define(b: ByteArray): Class<*> = defineClass("C", b, 0, b.size)
+        }
+        loader.define(rewritten) // throws VerifyError on a malformed AND-fold
     }
 
     @Test
@@ -241,6 +301,85 @@ internal class DomainSplitBytecodeTest {
             mv.visitEnd()
             cw.visitEnd()
             return cw.toByteArray()
+        }
+
+        /** One slice marker for [sliceMarkerClass]: [arity] booleans pushed by [push], called as `(Z*)V`. */
+        private class SliceSpec(val arity: Int, val push: (MethodVisitor) -> Unit)
+
+        /**
+         * A class `C` whose proof `m` has a single-arg slice followed by a 2-arg slice
+         * `slice(x >= 10, x <= 89)` — the multi-arg form whose two atomic bounds the rewriter splits.
+         * Shape: `int x=0; domainSplit(x>=0); slice(x<10); slice(x>=10, x<=89); check(x==x)`.
+         */
+        private fun multiArgSliceClass(): ByteArray =
+                sliceMarkerClass(
+                        SliceSpec(1) { mv -> pushCmpConst(mv, Opcodes.IF_ICMPGE, 10) }, // slice 0: x < 10
+                        SliceSpec(2) { mv -> // slice 1: slice(x >= 10, x <= 89) — descriptor (ZZ)V.
+                            pushCmpConst(mv, Opcodes.IF_ICMPLT, 10) // x >= 10
+                            pushCmpConst(mv, Opcodes.IF_ICMPGT, 89) // x <= 89
+                        })
+
+        /**
+         * A class `C` whose proof `m` has a single-arg slice 0 then a 3-arg slice 1 — used to check the
+         * non-chosen multi-arg slice POPs all three of its conditions.
+         */
+        private fun mixedAritySliceClass(): ByteArray =
+                sliceMarkerClass(
+                        SliceSpec(1) { mv -> pushCmpConst(mv, Opcodes.IF_ICMPGE, 0) }, // slice 0: x < 0
+                        SliceSpec(3) { mv -> // slice 1: slice(x >= 0, x <= 50, x >= 0) — descriptor (ZZZ)V.
+                            pushCmpConst(mv, Opcodes.IF_ICMPLT, 0)
+                            pushCmpConst(mv, Opcodes.IF_ICMPGT, 50)
+                            pushCmpConst(mv, Opcodes.IF_ICMPLT, 0)
+                        })
+
+        /**
+         * Build a class `C` with proof `m` (`int x=0; domainSplit(x>=0); <slice markers>; check(x==x)`).
+         * Each [SliceSpec] pushes its arity's 0/1 booleans; the marker call uses the matching `(Z*)V`.
+         */
+        private fun sliceMarkerClass(vararg slices: SliceSpec): ByteArray {
+            val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "C", null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null)
+            mv.visitAnnotation("Lorg/bmc4j/BmcProof;", true).visitEnd()
+            mv.visitCode()
+            mv.visitInsn(Opcodes.ICONST_0)
+            mv.visitVarInsn(Opcodes.ISTORE, 1) // int x = 0 (slot 1)
+            pushCmp(mv, Opcodes.IFLT) // domainSplit(x >= 0)
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, BMC, "domainSplit", "(Z)V", false)
+            for (spec in slices) {
+                spec.push(mv)
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, BMC, "slice",
+                        "(" + "Z".repeat(spec.arity) + ")V", false)
+            }
+            mv.visitVarInsn(Opcodes.ILOAD, 1)
+            mv.visitVarInsn(Opcodes.ILOAD, 1)
+            val eq = org.objectweb.asm.Label()
+            val end = org.objectweb.asm.Label()
+            mv.visitJumpInsn(Opcodes.IF_ICMPEQ, eq)
+            mv.visitInsn(Opcodes.ICONST_0)
+            mv.visitJumpInsn(Opcodes.GOTO, end)
+            mv.visitLabel(eq)
+            mv.visitInsn(Opcodes.ICONST_1)
+            mv.visitLabel(end)
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, BMC, "check", "(Z)V", false)
+            mv.visitInsn(Opcodes.RETURN)
+            mv.visitMaxs(0, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** Push a 0/1 boolean for `x <cmp> const` ([branchIfFalse] is the IF_ICMP* that jumps when false). */
+        private fun pushCmpConst(mv: MethodVisitor, branchIfFalse: Int, value: Int) {
+            mv.visitVarInsn(Opcodes.ILOAD, 1); mv.visitIntInsn(Opcodes.SIPUSH, value)
+            val t = org.objectweb.asm.Label()
+            val e = org.objectweb.asm.Label()
+            mv.visitJumpInsn(branchIfFalse, t)
+            mv.visitInsn(Opcodes.ICONST_1)
+            mv.visitJumpInsn(Opcodes.GOTO, e)
+            mv.visitLabel(t)
+            mv.visitInsn(Opcodes.ICONST_0)
+            mv.visitLabel(e)
         }
 
         /** Push a 0/1 boolean for `lo <= x && x <= hi` (a short-circuit conjunction over slot 1). */

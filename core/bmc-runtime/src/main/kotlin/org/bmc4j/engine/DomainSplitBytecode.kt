@@ -27,17 +27,25 @@ import java.util.zip.ZipFile
  * disjunction across separate instruction sequences); instead it rewrites the marker CALLS in place,
  * leaving each condition's computation exactly where the compiler put it:
  *
- * - **A slice run** (`[RunPlan.slice]`) verifies the original body restricted to one sub-domain. The
- *   i-th `slice(c_i)` call becomes `CProver.assume(c_i)` (the boolean is already on the stack —
- *   identical `(Z)V` descriptor, a pure owner/name swap, the same move [KotlinParamBytecode] makes);
- *   the `domainSplit` call and every OTHER `slice` call become `POP` (their condition is still
- *   computed — side-effect-free reads of the proof's locals — but the value is discarded). The body
- *   after the split then runs once under that one assumption.
+ * A slice's defining constraints may be given as one boolean (`slice(c)`) or as N separate booleans
+ * (`slice(c1, ..., cN)`, 1..8) whose CONJUNCTION is the slice; both forms are recognised here by the
+ * `slice` name + a `(Z..Z)V` descriptor of 1..8 booleans.
  *
- * - **The cover run** (`[RunPlan.cover]`) verifies `overall => (c1 || c2 || ... || cn)` and runs NONE
- *   of the body. `domainSplit(overall)` becomes `ISTORE overallSlot ; ICONST_0 ; ISTORE unionSlot`
- *   (record the overall condition, init the union accumulator to false); each `slice(c_k)` becomes
- *   `unionSlot |= c_k`. Immediately after the LAST marker the pass injects
+ * - **A slice run** (`[RunPlan.slice]`) verifies the original body restricted to one sub-domain. The
+ *   i-th `slice(c_1, ..., c_N)` call becomes N SEPARATE atomic `CProver.assume(c_k)` calls — one per
+ *   constraint, never a single `assume(c_1 && ... && c_N)` (the booleans are already on the stack;
+ *   each `assume(Z)V` consumes one). Emitting them atomically lets CBMC's pre-SAT simplifier propagate
+ *   each assumed bound to prune downstream branches — it does NOT crack open a conjoined `&&` to
+ *   recover the individual bounds. The `domainSplit` call and every OTHER `slice` call become `POP`
+ *   (one POP per on-stack boolean): their conditions are still computed (side-effect-free reads of the
+ *   proof's locals) but discarded. The body after the split then runs once under those assumptions.
+ *
+ * - **The cover run** (`[RunPlan.cover]`) verifies `overall => (s1 || s2 || ... || sn)` and runs NONE
+ *   of the body, where each slice's disjunct `s_i` is the AND of its N constraints. `domainSplit(overall)`
+ *   becomes `ISTORE overallSlot ; ICONST_0 ; ISTORE unionSlot` (record the overall condition, init the
+ *   union accumulator to false); each `slice(c_1, ..., c_N)` folds its N booleans with `IAND` into one
+ *   disjunct, then `unionSlot |= disjunct`. The cover stays a DISJUNCTION (an OR cannot be split into
+ *   atomics) — only the per-slice-run assume splits. Immediately after the LAST marker the pass injects
  *   `check(!overallSlot || unionSlot)` followed by a `return`, so the cover obligation is checked and
  *   the proof body never runs. The check direction is **subset** (`overall => union`), which forbids
  *   gaps — a point in the declared domain no slice covers — while allowing harmless overlap.
@@ -57,6 +65,23 @@ object DomainSplitBytecode {
     const val DOMAIN_SPLIT = "domainSplit"
     const val SLICE = "slice"
     private const val BMC_PROOF_DESC = "Lorg/bmc4j/BmcProof;"
+    /** Highest `slice` arity we recognise (`slice(c1, ..., c8)`); mirrors the Bmc/DSL overload set. */
+    private const val MAX_SLICE_ARITY = 8
+
+    /**
+     * The arg count of a `slice(...)` marker call from its descriptor, or `null` when [desc] is not a
+     * recognised slice descriptor. A slice has N (1..8) boolean params and void return: `(Z..Z)V`. Each
+     * boolean is one defining constraint of the slice (the slice is their conjunction); N is known
+     * statically from the call site, so no array/varargs handling is ever needed.
+     */
+    private fun sliceArity(desc: String?): Int? {
+        if (desc == null || !desc.startsWith("(") || !desc.endsWith(")V")) {
+            return null
+        }
+        val params = desc.substring(1, desc.length - 2)
+        val arity = params.length
+        return if (arity in 1..MAX_SLICE_ARITY && params.all { it == 'Z' }) arity else null
+    }
 
     /** Which derived run a rewrite produces. */
     sealed interface RunPlan {
@@ -122,11 +147,15 @@ object DomainSplitBytecode {
                 return object : MethodVisitor(Opcodes.ASM9) {
                     override fun visitMethodInsn(op: Int, owner: String?, name: String?,
                                                  desc: String?, itf: Boolean) {
-                        if (op == Opcodes.INVOKESTATIC && owner == BMC && desc == BOOL_DESC) {
-                            when (name) {
-                                DOMAIN_SPLIT -> splitCount++
-                                SLICE -> sliceCount++
-                            }
+                        if (op != Opcodes.INVOKESTATIC || owner != BMC) {
+                            return
+                        }
+                        // domainSplit is single-arg; a slice is ONE sub-domain regardless of how many
+                        // conjoined constraints (1..8) define it.
+                        if (name == DOMAIN_SPLIT && desc == BOOL_DESC) {
+                            splitCount++
+                        } else if (name == SLICE && sliceArity(desc) != null) {
+                            sliceCount++
                         }
                     }
                 }
@@ -298,19 +327,31 @@ object DomainSplitBytecode {
 
         override fun visitMethodInsn(op: Int, owner: String?, name: String?, desc: String?,
                                      itf: Boolean) {
-            if (op == Opcodes.INVOKESTATIC && owner == BMC && desc == BOOL_DESC
-                    && (name == DOMAIN_SPLIT || name == SLICE)) {
-                if (name == SLICE) {
+            if (op == Opcodes.INVOKESTATIC && owner == BMC) {
+                if (name == DOMAIN_SPLIT && desc == BOOL_DESC) {
+                    // domainSplit: discard the computed overall boolean (the body runs under the slice).
+                    super.visitInsn(Opcodes.POP)
+                    return
+                }
+                val arity = if (name == SLICE) sliceArity(desc) else null
+                if (arity != null) {
                     val idx = sliceSeen++
                     if (idx == keepIndex) {
-                        // keep: assume(condition) — boolean already on the stack, same descriptor.
-                        super.visitMethodInsn(Opcodes.INVOKESTATIC, CPROVER, "assume", BOOL_DESC, false)
-                        return
+                        // Chosen slice: its N booleans are on the stack (c1..cN, cN on top). Emit one
+                        // ATOMIC CProver.assume PER condition — never one compound assume(c1 && ... && cN)
+                        // — so CBMC's pre-SAT simplifier can propagate each atomic bound to prune
+                        // downstream branches (it does not crack open a conjoined && to recover them).
+                        // Each assume(Z)V consumes the top boolean; N calls drain all N. Order is
+                        // irrelevant to soundness since all N are assumed.
+                        repeat(arity) {
+                            super.visitMethodInsn(Opcodes.INVOKESTATIC, CPROVER, "assume", BOOL_DESC, false)
+                        }
+                    } else {
+                        // Non-chosen slice: discard all N computed booleans.
+                        repeat(arity) { super.visitInsn(Opcodes.POP) }
                     }
+                    return
                 }
-                // domainSplit, or a non-chosen slice: discard the computed boolean.
-                super.visitInsn(Opcodes.POP)
-                return
             }
             super.visitMethodInsn(op, owner, name, desc, itf)
         }
@@ -351,30 +392,41 @@ object DomainSplitBytecode {
 
         override fun visitMethodInsn(op: Int, owner: String?, name: String?, desc: String?,
                                      itf: Boolean) {
-            if (op == Opcodes.INVOKESTATIC && owner == BMC && desc == BOOL_DESC
-                    && (name == DOMAIN_SPLIT || name == SLICE)) {
-                when (name) {
-                    DOMAIN_SPLIT -> {
-                        // overallSlot = overall; unionSlot = false.
-                        super.visitVarInsn(Opcodes.ISTORE, overallSlot)
-                        super.visitInsn(Opcodes.ICONST_0)
-                        super.visitVarInsn(Opcodes.ISTORE, unionSlot)
-                    }
-                    SLICE -> {
-                        // Materialise c_k off the stack into its own local (a clean 0/1), THEN OR it in:
-                        //   sliceSlot = c_k; unionSlot = unionSlot | sliceSlot.
-                        super.visitVarInsn(Opcodes.ISTORE, sliceSlot)
-                        super.visitVarInsn(Opcodes.ILOAD, unionSlot)
-                        super.visitVarInsn(Opcodes.ILOAD, sliceSlot)
-                        super.visitInsn(Opcodes.IOR)
-                        super.visitVarInsn(Opcodes.ISTORE, unionSlot)
-                        slicesSeen++
-                        if (slicesSeen == sliceCount) {
-                            emitCover()
-                        }
-                    }
+            if (op == Opcodes.INVOKESTATIC && owner == BMC) {
+                if (name == DOMAIN_SPLIT && desc == BOOL_DESC) {
+                    // overallSlot = overall; unionSlot = false.
+                    super.visitVarInsn(Opcodes.ISTORE, overallSlot)
+                    super.visitInsn(Opcodes.ICONST_0)
+                    super.visitVarInsn(Opcodes.ISTORE, unionSlot)
+                    return
                 }
-                return
+                val arity = if (name == SLICE) sliceArity(desc) else null
+                if (arity != null) {
+                    // Fold this slice's N conjoined constraints into one disjunct, then OR into the union.
+                    // The N booleans are on the stack (c1..cN, cN on top). A slice IS the AND of its
+                    // constraints, so its contribution to the cover union is (c1 && ... && cN). We
+                    // materialise that AND into sliceSlot (a clean 0/1) and only then OR it into the
+                    // accumulator — the cover stays a DISJUNCTION (you cannot split an OR), only the
+                    // per-slice-run assume splits into atomics. Folding to a local before the OR keeps a
+                    // compound/short-circuit constraint's in-flight branches from tangling the union.
+                    super.visitVarInsn(Opcodes.ISTORE, sliceSlot) // sliceSlot = cN (topmost)
+                    repeat(arity - 1) {
+                        // AND in the next constraint down the stack: sliceSlot = c_k & sliceSlot.
+                        super.visitVarInsn(Opcodes.ILOAD, sliceSlot)
+                        super.visitInsn(Opcodes.IAND)
+                        super.visitVarInsn(Opcodes.ISTORE, sliceSlot)
+                    }
+                    // unionSlot = unionSlot | sliceSlot.
+                    super.visitVarInsn(Opcodes.ILOAD, unionSlot)
+                    super.visitVarInsn(Opcodes.ILOAD, sliceSlot)
+                    super.visitInsn(Opcodes.IOR)
+                    super.visitVarInsn(Opcodes.ISTORE, unionSlot)
+                    slicesSeen++
+                    if (slicesSeen == sliceCount) {
+                        emitCover()
+                    }
+                    return
+                }
             }
             super.visitMethodInsn(op, owner, name, desc, itf)
         }

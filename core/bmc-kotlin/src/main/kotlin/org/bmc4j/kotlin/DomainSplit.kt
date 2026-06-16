@@ -39,3 +39,52 @@ inline fun domainSplit(overallCondition: Boolean, register: () -> Unit) {
 inline fun slice(condition: Boolean) {
     Bmc.slice(condition)
 }
+
+/**
+ * Register one sub-domain from N separate defining constraints (`c1 && ... && cN`). Semantically
+ * EXACTLY the single-arg `slice(c1 && ... && cN)` — same partition, same cover — but the rewriter emits
+ * each `c_k` as its OWN atomic `assume` on the slice run, never one compound `assume(c1 && ... && cN)`.
+ *
+ * That matters because CBMC's pre-SAT simplifier propagates an atomic assumed bound (`v >= lo`) to
+ * prune downstream branches, but does NOT crack open a conjoined `&&` to recover the individual bounds
+ * — so a range slice given as one `slice(lo <= v && v <= hi)` never has its bounds propagate, while
+ * `slice(lo <= v, v <= hi)` does. Prefer this multi-arg form for range/bound slices.
+ *
+ * Fixed arity (2..8), not varargs: a `boolean[]` would add array reasoning to the formula — the
+ * opposite of the goal. A marker, like [slice]: the booleans are analysed as bytecode, never executed.
+ */
+inline fun slice(c1: Boolean, c2: Boolean) {
+    Bmc.slice(c1, c2)
+}
+
+/** Register one sub-domain from 3 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean) {
+    Bmc.slice(c1, c2, c3)
+}
+
+/** Register one sub-domain from 4 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean, c4: Boolean) {
+    Bmc.slice(c1, c2, c3, c4)
+}
+
+/** Register one sub-domain from 5 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean, c4: Boolean, c5: Boolean) {
+    Bmc.slice(c1, c2, c3, c4, c5)
+}
+
+/** Register one sub-domain from 6 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean, c4: Boolean, c5: Boolean, c6: Boolean) {
+    Bmc.slice(c1, c2, c3, c4, c5, c6)
+}
+
+/** Register one sub-domain from 7 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean, c4: Boolean, c5: Boolean, c6: Boolean,
+                 c7: Boolean) {
+    Bmc.slice(c1, c2, c3, c4, c5, c6, c7)
+}
+
+/** Register one sub-domain from 8 conjoined constraints, each emitted as its own atomic assume. See [slice]. */
+inline fun slice(c1: Boolean, c2: Boolean, c3: Boolean, c4: Boolean, c5: Boolean, c6: Boolean,
+                 c7: Boolean, c8: Boolean) {
+    Bmc.slice(c1, c2, c3, c4, c5, c6, c7, c8)
+}

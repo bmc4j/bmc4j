@@ -667,6 +667,53 @@ public final class Bmc {
         // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
     }
 
+    // Fixed-arity slice overloads: a slice's defining constraints can be given as N separate booleans
+    // (the slice is their CONJUNCTION). The rewriter emits them as N SEPARATE atomic assumes on the
+    // slice run, never one compound assume(c1 && ... && cN) — CBMC's pre-SAT simplifier propagates an
+    // atomic assumed bound (v >= lo) to prune downstream branches but does NOT crack open a conjoined
+    // && to recover the individual bounds, so splitting them is what makes the bounds prune. The cover
+    // contribution stays the AND of the N (a slice is the conjunction of its constraints). Fixed arity,
+    // NOT varargs: a boolean[] would add array reasoning to the formula — the opposite of the goal.
+    // Markers like slice(boolean): the booleans are analysed as bytecode, never executed.
+
+    /** Register a sub-domain whose defining constraint is {@code c1 && c2} (emitted as 2 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is {@code c1 && c2 && c3} (3 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is the AND of {@code c1..c4} (4 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3, boolean __c4) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is the AND of {@code c1..c5} (5 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3, boolean __c4, boolean __c5) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is the AND of {@code c1..c6} (6 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3, boolean __c4, boolean __c5,
+                             boolean __c6) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is the AND of {@code c1..c7} (7 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3, boolean __c4, boolean __c5,
+                             boolean __c6, boolean __c7) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
+    /** Register a sub-domain whose defining constraint is the AND of {@code c1..c8} (8 atomic assumes). */
+    public static void slice(boolean __c1, boolean __c2, boolean __c3, boolean __c4, boolean __c5,
+                             boolean __c6, boolean __c7, boolean __c8) {
+        // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
+    }
+
     /**
      * Witness-tagging sink for a USER symbolic input (counterexample-witness plumbing).
      *
