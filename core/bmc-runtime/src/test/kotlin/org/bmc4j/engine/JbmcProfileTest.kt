@@ -289,6 +289,65 @@ internal class JbmcProfileTest {
     }
 
     @Test
+    fun domain_split_renders_a_labeled_block_per_run_plus_a_concurrent_critical_path_aggregate() {
+        // A domainSplit fan-out with @BmcProfile: 1 cover + 2 slices, each its own engine run with its own
+        // parsed profile. The per-run render must emit one self-labeled block per derived run; the
+        // aggregate must tally verdicts and name the PARALLEL critical path (MAX engine wall-clock, NOT the
+        // sum) with the long-pole slice + its dominant phase.
+        fun solved(symex: Double, solver: Double, wall: Double): JbmcProfile =
+                JbmcProfile.parse("""
+                    [
+                      {"messageText":"Runtime Symex: ${symex}s"},
+                      {"messageText":"Passing problem to propositional reduction"},
+                      {"messageText":"Runtime Solver: ${solver}s"}
+                    ]""".trimIndent()).withHarnessTimings(null, wall)
+
+        val cover = JbmcProfile.LabeledRun("cover", "VERIFIED", solved(0.10, 0.20, 0.4))
+        val slice1 = JbmcProfile.LabeledRun("slice 1/2", "VERIFIED", solved(0.50, 0.30, 1.0))
+        // slice 2/2 is the long pole: biggest engine wall-clock (5.0s), dominated by Solver (4.0s).
+        val slice2 = JbmcProfile.LabeledRun("slice 2/2", "VERIFIED", solved(0.80, 4.00, 5.0))
+        val runs = listOf(cover, slice1, slice2)
+
+        val perRun = JbmcProfile.renderRunProfiles("pkg.Tests.split", runs)
+        // One self-labeled profile block per derived run.
+        assertTrue(perRun.contains("cover: pkg.Tests.split -> VERIFIED - performance breakdown"))
+        assertTrue(perRun.contains("slice 1/2: pkg.Tests.split -> VERIFIED - performance breakdown"))
+        assertTrue(perRun.contains("slice 2/2: pkg.Tests.split -> VERIFIED - performance breakdown"))
+        // The blocks carry the same per-run content a normal @BmcProfile emits.
+        assertTrue(perRun.contains("reached SAT/SMT solver: YES"))
+
+        val aggregate = JbmcProfile.renderAggregate("pkg.Tests.split", runs)
+        // Per-slice verdict tally.
+        assertTrue(aggregate.contains("verdict tally: 3x VERIFIED"))
+        // Parallel critical path: MAX wall (5.0s) is the long pole = slice 2/2, NOT the 6.4s sum.
+        assertTrue(aggregate.contains("MAX engine wall-clock"))
+        assertTrue(aggregate.contains("long pole: slice 2/2"))
+        assertTrue(aggregate.contains("5.000s"))
+        assertFalse(aggregate.contains("6.4"), "the critical path is the MAX wall, never the sum")
+        // The phase that dominated the long pole (Solver 4.0s beats its Symex 0.8s).
+        assertTrue(aggregate.contains("dominated by phase: Solver"))
+        assertTrue(aggregate.contains("4.000s"))
+    }
+
+    @Test
+    fun domain_split_aggregate_with_no_engine_wall_clock_says_so_and_an_unprofiled_run_gets_a_note() {
+        // A run that produced no profilable output (cancelled by early-exit, or unprofiled): its per-run
+        // block degrades to a one-line note, and if NO run recorded an engine wall-clock the aggregate
+        // says the critical path is unavailable rather than inventing one.
+        val runs = listOf(
+                JbmcProfile.LabeledRun("cover", "UNKNOWN", null),
+                JbmcProfile.LabeledRun("slice 1/1", "REFUTED", null))
+
+        val perRun = JbmcProfile.renderRunProfiles("pkg.Tests.split", runs)
+        assertTrue(perRun.contains("cover: pkg.Tests.split -> UNKNOWN - no engine"))
+        assertTrue(perRun.contains("slice 1/1: pkg.Tests.split -> REFUTED - no engine"))
+
+        val aggregate = JbmcProfile.renderAggregate("pkg.Tests.split", runs)
+        assertTrue(aggregate.contains("verdict tally: 1x UNKNOWN, 1x REFUTED"))
+        assertTrue(aggregate.contains("no engine wall-clock recorded"))
+    }
+
+    @Test
     fun recursion_unwinding_is_tallied_separately() {
         val json = """
             [

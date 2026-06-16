@@ -727,16 +727,18 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // Build the N+1 derived runs: the cover (the soundness gate) and one per slice. Cover is index
         // 0 in the dispatch list so its result is preferred when several runs are decisive (see below);
         // slices keep their declared order.
-        data class DerivedSpec(val req: BmcRequest, val label: String, val isCover: Boolean,
-                               val sliceIndex: Int)
+        // `label` is the verbose run label used in progress/failure framing; `profileLabel` is the short
+        // self-identifying tag for the per-run @BmcProfile block + the aggregate ("cover", "slice i/N").
+        data class DerivedSpec(val req: BmcRequest, val label: String, val profileLabel: String,
+                               val isCover: Boolean, val sliceIndex: Int)
         val specs = ArrayList<DerivedSpec>(plan.sliceCount + 1)
         specs.add(DerivedSpec(
                 splitRequest(request, org.bmc4j.engine.DomainSplitBytecode.RunPlan.Cover),
-                "cover (overall => union of slices)", true, -1))
+                "cover (overall => union of slices)", "cover", true, -1))
         for (i in 0 until plan.sliceCount) {
             specs.add(DerivedSpec(
                     splitRequest(request, org.bmc4j.engine.DomainSplitBytecode.RunPlan.Slice(i)),
-                    "slice #$i", false, i))
+                    "slice #$i", "slice ${i + 1}/${plan.sliceCount}", false, i))
         }
 
         // Fan out: submit every derived run to the shared pool and collect results as they finish.
@@ -766,6 +768,11 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         var decisive: DerivedRun? = null
         var decisivePriority = Int.MAX_VALUE
         val pending = HashSet(futures.keys)
+        // Buffer every run that COMPLETED (was not cancelled by early-exit), paired with its spec, so the
+        // per-run @BmcProfile blocks + the aggregate can be rendered AFTER the fan-out (never streamed
+        // live - concurrent slices would interleave their profile lines into noise). Only meaningful when
+        // @BmcProfile is on; collected cheaply regardless.
+        val completed = ArrayList<Pair<DerivedSpec, DerivedRun>>(specs.size)
         fun priorityOf(spec: DerivedSpec) = if (spec.isCover) -1 else spec.sliceIndex
         try {
             while (pending.isNotEmpty()) {
@@ -786,6 +793,7 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                     cancelAll(pending)
                     throw e.cause ?: e
                 }
+                completed.add(futures[f]!! to run)
                 if (run.verdict == Verdict.VERIFIED) {
                     continue
                 }
@@ -803,6 +811,24 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         } finally {
             // Never leak a jbmc process: cancel anything still in flight on any exit path.
             cancelAll(pending)
+        }
+
+        // @BmcProfile on a split: emit the per-run profile blocks + the aggregate now (buffered above, so
+        // the concurrent runs' lines don't interleave). Verdict-neutral - only adds output, done before
+        // the aggregate verdict is resolved/enforced below. Ordered cover-first then by slice index so the
+        // blocks read in a stable order regardless of finish order.
+        if (request.profile) {
+            val runs = completed
+                    .sortedWith(compareBy({ if (it.first.isCover) -1 else it.first.sliceIndex }))
+                    .map { (spec, run) ->
+                        org.bmc4j.engine.JbmcProfile.LabeledRun(
+                                spec.profileLabel, run.verdict.name, run.profile)
+                    }
+            val perRun = org.bmc4j.engine.JbmcProfile.renderRunProfiles(entryFunction, runs)
+            if (perRun.isNotEmpty()) {
+                println(perRun)
+            }
+            println(org.bmc4j.engine.JbmcProfile.renderAggregate(entryFunction, runs))
         }
 
         if (decisive == null) {
@@ -827,9 +853,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
     }
 
     /** A classified result of one derived split run: its [verdict], the framed error/counterexample to
-     *  surface if this run decides the proof (null for a VERIFIED run), and the typed UNKNOWN cause. */
+     *  surface if this run decides the proof (null for a VERIFIED run), the typed UNKNOWN cause, and the
+     *  parsed engine [profile] (null unless @BmcProfile was on and the run produced profilable output) so
+     *  the coordinator can render a per-run profile block + the aggregate after the fan-out finishes. */
     private class DerivedRun(val verdict: Verdict, val framed: BmcVerificationError?,
-                             val unknownKind: UnknownKind?)
+                             val unknownKind: UnknownKind?,
+                             val profile: org.bmc4j.engine.JbmcProfile? = null)
 
     /** Cancel every given fan-out future (interrupt → kills the run's jbmc process if still alive). */
     private fun cancelAll(futures: Collection<java.util.concurrent.Future<DerivedRun>>) {
@@ -868,13 +897,17 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         }
 
         val actual = actualVerdict(result)
+        // Carry the parsed engine profile (when @BmcProfile is on) so the coordinator can render this
+        // run's labeled block + fold it into the aggregate. Buffered, never printed here: concurrent
+        // slices would interleave their lines into noise.
         if (actual == Verdict.VERIFIED) {
             println("  bmc4j: $entryFunction -> $label VERIFIED")
-            return DerivedRun(Verdict.VERIFIED, null, null)
+            return DerivedRun(Verdict.VERIFIED, null, null, result.profile)
         }
         val kind = if (actual == Verdict.UNKNOWN || actual == Verdict.TIMEOUT) result.undecidedKind else null
         return DerivedRun(actual,
-                labelDerived(toError(backend.id(), entryFunction, result, method), label), kind)
+                labelDerived(toError(backend.id(), entryFunction, result, method), label), kind,
+                result.profile)
     }
 
     /** Prefix a derived run's framed failure with which slice/cover produced it, so an aggregated
