@@ -40,6 +40,27 @@ import java.util.UUID
  * (so a lost shard is visible as a discovered-but-absent gap). `detail` is empty on a pass. `kind` is
  * the typed [UnknownKind] when the proof resolved/demoted to UNKNOWN (else absent), so the CI comment
  * can classify undecided rows and tally the flake fingerprint across a suite run.
+ *
+ * ## Slice-sharded (`@ShardSlices`) records
+ * A `@ShardSlices` `domainSplit` proof runs on EVERY shard, each shard verifying a disjoint subset of
+ * its slices (plus the cover on shard 1). Such a proof therefore does NOT emit the single
+ * method-level record above; instead [recordSlice] emits ONE record per derived run this shard
+ * actually executed (each slice + the cover), each carrying the extra keys:
+ * ```json
+ * {"proof":"pkg.Cls.method","cls":"pkg.Cls","expected":"VERIFIED","verdict":"VERIFIED",
+ *  "cached":false,"ok":true,"ms":123,"detail":"","slice":7,"slices":32,"cover":false}
+ * ```
+ * - `slices` is the TOTAL slice count N (same on every record of the proof, so the aggregator learns
+ *   N from any one record).
+ * - `slice` is the 0-based slice index this record is for; `cover` is true for the cover run, and on a
+ *   cover record `slice` is -1.
+ *
+ * The cross-shard aggregator unions all records and, for each slice-sharded `proof`, must verify:
+ * every slice index `0..slices-1` is present AND `ok=true`, AND exactly one `cover:true` record is
+ * present AND `ok=true`. A missing slice index or a missing cover is a GAP (a lost/failed shard) and
+ * MUST fail the proof, never pass. This mirrors the method-level union's discovered-but-absent
+ * detection: completeness is checked against the declared `slices` count, not against whatever
+ * happened to be reported.
  */
 internal object ProofSummary {
 
@@ -84,6 +105,44 @@ internal object ProofSummary {
             sb.append("\"ok\":").append(ok).append(',')
             sb.append("\"ms\":").append(if (elapsedMs < 0) 0 else elapsedMs).append(',')
             field(sb, "detail", clip(detail))
+            if (kind != null) {
+                sb.append(',')
+                field(sb, "kind", kind.name)
+            }
+            sb.append("}\n")
+            append(sb.toString())
+        } catch (_: Throwable) {
+            // Observability only — never let a summary error perturb the proof outcome.
+        }
+    }
+
+    /**
+     * Record one DERIVED run of a slice-sharded (`@ShardSlices`) `domainSplit` proof: a single slice
+     * or the cover that THIS shard executed. No-op unless [enabled]. Carries the same fields as
+     * [record] plus the slice-completeness keys (`slice`, `slices`, `cover`) the cross-shard aggregator
+     * needs to verify every slice index `0..sliceCount-1` and the cover were reported VERIFIED across
+     * the shard union (see the class doc). For the cover [sliceIndex] is `-1` and [isCover] is true.
+     */
+    fun recordSlice(proof: String, declaringClass: String, expected: Verdict, verdict: Verdict,
+                    cached: Boolean, ok: Boolean, elapsedMs: Long, detail: String?,
+                    kind: UnknownKind?, sliceIndex: Int, sliceCount: Int, isCover: Boolean) {
+        if (!enabled) {
+            return
+        }
+        try {
+            val sb = StringBuilder(256)
+            sb.append('{')
+            field(sb, "proof", proof); sb.append(',')
+            field(sb, "cls", declaringClass); sb.append(',')
+            field(sb, "expected", expected.name); sb.append(',')
+            field(sb, "verdict", verdict.name); sb.append(',')
+            sb.append("\"cached\":").append(cached).append(',')
+            sb.append("\"ok\":").append(ok).append(',')
+            sb.append("\"ms\":").append(if (elapsedMs < 0) 0 else elapsedMs).append(',')
+            field(sb, "detail", clip(detail)); sb.append(',')
+            sb.append("\"slice\":").append(sliceIndex).append(',')
+            sb.append("\"slices\":").append(sliceCount).append(',')
+            sb.append("\"cover\":").append(isCover)
             if (kind != null) {
                 sb.append(',')
                 field(sb, "kind", kind.name)

@@ -131,6 +131,18 @@ slowest single proof + setup, past which making slow proofs cheaper is what help
 unsharded). Pin a known-slow proof or class with
 `@org.bmc4j.Shard(N)` so the expensive ones spread one-per-shard instead of hash-clustering.
 
+**Slice-sharding (`@org.bmc4j.ShardSlices`).** Method-level sharding pins a whole `domainSplit`
+proof (and *all* its slices) to the one shard its method hashes to, so a proof that fans out into
+dozens or hundreds of slices is stuck on a single runner. Annotate that proof `@ShardSlices` and the
+filter instead runs it on *every* shard, with each shard verifying a disjoint subset of its slices:
+shard `index` (1-based) runs slice `i` iff `Math.floorMod(i, count) == index - 1`, and the cover
+(`overall => union`) runs on shard 1 only. The cross-shard summary union then concludes the proof
+VERIFIED iff every slice `0..N-1` and the cover reported VERIFIED across all shards (a lost shard
+surfaces as a missing-slice gap, never a false pass). Inert when unsharded (runs all slices + the
+cover locally, as today). `@ShardSlices` and `@Shard` are mutually exclusive: `@ShardSlices` wins and
+the pin is ignored. The within-shard fan-out cap (`bmc.parallelism`) composes -- each shard fans its
+own slice subset across its cores.
+
 ### 4. Domain splitting — *for interval-bound blow-ups (and memory)*
 
 **What it does.** Partition a slow proof's claimed input domain into N slices that the engine
