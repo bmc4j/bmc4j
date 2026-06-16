@@ -247,8 +247,15 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         // Threaded onto the request, dropped from the userModels overlay by JbmcBackend, and folded into the
         // verdict-cache key (so an exclusion change forces a fresh run; each conform leg keys distinctly).
         val excludeModels = resolveExcludedModels(method) + excludedModels
+        // @LoopUnwind: the loops this proof PINS to a fixed bound (each engine loopId -> bound). Seeded
+        // onto the request's unwindSet so the pin reaches the engine as `--unwindset <id>:<bound>` on
+        // EVERY path (explicit, AUTO, smart, cached), and the pinned ids are excluded from the smart
+        // climb's raises (a pin is FIXED). --unwinding-assertions stays on, so a pin too low fails closed
+        // to UNKNOWN, never a false VERIFIED -- a completeness/cost knob, never a soundness one.
+        val pinnedLoops = resolvePinnedLoops(method)
         val request = applySolverPlan(
-                requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions, excludeModels))
+                requestFor(entryClass, entryFunction, config, profileRequested, jbmcOptions, excludeModels,
+                        pinnedLoops))
 
         // JBMC backend (symbolic, all-inputs). For concurrency correctness, see the
         // README's Lincheck guidance — @BmcProof proves logic soundness.
@@ -973,7 +980,12 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
     private fun climbSmartUnwind(request: BmcRequest,
                                  backend: org.bmc4j.engine.VerificationBackend, cap: Int): SmartUnwind.Outcome {
         val base = autoUnwindSeed()
-        return SmartUnwind.climb(base, cap) { climbedBase, unwindSet ->
+        // The proof's @LoopUnwind pins ride on request.unwindSet: hand them to the climb as the FIXED
+        // (never-raised) seed, so the engine runs each pinned loop at the user's bound on every round
+        // while the climb discovers the rest. withUnwindSet below replaces the request's set with the
+        // climb's, which already contains the pins (SmartUnwind seeds them from round one).
+        val pinned = request.unwindSet
+        return SmartUnwind.climb(base, cap, pinned = pinned) { climbedBase, unwindSet ->
             backend.verify(withUnwindSet(pinUnwind(request, climbedBase), unwindSet))
         }
     }
@@ -1665,7 +1677,8 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
         @JvmOverloads
         internal fun requestFor(entryClass: String, entryFunction: String, config: BmcProof?,
                                 profile: Boolean = false, jbmcOptions: String = "",
-                                excludeModels: Set<String> = emptySet()): BmcRequest =
+                                excludeModels: Set<String> = emptySet(),
+                                pinnedLoops: Map<String, Int> = emptyMap()): BmcRequest =
                 BmcRequest(
                         entryClass,
                         entryFunction,
@@ -1682,8 +1695,35 @@ class BmcProofExtension : InvocationInterceptor, ParameterResolver {
                         resolveStringMode(config),
                         profile,
                         jbmcOptions,
-                        emptyMap(),
+                        // @LoopUnwind pins seed the unwindSet so they reach the engine on every path
+                        // (explicit / AUTO / smart / cached); an unpinned proof keys identically to before.
+                        pinnedLoops,
                         excludeModels)
+
+        /**
+         * The loops this proof PINS to a fixed bound via [org.bmc4j.LoopUnwind] (repeatable): each
+         * annotation's `loop()` engine id -> `bound()`. The container [org.bmc4j.LoopUnwinds] is unwrapped
+         * by [Method.getAnnotationsByType], so a single or repeated `@LoopUnwind` reads the same way. A
+         * blank loop id is ignored (a copy-paste slip should never silently become an empty `--unwindset`
+         * arg); a non-positive bound is clamped to 1 (an unwind bound is at least one iteration). On a
+         * duplicate loop id the LAST `@LoopUnwind` wins, deterministically. Empty when none is present, so
+         * an ordinary proof keys identically to one with no annotation.
+         */
+        internal fun resolvePinnedLoops(method: Method): Map<String, Int> {
+            val pins = method.getAnnotationsByType(org.bmc4j.LoopUnwind::class.java)
+            if (pins.isEmpty()) {
+                return emptyMap()
+            }
+            val out = LinkedHashMap<String, Int>()
+            for (pin in pins) {
+                val id = pin.loop.trim()
+                if (id.isEmpty()) {
+                    continue
+                }
+                out[id] = pin.bound.coerceAtLeast(1)
+            }
+            return out
+        }
 
         /**
          * The fully-qualified names of the user models this proof opts OUT of, via
