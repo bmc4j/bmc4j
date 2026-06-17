@@ -147,6 +147,25 @@ object ExceptionMessageElisionPass : BmcPass {
 }
 
 /**
+ * Construct the proof's RECEIVER: synthesise a loop-free static wrapper into the entry class
+ * (`new EntryClass().proofMethod()`) so jbmc runs `<init>` on a freshly-constructed `this`, pinning
+ * instance fields to their initializers (see [ConstructReceiverBytecode]). [JbmcBackend] redirects
+ * `--function` to the wrapper. The eligibility decision (instance proof method + analysable no-arg ctor)
+ * is taken once at the boundary onto [BmcContext.receiverDecision]; a fallback proof skips this pass and
+ * keeps today's nondet-`this` entry. Runs on the desugared form (the entry class is already in its sound
+ * shape) and BEFORE the model slice, so the wrapper (and the `<init>` it reaches) ride the reachable cone.
+ */
+object ConstructReceiverPass : BmcPass {
+    override val dependsOn: List<KClass<out BmcPass>> get() = listOf(DesugarPass::class)
+    override fun shouldTransform(ctx: BmcContext): Boolean = ctx.receiverDecision.eligible
+    override fun transform(classes: ClassSet, ctx: BmcContext): ClassSet {
+        val desc = ctx.receiverDecision.proofDesc ?: return classes
+        return ClassSet(ConstructReceiverBytecode.rewrite(
+                classes.classpath, ctx.entryClass, ctx.entryMethod, desc))
+    }
+}
+
+/**
  * Hand the engine only this proof's reachable cone (LAST). Computed over the FULLY-REWRITTEN classpath so
  * every injected/redirected class is in the keep-set; a proof whose cone can't be bounded is returned
  * unchanged. A slice failure fails safe to the unsliced classpath. Depends on every other pass having run
@@ -155,7 +174,7 @@ object ExceptionMessageElisionPass : BmcPass {
 object ModelSlicePass : BmcPass {
     override val dependsOn: List<KClass<out BmcPass>>
         get() = listOf(ContractRewritePass::class, AssumeContractPass::class, StringLengthPass::class,
-                PurityAuditPass::class, ExceptionMessageElisionPass::class)
+                PurityAuditPass::class, ExceptionMessageElisionPass::class, ConstructReceiverPass::class)
     override fun transform(classes: ClassSet, ctx: BmcContext): ClassSet =
             ClassSet(ModelSlice.sliceForCone(classes.classpath, ctx.entryClass))
 }

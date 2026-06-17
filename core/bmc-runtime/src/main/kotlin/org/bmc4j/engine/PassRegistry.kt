@@ -19,7 +19,7 @@ internal object PassRegistry {
             DesugarPass, AnyRefPass, ConfigPass, KotlinParamPass, ReachabilityPass, NondetTagPass,
             // Per-proof tail.
             ContractRewritePass, AssumeContractPass, StringLengthPass,
-            PurityAuditPass, ExceptionMessageElisionPass, ModelSlicePass)
+            PurityAuditPass, ExceptionMessageElisionPass, ConstructReceiverPass, ModelSlicePass)
 
     /** The generic orchestrator over [ALL]; validation runs in its constructor. */
     val ORCHESTRATOR: PassOrchestrator = PassOrchestrator(ALL)
