@@ -11,7 +11,7 @@ that boring and auditable:
 - **It runs as an isolated subprocess**, not linked into your build JVM, so a
   runaway solver can't corrupt or hang the build — set `timeoutSeconds` and a proof that
   exceeds its budget has its whole process tree force-killed and is reported UNKNOWN (see
-  [configuration → Timeout](configuration.md#timeout)).
+  [the configuration docs](https://bmc4j.github.io/docs/)).
 - **JBMC is a pure analyzer** — it reads bytecode and writes its result to stdout;
   it needs no network and modifies nothing.
 - **Opt out anytime** with `bmc { jbmcPath = ... }` — and that's also the sandbox

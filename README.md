@@ -9,6 +9,8 @@
 
 **Prove your Kotlin (or Java) code correct for *every* input — as easily as writing a JUnit test.**
 
+> Full documentation lives at **[bmc4j.github.io/docs](https://bmc4j.github.io/docs/)** — getting started, the API and annotation reference, contracts, models, string modes, plugin configuration, and the performance toolbox.
+
 A unit test checks the inputs you thought of. A property-based test samples a few
 hundred more. A `@BmcProof` covers **all of them at once**: apply one Gradle plugin,
 write a test-shaped method, and bmc4j either *proves* that no input can break your code
@@ -19,8 +21,8 @@ wasn't enough, the engine timed out or crashed) — never a silent pass. (Powere
 bmc4j targets the **JVM**: **Kotlin** (2.0–2.4) and **Java** (17–25) are the verified,
 first-class languages — it analyses the bytecode, so your build doesn't change beyond
 the one plugin. (Kotlin 1.9 is supported via the artifacts' 1.9 metadata/stdlib floor,
-just no longer re-verified on every merge — see
-[docs/internals.md](docs/internals.md#java--kotlin-versions).)
+just no longer re-verified on every merge — see the
+[docs site](https://bmc4j.github.io/docs/).)
 
 > ⚠️ **Early development.** bmc4j is pre-1.0 (`0.x`) and under active development:
 > APIs, the `bmc { }` DSL, and model coverage are still moving. While pre-1.0, minor
@@ -215,7 +217,7 @@ Bounded model checking is a power tool with a real contract. The short version:
   long symbolic strings are the classic ones. There's a **toolbox** for it (range
   reduction, domain splitting, contracts, parallelism/sharding/caching —
   different levers for different blow-ups, and they compose); a `timeoutSeconds` budget
-  turns a runaway solve into a named UNKNOWN. See [docs/performance.md](docs/performance.md).
+  turns a runaway solve into a named UNKNOWN. See the [performance docs](https://bmc4j.github.io/docs/).
 - **The JDK is modeled, not loaded.** bmc4j ships sound bounded models for the common
   surface (collections, `Optional`, `Stream`, `BigInteger`/`BigDecimal`, `java.time`,
   Kotlin stdlib) and **detects** anything unmodeled instead of letting it pass silently
@@ -243,22 +245,26 @@ while still covering every value you'll ever see, and a timeout turns a runaway 
 into a clean, named UNKNOWN instead of a hung build. Don't let one slow proof scare you
 off: hard proofs are tractable because bmc4j gives you a **toolbox** for them — caching,
 parallelism, sharding, domain splitting, and contracts, each aimed at a
-different blow-up and **composable**. [docs/performance.md](docs/performance.md) is the
+different blow-up and **composable**. The [performance docs](https://bmc4j.github.io/docs/) are the
 decision tree — which shape explodes, which lever fixes it, and how to stack them (a
 domain split can reclaim a slow proof's full range by solving each slice independently).
 
 ## Documentation
 
+The full guide — getting started, the `Bmc.*` API and annotation reference, method
+contracts, models, string modes, the `bmc { }` plugin configuration, and the performance
+toolbox — lives on the documentation site:
+
+### **➜ [bmc4j.github.io/docs](https://bmc4j.github.io/docs/)**
+
+A few reference pages stay in this repo alongside the code:
+
 | | |
 |---|---|
-| [docs/api.md](docs/api.md) | the full `Bmc.*` API: symbolic inputs, `assume`/`check`, symbolic objects & strings, config readers, floating-point rules, stub detection |
-| [docs/contracts.md](docs/contracts.md) | modular proofs: `@Requires`/`@Ensures` method contracts — prove once, reuse at every call site |
-| [docs/configuration.md](docs/configuration.md) | the `bmc { }` block: unwind, parallelism, the verdict cache, timeouts, stub policy |
-| [docs/performance.md](docs/performance.md) | performance & scaling: the toolbox for slow / out-of-memory proofs — caching, parallelism, sharding, domain splitting, contracts — which lever for which blow-up, and how they compose |
 | [docs/trust.md](docs/trust.md) | trust & isolation: the bundled-engine model, `jbmcPath` escape hatch |
 | [docs/model-soundness.md](docs/model-soundness.md) | how we know the models are sound: differential conformance vs the real JDK + the models' own laws proven under the engine, gated in CI |
-| [docs/internals.md](docs/internals.md) | how it works, module layout, platform support, verified Java/Kotlin ranges |
 | [docs/coverage.md](docs/coverage.md) | the coverage map: every language construct and stdlib API — modeled / partial / stubbed / out-of-scope |
+| [docs/model-coverage.md](docs/model-coverage.md) | the generated per-member model audit: every member of each audited JDK target, classified |
 | [docs/limits.md](docs/limits.md) | known limits, in full |
 | [`examples/`](examples) | a guided, read-along tour — 9 topic modules, each concept with its own README, code, and expected output |
 

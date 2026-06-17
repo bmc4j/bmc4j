@@ -57,7 +57,7 @@ an already-covered model, are the review's job, not the gate's.
 ## User-supplied models run the same harness
 
 The two axes above aren't only for bundled models. A **user model** declared
-`conformant` (see [configuration → User models](configuration.md#user-models-declared-intent--provenance))
+`conformant` (see the [configuration docs](https://bmc4j.github.io/docs/) on user models)
 claims JDK fidelity, so it belongs on exactly this harness: relocate it alongside the bundled models for
 the differential-vs-JDK axis, and prove its algebraic laws under the engine on the model-proof axis. A
 passing conformant model earns a plain green — and a clean upstreaming path into `bmc-models`. A `domain`
