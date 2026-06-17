@@ -2,7 +2,7 @@
 
 A single map of which JVM language constructs and standard-library APIs bmc4j can
 verify soundly today, what's partial, what's stubbed (unsound without
-acknowledgment — see the stub policy in [configuration](configuration.md)), and
+acknowledgment — see the stub policy in the [configuration docs](https://bmc4j.github.io/docs/)), and
 what's deliberately out of scope. Compiled from the construct/JDK sweeps and the
 collection/lambda/string modeling work; kept current as models land. How the
 models themselves are kept honest is covered in
@@ -37,7 +37,7 @@ Reminder: everything is **bounded** (loops/collections unwind to `unwind`; colle
 | Varargs | ✅ | |
 | Generics (erasure, wildcards) | ✅ | |
 | Interface dispatch / polymorphism | ✅ | |
-| Recursion | ✅ | + [contracts](contracts.md) give induction |
+| Recursion | ✅ | + [contracts](https://bmc4j.github.io/docs/) give induction |
 | `record` — components/accessors | ✅ | |
 | `record` — `equals` | ✅ | desugared from `ObjectMethods` indy |
 | `record` — `hashCode` | ✅ | desugared from `ObjectMethods` indy → deterministic `31*r+componentHash` fold (String components via sound `BmcStrings.hashCode`). Proven property: *consistency* — equal records hash equal, pure function of components; JDK doesn't fix the exact value so no magic constant asserted |

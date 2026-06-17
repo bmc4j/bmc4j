@@ -7,7 +7,7 @@ A word on the difference between a **boundary** and a **scaling cost**. Some thi
 are genuinely *out of scope* — irrational/transcendental floating-point math (`Math.sin`/`cos`/`log`, and even `Math.floor` — see the floating-point bullet), time zones/DST,
 thread-interleaving concurrency, residual `invokedynamic`. Those are honest hard edges and
 they're called out as such. But "this proof is slow / runs out of memory" is **not** a
-boundary — it's a scaling cost with a [toolbox](performance.md) of levers (range reduction,
+boundary — it's a scaling cost with a [toolbox](https://bmc4j.github.io/docs/) of levers (range reduction,
 domain splitting, contracts, parallelism, sharding, caching). Where a limit
 below is really a scaling cost, it points at the lever.
 
@@ -17,18 +17,18 @@ below is really a scaling cost, it points at the lever.
   than silently trusted - as **UNKNOWN** (incompleteness: exploration was truncated,
   nothing was proven wrong), never as a refutation. This is a *property* of BMC, not a
   dead end: when a recursive or deeply-nested callee is what's pushing the bound, a
-  `@Requires`/`@Ensures` [contract](contracts.md) summarizes it (induction over the call
-  boundary) so callers don't re-unwind it — see
-  [performance → contracts](performance.md#5-contracts--for-recursion--unbounded-depth).
+  `@Requires`/`@Ensures` [contract](https://bmc4j.github.io/docs/) summarizes it (induction over the call
+  boundary) so callers don't re-unwind it — see the
+  [performance docs](https://bmc4j.github.io/docs/).
 - **Three-way verdict — UNKNOWN is a first-class outcome, not a pass.** A proof is
   **verified**, **refuted** (with a counterexample), or **UNKNOWN** — undecided within
-  budget: it timed out (see [configuration → Timeout](configuration.md#timeout)), the
+  budget: it timed out (see the [configuration docs](https://bmc4j.github.io/docs/)), the
   solver gave up or crashed, or the engine produced output bmc4j couldn't parse. UNKNOWN
   **fails** the test (soundness: the absence of a verdict is not a proof), but with a
   deliberately distinct message — **no counterexample** (nothing was proven wrong) plus
   guidance to make it decidable, and a distinct exception type, `BmcUndecidedError`. So a
   resource exhaustion in CI is never mistaken for "your code is wrong" — it points you at
-  the [performance toolbox](performance.md) (tighten the range, `domainSplit` an
+  the [performance toolbox](https://bmc4j.github.io/docs/) (tighten the range, `domainSplit` an
   interval-bound proof, contract a heavy callee, raise `unwind`/`timeoutSeconds`). A *slow*
   proof is a tunable proof, not a boundary. See [`examples/fundamentals-java`](../examples/fundamentals-java) `timeout`.
 - **Vacuous proofs are caught, not passed.** A proof whose `assume`s are jointly
@@ -48,7 +48,7 @@ below is really a scaling cost, it points at the lever.
   no longer is: bmc4j harvests every nondet stub the analyzed slice reached and surfaces
   it — a footnote on a green proof by default, an UNKNOWN verdict under `strictStubs`, a
   loud warning for a stub from your own code, acknowledged away with `allowStubs`, and
-  ranked across the suite by `bmcStubReport` (see [configuration → Nondet stubs](configuration.md#nondet-stubs)).
+  ranked across the suite by `bmcStubReport` (see the [configuration docs](https://bmc4j.github.io/docs/) on nondet stubs).
   So a green verdict resting on a havoc'd stand-in is now visible rather than a confident
   lie. On top of detection, bmc4j ships clean **bounded models** in `bmc-models` for the common
   gaps: `List`/`ArrayList`/`LinkedList`, `Map`/`HashMap`/`LinkedHashMap`/`TreeMap`,
@@ -114,7 +114,7 @@ below is really a scaling cost, it points at the lever.
   exclude `NaN`), and JBMC reasons soundly about float/double **arithmetic** (`+`/`-`/`*`/`/`),
   **ordered comparisons**, and the algebraic `Math` functions `abs`/`sqrt`/`pow`/`min`/`max`
   (all verified over symbolic inputs). The cost is performance: IEEE-754 in a SAT solver is slow
-  by construction, so prefer integer models where you can ([performance](performance.md)) — but a
+  by construction, so prefer integer models where you can ([performance](https://bmc4j.github.io/docs/)) — but a
   slow FP proof is tunable, not a dead end. What is **genuinely out of scope** is the
   *irrational/transcendental* `Math` library on **symbolic** inputs: `sin`/`cos`/`tan`/`log`/`exp`
   and even `floor` are modeled by the underlying engine but **imprecisely**, so a symbolic-input
@@ -136,7 +136,7 @@ below is really a scaling cost, it points at the lever.
   idealization**: a `suspend` call completes linearly in one call, every nested suspension point
   resolving synchronously — e.g. `runBlocking { … }`, and method contracts on `suspend` functions
   too; see [`examples/kotlin-coroutines-and-lincheck`](../examples/kotlin-coroutines-and-lincheck) and
-  [contracts](contracts.md)). It is **not** the right tool
+  [contracts](https://bmc4j.github.io/docs/)). It is **not** the right tool
   for *"is my concurrent code correct & safe?"*. The flip side of that idealization is that
   real-world suspension-point *interleaving* — concurrent coroutines, dispatcher hops, cancellation
   timing — is out of scope (a suspend contract's `@Requires` holds at entry and `@Ensures` at
