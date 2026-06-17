@@ -286,6 +286,23 @@ class JbmcBackend : VerificationBackend {
                 // pass, so no in-JVM Reachability scan is paid for the common (non-split) proof.
                 classpath = t("domain-split") { ReachabilityBytecode.rewrite(classpath) }
             }
+            // Loop contracts (SPIKE): when the entry proof brackets a loop with the Bmc.loop* markers,
+            // lower them in place into the base/step/summary VCs so the loop is SUMMARIZED (one-iteration
+            // step check) instead of unrolled. Runs AFTER the desugars (a marker condition using
+            // strings/concat is already in its sound shape) and is a no-op for an ordinary proof. A
+            // malformed contract / unsupported heap frame throws -> reclassified UNKNOWN, never a false
+            // green. The injected check(...) base/step asserts carry no vacuity marker, so (like the
+            // domain-split cover) re-run Reachability after the rewrite to mark the entry method's returns.
+            val loopContractEntry = readEntryClassBytes(request.classpath, request.entryClass)
+            if (loopContractEntry != null
+                    && LoopContractBytecode.hasLoopContract(
+                            loopContractEntry, entryMethodName(request.entryFunction))) {
+                classpath = t("loop-contract") {
+                    LoopContractBytecode.rewrite(
+                            classpath, request.entryClass, entryMethodName(request.entryFunction))
+                }
+                classpath = t("loop-contract") { ReachabilityBytecode.rewrite(classpath) }
+            }
             // Add the bundled Kotlin models (clean Intrinsics / coroutine runtime); harmless for Java.
             // It must sit AFTER the consumer's user models so a user model still shadows first: the user
             // models are the leading entries of the (now-rewritten) classpath, so splice the Kotlin models
@@ -407,6 +424,38 @@ class JbmcBackend : VerificationBackend {
 
         /** The method-name half of a `Class.method` entry-function string. */
         fun entryMethodName(entryFunction: String): String = org.bmc4j.engine.entryMethodNameOf(entryFunction)
+
+        /** Read the entry class's bytes off the ORIGINAL request classpath, or null if absent — used to
+         *  cheaply gate the loop-contract pass on whether the proof actually declares a contract (one
+         *  class read; the pass itself is memoized). */
+        fun readEntryClassBytes(classpath: String, entryClass: String): ByteArray? {
+            val resource = entryClass.replace('.', '/') + ".class"
+            for (entry in classpath.split(File.pathSeparator)) {
+                if (entry.isEmpty()) {
+                    continue
+                }
+                try {
+                    val p = Path.of(entry)
+                    if (Files.isDirectory(p)) {
+                        val f = p.resolve(resource)
+                        if (Files.isRegularFile(f)) {
+                            return Files.readAllBytes(f)
+                        }
+                    } else if (Files.isRegularFile(p)
+                            && (entry.endsWith(".jar", true) || entry.endsWith(".zip", true))) {
+                        java.util.zip.ZipFile(p.toFile()).use { zf ->
+                            val e = zf.getEntry(resource)
+                            if (e != null) {
+                                return zf.getInputStream(e).use { it.readAllBytes() }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // skip a bad entry; the next may hold the class
+                }
+            }
+            return null
+        }
 
         /**
          * The six environment-INDEPENDENT desugar passes, in order: coroutine-LVT strip, String content

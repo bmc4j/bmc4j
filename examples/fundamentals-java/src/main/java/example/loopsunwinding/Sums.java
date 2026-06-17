@@ -15,6 +15,16 @@ public final class Sums {
         return total;
     }
 
+    /** Sum 0..n-1 with a real counted loop. Equals n*(n-1)/2. The loop-contract example summarizes a
+     *  loop of exactly this shape; this is the UNROLLED baseline a fixed unwind bound must cover. */
+    public static int sumExclusive(int n) {
+        int s = 0;
+        for (int i = 0; i < n; i++) {
+            s = s + i;
+        }
+        return s;
+    }
+
     /**
      * Count down to zero from a SYMBOLIC start: the trip count is exactly {@code start}, a symbolic
      * input, so no FIXED unwind bound can cover it. The auto-unwind climb keeps firing the unwinding

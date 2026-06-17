@@ -667,6 +667,78 @@ public final class Bmc {
         // No-op at runtime; DomainSplitBytecode rewrites this call into the derived runs.
     }
 
+    // --- loop contracts (SPIKE: summarize a loop instead of unrolling it) -----
+    // A loop whose trip count blows the unwind budget can be SUMMARIZED by an inductive invariant `I`
+    // instead of unrolled N times. The proof writes the loop ONCE, straight-line, bracketed by these
+    // markers; LoopContractBytecode rewrites them in place into the classic sound loop-contract VCs:
+    //
+    //   Bmc.loopInvariant(I);     // base case:        ASSERT I  (holds on entry)
+    //   Bmc.loopHavoc();          // frame:            havoc the loop's ASSIGNS set (auto-computed)
+    //   Bmc.loopAssume(I);        // inductive hyp:     ASSUME I  (arbitrary iteration)
+    //   Bmc.loopGuard(g);         // step opens:        ASSUME g  (we're entering the body)
+    //       ...loop body once...  //                    the body, written exactly once
+    //   Bmc.loopPreserve(I);      // step VC:           ASSERT I  then ASSUME false (cut the step path)
+    //   Bmc.loopExit(g);          // summary continues: ASSUME !g  (exit; body's W stays havoc'd, I&&!g hold)
+    //   ...after the loop, prove your property over the havoc'd-but-(I && !g) state...
+    //
+    // These are MARKERS, exactly like domainSplit/check/assume: the boolean argument is not executed —
+    // the engine analyses the bytecode that COMPUTES it. The ASSIGNS set (the soundness-critical frame)
+    // is AUTO-COMPUTED from the body's stores (*STORE / putfield / array-store); a user never declares it.
+    //
+    // SOUNDNESS: `I` is a CHECKED hint, not a trusted assume. The base case (loopInvariant) and the step
+    // preservation (loopPreserve) are ASSERTED — engine-proven. Only the summary (havoc + loopAssume +
+    // loopExit) uses `I` as an assumption, and that use is justified by the two proven asserts. A WRONG
+    // invariant makes the base or the step VC FAIL (REFUTED), never a false VERIFIED.
+
+    /**
+     * Open a loop contract: ASSERT the inductive invariant {@code I} holds on loop entry (the base case).
+     * A marker; the boolean is analysed as bytecode, never executed. See the section comment for the full
+     * marker sequence. SPIKE feature.
+     */
+    public static void loopInvariant(boolean __invariant) {
+        // Marker: LoopContractBytecode rewrites this to Bmc.check(invariant) (the base case).
+    }
+
+    /**
+     * Havoc the loop's ASSIGNS set — every local/field/array the body (between {@link #loopGuard} and
+     * {@link #loopPreserve}) writes — so the summary reasons about an arbitrary iteration. The set is
+     * auto-computed from the body's stores; a wrong/missing frame is impossible to declare. A marker.
+     */
+    public static void loopHavoc() {
+        // Marker: LoopContractBytecode replaces this with nondet assignments to the computed assigns set.
+    }
+
+    /**
+     * ASSUME the inductive invariant {@code I} at an arbitrary iteration (the inductive hypothesis). Pairs
+     * with the {@link #loopInvariant} base assert and the {@link #loopPreserve} step assert. A marker.
+     */
+    public static void loopAssume(boolean __invariant) {
+        // Marker: LoopContractBytecode rewrites this to CProver.assume(invariant).
+    }
+
+    /**
+     * Open the step under {@code ASSUME guard}: we are entering the loop body. The body follows, written
+     * once, up to {@link #loopPreserve}. A marker. */
+    public static void loopGuard(boolean __guard) {
+        // Marker: LoopContractBytecode rewrites this to CProver.assume(guard).
+    }
+
+    /**
+     * The step VC: ASSERT the invariant {@code I} still holds after one body execution (the body
+     * PRESERVES I), then cut this path with {@code assume(false)} so the step is a one-iteration check
+     * only. A marker. */
+    public static void loopPreserve(boolean __invariant) {
+        // Marker: LoopContractBytecode rewrites this to Bmc.check(invariant); CProver.assume(false).
+    }
+
+    /**
+     * Close the summary: ASSUME {@code !guard} (the loop exited). Execution continues with the assigns set
+     * havoc'd and {@code (I && !guard)} assumed, so the proof's post-loop property is checked over the
+     * summarized state without ever unrolling the loop. A marker. */
+    public static void loopExit(boolean __guard) {
+        // Marker: LoopContractBytecode rewrites this to CProver.assume(!guard).
+    }
+
     /**
      * Witness-tagging sink for a USER symbolic input (counterexample-witness plumbing).
      *
