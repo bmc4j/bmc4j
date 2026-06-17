@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 14
+proofs: 16
 proof-execution: 432s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -96,3 +96,25 @@ model carries its **own soundness burden** — it is analysis-only (the real cla
 JVM), the conformance harness doesn't cover it, and stub detection won't flag it (the method now has
 a body). Differential-test a model against the real class the same way the bundled models are tested.
 *(7 pass.)*
+
+## `conformkt` (Kotlin) — conform a model against the **real implementation**
+
+The models above stand in for code JBMC *can't* see, so their real leg is intractable on purpose and
+you simply don't conform them. But when a model shadows a class that IS analyzable, you can hold the
+model honest automatically with **`@ConformProofsAgainstModel(SomeClass::class)`**: it runs each
+annotated `@BmcProof` **twice** —
+
+- the **model leg** — the normal run, with the `src/bmcModel` model substituted; and
+- the **real leg** — the same proof with that model *excluded*, so the **real** class is analysed.
+
+**Both legs must reach the proof's expected verdict** or the proof fails, naming the leg. An unsound
+model — one that VERIFIES a property the real class would REFUTE — fails the real leg and is reported
+as UNSOUND. That is the whole semantics: there's no verdict-diff to reason about, failing either leg
+fails the proof.
+
+`Volume` is a tiny clamp-into-`0..100` helper carrying its **real, loop-free** implementation (no
+service call to model away), and its `src/bmcModel/kotlin` model is a faithful copy. Because the real
+`Volume.adjust` is just as tractable as the model, both legs of each proof verify: the clamp bound
+holds for every (overflow-prone) delta, and an in-range step is applied exactly. Drop the model's
+overflow-safe `Long` arithmetic and the real leg would surface the divergence. *(2 pass, each ×2
+legs.)*
