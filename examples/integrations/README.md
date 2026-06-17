@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 14
+proofs: 15
 proof-execution: 432s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -96,3 +96,28 @@ model carries its **own soundness burden** — it is analysis-only (the real cla
 JVM), the conformance harness doesn't cover it, and stub detection won't flag it (the method now has
 a body). Differential-test a model against the real class the same way the bundled models are tested.
 *(7 pass.)*
+
+## `conformkt` (Kotlin) — conform a model against the **real implementation**
+
+The models above stand in for code JBMC *can't* see, so their real leg is intractable on purpose and
+you simply don't conform them. But when a model shadows a class that IS analyzable, you can hold the
+model honest automatically with **`@ConformProofsAgainstModel(SomeClass::class)`**: it runs each
+annotated `@BmcProof` **twice** —
+
+- the **model leg** — the normal run, with the `src/bmcModel` model substituted; and
+- the **real leg** — the same proof with that model *excluded*, so the **real** class is analysed.
+
+**Both legs must reach the proof's expected verdict** or the proof fails, naming the leg. An unsound
+model — one that VERIFIES a property the real class would REFUTE — fails the real leg and is reported
+as UNSOUND. That is the whole semantics: there's no verdict-diff to reason about, failing either leg
+fails the proof.
+
+`RunningTotal` is a triangular-number helper whose **real** `sum(n)` adds `1 + 2 + ... + n` with a
+bounded **loop** — the kind of work a downstream proof would have to unroll on every call. Its
+`src/bmcModel/kotlin` model computes the SAME result loop-free, via the closed form `n * (n + 1) / 2`:
+that is *why* you write the model — callers analyse the cheap arithmetic instead of unrolling the loop.
+The model and the real class are genuinely different implementations, so conformance is not trivial.
+The proof asserts `sum(n) == n * (n + 1) / 2`: the **model leg** checks the closed form, and the
+**real leg** (at `unwind = 16`, enough to fully unroll the loop for n up to 8) checks the loop sum
+actually equals that closed form. Break the real loop body and the real leg REFUTES against the model;
+get the model's formula wrong and the model leg refutes. *(1 proof, ×2 legs.)*
