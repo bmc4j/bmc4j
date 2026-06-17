@@ -51,7 +51,21 @@ class JbmcBackend : VerificationBackend {
         // is on, so the normal path pays nothing; threaded into the engine run so the parsed profile can
         // surface these harness-measured timings alongside jbmc's engine-reported phases.
         val timing = if (request.profile) PipelineTiming() else null
-        val classpath = prepareClasspath(request, jbmcPath, timing)
+        // Decide whether to construct the receiver (instance proof + analysable no-arg ctor). When ELIGIBLE,
+        // the wrapper is synthesised into the entry class (inside prepareClasspath) and jbmc is pointed at it
+        // via --function; otherwise the proof keeps today's nondet-`this` entry. Computed once here off the
+        // ORIGINAL classpath so the same Decision drives the synthesis and the redirect (no drift).
+        val receiverDecision = ConstructReceiverBytecode.analyze(
+                request.classpath, request.entryClass, entryMethodName(request.entryFunction))
+        val effectiveEntryFunction =
+                if (receiverDecision.eligible) {
+                    request.entryClass + "." +
+                            ConstructReceiverBytecode.wrapperName(entryMethodName(request.entryFunction))
+                } else {
+                    logReceiverFallback(request, receiverDecision)
+                    request.entryFunction
+                }
+        val classpath = prepareClasspath(request, jbmcPath, timing, receiverDecision)
         // Hold one JVM-wide jbmc permit for the lifetime of the engine process. This is the single
         // chokepoint that bounds TOTAL concurrent jbmc processes to the configured parallelism, whether
         // they come from independent @BmcProof methods (already concurrency-limited by the JUnit pool)
@@ -60,7 +74,11 @@ class JbmcBackend : VerificationBackend {
         // unpermitted so the gate covers exactly the heavy process, never the prep.
         val result = JbmcConcurrency.withPermit {
             Jbmc(jbmcPath).run(
-                    request.entryClass, request.entryFunction, classpath,
+                    // --function points at the synthetic receiver-constructing wrapper when ELIGIBLE, so
+                    // jbmc runs <init> on a freshly-built `this`; otherwise the proof method itself (today's
+                    // nondet-`this` entry). Only the entry symbol changes — the analysed proof-method
+                    // bytecode (hence its loop ids) is untouched.
+                    request.entryClass, effectiveEntryFunction, classpath,
                     request.unwind, request.unwindingAssertions,
                     request.maxStringLength, request.solver,
                     request.timeoutSeconds, request.externalSatPath,
@@ -131,7 +149,11 @@ class JbmcBackend : VerificationBackend {
          *  so the profile can show where bmc4j's own prep time went, distinct from the engine's. The work
          *  itself is byte-for-byte identical with or without timing — the wrapper is transparent. */
         fun prepareClasspath(request: BmcRequest, jbmcPath: String,
-                             timing: PipelineTiming? = null): String {
+                             timing: PipelineTiming? = null,
+                             receiverDecision: ConstructReceiverBytecode.Decision =
+                                     ConstructReceiverBytecode.analyze(
+                                             request.classpath, request.entryClass,
+                                             entryMethodNameOf(request.entryFunction))): String {
             // Time [body] under [label] when profiling, else run it directly (zero overhead off the
             // profiled path). Inline-ish helper so each pass is a one-line `t("label") { ... }` wrap.
             fun <T> t(label: String, body: () -> T): T =
@@ -143,6 +165,11 @@ class JbmcBackend : VerificationBackend {
             // Deposit the contract manifest once (read from the ORIGINAL request classpath, a resource):
             // the contract-rewrite and purity-audit passes consume it. Cheap; null/empty without contracts.
             ctx.manifest = ContractManifest.readFromClasspath(request.classpath)
+            // The receiver-construction decision (instance proof method + an analysable no-arg ctor on the
+            // entry class), taken once at the verify() boundary off the ORIGINAL classpath and threaded in so
+            // the synthesis here and the --function redirect in verify() share ONE Decision (no drift). The
+            // ConstructReceiverPass gates on it; a fallback Decision skips the pass (today's nondet-`this`).
+            ctx.receiverDecision = receiverDecision
             // A per-proof pass timed by its class simpleName (the orchestrator labels in-group passes the
             // same way); used for the per-proof passes dispatched at their interleave points below.
             fun pass(p: BmcPass, classes: ClassSet): ClassSet =
@@ -354,6 +381,12 @@ class JbmcBackend : VerificationBackend {
             // OFF is a no-op; the gate fails toward NOT eliding (worst case: no speed-up, never a false
             // green). The forced-elision footnote (ON) is surfaced on the verdict by the proof extension.
             classpath = pass(ExceptionMessageElisionPass, ClassSet(classpath)).classpath
+            // Construct the proof's RECEIVER: synthesise a static wrapper into the entry class so jbmc runs
+            // <init> on a freshly-built `this`, pinning instance fields to their initializers (the JUnit
+            // semantics). verify() redirects --function to the wrapper. A no-op (skipped) when the proof
+            // falls back (static method / no analysable no-arg ctor). Runs BEFORE the model slice so the
+            // wrapper and the <init> it reaches stay in the keep-set.
+            classpath = pass(ConstructReceiverPass, ClassSet(classpath)).classpath
             // Per-proof model slicing (LAST): hand the engine only the classes in this proof's
             // reachable cone, so unrelated model growth no longer taxes every proof. Computes the cone
             // over the FULLY-REWRITTEN classpath (the bytecode JBMC actually analyses) and prunes its
@@ -407,6 +440,20 @@ class JbmcBackend : VerificationBackend {
 
         /** The method-name half of a `Class.method` entry-function string. */
         fun entryMethodName(entryFunction: String): String = org.bmc4j.engine.entryMethodNameOf(entryFunction)
+
+        /** Note (once-ish, to stdout) that a proof did NOT construct its receiver and runs on today's
+         *  nondet-`this` entry, naming WHY. A static proof method needs no receiver, so that case is silent
+         *  (expected, not a degradation); every other fallback is surfaced so a silently-nondet instance
+         *  field is visible. */
+        private fun logReceiverFallback(request: BmcRequest,
+                                        decision: ConstructReceiverBytecode.Decision) {
+            if (decision.reason == ConstructReceiverBytecode.Reason.STATIC_PROOF
+                    || decision.reason == ConstructReceiverBytecode.Reason.DISABLED) {
+                return
+            }
+            println("  bmc4j: ${request.entryFunction} -> NOTE: not constructing the proof receiver " +
+                    "(${decision.reason.note}); instance fields read as nondeterministic, as before.")
+        }
 
         /**
          * The six environment-INDEPENDENT desugar passes, in order: coroutine-LVT strip, String content

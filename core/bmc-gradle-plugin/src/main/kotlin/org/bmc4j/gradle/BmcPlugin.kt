@@ -366,6 +366,11 @@ class BmcPlugin : Plugin<Project> {
                 // -Dbmc.smartUnwind=false (or =true) so the documented opt-out actually reaches the forked
                 // test JVM (which doesn't inherit the Gradle JVM's properties). Unset = the runtime default.
                 forwardCli(test, "bmc.smartUnwind", null)
+                // Receiver construction (an instance @BmcProof runs its class <init> so instance fields read
+                // as their initializers) is default-ON in the runtime; forward a command-line
+                // -Dbmc.constructReceiver=false so the documented opt-out reaches the forked test JVM (which
+                // doesn't inherit the Gradle JVM's properties). Unset = the runtime default (on).
+                forwardCli(test, "bmc.constructReceiver", null)
                 // maxStringLength is read by the runtime from system properties; forward a
                 // command-line override so the documented -D flag actually reaches the forked test JVM
                 // (which doesn't inherit the Gradle JVM's properties) and busts the verdict cache.

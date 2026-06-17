@@ -110,8 +110,18 @@ object Bmc4jVersion {
      * message (a byte->String materialization on a dead overflow branch) becomes tractable. Affected
      * proofs' analysed bytecode CHANGES (a different elision per AUTO gate / ON / OFF), so the verdict
      * cache (keyed on this IDENTITY plus the per-proof elision mode) must miss and re-derive.
+     * r18 constructs an instance proof's RECEIVER ([ConstructReceiverBytecode]): a static wrapper is
+     * synthesised into the entry class and jbmc's --function is redirected to it, so jbmc runs the class
+     * <init> on a freshly-built `this` and instance fields read as their initializers instead of nondet
+     * (an instance array no longer false-REFUTES with NPE/AIOOBE; an instance scalar is no longer silently
+     * quantified over). The analysed entry CHANGES (a new entry symbol + the executed <init>), so a pre-r18
+     * cached verdict — proven under the old nondet-`this` entry — must NOT be served to an r18 run; bumping
+     * misses and re-derives on the soundness-safe side. The rewrite-mirror cache re-mirrors on the IDENTITY
+     * bump too (the wrapper-bearing entry class is a fresh mirror), and the synthesis is additionally keyed
+     * by the (entry class, method) identity in its own mirror cacheName. A proof that falls back (static
+     * method / no analysable no-arg ctor) keeps its old entry and is unaffected beyond the IDENTITY bump.
      */
-    private const val SEMANTICS_REVISION = "r17"
+    private const val SEMANTICS_REVISION = "r18"
 
     /** The runtime semantics identity baked into every verdict-cache key. */
     @JvmField

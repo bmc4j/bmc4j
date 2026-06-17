@@ -52,6 +52,18 @@ class BmcContext(
      */
     @JvmField
     internal var assumeContracts: List<AssumeContractBytecode.Decoded> = emptyList()
+
+    /**
+     * Whether this proof's RECEIVER should be constructed ([ConstructReceiverBytecode]) — decided once at
+     * the orchestrator boundary off the ORIGINAL classpath (the entry class's bytecode: instance vs static
+     * proof method, an analysable no-arg constructor). Consumed by [ConstructReceiverPass] (synthesise the
+     * wrapper) and by [JbmcBackend] (redirect `--function` to it / log the fallback). A fallback Decision
+     * leaves today's nondet-`this` entry intact. Deposited before the per-proof passes run.
+     */
+    @JvmField
+    var receiverDecision: ConstructReceiverBytecode.Decision =
+            ConstructReceiverBytecode.Decision(
+                    ConstructReceiverBytecode.Reason.PROOF_METHOD_NOT_FOUND, null)
 }
 
 /** The method-name half of a `Class.method` entry-function string (the text after the last dot). */
