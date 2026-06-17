@@ -1,5 +1,5 @@
 <!-- bmc:metadata
-proofs: 16
+proofs: 15
 proof-execution: 432s summed across the module (JBMC time, MiniSat; approximate). Proofs run in
   parallel, so wall-clock is far lower — this number is for spotting slow concepts, not timing the build.
 -->
@@ -112,9 +112,12 @@ model — one that VERIFIES a property the real class would REFUTE — fails the
 as UNSOUND. That is the whole semantics: there's no verdict-diff to reason about, failing either leg
 fails the proof.
 
-`Volume` is a tiny clamp-into-`0..100` helper carrying its **real, loop-free** implementation (no
-service call to model away), and its `src/bmcModel/kotlin` model is a faithful copy. Because the real
-`Volume.adjust` is just as tractable as the model, both legs of each proof verify: the clamp bound
-holds for every (overflow-prone) delta, and an in-range step is applied exactly. Drop the model's
-overflow-safe `Long` arithmetic and the real leg would surface the divergence. *(2 pass, each ×2
-legs.)*
+`RunningTotal` is a triangular-number helper whose **real** `sum(n)` adds `1 + 2 + ... + n` with a
+bounded **loop** — the kind of work a downstream proof would have to unroll on every call. Its
+`src/bmcModel/kotlin` model computes the SAME result loop-free, via the closed form `n * (n + 1) / 2`:
+that is *why* you write the model — callers analyse the cheap arithmetic instead of unrolling the loop.
+The model and the real class are genuinely different implementations, so conformance is not trivial.
+The proof asserts `sum(n) == n * (n + 1) / 2`: the **model leg** checks the closed form, and the
+**real leg** (at `unwind = 16`, enough to fully unroll the loop for n up to 8) checks the loop sum
+actually equals that closed form. Break the real loop body and the real leg REFUTES against the model;
+get the model's formula wrong and the model leg refutes. *(1 proof, ×2 legs.)*

@@ -37,9 +37,10 @@ bmc {
     models {
         conformant("example.custommodels.TaxPolicy")
         domain("example.custommodels.ExchangeRates", "rates bounded to the live service's 0.0001..2.0 range")
-        // A faithful model of a small, analyzable helper — declared conformant because the
-        // conformkt proofs @ConformProofsAgainstModel(Volume) it against the REAL Volume.adjust.
-        conformant("example.conformkt.Volume")
+        // A loop-free closed-form model of a looping helper — declared conformant because the
+        // conformkt proofs @ConformProofsAgainstModel(RunningTotal) it against the REAL looping
+        // RunningTotal.sum, asserting the loop result equals n*(n+1)/2 on both legs.
+        conformant("example.conformkt.RunningTotal")
     }
 }
 
