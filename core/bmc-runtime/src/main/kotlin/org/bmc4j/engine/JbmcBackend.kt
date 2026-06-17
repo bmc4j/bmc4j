@@ -303,6 +303,19 @@ class JbmcBackend : VerificationBackend {
                 }
                 classpath = t("loop-contract") { ReachabilityBytecode.rewrite(classpath) }
             }
+            // @LoopInvariant (SPIKE): the ANNOTATION form of the loop contract. When the entry proof carries
+            // an @LoopInvariant, recover the named real loop from the bytecode and lower it to the SAME
+            // base/step/summary VCs in place (no re-authored markers). Same UNKNOWN-on-refusal soundness as
+            // the marker form; a no-op for an ordinary proof. Re-run Reachability for the injected returns.
+            if (loopContractEntry != null
+                    && LoopInvariantBytecode.specsOf(
+                            loopContractEntry, entryMethodName(request.entryFunction)).isNotEmpty()) {
+                classpath = t("loop-invariant") {
+                    LoopInvariantBytecode.rewrite(
+                            classpath, request.entryClass, entryMethodName(request.entryFunction))
+                }
+                classpath = t("loop-invariant") { ReachabilityBytecode.rewrite(classpath) }
+            }
             // Add the bundled Kotlin models (clean Intrinsics / coroutine runtime); harmless for Java.
             // It must sit AFTER the consumer's user models so a user model still shadows first: the user
             // models are the leading entries of the (now-rewritten) classpath, so splice the Kotlin models

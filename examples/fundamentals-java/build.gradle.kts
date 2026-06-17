@@ -10,3 +10,10 @@ java {
     // host JDK == toolchain == N, so the bytecode fed to the engine matches the leg).
     toolchain { languageVersion.set(JavaLanguageVersion.of((providers.gradleProperty("bmcJvmTarget").orNull ?: "25").toInt())) }
 }
+
+// Emit full debug info (incl. the LocalVariableTable) for the test proofs. @LoopInvariant binds a
+// predicate's parameter names to the contracted loop's locals via the LVT, so the proofs that use it must
+// carry local-variable names; javac omits the LVT without -g.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-g")
+}

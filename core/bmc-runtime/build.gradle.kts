@@ -92,6 +92,9 @@ dependencies {
     shaded("com.google.code.gson:gson:2.11.0")
     // Internal: LVT-stripping coroutine bytecode for JBMC (see CoroutineBytecode). Shaded.
     shaded("org.ow2.asm:asm:9.8")
+    // Internal: the ASM tree API (control-flow loop recovery in LoopInvariantBytecode). Shaded; same
+    // org.objectweb.asm package root as asm-core, so the existing relocate covers it.
+    shaded("org.ow2.asm:asm-tree:9.8")
     // Test-only: compile a generated Kotlin replay file in-process (the Kotlin analog of the
     // JDK's javax.tools compiler the Java replay-writer test uses) to prove it is valid Kotlin.
     testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
