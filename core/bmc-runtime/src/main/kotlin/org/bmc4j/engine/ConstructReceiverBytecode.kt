@@ -71,7 +71,9 @@ object ConstructReceiverBytecode {
         ENTRY_CLASS_NOT_FOUND(false, "the entry class could not be read from the classpath"),
         PROOF_METHOD_NOT_FOUND(false, "the proof method could not be located in the entry class"),
         ABSTRACT_ENTRY_CLASS(false, "the entry class is abstract or an interface (cannot be constructed)"),
-        NO_ANALYZABLE_NO_ARG_CTOR(false, "the entry class has no analysable no-arg constructor")
+        NO_ANALYZABLE_NO_ARG_CTOR(false, "the entry class has no analysable no-arg constructor"),
+        PARAMETERIZED_PROOF(false, "the proof method has parameters (jbmc nondets them as entry inputs; " +
+                "a no-arg wrapper would drop them)")
     }
 
     /** The decision for one proof: whether to construct the receiver, and (when so) the proof method's
@@ -130,12 +132,17 @@ object ConstructReceiverBytecode {
             }
         }, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
 
+        // A proof method with parameters is a symbolic-parameter proof: jbmc nondets the entry function's
+        // arguments when --function points straight at the method. A no-arg wrapper that calls it can't
+        // supply those, so we fall back to the direct entry (today's behavior) for parameterized proofs.
+        val desc = proofDesc
         return when {
-            proofDesc == null -> Decision(Reason.PROOF_METHOD_NOT_FOUND, null)
-            proofDesc == STATIC_MARKER -> Decision(Reason.STATIC_PROOF, null)
+            desc == null -> Decision(Reason.PROOF_METHOD_NOT_FOUND, null)
+            desc == STATIC_MARKER -> Decision(Reason.STATIC_PROOF, null)
             isAbstractClass -> Decision(Reason.ABSTRACT_ENTRY_CLASS, null)
             !hasNoArgCtor -> Decision(Reason.NO_ANALYZABLE_NO_ARG_CTOR, null)
-            else -> Decision(Reason.ELIGIBLE, proofDesc)
+            !desc.startsWith("()") -> Decision(Reason.PARAMETERIZED_PROOF, null)
+            else -> Decision(Reason.ELIGIBLE, desc)
         }
     }
 

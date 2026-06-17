@@ -41,7 +41,8 @@ internal class ConstructReceiverBytecodeTest {
     /** A class `pkg/Proofs` with a no-arg ctor, an instance field initialised in `<init>`, and an
      *  instance `()V` proof method that contains [loops] back-edge loops (so we can pin its loop ids). */
     private fun instanceProofClass(withNoArgCtor: Boolean = true, isAbstract: Boolean = false,
-                                   staticProof: Boolean = false, loops: Int = 0): ByteArray {
+                                   staticProof: Boolean = false, loops: Int = 0,
+                                   proofDesc: String = PROOF_DESC): ByteArray {
         val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
         val access = Opcodes.ACC_PUBLIC or (if (isAbstract) Opcodes.ACC_ABSTRACT else 0)
         cw.visit(Opcodes.V17, access, ENTRY, null, "java/lang/Object", null)
@@ -71,7 +72,7 @@ internal class ConstructReceiverBytecodeTest {
         }
 
         val pAccess = Opcodes.ACC_PUBLIC or (if (staticProof) Opcodes.ACC_STATIC else 0)
-        val mv = cw.visitMethod(pAccess, PROOF, PROOF_DESC, null, null)
+        val mv = cw.visitMethod(pAccess, PROOF, proofDesc, null, null)
         mv.visitCode()
         // Emit `loops` simple counted loops so the proof method has back edges (loop ids 0..loops-1).
         for (i in 0 until loops) {
@@ -135,6 +136,15 @@ internal class ConstructReceiverBytecodeTest {
         val d = ConstructReceiverBytecode.analyzeBytes(instanceProofClass(), "noSuchMethod")
         assertFalse(d.eligible)
         assertEquals(ConstructReceiverBytecode.Reason.PROOF_METHOD_NOT_FOUND, d.reason)
+    }
+
+    @Test
+    fun parameterizedProof_fallsBack() {
+        // A proof method with parameters is a symbolic-parameter proof: jbmc nondets the entry args, so a
+        // no-arg wrapper would drop them. Construction must fall back to the direct entry.
+        val d = ConstructReceiverBytecode.analyzeBytes(instanceProofClass(proofDesc = "(I)V"), PROOF)
+        assertFalse(d.eligible)
+        assertEquals(ConstructReceiverBytecode.Reason.PARAMETERIZED_PROOF, d.reason)
     }
 
     // --- Synthesised wrapper shape --------------------------------------------------------------
