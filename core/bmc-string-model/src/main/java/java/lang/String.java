@@ -118,9 +118,15 @@ public final class String implements CharSequence, Comparable<String> {
         }
         // Copy the sub-range once and ADOPT it clone-free, instead of new String(b,off,count) -> ofChars's
         // StringBuilder append + toString (a wasted second copy: the toString is a String.<init> loop).
+        // The copy is an element-wise loop, NOT System.arraycopy: under StringMode.CHAR_ARRAY_MODEL (string
+        // refinement OFF) JBMC's char[] System.arraycopy leaves the destination chars UNCONSTRAINED (nondet),
+        // so a substring read back its own chars unsoundly (the same hole that made getChars unsound below).
+        // A plain indexed copy is modeled element-by-element and is sound. Bounded by `count`.
         int count = endIndex - beginIndex;
         char[] out = new char[count];
-        System.arraycopy(b, beginIndex, out, 0, count);
+        for (int i = 0; i < count; i++) {
+            out[i] = b[beginIndex + i];
+        }
         return adoptChars(out);
     }
 
@@ -296,18 +302,27 @@ public final class String implements CharSequence, Comparable<String> {
     }
 
     /**
-     * Bulk-copy chars {@code [srcBegin, srcEnd)} of this String into {@code dst} starting at
+     * Copy chars {@code [srcBegin, srcEnd)} of this String into {@code dst} starting at
      * {@code dstBegin}, reading the backing array DIRECTLY (no per-char public {@link #charAt(int)}).
      *
-     * <p>This mirrors the real JDK {@code String.getChars}, which bulk-copies via {@code System.arraycopy}
-     * with no per-element bounds check. It exists so that INTERNAL char copies (e.g.
-     * {@code AbstractStringBuilder.append(String)}) do not route through the public bounds-checking
-     * {@code charAt}. Under StringMode.CHAR_ARRAY_MODEL a public {@code charAt} bounds-checks against the SYMBOLIC
-     * backing length and symex cannot prove the loop index in range, so it explores the throw branch on
-     * every copied char and recursively builds a StringIndexOutOfBoundsException message (itself an
-     * append/charAt) - a blowup that never happens in real execution. Here the index range is in-bounds
-     * by construction (the caller copies exactly {@code length()} chars off the same backing), so the
-     * direct array read has no throw branch.
+     * <p>It exists so that INTERNAL char copies (e.g. {@code AbstractStringBuilder.append(String)}, and
+     * {@code BmcStrings.equals}/{@code charAtRaw} which read content through here under no-refine) do not
+     * route through the public bounds-checking {@code charAt}. Under StringMode.CHAR_ARRAY_MODEL a public
+     * {@code charAt} bounds-checks against the SYMBOLIC backing length and symex cannot prove the loop index
+     * in range, so it explores the throw branch on every copied char and recursively builds a
+     * StringIndexOutOfBoundsException message (itself an append/charAt) - a blowup that never happens in
+     * real execution. Here the index range is in-bounds by construction (the caller copies exactly
+     * {@code length()} chars off the same backing), so the direct array read has no throw branch.
+     *
+     * <p><b>Element-wise, NOT {@code System.arraycopy}.</b> The real JDK {@code String.getChars}
+     * bulk-copies via {@code System.arraycopy}, but under StringMode.CHAR_ARRAY_MODEL (string refinement
+     * OFF) JBMC's char[] {@code System.arraycopy} leaves the destination chars UNCONSTRAINED (nondet) - it
+     * does not relate {@code dst[dstBegin+k]} to {@code src[srcBegin+k]}. That made every content read that
+     * goes through {@code getChars} unsound: {@code BmcStrings.equals} reads both operands' chars here, so a
+     * differing-content inequality like {@code !"hi".equals("ho")} could be REFUTED (the solver nondets the
+     * copied chars to make them equal), even though the public {@code charAt} (a plain {@code b[i]} read) is
+     * sound. A plain indexed copy loop is modeled element-by-element, so each {@code dst} char IS the
+     * corresponding backing char. Bounded by the copied length.
      *
      * <p>Declared {@code public} to match the real {@code java.lang.String.getChars}, which is public.
      * It must be: JDK 25 added {@code CharSequence.getChars}, and {@code String implements CharSequence},
@@ -315,6 +330,8 @@ public final class String implements CharSequence, Comparable<String> {
      */
     public void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {
         char[] b = backing();
-        System.arraycopy(b, srcBegin, dst, dstBegin, srcEnd - srcBegin);
+        for (int i = srcBegin; i < srcEnd; i++) {
+            dst[dstBegin + (i - srcBegin)] = b[i];
+        }
     }
 }
