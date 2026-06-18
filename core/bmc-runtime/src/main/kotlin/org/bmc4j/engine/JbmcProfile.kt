@@ -64,7 +64,7 @@ class JbmcProfile private constructor(
          *  global bound never reached does not appear (the list is the observed loops, possibly partial). */
         val unwindingLoops: List<LoopInfo>,
         /** Per-method recursion-unwinding counts (`Unwinding recursion` lines), highest-first. */
-        val recursionByMethod: List<MethodCount>,
+        val recursionByMethod: List<RecursionInfo>,
         /** `size of program expression: <N> steps`, or null if not emitted. */
         val programSteps: Long?,
         /** `Generated <N> VCC(s), …` — verification conditions generated, or null. */
@@ -79,6 +79,17 @@ class JbmcProfile private constructor(
     /** One method and the count of unwinding (loop or recursion) firings attributed to it. */
     class MethodCount(@get:JvmName("method") val method: String,
                       @get:JvmName("count") val count: Int)
+
+    /** One method the engine RECURSIVELY unwound: the `Unwinding recursion` firing [count] and the
+     *  best-effort [callPath] that reached it, reconstructed from the live symex stream exactly like a
+     *  [LoopInfo]'s (empty when no call context was captured; heuristic, so same-method recursion past the
+     *  first frame isn't distinguished). [method]/[count] mirror [MethodCount] so existing readers still work. */
+    class RecursionInfo(@get:JvmName("method") val method: String,
+                        @get:JvmName("count") val count: Int,
+                        @get:JvmName("callPath") val callPath: List<String> = emptyList()) {
+        /** The [callPath] as `outer > mid > inner` (outermost first), or empty when none captured. */
+        fun callPathString(): String = callPath.joinToString(" > ")
+    }
 
     /**
      * One derived run of a domainSplit fan-out, paired with the label/verdict it should self-report under
@@ -318,7 +329,18 @@ class JbmcProfile private constructor(
             }
 
             methods("top unwound loops (method x iterations):", unwindingByMethod, showMore = true)
-            methods("recursion unwinding (method x firings):", recursionByMethod, showMore = false)
+            // Recursion unwinding, with the reconstructed call path under each (the loop-list gets this via
+            // LoopInfo; recursion uses its own RecursionInfo so a recursive <clinit>/method shows where it
+            // was driven from, not just a count).
+            if (recursionByMethod.isNotEmpty()) {
+                add("   recursion unwinding (method x firings):")
+                recursionByMethod.take(TOP_N).forEach { r ->
+                    add("       ${r.method}  x${r.count}")
+                    if (r.callPath.size > 1) {
+                        add("           reached via ${r.callPathString()}")
+                    }
+                }
+            }
 
             // Targetable loop ids + ready-to-paste @LoopUnwind suggestions. Each observed loop shows its
             // FULL --unwindset-form id (what @LoopUnwind takes) and a copy-pasteable pin line, so a user
@@ -599,7 +621,7 @@ class JbmcProfile private constructor(
             // Per-LOOP detail keyed by the FULL --unwindset-form loop id: iterations seen + the first
             // file/line observed for it. Drives the targetable-loops / @LoopUnwind suggestion output.
             private val loopInfos = LinkedHashMap<String, LoopAcc>()
-            private val recursionCounts = LinkedHashMap<String, Int>()
+            private val recursionInfos = LinkedHashMap<String, RecursionAcc>()
             private var programSteps: Long? = null
             private var vccGenerated: Long? = null
             private var vccRemaining: Long? = null
@@ -678,8 +700,13 @@ class JbmcProfile private constructor(
                     return
                 }
                 UNWIND_RECURSION_RE.find(line)?.let {
-                    val m = renderMethod(it.groupValues[1])
-                    recursionCounts[m] = (recursionCounts[m] ?: 0) + 1
+                    val sym = it.groupValues[1]
+                    val m = renderMethod(sym)
+                    // Ensure the recursed method tops the shadow stack, then snapshot the call path the FIRST
+                    // time we see it (later firings repeat, and the stack may have moved by then).
+                    enterFunction(sym)
+                    val acc = recursionInfos.getOrPut(m) { RecursionAcc(ArrayList(frames)) }
+                    acc.count++
                     return
                 }
                 RUNTIME_RE.matchEntire(line)?.let {
@@ -733,7 +760,7 @@ class JbmcProfile private constructor(
                     lastPhaseEntered = lastPhaseEntered,
                     unwindingByMethod = sorted(loopCounts),
                     unwindingLoops = sortedLoops(loopInfos),
-                    recursionByMethod = sorted(recursionCounts),
+                    recursionByMethod = sortedRecursion(recursionInfos),
                     programSteps = programSteps,
                     vccGenerated = vccGenerated,
                     vccRemaining = vccRemaining,
@@ -753,6 +780,13 @@ class JbmcProfile private constructor(
                                     .thenBy { it.key })
                             .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.iterations,
                                     it.value.callPath) }
+
+            /** Per-method recursion detail, highest-firings first then by method (stable, deterministic). */
+            private fun sortedRecursion(infos: Map<String, RecursionAcc>): List<RecursionInfo> =
+                    infos.entries
+                            .sortedWith(compareByDescending<Map.Entry<String, RecursionAcc>> { it.value.count }
+                                    .thenBy { it.key })
+                            .map { RecursionInfo(it.key, it.value.count, it.value.callPath) }
         }
 
         /** Mutable per-loop tally: the iterations seen plus the (first-observed) source location and the
@@ -760,6 +794,11 @@ class JbmcProfile private constructor(
         private class LoopAcc(@JvmField val file: String?, @JvmField val line: Int,
                               @JvmField val callPath: List<String>) {
             @JvmField var iterations: Int = 0
+        }
+
+        /** Mutable per-method recursion tally: firings seen plus the (first-observed) call path. */
+        private class RecursionAcc(@JvmField val callPath: List<String>) {
+            @JvmField var count: Int = 0
         }
 
         /** `java::pkg.Class.method:(sig)ret` (or a bare `java::pkg.Class.method`) -> `pkg.Class.method`.

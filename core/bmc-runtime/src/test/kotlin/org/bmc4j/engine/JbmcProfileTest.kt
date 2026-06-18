@@ -420,6 +420,26 @@ internal class JbmcProfileTest {
         assertEquals(2, p.recursionByMethod.single().count)
     }
 
+    @Test
+    fun reconstructs_the_call_path_to_a_recursive_method() {
+        // The live BMC-at stream drives the shadow stack (outer -> mid -> fib); the recursion firing then
+        // snapshots it, so a recursive method shows where it was driven from, not just a count.
+        val json = """
+            [
+              {"messageText":"BMC at file R.java line 2 function java::pkg.R.outer:(I)I (depth 5)"},
+              {"messageText":"BMC at file R.java line 7 function java::pkg.R.mid:(I)I bytecode-index 1 (depth 9)"},
+              {"messageText":"BMC at file R.java line 12 function java::pkg.R.fib:(I)I bytecode-index 1 (depth 14)"},
+              {"messageText":"Unwinding recursion java::pkg.R.fib:(I)I iteration 1 ..."}
+            ]""".trimIndent()
+        val p = JbmcProfile.parse(json)
+        val fib = p.recursionByMethod.single()
+        assertEquals(listOf("pkg.R.outer", "pkg.R.mid", "pkg.R.fib"), fib.callPath,
+                "the call path to the recursive method is reconstructed, outermost first")
+        val rendered = p.render("pkg.Tests.r", "TIMEOUT")
+        assertTrue(rendered.contains("reached via pkg.R.outer > pkg.R.mid > pkg.R.fib"),
+                "the recursion call path is rendered under the entry: $rendered")
+    }
+
     // --- Targetable loop ids + @LoopUnwind suggestions (the "annotation output") ------------------
 
     @Test
