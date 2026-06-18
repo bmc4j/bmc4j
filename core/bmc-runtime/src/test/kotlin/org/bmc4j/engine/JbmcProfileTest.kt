@@ -486,13 +486,19 @@ internal class JbmcProfileTest {
                 p.unwindingLoops.single().suggestion())
 
         val rendered = p.render("okio.Tests.decimal", "TIMEOUT")
-        assertTrue(rendered.contains("targetable loops (paste a @LoopUnwind"),
+        assertTrue(rendered.contains("targetable loops (each @LoopUnwind"),
                 "the targetable-loops section is present: $rendered")
         assertTrue(rendered.contains("java::okio.Buffer.readDecimalLong:()J.0  x2  (Buffer.java:41)"),
                 "the full id + iterations + location is shown: $rendered")
         assertTrue(rendered.contains(
                 "@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)"),
                 "a ready-to-paste @LoopUnwind line is emitted: $rendered")
+        // The pin must be FLUSH-LEFT and UNTAGGED — a whole render line equal to the bare annotation,
+        // with no `  bmc4j[profile]:` prefix or indentation — so a terminal line-copy pastes straight
+        // into source with nothing to hand-strip.
+        assertTrue(rendered.lineSequence().any {
+            it == "@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)"
+        }, "the @LoopUnwind pin is a flush-left, untagged line: $rendered")
         assertTrue(rendered.contains("only loops that unwound in THIS run"),
                 "the partial-list caveat is noted: $rendered")
     }
