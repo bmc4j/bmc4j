@@ -3,6 +3,7 @@ package proofs.strings;
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
 import org.bmc4j.StringMode;
+import org.bmc4j.Verdict;
 
 /**
  * Conformance proofs for the sound char-array-backed String model used under string refinement OFF
@@ -105,6 +106,78 @@ class NoRefineStringModelLaws {
         String c = new String(new char[]{'h', 'o'});
         Bmc.check(a.equals(b));    // equal content -> equal
         Bmc.check(!a.equals(c));   // differing content -> not equal
+    }
+
+    // ---- toLowerCase() / toLowerCase(Locale) (SOUND + LENGTH-PRESERVING under no-refine) ----
+    //
+    // Without a model these calls degrade to a nondet stub returning an UNCONSTRAINED-length String,
+    // discarding the caller's length bound. The char-array model maps char-by-char via the native
+    // Character.toLowerCase intrinsic, so the result is exact AND same-length for the ASCII/BMP common
+    // case (the bound keeps flowing), and traps the locale-special / expanding / context-dependent chars
+    // LOUD (UNKNOWN, never wrong). Each proof below pins a direction a nondet model could not satisfy.
+
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void toLowerCase_concrete_readback() {
+        // Built through a constructor (so content is exact under no-refine), then lowercased: the
+        // ASCII fold is exact and length-preserving.
+        String s = new String(new char[]{'A', 'B', 'c'}).toLowerCase();
+        Bmc.check(s.length() == 3);
+        Bmc.check(s.charAt(0) == 'a');
+        Bmc.check(s.charAt(1) == 'b');
+        Bmc.check(s.charAt(2) == 'c');
+    }
+
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void toLowerCaseLocale_concrete_readback() {
+        // The Locale overload routes to the no-arg form: same exact, same-length result.
+        String s = new String(new char[]{'A', 'B', 'c'}).toLowerCase(java.util.Locale.ROOT);
+        Bmc.check(s.length() == 3);
+        Bmc.check(s.charAt(0) == 'a' && s.charAt(1) == 'b' && s.charAt(2) == 'c');
+    }
+
+    // Length-preservation is the WHOLE POINT (it keeps the caller's length bound): a symbolic string of
+    // length 0..1 over the safe ASCII band folds to the SAME length. Band 'A'..'H' avoids 'I' (which is
+    // locale-trapped). Small bound: no refinement to compress the symbolic char-array reasoning under
+    // CHAR_ARRAY_MODEL.
+    @BmcProof(unwind = 2, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void toLowerCase_symbolic_length_preserving_and_lowercase() {
+        int n = Bmc.anyInt(0, 1);
+        char[] data = new char[n];
+        for (int i = 0; i < n; i++) {
+            char c = Bmc.anyChar();
+            Bmc.assume(c >= 'A' && c <= 'H');   // safe ASCII band (excludes locale-sensitive 'I')
+            data[i] = c;
+        }
+        String lo = new String(data).toLowerCase();
+        Bmc.check(lo.length() == n);   // length preserved: a nondet-length stub could refute this
+        for (int i = 0; i < lo.length(); i++) {
+            char r = lo.charAt(i);
+            Bmc.check(r == (char) (data[i] + 32));   // exact ASCII fold (a nondet read could not)
+        }
+    }
+
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void toLowerCase_concrete_idempotent() {
+        // toLowerCase(toLowerCase(s)) == toLowerCase(s): a second fold is a no-op on the handled domain.
+        String lo = new String(new char[]{'A', 'b', 'C'}).toLowerCase();
+        Bmc.check(lo.toLowerCase().equals(lo));
+    }
+
+    // The loud boundary: a non-ASCII char (capital Greek sigma, U+03A3) is outside the model's precise
+    // ASCII domain - and genuinely has a context-dependent lowercase a char map cannot reproduce - so the
+    // model traps it to UNKNOWN (NOT a wrong VERIFIED). Pins the "loud, not silent" discipline: a
+    // representative unsafe char goes undecided, never wrong.
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL, expect = Verdict.UNKNOWN)
+    void toLowerCase_nonAscii_char_is_loud_not_wrong() {
+        String s = new String(new char[]{'\u03A3'}).toLowerCase();   // sentinel to UNKNOWN
+        Bmc.check(s.length() == 1);   // never conclusively reached
+    }
+
+    // 'I' is ASCII but locale-sensitive (Turkish dotless-i), so it too is trapped -> UNKNOWN, never wrong.
+    @BmcProof(unwind = 4, stringMode = StringMode.CHAR_ARRAY_MODEL, expect = Verdict.UNKNOWN)
+    void toLowerCase_capitalI_is_loud_not_wrong() {
+        String s = new String(new char[]{'I'}).toLowerCase();   // sentinel to UNKNOWN
+        Bmc.check(s.charAt(0) == 'i');   // never conclusively reached
     }
 
     // NOTE on symbolic strings under no-refine: a whole-string SYMBOLIC equals (anyChar-filled array

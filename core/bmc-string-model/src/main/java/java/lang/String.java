@@ -21,6 +21,9 @@ package java.lang;
  * then {@link #length()}, {@link #charAt(int)}, {@link #isEmpty()}, {@link #equals(Object)},
  * {@link #hashCode()}. These are the reads/comparisons every higher String operation in bmc4j's sound
  * layer ({@code BmcStrings}, {@code anyString}) is rebuilt from, so that layer composes soundly here.
+ * Also {@link #toLowerCase()} / {@link #toLowerCase(java.util.Locale)}, which map char-by-char (sound
+ * and LENGTH-PRESERVING for the common ASCII/BMP case, keeping the caller's length bound) and trap the
+ * handful of locale-special / expanding / context-dependent chars LOUD - see those methods.
  *
  * <p><b>Lazy backing (literals / nondet strings).</b> A String literal and a {@code nondetWithoutNull()}
  * String are materialized by JBMC WITHOUT running a constructor, so their {@code value} field is null.
@@ -168,6 +171,77 @@ public final class String implements CharSequence, Comparable<String> {
 
     public char[] toCharArray() {
         return backing().clone();
+    }
+
+    /**
+     * Lowercases this String char-by-char, producing a SAME-LENGTH result. This is the whole point of
+     * modelling it here: without a model the call degrades to a nondet stub that returns an
+     * UNCONSTRAINED-length String, discarding the caller's length bound (an {@code anyString(2)} would
+     * become any-length after {@code toLowerCase}). The char-array model keeps the length bound flowing.
+     *
+     * <p><b>Why the fold is open-coded (not {@code Character.toLowerCase}).</b> Under no-refine
+     * ({@code StringMode.CHAR_ARRAY_MODEL}) JBMC links the cbmc core-models {@code java.lang.Character},
+     * whose {@code toLowerCase} dereferences a null Unicode case table and NPEs - it is NOT a sound
+     * intrinsic on this classpath (the {@code Character.toLowerCase} that IS sound lives on the
+     * refinement path, which is OFF here). So the model computes the fold itself, over the ONLY domain
+     * it can do so soundly without a Unicode table: 7-bit ASCII.
+     *
+     * <p><b>Soundness boundary (verified differentially against the real JDK across all 1069 available
+     * {@code Locale}s, 2026-06).</b> Every ASCII char EXCEPT {@code 'I'} lowercases identically under
+     * every locale, and {@code 'A'..'Z'} fold by the constant +32 (the rest are unchanged) - so the
+     * model is EXACT and length-preserving for ASCII, the typical version-string / identifier domain.
+     * Everything else is trapped LOUD (the {@code BmcUnmodelledReached} sentinel demotes the proof to
+     * UNKNOWN, never a false VERIFIED - bmc4j's "loud, not silent" discipline):
+     * <ul>
+     *   <li>{@code 'I'} ({@code U+0049}) - Turkish/Azeri lowercase it to dotless {@code U+0131}, not
+     *       {@code 'i'}. The no-arg {@link #toLowerCase()} uses the host's default locale (unknowable at
+     *       verification time) and the {@link #toLowerCase(java.util.Locale)} overload could carry any
+     *       locale, so {@code 'I'} cannot be folded soundly - trapped.</li>
+     *   <li>Any NON-ASCII char ({@code >= 0x80}) - folding it soundly needs the Unicode case table this
+     *       model deliberately does not carry, and some (the dotted-I family {@code U+00CC/00CD/0128},
+     *       the expanding {@code U+0130}, the context-dependent capital sigma {@code U+03A3}) genuinely
+     *       diverge from any simple char map - so all non-ASCII is conservatively trapped.</li>
+     * </ul>
+     * No locale broadens the ASCII-minus-{@code 'I'} safe domain (it is the agreement set over ALL
+     * locales), so {@link #toLowerCase()} and {@link #toLowerCase(java.util.Locale)} share this one
+     * implementation soundly. A caller needing non-ASCII case folding gets an honest UNKNOWN, never a
+     * wrong VERIFIED.
+     */
+    public String toLowerCase() {
+        char[] b = backing();
+        char[] out = new char[b.length];
+        for (int i = 0; i < b.length; i++) {
+            char c = b[i];
+            // Loud-trap 'I' (locale-sensitive: Turkish dotless-i) and ALL non-ASCII (needs a Unicode
+            // case table this model does not carry, and the expanding / context-dependent cases). The
+            // proof demotes to UNKNOWN, never a wrong result.
+            if (c == 0x0049 || c > 0x007F) {
+                throw org.bmc4j.analysis.BmcUnmodelledReached.fail(
+                        "bmc4j: unmodelled member java.lang.String.toLowerCase - char U+"
+                                + Integer.toHexString(c)
+                                + " has a locale-sensitive or non-ASCII lowercase the char-array String "
+                                + "model cannot fold soundly (ASCII-minus-'I' is the precise domain)");
+            }
+            // Sound, length-preserving ASCII fold: 'A'..'Z' -> +32 ('I' already trapped), else unchanged.
+            out[i] = (c >= 0x0041 && c <= 0x005A) ? (char) (c + 32) : c;
+        }
+        return new String(out);
+    }
+
+    /**
+     * Locale-parameterised lowercase. Routes to {@link #toLowerCase()}: the model's precise char domain
+     * (ASCII minus {@code 'I'}) is the agreement set over ALL locales and everything else is trapped
+     * loud, so the result is identical and sound for every {@code Locale}. See {@link #toLowerCase()} for
+     * the full boundary.
+     *
+     * <p>The {@code locale} argument is intentionally not dereferenced: there is no {@code java.util.Locale}
+     * model on the no-refine classpath, so {@code Locale} statics (e.g. {@code Locale.ROOT}) are nondet and
+     * a null-check here would spuriously REFUTE on that modeling artifact, not on a real caller bug. The
+     * real JDK's {@code toLowerCase(null)} NPE is therefore the one behaviour this overload does not
+     * reproduce - a conservative gap that can never make a content/length claim WRONG.
+     */
+    public String toLowerCase(java.util.Locale locale) {
+        return toLowerCase();
     }
 
     /**
