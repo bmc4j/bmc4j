@@ -33,13 +33,14 @@ class Jbmc(private val executable: String) {
             stringMode: org.bmc4j.StringMode = org.bmc4j.StringMode.REFINEMENT,
             userClasspath: String? = null, profile: Boolean = false,
             pipelineSeconds: Map<String, Double>? = null,
-            jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap()): JbmcResult {
+            jbmcOptions: String = "", unwindSet: Map<String, Int> = emptyMap(),
+            complexityReport: Boolean = false): JbmcResult {
         preflightSolver(solver) // fail clearly now if a requested external solver isn't available
         val command = mutableListOf(executable)
         command.addAll(args(entryClass, entryFunction, classpath, unwind, unwindingAssertions,
                 maxStringLength, solver, externalSatPath, stringMode, jbmcOptions, unwindSet))
         return exec(command, entryFunction, timeoutSeconds, userClasspath, profile, pipelineSeconds,
-                stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL)
+                stringMode == org.bmc4j.StringMode.CHAR_ARRAY_MODEL, complexityReport)
     }
 
     /** Drains a process stream to a buffer on its own thread (so reads can't deadlock or block waitFor).
@@ -417,7 +418,15 @@ class Jbmc(private val executable: String) {
         internal fun exec(command: List<String>, entryFunction: String, timeoutSeconds: Int = 0,
                           userClasspath: String? = null, profile: Boolean = false,
                           pipelineSeconds: Map<String, Double>? = null,
-                          reconstructStrings: Boolean = false): JbmcResult {
+                          reconstructStrings: Boolean = false,
+                          complexityReport: Boolean = false): JbmcResult {
+            // The complexity report is a SEPARATE, additive `--program-only` pass on the same command;
+            // run it once here (not inside the retry loop) so a retried verdict run doesn't dump it twice.
+            // It only DUMPS the program equation - no solve - so it never affects the verdict; printed for
+            // its console output, like the @BmcProfile breakdown.
+            if (complexityReport) {
+                runComplexityReport(command, entryFunction)
+            }
             val first = execOnce(command, entryFunction, timeoutSeconds, userClasspath, profile,
                     pipelineSeconds, reconstructStrings)
             val kind = first.undecidedKind
@@ -555,6 +564,79 @@ class Jbmc(private val executable: String) {
             // attributed to the phase the engine was killed inside (Convert SSA for a bit-blasting-bound
             // proof, Symex for a symex-bound one), keyed off the in-progress markers the profile captured.
             return JbmcProfile.parse(outFile).withHarnessTimings(pipelineSeconds, engineWall)
+        }
+
+        /**
+         * Run ONE extra jbmc pass that DUMPS the SSA program equation (`--program-only`, no solve) for the
+         * already-built verdict [command], parse it with [JbmcComplexity], and print the source-attributed
+         * complexity report. Purely additive diagnostic output (it shares the verdict run's classpath /
+         * --function / unwind / string-mode / contracts - everything that shapes the formula), so it never
+         * touches the verdict. The dump is STREAMED to a temp spill (it can be large) exactly like the
+         * verdict run's stdout, and the spill is deleted in `finally`. Best-effort: any failure (engine
+         * error, unparseable dump) is swallowed with a short note - the report is never a build gate.
+         */
+        private fun runComplexityReport(command: List<String>, entryFunction: String) {
+            val progCommand = programOnlyCommand(command)
+            val outFile = Files.createTempFile("bmc-jbmc-prog", ".txt").toFile()
+            var p: Process? = null
+            try {
+                val pb = ProcessBuilder(progCommand)
+                pb.redirectErrorStream(false)
+                applySolverPath(pb)
+                p = pb.start()
+                RUNNING.add(p)
+                // Stream stdout (the program dump) to the spill on a background thread; drain stderr so a
+                // full pipe can't deadlock. No timeout: --program-only does symex + SSA build but NO solve,
+                // so it is bounded by the same unwind the verdict run uses (which already completed here).
+                val out = FileGobbler(p.inputStream, outFile, null)
+                val err = StreamGobbler(p.errorStream)
+                out.start()
+                err.start()
+                p.waitFor()
+                out.join()
+                err.join()
+                val report = JbmcComplexity.parse(outFile)
+                println(report.render(entryFunction))
+            } catch (e: Exception) {
+                println("  bmc4j[complexity]: $entryFunction -> could not produce the complexity report" +
+                        " (${e.message ?: e.javaClass.simpleName}); the verdict run is unaffected.")
+            } finally {
+                if (p != null) {
+                    RUNNING.remove(p)
+                    if (p.isAlive) {
+                        killTree(p)
+                    }
+                }
+                try {
+                    Files.deleteIfExists(outFile.toPath())
+                } catch (ignored: IOException) {
+                    outFile.deleteOnExit()
+                }
+            }
+        }
+
+        /**
+         * Derive the `--program-only` command from the built verdict [command]: drop the OUTPUT/UI flags
+         * that don't belong in (or would change the format of) a program dump - `--json-ui` (the dump is
+         * plain-text with per-step `// file ... line ... function ...` location comments, which the
+         * `--json-ui` form does NOT carry; it only emits a `size of program expression` summary), `--trace`,
+         * and `--verbosity <n>` - and append `--program-only`. Everything verdict-relevant (classpath,
+         * --function, --unwind / --unwindset, the string-mode flags, contracts, --slice-formula) is KEPT, so
+         * the dumped equation is the SAME formula the verdict run built.
+         */
+        internal fun programOnlyCommand(command: List<String>): List<String> {
+            val out = mutableListOf<String>()
+            var i = 0
+            while (i < command.size) {
+                when (val tok = command[i]) {
+                    "--json-ui", "--trace" -> { /* drop: output/UI only */ }
+                    "--verbosity" -> i++ // drop the flag AND its value
+                    else -> out.add(tok)
+                }
+                i++
+            }
+            out.add("--program-only")
+            return out
         }
 
         /** Build the UNKNOWN reason line for an engine error exit (solver gave up / crashed / bad args). */

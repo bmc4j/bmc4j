@@ -51,6 +51,13 @@ class JbmcBackend : VerificationBackend {
         // is on, so the normal path pays nothing; threaded into the engine run so the parsed profile can
         // surface these harness-measured timings alongside jbmc's engine-reported phases.
         val timing = if (request.profile) PipelineTiming() else null
+        // Source-attributed complexity report: an extra `--program-only` jbmc pass that dumps the SSA
+        // program equation and attributes its steps back to source (see [JbmcComplexity]). Opt-in via
+        // -Dbmc.complexityReport=true, and also produced for any @BmcProfile proof so the formula-by-source
+        // attribution rides alongside the performance breakdown. Purely additive (the dump never solves, so
+        // it can't change a verdict); off by default, so the normal path is unaffected.
+        val complexityReport = request.profile
+                || System.getProperty(COMPLEXITY_REPORT_PROP, "").equals("true", ignoreCase = true)
         // Decide whether to construct the receiver (instance proof + analysable no-arg ctor). When ELIGIBLE,
         // the wrapper is synthesised into the entry class (inside prepareClasspath) and jbmc is pointed at it
         // via --function; otherwise the proof keeps today's nondet-`this` entry. Computed once here off the
@@ -100,7 +107,11 @@ class JbmcBackend : VerificationBackend {
                     request.jbmcOptions,
                     // Per-loop unwind overrides (smart unwinding): emitted as --unwindset <loopId>:<bound>
                     // so only the under-bounded loops are raised; empty for an ordinary single-bound run.
-                    request.unwindSet)
+                    request.unwindSet,
+                    // Complexity report: when on, the driver runs an extra --program-only pass on this same
+                    // command and prints the source-attributed SSA-equation breakdown (additive; the verdict
+                    // is unchanged).
+                    complexityReport)
         }
         // Positive floor for stub detection: a green with an EMPTY harvest is only trustworthy if
         // the opaque-symbol parse provably works against THIS engine — a format drift in a
@@ -124,6 +135,10 @@ class JbmcBackend : VerificationBackend {
     private companion object {
 
         const val JBMC_PROP = "bmc.jbmc"
+
+        /** Opt-in system property for the source-attributed SSA complexity report (see [JbmcComplexity]).
+         *  `-Dbmc.complexityReport=true` produces it for every proof; @BmcProfile produces it too. */
+        const val COMPLEXITY_REPORT_PROP = "bmc.complexityReport"
 
         /** Consumer model classes dir (src/bmcModel output), set by the Gradle plugin. */
         const val USER_MODELS_PROP = "bmc.userModels"

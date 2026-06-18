@@ -35,6 +35,14 @@ import java.lang.annotation.Target;
  *       SAT variables/clauses when the solver was reached.</li>
  * </ul>
  *
+ * <p>It also produces a <b>source-attributed complexity report</b> (also available standalone via
+ * {@code -Dbmc.complexityReport=true}): an extra {@code --program-only} jbmc pass dumps the SSA program
+ * equation, and bmc4j attributes its steps back to the source methods/lines that generated them, ranked
+ * by step count with a per-region count of the expensive-to-bit-blast op kinds (multiply, divide, modulo,
+ * symbolic-distance shift, symbolic-index array access, cast). This lets you attribute formula complexity
+ * to code by MEASUREMENT. It is a PROXY for SAT/CNF cost, not literal clause counts (one SSA op
+ * bit-blasts to a variable number of clauses) &mdash; the rendered header states this plainly.
+ *
  * <p>Default off: only a proof annotated {@code @BmcProfile} produces the breakdown.
  *
  * <p>A proof whose verdict is served from the verdict cache has no fresh engine run to profile;
