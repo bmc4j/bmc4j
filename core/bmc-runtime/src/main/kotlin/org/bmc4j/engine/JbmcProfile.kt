@@ -100,13 +100,22 @@ class JbmcProfile private constructor(
     class LoopInfo(@get:JvmName("loopId") val loopId: String,
                    @get:JvmName("file") val file: String?,
                    @get:JvmName("line") val line: Int,
-                   @get:JvmName("iterations") val iterations: Int) {
+                   @get:JvmName("iterations") val iterations: Int,
+                   /** Best-effort call path (OUTERMOST first, ending in this loop's own method) that the
+                    *  symex took to reach this loop, reconstructed from the live `BMC at ... function ...`
+                    *  stream. Empty when no call context was captured. HEURISTIC, not a true engine call
+                    *  stack: it is inferred from source-frame transitions, so deep recursion / re-entry to
+                    *  the same method can mislabel a frame. Tells "real path vs dead-but-explored branch". */
+                   @get:JvmName("callPath") val callPath: List<String> = emptyList()) {
 
         /** A ready-to-paste pin for THIS loop: `@LoopUnwind(loop = "<id>", bound = <iterations>)`. The
          *  bound defaults to the iterations observed — a sound starting point (it covers what this run
          *  reached); raise it if the loop is still under-bounded, lower it to cap cost. */
         fun suggestion(): String =
                 "@LoopUnwind(loop = \"$loopId\", bound = $iterations)"
+
+        /** The [callPath] as `outer > mid > inner` (outermost caller first), or empty when none captured. */
+        fun callPathString(): String = callPath.joinToString(" > ")
     }
 
     /**
@@ -324,6 +333,12 @@ class JbmcProfile private constructor(
                 shown.forEach { loop ->
                     val where = if (loop.file != null) "  (${loop.file}:${loop.line})" else ""
                     add("       ${loop.loopId}  x${loop.iterations}$where")
+                    // The reconstructed call path that reached this loop (outermost first). Shown only when
+                    // there is caller context beyond the loop's own method, so a reader can tell a loop on a
+                    // real path from one reached via a dead-but-explored branch. Heuristic - see LoopInfo.
+                    if (loop.callPath.size > 1) {
+                        add("           reached via ${loop.callPathString()}")
+                    }
                 }
                 if (unwindingLoops.size > TOP_N) {
                     add("       (+ ${unwindingLoops.size - TOP_N} more)")
@@ -541,6 +556,13 @@ class JbmcProfile private constructor(
         /** `Unwinding recursion java::pkg.Class.method ...`. */
         private val UNWIND_RECURSION_RE =
                 Regex("""^Unwinding recursion (\S+)""")
+        /** `BMC at file <f> line <l> function java::pkg.Class.method:(sig)ret bytecode-index <n> (depth <d>)`
+         *  — emitted per symex STEP in the live (verbosity 10) stream, naming the function currently being
+         *  symbolically executed. Group 1 is its FULL symbol. We track this field's TRANSITIONS to
+         *  reconstruct a best-effort call path to each unwound loop (see [Accumulator.frames]); the `depth`
+         *  is a monotonic symex-STEP counter, NOT call depth, so it can't drive the stack and we ignore it. */
+        private val BMC_AT_RE =
+                Regex("""^BMC at .*?\bfunction (java::\S+)""")
         /** `size of program expression: <N> steps`. */
         private val PROGRAM_STEPS_RE =
                 Regex("""size of program expression:\s*(\d+)\s*steps""")
@@ -584,12 +606,33 @@ class JbmcProfile private constructor(
             private var satVariables: Long? = null
             private var satClauses: Long? = null
             private var lastPhaseEntered: Phase? = null
+            // Best-effort SHADOW CALL STACK (outermost first), driven by the live `BMC at ... function ...`
+            // transitions, so each unwound loop can be stamped with the call path that reached it. Push on
+            // entering a function not currently on the stack (a call); pop back to it when the active
+            // function reverts to one already on the stack (a return). Heuristic: same-method recursion /
+            // re-entry is indistinguishable by name, so a deeply recursive path can under-count frames.
+            private val frames = ArrayList<String>()
 
             /** Advance the furthest-entered phase monotonically (never regress to an earlier phase). */
             private fun enter(phase: Phase) {
                 val cur = lastPhaseEntered
                 if (cur == null || phase.ordinal > cur.ordinal) {
                     lastPhaseEntered = phase
+                }
+            }
+
+            /** Fold a `BMC at`/unwind `function` field into the shadow stack: a function not currently on
+             *  the stack is a CALL (push); a function already below the top is a RETURN to that ancestor
+             *  (pop everything above it). The top is always the function currently being symex'd. */
+            private fun enterFunction(symbol: String) {
+                val m = renderMethod(symbol)
+                val idx = frames.lastIndexOf(m)
+                if (idx < 0) {
+                    frames.add(m)
+                } else {
+                    while (frames.size - 1 > idx) {
+                        frames.removeAt(frames.size - 1)
+                    }
                 }
             }
 
@@ -610,14 +653,26 @@ class JbmcProfile private constructor(
                     enter(Phase.SYMEX)
                     return
                 }
+                // Per-step symex location: just updates the shadow call stack, then done. Gated on the cheap
+                // prefix because these lines are the most frequent in a verbose run - short-circuiting here
+                // also keeps them from falling through the heavier regexes below.
+                if (line.startsWith("BMC at")) {
+                    BMC_AT_RE.find(line)?.let { enterFunction(it.groupValues[1]) }
+                    return
+                }
                 UNWIND_LOOP_RE.find(line)?.let {
                     val loopId = it.groupValues[1]
                     val m = renderMethod(loopId)
                     loopCounts[m] = (loopCounts[m] ?: 0) + 1
+                    // Ensure the loop's own method tops the shadow stack (the preceding `BMC at` lines should
+                    // have pushed it; this is a backstop if one was missed), then snapshot the call path.
+                    enterFunction(loopId)
                     // Per-loop detail: bump the iteration count for this FULL id and remember its source
-                    // location the first time we see it (later iterations repeat the same file/line).
+                    // location + the call path that reached it, the FIRST time we see it (later iterations
+                    // repeat the same location, and the stack may have unwound past it by then).
                     val acc = loopInfos.getOrPut(loopId) {
-                        LoopAcc(it.groupValues[2].ifEmpty { null }, it.groupValues[3].toIntOrNull() ?: 0)
+                        LoopAcc(it.groupValues[2].ifEmpty { null }, it.groupValues[3].toIntOrNull() ?: 0,
+                                ArrayList(frames))
                     }
                     acc.iterations++
                     return
@@ -696,11 +751,14 @@ class JbmcProfile private constructor(
                     infos.entries
                             .sortedWith(compareByDescending<Map.Entry<String, LoopAcc>> { it.value.iterations }
                                     .thenBy { it.key })
-                            .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.iterations) }
+                            .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.iterations,
+                                    it.value.callPath) }
         }
 
-        /** Mutable per-loop tally: the iterations seen plus the (first-observed) source location. */
-        private class LoopAcc(@JvmField val file: String?, @JvmField val line: Int) {
+        /** Mutable per-loop tally: the iterations seen plus the (first-observed) source location and the
+         *  call path that reached the loop. */
+        private class LoopAcc(@JvmField val file: String?, @JvmField val line: Int,
+                              @JvmField val callPath: List<String>) {
             @JvmField var iterations: Int = 0
         }
 
