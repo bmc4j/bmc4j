@@ -317,13 +317,13 @@ class JbmcProfile private constructor(
             // loops that ACTUALLY unwound this run (a loop the global bound never reached won't appear),
             // so it is noted as possibly partial.
             if (unwindingLoops.isNotEmpty()) {
-                add("   targetable loops (each @LoopUnwind below is flush-left, ready to copy-paste):")
-                unwindingLoops.take(TOP_N).forEach { loop ->
+                val shown = unwindingLoops.take(TOP_N)
+                // First the readable list: each observed loop's FULL --unwindset-form id, iterations, and
+                // source location, tagged like the rest of the breakdown.
+                add("   targetable loops:")
+                shown.forEach { loop ->
                     val where = if (loop.file != null) "  (${loop.file}:${loop.line})" else ""
                     add("       ${loop.loopId}  x${loop.iterations}$where")
-                    // Emit the pin flush-left with NO `bmc4j[profile]:` tag (see RAW_LINE_MARKER) so a
-                    // terminal line-copy yields exactly the annotation, paste-able straight into source.
-                    add("$RAW_LINE_MARKER${loop.suggestion()}")
                 }
                 if (unwindingLoops.size > TOP_N) {
                     add("       (+ ${unwindingLoops.size - TOP_N} more)")
@@ -331,6 +331,11 @@ class JbmcProfile private constructor(
                 add("       NOTE: only loops that unwound in THIS run are listed (a loop the bound never" +
                         " reached won't appear); the suggested bound is the iterations observed - raise it" +
                         " if a loop is still under-bounded.")
+                // Then ALL the pins as ONE contiguous, flush-left, UNTAGGED block (see RAW_LINE_MARKER):
+                // select the whole block in one go and paste it straight onto the proof's @BmcProof —
+                // a multi-line terminal copy carries no `bmc4j[profile]:` prefix to hand-strip.
+                add("   @LoopUnwind pins (copy the whole block below onto your @BmcProof method):")
+                shown.forEach { loop -> add("$RAW_LINE_MARKER${loop.suggestion()}") }
             }
 
             // Formula size.
