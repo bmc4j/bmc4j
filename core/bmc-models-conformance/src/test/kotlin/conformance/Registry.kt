@@ -36,6 +36,13 @@ val COVERED: Set<String> = setOf(
     // @BmcModelConforms with a throw-loud boundary. NOT per-member-enforced (only the commonly-reached
     // static surface is modeled; the rest is simply absent from the model class).
     "java.lang.Character",
+    // java.lang.Integer / java.lang.Long — focused int/long -> String decimal-formatting models. The
+    // default toString delegates to the refinement intrinsic (CProverString.toString, unchanged under
+    // refinement); a @ConditionalOn(STRING_REFINEMENT_OFF) override does a BOUNDED digit build under
+    // no-refine (CHAR_ARRAY_MODEL), where the intrinsic would otherwise return an unconstrained
+    // nondet-length String. Class-level COVERED only (toString-focused, not whole-surface enforced);
+    // model proofs: proofs.strings.IntToStringLaws / LongToStringLaws.
+    "java.lang.Integer", "java.lang.Long",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
     // java.time small enums + the offset wrapper. The enums (DayOfWeek/Month/IsoEra) carry method-level

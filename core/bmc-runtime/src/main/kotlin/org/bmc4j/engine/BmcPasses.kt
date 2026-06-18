@@ -117,6 +117,18 @@ object StringLengthPass : BmcPass {
 }
 
 /**
+ * Swap in each [org.bmc4j.ConditionalOn] override whose [org.bmc4j.BmcCondition] holds for this proof's
+ * resolved config, by redirecting every call to the override's target to the override (call-site
+ * redirect). Per-proof (the condition is evaluated against the run's string mode). Runs AFTER the model
+ * jars are spliced so the override classes are present and their target call sites are reachable. A no-op
+ * when no override fires (no model declares one whose condition holds for this mode).
+ */
+object ConditionalOnPass : BmcPass {
+    override fun transform(classes: ClassSet, ctx: BmcContext): ClassSet =
+            ClassSet(ConditionalOnBytecode.rewrite(classes.classpath, ctx.request))
+}
+
+/**
  * Certify each contract this proof CONSUMES is pure-by-construction against the fully-prepared, model-bearing
  * classpath, or fail LOUD ([ContractPurityError]). A CHECK, not a rewrite: returns [classes] unchanged.
  * Reads the contract [BmcContext.manifest] -> per-proof; runs on the desugared, model-bearing form (depends
@@ -174,7 +186,8 @@ object ConstructReceiverPass : BmcPass {
 object ModelSlicePass : BmcPass {
     override val dependsOn: List<KClass<out BmcPass>>
         get() = listOf(ContractRewritePass::class, AssumeContractPass::class, StringLengthPass::class,
-                PurityAuditPass::class, ExceptionMessageElisionPass::class, ConstructReceiverPass::class)
+                ConditionalOnPass::class, PurityAuditPass::class, ExceptionMessageElisionPass::class,
+                ConstructReceiverPass::class)
     override fun transform(classes: ClassSet, ctx: BmcContext): ClassSet =
             ClassSet(ModelSlice.sliceForCone(classes.classpath, ctx.entryClass))
 }
