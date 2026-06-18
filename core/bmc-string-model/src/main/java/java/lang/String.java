@@ -189,6 +189,28 @@ public final class String implements CharSequence, Comparable<String> {
         return org.cprover.CProverString.toString(l);
     }
 
+    /**
+     * Clone-free construction from a char array the CALLER exclusively owns: the backing is ADOPTED
+     * ({@code value = data}) with NO defensive copy. For bmc4j-internal literal construction only
+     * (see {@code StringLengthBytecode.emitFixedString}), where the array is freshly built per call and
+     * never aliased - so skipping the copy is sound. The public {@code String(char[])} constructor keeps
+     * its defensive {@code data.clone()} for USER code, which may pass a shared array.
+     *
+     * <p>Removes the {@code array[char].clone} the copying constructor incurred for a fixed string literal
+     * under no-refine (the literal's chars are concrete and it owns the array outright, so the clone was
+     * pure waste). Not a {@code java.lang.String} member - reached only by a bytecode-emitted
+     * {@code INVOKESTATIC} on the no-refine analysis classpath, where this model shadows
+     * {@code java.lang.String}.
+     */
+    public static String adoptChars(char[] data) {
+        if (data == null) {
+            throw new NullPointerException();
+        }
+        String s = new String();
+        s.value = data;   // adopt: no clone, the caller hands over sole ownership of a fresh array
+        return s;
+    }
+
     public char[] toCharArray() {
         return backing().clone();
     }

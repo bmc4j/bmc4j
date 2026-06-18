@@ -119,15 +119,16 @@ internal class StringLengthBytecodeTest {
     }
 
     @Test
-    fun constant_string_literal_in_a_rewritten_class_is_routed_through_ofCharsLiteral() {
+    fun constant_string_literal_in_a_rewritten_class_is_routed_through_adoptChars() {
         // In a class the pass rewrites (it references nondetWithoutNull), a `ldc "ab"` String constant is
         // turned into a fixed-length char-backed construction (new char[]{'a','b'} ->
-        // BmcStrings.ofCharsLiteral), so the literal's KNOWN length is concrete and downstream
+        // String.adoptChars), so the literal's KNOWN length is concrete and downstream
         // length-bounded ops do not loop on the symbolic char-array backing JBMC would otherwise give an
-        // ldc constant under CHAR_ARRAY_MODEL. Literals use the LOOP-FREE factory (not the StringBuilder
-        // `ofChars` that `new String(char[])` read-back sites take) so a literal longer than the unwind
-        // bound is not truncated by a per-char append loop. (A class that only HOLDS constants and never
-        // names nondet is left verbatim - see `a_class_without_nondet_is_unchanged`.)
+        // ldc constant under CHAR_ARRAY_MODEL. Literals use the LOOP-FREE, CLONE-FREE model factory (not the
+        // StringBuilder `ofChars` that `new String(char[])` read-back sites take) so a literal longer than
+        // the unwind bound is not truncated by a per-char append loop AND no array[char].clone is incurred.
+        // (A class that only HOLDS constants and never names nondet is left verbatim - see
+        // `a_class_without_nondet_is_unchanged`.)
         val bytes = methodWith("pkg/P", METHOD_NAME, "()V") { mv ->
             // a nondet reference makes this class get rewritten at all (the nondet-only trigger).
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/cprover/CProver", "nondetWithoutNull",
@@ -139,7 +140,7 @@ internal class StringLengthBytecodeTest {
         }
         val t = trace(StringLengthBytecode.rewriteClass(bytes, 7))
         assertTrue(t.none { it.startsWith("ldc ") }, "the String literal should be rewritten away: $t")
-        assertTrue(t.any { it.contains("BmcStrings.ofCharsLiteral") }, "should route through ofCharsLiteral: $t")
+        assertTrue(t.any { it.contains("java/lang/String.adoptChars") }, "should route through adoptChars: $t")
     }
 
     @Test
@@ -170,7 +171,7 @@ internal class StringLengthBytecodeTest {
         val t = trace(StringLengthBytecode.rewriteClass(bytes, 7))
         assertTrue(t.contains("ldc bmc4j.reachability"),
                 "an injected literal on a synthetic line must be left verbatim: $t")
-        assertTrue(t.none { it == "ldc ab" } && t.any { it.contains("BmcStrings.ofCharsLiteral") },
+        assertTrue(t.none { it == "ldc ab" } && t.any { it.contains("java/lang/String.adoptChars") },
                 "the genuine user literal on a normal line is still pinned: $t")
     }
 

@@ -62,7 +62,11 @@ object StringLengthBytecode {
     private const val BMC_STRINGS = "org/bmc4j/engine/BmcStrings"
     private const val ANY_CHAR_BACKED = "anyCharBacked"
     private const val ANY_CHAR_BACKED_DESC = "(I)Ljava/lang/String;"
-    private const val OF_CHARS_LITERAL = "ofCharsLiteral"
+    /** The clone-free literal factory on the char-array String model (no-refine only): adopts the freshly
+     *  built char[] as its backing with NO defensive copy, so a fixed literal incurs no `array[char].clone`.
+     *  Emitted directly (not via a BmcStrings hop) - this pass runs only under CHAR_ARRAY_MODEL, where the
+     *  model shadows `java.lang.String` on jbmc's classpath, so the call resolves to the model. */
+    private const val STRING_ADOPT_CHARS = "adoptChars"
     private const val OF_CHARS_DESC = "([C)Ljava/lang/String;"
 
     /** Constant-pool tag for a CONSTANT_String entry (a `ldc "..."` literal). */
@@ -288,9 +292,10 @@ object StringLengthBytecode {
             super.visitLdcInsn(value)
         }
 
-        /** Emit `BmcStrings.ofCharsLiteral(new char[]{ <literal chars> })` for a String constant [s] - the
-         *  char[] build is UNROLLED (no loop) and ofCharsLiteral is loop-free, so the literal's length is
-         *  concrete and a literal longer than the unwind bound is not truncated by a per-char append. */
+        /** Emit `String.adoptChars(new char[]{ <literal chars> })` for a String constant [s] - the char[]
+         *  build is UNROLLED (no loop) and the model's `adoptChars` ADOPTS the fresh array with no copy, so
+         *  the literal's length is concrete, a literal longer than the unwind bound is not truncated by a
+         *  per-char append, AND no `array[char].clone` is incurred (the array is owned outright here). */
         private fun emitFixedString(s: String) {
             pushInt(s.length)
             super.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR)
@@ -300,7 +305,7 @@ object StringLengthBytecode {
                 pushInt(s[i].code)
                 super.visitInsn(Opcodes.CASTORE)
             }
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, BMC_STRINGS, OF_CHARS_LITERAL, OF_CHARS_DESC, false)
+            super.visitMethodInsn(Opcodes.INVOKESTATIC, STRING, STRING_ADOPT_CHARS, OF_CHARS_DESC, false)
         }
         override fun visitJumpInsn(o: Int, l: org.objectweb.asm.Label?) { flushNondet(); super.visitJumpInsn(o, l) }
         override fun visitLabel(l: org.objectweb.asm.Label?) { flushNondet(); super.visitLabel(l) }
