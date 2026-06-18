@@ -23,6 +23,13 @@ val COVERED: Set<String> = setOf(
     // (FP total order) but models accept/getCount/getSum/getAverage.
     "java.util.IntSummaryStatistics", "java.util.LongSummaryStatistics", "java.util.DoubleSummaryStatistics",
     "java.math.BigInteger", "java.math.BigDecimal",
+    // java.lang.Character — static case-fold / classification surface modeled for the no-refine
+    // (CHAR_ARRAY_MODEL) path, where Character is NOT a JBMC intrinsic and the engine core-models
+    // Character NPEs (its CharacterData table is absent). Model proofs: proofs.strings.CharacterLaws.
+    // Precise over ASCII (+ the Latin-1 supplement for the case folds), loud beyond — per-member
+    // @BmcModelConforms with a throw-loud boundary. NOT per-member-enforced (only the commonly-reached
+    // static surface is modeled; the rest is simply absent from the model class).
+    "java.lang.Character",
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
     // java.time small enums + the offset wrapper. The enums (DayOfWeek/Month/IsoEra) carry method-level
