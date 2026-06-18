@@ -317,11 +317,13 @@ class JbmcProfile private constructor(
             // loops that ACTUALLY unwound this run (a loop the global bound never reached won't appear),
             // so it is noted as possibly partial.
             if (unwindingLoops.isNotEmpty()) {
-                add("   targetable loops (paste a @LoopUnwind to pin one's bound):")
-                unwindingLoops.take(TOP_N).forEach { loop ->
+                val shown = unwindingLoops.take(TOP_N)
+                // First the readable list: each observed loop's FULL --unwindset-form id, iterations, and
+                // source location, tagged like the rest of the breakdown.
+                add("   targetable loops:")
+                shown.forEach { loop ->
                     val where = if (loop.file != null) "  (${loop.file}:${loop.line})" else ""
                     add("       ${loop.loopId}  x${loop.iterations}$where")
-                    add("           ${loop.suggestion()}")
                 }
                 if (unwindingLoops.size > TOP_N) {
                     add("       (+ ${unwindingLoops.size - TOP_N} more)")
@@ -329,6 +331,11 @@ class JbmcProfile private constructor(
                 add("       NOTE: only loops that unwound in THIS run are listed (a loop the bound never" +
                         " reached won't appear); the suggested bound is the iterations observed - raise it" +
                         " if a loop is still under-bounded.")
+                // Then ALL the pins as ONE contiguous, flush-left, UNTAGGED block (see RAW_LINE_MARKER):
+                // select the whole block in one go and paste it straight onto the proof's @BmcProof —
+                // a multi-line terminal copy carries no `bmc4j[profile]:` prefix to hand-strip.
+                add("   @LoopUnwind pins (copy the whole block below onto your @BmcProof method):")
+                shown.forEach { loop -> add("$RAW_LINE_MARKER${loop.suggestion()}") }
             }
 
             // Formula size.
@@ -345,8 +352,13 @@ class JbmcProfile private constructor(
             }
         }
 
-        // Stamp every line with the grep-able tag.
-        return lines.joinToString("\n") { "  bmc4j[profile]:$it" }
+        // Stamp every line with the grep-able tag, EXCEPT lines flagged RAW_LINE_MARKER (the
+        // @LoopUnwind pins): those are emitted flush-left and untagged so a line-copy in the terminal
+        // hands back exactly the annotation, with nothing to hand-strip before pasting into source.
+        return lines.joinToString("\n") { line ->
+            if (line.startsWith(RAW_LINE_MARKER)) line.removePrefix(RAW_LINE_MARKER)
+            else "  bmc4j[profile]:$line"
+        }
     }
 
     private fun formatSeconds(secs: Double): String = when {
@@ -434,6 +446,12 @@ class JbmcProfile private constructor(
 
         /** Top-N offenders shown in the rendered table (the full list is in the parsed object). */
         private const val TOP_N = 8
+
+        /** Internal flag prepended to a built render line that must be emitted FLUSH-LEFT and UNTAGGED
+         *  (no `  bmc4j[profile]:` prefix) — used for the @LoopUnwind pins so a terminal line-copy yields
+         *  exactly the paste-able annotation. Stripped in the final join; never reaches output, and no
+         *  real line begins with it. */
+        private const val RAW_LINE_MARKER = "@@RAW@@"
 
         /** Below this many seconds, an unaccounted in-progress remainder is treated as noise (a kill landing
          *  right at a phase boundary, clock jitter) rather than a phase the engine was meaningfully stuck in,

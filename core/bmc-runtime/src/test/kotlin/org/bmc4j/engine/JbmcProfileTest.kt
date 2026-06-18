@@ -474,27 +474,39 @@ internal class JbmcProfileTest {
 
     @Test
     fun renders_a_copy_pasteable_loop_unwind_suggestion_per_loop() {
+        // Two distinct loops so we can assert the pins come out as ONE contiguous block.
         val json = """
             [
               {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 1 file Buffer.java line 41"},
-              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 2 file Buffer.java line 41"}
+              {"messageText":"Unwinding loop java::okio.Buffer.readDecimalLong:()J.0 iteration 2 file Buffer.java line 41"},
+              {"messageText":"Unwinding loop java::okio.Buffer.writeUtf8:(Ljava/lang/String;)V.0 iteration 1 file Buffer.java line 88"}
             ]""".trimIndent()
         val p = JbmcProfile.parse(json)
 
         // The per-loop object renders the exact annotation line.
-        assertEquals("@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)",
-                p.unwindingLoops.single().suggestion())
+        val decimalPin = "@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)"
+        val utf8Pin = "@LoopUnwind(loop = \"java::okio.Buffer.writeUtf8:(Ljava/lang/String;)V.0\", bound = 1)"
 
         val rendered = p.render("okio.Tests.decimal", "TIMEOUT")
-        assertTrue(rendered.contains("targetable loops (paste a @LoopUnwind"),
+        assertTrue(rendered.contains("targetable loops:"),
                 "the targetable-loops section is present: $rendered")
         assertTrue(rendered.contains("java::okio.Buffer.readDecimalLong:()J.0  x2  (Buffer.java:41)"),
                 "the full id + iterations + location is shown: $rendered")
-        assertTrue(rendered.contains(
-                "@LoopUnwind(loop = \"java::okio.Buffer.readDecimalLong:()J.0\", bound = 2)"),
-                "a ready-to-paste @LoopUnwind line is emitted: $rendered")
         assertTrue(rendered.contains("only loops that unwound in THIS run"),
                 "the partial-list caveat is noted: $rendered")
+
+        // The pins must be FLUSH-LEFT and UNTAGGED — whole render lines equal to the bare annotation,
+        // no `  bmc4j[profile]:` prefix or indentation — so a terminal copy pastes straight into source.
+        val lines = rendered.lines()
+        assertTrue(lines.contains(decimalPin), "decimal pin is a flush-left, untagged line: $rendered")
+        assertTrue(lines.contains(utf8Pin), "utf8 pin is a flush-left, untagged line: $rendered")
+        // ...and they form ONE CONTIGUOUS block: every pin sits in a single run of untagged lines, so
+        // the user can select the whole block at once. The pins are the only untagged (non-prefixed,
+        // non-blank) lines, and they must be adjacent.
+        val pinIdx = lines.indices.filter { lines[it] == decimalPin || lines[it] == utf8Pin }
+        assertEquals(2, pinIdx.size, "both pins present once: $rendered")
+        assertEquals(pinIdx[0] + 1, pinIdx[1],
+                "the @LoopUnwind pins are emitted as one contiguous block: $rendered")
     }
 
     @Test
