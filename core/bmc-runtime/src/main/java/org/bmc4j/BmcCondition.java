@@ -33,10 +33,12 @@ public enum BmcCondition {
     /**
      * Holds when this proof runs with string refinement OFF ({@link StringMode#CHAR_ARRAY_MODEL} /
      * {@code --no-refine-strings}). Use it for an override that must replace a body which bottoms out in a
-     * refinement-only intrinsic. The motivating case: {@code Integer.toString(int)} /
-     * {@code Long.toString(long)} delegate to {@code org.cprover.CProverString.toString}, a refinement
+     * refinement-only intrinsic. The motivating case: every {@code int}/{@code long -> String} funnel
+     * ({@code Integer.toString} / {@code Long.toString} / {@code String.valueOf} /
+     * {@code StringBuilder.append}) bottoms out in {@code org.cprover.CProverString.toString}, a refinement
      * primitive; with refinement off that primitive yields an UNCONSTRAINED (nondet-length) String, so a
-     * no-refine override does a bounded digit build instead.
+     * cross-class no-refine override ({@code org.bmc4j.engine.BmcStrings.ofInt}/{@code ofLong}) redirects
+     * that single choke point to a bounded digit build instead.
      */
     STRING_REFINEMENT_OFF
 }

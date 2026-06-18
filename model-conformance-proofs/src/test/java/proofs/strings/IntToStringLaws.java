@@ -5,18 +5,20 @@ import org.bmc4j.BmcProof;
 import org.bmc4j.StringMode;
 
 /**
- * Conformance for the {@code int -> String} model ({@link java.lang.Integer}) and its {@code @ConditionalOn}
- * no-refine override.
+ * Conformance for the {@code int -> String} {@code @ConditionalOn} no-refine override
+ * ({@code org.bmc4j.engine.BmcStrings.ofInt}, which redirects the single refinement primitive every
+ * funnel bottoms out in: {@code org.cprover.CProverString.toString(int)}).
  *
  * <p>The whole point of the override is the LENGTH BOUND under {@code StringMode.CHAR_ARRAY_MODEL}: with
  * the refinement-only {@code CProverString.toString} intrinsic, {@code int -> String} comes back
  * nondet-length (an {@code int} is really at most 11 chars incl. sign), which poisons proofs. Under
  * CHAR_ARRAY_MODEL the override builds a bounded char[] instead, so {@code length() <= 11} holds - and the
  * value is correct (representative inputs + a symbolic in-range int, asserted via the sound
- * {@code BmcStrings} char-by-char path so no string refinement is needed).
+ * {@code BmcStrings} char-by-char path so no string refinement is needed). Because the redirect catches
+ * the shared choke point, BOTH {@code Integer.toString} AND {@code String.valueOf} come out bounded.
  *
- * <p>The REFINEMENT proofs at the bottom show the override did NOT alter the refinement path: the default
- * body (the intrinsic) still produces correct values there.
+ * <p>The REFINEMENT proofs at the bottom show the override did NOT alter the refinement path: the intrinsic
+ * still produces correct values there.
  */
 class IntToStringLaws {
 
@@ -27,6 +29,14 @@ class IntToStringLaws {
         int i = Bmc.anyInt();
         // The override builds into a fixed 11-char buffer; without it this length would be nondet.
         Bmc.check(Integer.toString(i).length() <= 11);
+    }
+
+    @BmcProof(unwind = 12, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void value_of_length_is_bounded_for_any_int_none() {
+        int i = Bmc.anyInt();
+        // String.valueOf(int) bottoms out in the SAME CProverString.toString(int) choke point the override
+        // redirects, so it inherits the bound — proving the single redirect covers every funnel.
+        Bmc.check(String.valueOf(i).length() <= 11);
     }
 
     @BmcProof(unwind = 12, stringMode = StringMode.CHAR_ARRAY_MODEL)
@@ -78,7 +88,7 @@ class IntToStringLaws {
 
     @BmcProof
     void refinement_zero_unchanged() {
-        // Under refinement the default body (the intrinsic) is what runs; it still yields "0".
+        // Under refinement no override fires; CProverString.toString stays the fast intrinsic, still "0".
         Bmc.check(Integer.toString(0).equals("0"));
     }
 

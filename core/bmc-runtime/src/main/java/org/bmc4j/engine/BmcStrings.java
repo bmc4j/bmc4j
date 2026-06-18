@@ -3,6 +3,8 @@ package org.bmc4j.engine;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.bmc4j.BmcCondition;
+import org.bmc4j.ConditionalOn;
 import org.cprover.CProver;
 import org.cprover.CProverString;
 
@@ -126,6 +128,82 @@ public final class BmcStrings {
         StringBuilder sb = new StringBuilder();
         sb.append(c);
         return sb.toString();
+    }
+
+    // === int / long -> String, bounded for the no-refine path ===============================
+    //
+    // Every `int`/`long -> String` funnel (Integer.toString / Long.toString / String.valueOf /
+    // StringBuilder.append) bottoms out in the refinement primitive `org.cprover.CProverString.toString`.
+    // Under string REFINEMENT that primitive is a sound, fast `of_int` intrinsic. Under
+    // StringMode.CHAR_ARRAY_MODEL (--no-refine-strings) it instead returns an UNCONSTRAINED String, which
+    // the char-array String model backs with a NONDET-LENGTH array, so `int -> String` becomes unbounded
+    // (an int is really at most 11 chars incl. sign; a long at most 20) and poisons proofs (e.g. an
+    // exception message `"...: " + index` blows a String.<init> unwind up to thousands of iterations).
+    //
+    // These two factories are the @ConditionalOn(STRING_REFINEMENT_OFF) overrides that REDIRECT that single
+    // choke point under no-refine: a bounded digit build into a fixed char[] (11 for int, 20 for long),
+    // constructed via the sound char-array path. They live HERE (a bmc4j helper already excluded from
+    // re-rewrite) rather than shadowing the pervasive java.lang.Integer/Long. Each override's descriptor
+    // equals its target's (`(I)Ljava/lang/String;` / `(J)Ljava/lang/String;`), so the redirect is
+    // overload-precise. Under refinement neither fires, leaving CProverString.toString as the fast intrinsic.
+
+    /**
+     * Bounded {@code int -> String}, the no-refine override for {@code org.cprover.CProverString.toString(int)}
+     * (and thus every funnel that bottoms out there). Decimal formatting into a fixed 11-char buffer (10
+     * digits + a possible sign), then a sound char-array String construction via {@link #ofChars}.
+     * Differentially exact vs the JDK for every {@code int}; length is at most 11.
+     *
+     * <p>{@link Integer#MIN_VALUE} is handled by NEVER negating ({@code -MIN_VALUE} overflows back to
+     * itself): digits are peeled keeping the value NEGATIVE (the side that holds the full magnitude). And it
+     * never returns a bare String LITERAL ({@code "0"}, {@code "-"}): under no-refine a literal's backing is
+     * itself nondet-length, so EVERY case - including {@code 0} and {@code MIN_VALUE} - is built through the
+     * char[] path.
+     */
+    @ConditionalOn(condition = BmcCondition.STRING_REFINEMENT_OFF,
+            targetClass = "org.cprover.CProverString", target = "toString")
+    public static String ofInt(int i) {
+        char[] buf = new char[11];              // 10 digits max + a possible '-' sign
+        int pos = buf.length;
+        boolean negative = i < 0;
+        // Work on the NEGATIVE side so Integer.MIN_VALUE is representable (its positive twin is not).
+        int n = negative ? i : -i;
+        // Runs at least once (peels the last digit), so 0 is built as "0" through the char[] path.
+        do {
+            int digit = -(n % 10);              // n <= 0, so n % 10 is in [-9, 0]; negate to a 0..9 digit
+            buf[--pos] = (char) ('0' + digit);
+            n = n / 10;
+        } while (n < 0);
+        if (negative) {
+            buf[--pos] = '-';
+        }
+        // ofChars rebuilds via StringBuilder.append(char) (the one construction primitive JBMC models
+        // soundly); within BmcStrings this is reached directly (the class is excluded from the String
+        // construction redirect), so the result has a sound, bounded-length backing.
+        return ofChars(buf, pos, buf.length - pos);
+    }
+
+    /**
+     * Bounded {@code long -> String}, the {@code long} twin of {@link #ofInt} and the no-refine override for
+     * {@code org.cprover.CProverString.toString(long)}. Same bounded digit build widened to {@code long}:
+     * fixed 20-char buffer (19 digits + a possible sign), {@link Long#MIN_VALUE} handled by never negating,
+     * every case built through the char[] path. Differentially exact; length is at most 20.
+     */
+    @ConditionalOn(condition = BmcCondition.STRING_REFINEMENT_OFF,
+            targetClass = "org.cprover.CProverString", target = "toString")
+    public static String ofLong(long i) {
+        char[] buf = new char[20];              // 19 digits max + a possible '-' sign
+        int pos = buf.length;
+        boolean negative = i < 0;
+        long n = negative ? i : -i;             // negative side holds the full magnitude (incl. MIN_VALUE)
+        do {
+            int digit = (int) -(n % 10);        // n <= 0, so n % 10 is in [-9, 0]; negate to a 0..9 digit
+            buf[--pos] = (char) ('0' + digit);
+            n = n / 10;
+        } while (n < 0);
+        if (negative) {
+            buf[--pos] = '-';
+        }
+        return ofChars(buf, pos, buf.length - pos);
     }
 
     /** Sound stand-in for {@code receiver.equals(other)} where the receiver is a String. */

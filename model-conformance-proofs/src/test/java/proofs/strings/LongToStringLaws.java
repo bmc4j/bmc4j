@@ -5,10 +5,11 @@ import org.bmc4j.BmcProof;
 import org.bmc4j.StringMode;
 
 /**
- * Conformance for the {@code long -> String} model ({@link java.lang.Long}) and its {@code @ConditionalOn}
- * no-refine override - the {@code long} twin of {@link IntToStringLaws}. Under
- * {@code StringMode.CHAR_ARRAY_MODEL} the override is length-bounded ({@code <= 20} chars, a {@code long}'s
- * max) and value-correct; under {@code REFINEMENT} the default intrinsic body is unchanged.
+ * Conformance for the {@code long -> String} {@code @ConditionalOn} no-refine override
+ * ({@code org.bmc4j.engine.BmcStrings.ofLong}, redirecting {@code org.cprover.CProverString.toString(long)})
+ * - the {@code long} twin of {@link IntToStringLaws}. Under {@code StringMode.CHAR_ARRAY_MODEL} the
+ * override is length-bounded ({@code <= 20} chars, a {@code long}'s max) and value-correct; under
+ * {@code REFINEMENT} the intrinsic is unchanged.
  */
 class LongToStringLaws {
 
@@ -18,6 +19,13 @@ class LongToStringLaws {
     void length_is_bounded_for_any_long_none() {
         long i = Bmc.anyLong();
         Bmc.check(Long.toString(i).length() <= 20);
+    }
+
+    @BmcProof(unwind = 21, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    void value_of_length_is_bounded_for_any_long_none() {
+        long i = Bmc.anyLong();
+        // String.valueOf(long) shares the CProverString.toString(long) choke point the override redirects.
+        Bmc.check(String.valueOf(i).length() <= 20);
     }
 
     @BmcProof(unwind = 21, stringMode = StringMode.CHAR_ARRAY_MODEL)
@@ -70,7 +78,7 @@ class LongToStringLaws {
 
     @BmcProof
     void refinement_min_value_unchanged() {
-        // Under refinement the default intrinsic body runs. Assert the structural shape (a full 20-char
+        // Under refinement no override fires; the CProverString intrinsic runs. Assert the structural shape (a full 20-char
         // equality against a long literal is a string-refinement completeness wall, not a feature issue);
         // length + boundary chars confirm the intrinsic still produces the right value here.
         String s = Long.toString(Long.MIN_VALUE);

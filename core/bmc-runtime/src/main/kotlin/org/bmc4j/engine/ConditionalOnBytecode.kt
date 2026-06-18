@@ -19,36 +19,44 @@ import java.util.zip.ZipInputStream
  * its target when the override's [BmcCondition] holds for this proof's resolved config.
  *
  * ## What it does
- * A model method can carry a default body AND a `@ConditionalOn`-annotated STATIC override (in the same
- * class) that should replace it on a specific path. For each `@ConditionalOn` override whose condition
- * HOLDS for this run, this pass REDIRECTS every call to the override's `target` (the same-class method of
- * matching descriptor) to the override method instead - the call-site redirect proven by
- * [StringBytecode] / [StringLengthBytecode]. When the condition does NOT hold, nothing is rewritten: the
- * target keeps its default body, so the unaffected path (string refinement) is byte-for-byte untouched.
+ * A method can carry a `@ConditionalOn`-annotated STATIC override that should replace a `target` on a
+ * specific path. For each `@ConditionalOn` override whose condition HOLDS for this run, this pass
+ * REDIRECTS every call to the `target` (a method of matching descriptor) to the override method instead -
+ * the call-site redirect proven by [StringBytecode] / [StringLengthBytecode]. When the condition does NOT
+ * hold, nothing is rewritten: the target keeps its default body, so the unaffected path (string
+ * refinement) is byte-for-byte untouched.
  *
- * ## Why a model needs this
- * bmc-models is the ALWAYS-ON overlay (it applies under BOTH [StringMode.REFINEMENT] and
- * [StringMode.CHAR_ARRAY_MODEL]). Some JDK methods are sound+fast via a refinement INTRINSIC but wrong
- * under no-refine, so they need a different body per mode WITHOUT a blanket override that would degrade
- * refinement. The motivating case: `Integer.toString(int)` / `Long.toString(long)` bottom out in the
- * refinement primitive `org.cprover.CProverString.toString`, which under `--no-refine-strings` returns an
- * UNCONSTRAINED (nondet-length) String. A `@ConditionalOn(STRING_REFINEMENT_OFF)` override does a bounded
- * digit build instead, while the default keeps delegating to the fast refinement intrinsic.
+ * The target's owner is the override's own class by default, or a CROSS-CLASS owner when the annotation
+ * sets `targetClass`. The cross-class form lets the override live in a bmc4j HELPER instead of shadowing
+ * the target's owner: the motivating case redirects `org.cprover.CProverString.toString(I)`/`(J)` (the
+ * single primitive every `int`/`long -> String` funnel bottoms out in) to `BmcStrings.ofInt`/`ofLong`,
+ * WITHOUT shadowing the pervasive `java.lang.Integer`/`Long`.
+ *
+ * ## Why this is needed
+ * Some JDK methods are sound+fast via a refinement INTRINSIC but wrong under no-refine, so they need a
+ * different body per mode WITHOUT a blanket override that would degrade refinement. The motivating case:
+ * every `int`/`long -> String` funnel (`Integer.toString` / `Long.toString` / `String.valueOf` /
+ * `StringBuilder.append`) bottoms out in the refinement primitive `org.cprover.CProverString.toString`,
+ * which under `--no-refine-strings` returns an UNCONSTRAINED (nondet-length) String. A cross-class
+ * `@ConditionalOn(STRING_REFINEMENT_OFF, targetClass = "org.cprover.CProverString")` override on
+ * `BmcStrings.ofInt`/`ofLong` redirects that single choke point to a bounded digit build, while
+ * refinement leaves `CProverString.toString` as the fast intrinsic.
  *
  * ## Two phases
  * 1. SCAN the whole classpath for `@ConditionalOn` override methods whose condition holds, building a
- *    redirect map keyed by the target's `(owner, name, desc)`. The override and its target are in the
- *    same class, and the override's own descriptor equals the target's, so the redirect is
- *    overload-precise. A scan must precede the rewrite because the overrides and a call site may live in
- *    different classpath entries.
+ *    redirect map keyed by the target's `(owner, name, desc)`. The target's owner is the override's own
+ *    class, or the annotation's `targetClass` when set (cross-class). The override's own descriptor equals
+ *    the target's, so the redirect is overload-precise. A scan must precede the rewrite because the
+ *    overrides and a call site may live in different classpath entries.
  * 2. MIRROR the classpath, redirecting every `INVOKESTATIC targetOwner.targetName(targetDesc)` to the
- *    override. The override method's OWN body is excluded from re-redirect (mirroring how [BmcStrings] is
- *    excluded in [StringLengthBytecode]) so an override can never be redirected into a loop.
+ *    override (an `INVOKESTATIC overrideOwner.overrideName(desc)`). The override method's OWN body is
+ *    excluded from re-redirect (mirroring how [BmcStrings] is excluded in [StringLengthBytecode]) so an
+ *    override can never be redirected into a loop.
  *
- * ## MVP scope
- * STATIC overrides only (the redirect is a call-site retarget to a static method) - which covers
- * `Integer`/`Long.toString`. Instance-method body-swap is a deliberate future expansion; a non-static
- * `@ConditionalOn` method is ignored here (no redirect entry built for it).
+ * ## Scope
+ * STATIC overrides only (the redirect is a call-site retarget to a static method) - which covers the
+ * `int`/`long -> String` choke point. A non-static `@ConditionalOn` method is ignored here (no redirect
+ * entry built for it).
  *
  * ## Why this is per-proof, not hoistable
  * The condition is evaluated against the run's resolved config (the string mode), so the rewrite is
@@ -59,23 +67,30 @@ import java.util.zip.ZipInputStream
 internal object ConditionalOnBytecode {
 
     private const val CONDITIONAL_ON_DESC = "Lorg/bmc4j/ConditionalOn;"
-    private const val CACHE_NAME = "conditional-on"
+    private const val CACHE_NAME = "conditional-on-v2"
 
     /** Field separator for the composite map keys: a single space, built from its code point so no
      *  literal whitespace can be mangled in the source. A descriptor never contains it. */
     private val SEP: String = 32.toChar().toString()
 
-    /** A resolved override: redirect `(targetOwner, targetName, targetDesc)` call sites to [overrideName]
-     *  in the same class (same descriptor). */
+    /** A resolved override: redirect `(targetOwner, targetName, desc)` call sites to
+     *  `(overrideOwner, overrideName, desc)` (same descriptor). [overrideOwner] equals [targetOwner] for a
+     *  same-class override, and differs for a cross-class one ([Parsed.targetClass] set). */
     private class Override(
             @JvmField val targetOwner: String,
             @JvmField val targetName: String,
             @JvmField val desc: String,
+            @JvmField val overrideOwner: String,
             @JvmField val overrideName: String)
 
     /** Parsed `@ConditionalOn` annotation values off a method. */
     private class Parsed(@JvmField var condition: BmcCondition? = null,
-                         @JvmField var target: String? = null)
+                         @JvmField var target: String? = null,
+                         @JvmField var targetClass: String? = null)
+
+    /** The redirect destination for a firing target call site: the override's own `(owner, name)`. The
+     *  descriptor is unchanged (it equals the target's), so only owner+name are retargeted. */
+    internal class OverrideRef(@JvmField val owner: String, @JvmField val name: String)
 
     /** Memoize per `(classpath, condition)` - the redirect set is a pure function of those two. */
     private val CACHE = ConcurrentHashMap<String, String>()
@@ -112,13 +127,14 @@ internal object ConditionalOnBytecode {
         if (overrides.isEmpty()) {
             return classpath
         }
-        // Index the firing redirects by the target call-site key for an O(1) lookup, and remember the
-        // override method names per owner so the override's OWN body is excluded from re-redirect.
-        val byCallSite = HashMap<String, String>()
+        // Index the firing redirects by the target call-site key for an O(1) lookup (value = the override's
+        // own owner+name), and remember the override method names per OVERRIDE owner so the override's OWN
+        // body is excluded from re-redirect (the anti-loop guard keys on where the override LIVES).
+        val byCallSite = HashMap<String, OverrideRef>()
         val overrideNamesByOwner = HashMap<String, MutableSet<String>>()
         for (o in overrides) {
-            byCallSite[callKey(o.targetOwner, o.targetName, o.desc)] = o.overrideName
-            overrideNamesByOwner.getOrPut(o.targetOwner) { HashSet() }.add(o.overrideName)
+            byCallSite[callKey(o.targetOwner, o.targetName, o.desc)] = OverrideRef(o.overrideOwner, o.overrideName)
+            overrideNamesByOwner.getOrPut(o.overrideOwner) { HashSet() }.add(o.overrideName)
         }
         return ClasspathMirror.mirror(classpath, CACHE_NAME + "-" + request.stringMode.name, { b ->
             ClasspathMirror.Transformed(rewriteClass(b, byCallSite, overrideNamesByOwner))
@@ -131,7 +147,7 @@ internal object ConditionalOnBytecode {
      * owner, the override methods whose own bodies must NOT be re-redirected (the anti-loop guard). Exposed
      * for tests.
      */
-    internal fun rewriteClass(bytes: ByteArray, byCallSite: Map<String, String>,
+    internal fun rewriteClass(bytes: ByteArray, byCallSite: Map<String, OverrideRef>,
                               overrideNamesByOwner: Map<String, Set<String>>): ByteArray {
         if (byCallSite.isEmpty()) {
             return bytes
@@ -163,8 +179,11 @@ internal object ConditionalOnBytecode {
                         if (op == Opcodes.INVOKESTATIC) {
                             val redirect = byCallSite[callKey(mOwner, mName, mDesc)]
                             if (redirect != null) {
-                                // Retarget the static call to the same-class, same-descriptor override.
-                                super.visitMethodInsn(Opcodes.INVOKESTATIC, mOwner, redirect, mDesc, itf)
+                                // Retarget the static call to the override's owner+name (same descriptor).
+                                // For a same-class override redirect.owner == mOwner; for a cross-class one
+                                // it is the helper's owner (e.g. BmcStrings).
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC, redirect.owner, redirect.name,
+                                        mDesc, false)
                                 return
                             }
                         }
@@ -179,9 +198,10 @@ internal object ConditionalOnBytecode {
 
     /**
      * Walk every classpath entry (dirs + jars) and collect the `@ConditionalOn` STATIC override methods
-     * whose condition holds for [request]. A non-static override, a malformed annotation, or a missing
-     * same-class target of matching descriptor is skipped (no redirect built) - never a soundness risk,
-     * just an inert annotation.
+     * whose condition holds for [request]. A non-static override or a malformed annotation is skipped (no
+     * redirect built) - never a soundness risk, just an inert annotation. For a SAME-class override a
+     * same-class target of matching descriptor must also exist; a CROSS-CLASS override (`targetClass` set)
+     * names its target's owner directly, so no same-class target is required.
      */
     private fun scan(classpath: String, request: BmcRequest): List<Override> {
         val out = ArrayList<Override>()
@@ -252,6 +272,7 @@ internal object ConditionalOnBytecode {
                             }
                             override fun visit(n: String?, value: Any?) {
                                 if (n == "target") parsed.target = value as? String
+                                if (n == "targetClass") parsed.targetClass = value as? String
                             }
                         }
                     }
@@ -265,11 +286,25 @@ internal object ConditionalOnBytecode {
             val condition = parsed.condition ?: continue
             val target = parsed.target ?: continue
             if (!holds(condition, request)) continue
-            // The override must itself be static (MVP), and a same-class target of the SAME descriptor must
-            // exist - otherwise the redirect would be ambiguous/unsound, so skip (inert annotation).
+            // The override must itself be static (the redirect is a call-site retarget to a static method);
+            // a non-static @ConditionalOn method is inert (no redirect built).
             if (staticByKey[overrideName + SEP + overrideDesc] == null) continue
-            if (staticByKey[target + SEP + overrideDesc] == null) continue
-            out.add(Override(classOwner[0]!!, target, overrideDesc, overrideName))
+            val overrideOwner = classOwner[0]!!
+            // The target's owner: the override's own class by default, or the annotation's targetClass
+            // (internal-named) when set (cross-class). A blank targetClass is the same-class form.
+            val targetClassAttr = parsed.targetClass
+            if (targetClassAttr.isNullOrEmpty()) {
+                // SAME-CLASS: a same-class target of the SAME descriptor must exist, else the redirect would
+                // be ambiguous/unsound -> skip (inert annotation).
+                if (staticByKey[target + SEP + overrideDesc] == null) continue
+                out.add(Override(overrideOwner, target, overrideDesc, overrideOwner, overrideName))
+            } else {
+                // CROSS-CLASS: redirect targetClass.target(desc) call sites to this override. We don't (and
+                // can't, cheaply) verify the foreign target exists here; a name/descriptor that matches no
+                // call site simply never fires (inert), never an unsound redirect.
+                val targetOwner = targetClassAttr.replace('.', '/')
+                out.add(Override(targetOwner, target, overrideDesc, overrideOwner, overrideName))
+            }
         }
     }
 

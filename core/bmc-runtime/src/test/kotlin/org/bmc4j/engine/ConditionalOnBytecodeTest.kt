@@ -31,7 +31,7 @@ internal class ConditionalOnBytecodeTest {
 
     @Test
     fun rewriteClass_redirects_target_callsite_to_override() {
-        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to "ovr")
+        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to ref("p/Model", "ovr"))
         val overrideNames = mapOf("p/Model" to setOf("ovr"))
         val calls = methodCalls(ConditionalOnBytecode.rewriteClass(
                 classCalling("p/Model", "tgt", "(I)Ljava/lang/String;"), byCallSite, overrideNames))
@@ -42,9 +42,25 @@ internal class ConditionalOnBytecodeTest {
     }
 
     @Test
+    fun rewriteClass_redirects_cross_class_target_to_helper_owner() {
+        // A cross-class redirect: org/cprover/CProverString.toString(I) -> org/bmc4j/engine/BmcStrings.ofInt
+        // (the owner CHANGES, not just the name+descriptor).
+        val byCallSite = mapOf("org/cprover/CProverString toString (I)Ljava/lang/String;"
+                to ref("org/bmc4j/engine/BmcStrings", "ofInt"))
+        val overrideNames = mapOf("org/bmc4j/engine/BmcStrings" to setOf("ofInt"))
+        val calls = methodCalls(ConditionalOnBytecode.rewriteClass(
+                classCalling("org/cprover/CProverString", "toString", "(I)Ljava/lang/String;"),
+                byCallSite, overrideNames))
+        assertTrue(calls.contains("INVOKESTATIC org/bmc4j/engine/BmcStrings.ofInt(I)Ljava/lang/String;"),
+                "the cross-class call must be retargeted to the helper owner+name: $calls")
+        assertFalse(calls.any { it.contains("org/cprover/CProverString.toString") },
+                "the original CProverString.toString call must be gone: $calls")
+    }
+
+    @Test
     fun rewriteClass_leaves_other_descriptor_overload_untouched() {
         // The redirect names tgt(I); a tgt(J) overload is a DIFFERENT call site and must pass through.
-        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to "ovr")
+        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to ref("p/Model", "ovr"))
         val overrideNames = mapOf("p/Model" to setOf("ovr"))
         val calls = methodCalls(ConditionalOnBytecode.rewriteClass(
                 classCalling("p/Model", "tgt", "(J)Ljava/lang/String;"), byCallSite, overrideNames))
@@ -55,9 +71,10 @@ internal class ConditionalOnBytecodeTest {
     @Test
     fun rewriteClass_does_not_rewrite_the_override_own_body() {
         // A class whose OWN method `ovr` calls tgt must NOT have that inner call redirected (anti-loop).
+        // The override owner (p/Model) is the exclusion key.
         val bytes = classWithMethodCalling("p/Model", "ovr", "(I)Ljava/lang/String;",
                 "p/Model", "tgt", "(I)Ljava/lang/String;")
-        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to "ovr")
+        val byCallSite = mapOf("p/Model tgt (I)Ljava/lang/String;" to ref("p/Model", "ovr"))
         val overrideNames = mapOf("p/Model" to setOf("ovr"))
         val calls = methodCalls(ConditionalOnBytecode.rewriteClass(bytes, byCallSite, overrideNames))
         assertTrue(calls.any { it.contains("p/Model.tgt(I)Ljava/lang/String;") },
@@ -92,7 +109,26 @@ internal class ConditionalOnBytecodeTest {
                 "no redirect must happen under REFINEMENT: $callerCalls")
     }
 
+    @Test
+    fun rewrite_fires_cross_class_redirect_when_condition_holds(@TempDir dir: Path) {
+        // p/Helper.ovr carries @ConditionalOn(STRING_REFINEMENT_OFF, targetClass="x.Tgt", target="t"), and
+        // p/Caller calls x/Tgt.t(I). Under CHAR_ARRAY_MODEL the cross-class redirect retargets the call to
+        // the HELPER owner+name (x/Tgt need not be on the classpath — the redirect is by call-site key).
+        writeClass(dir, "p/Helper", crossClassHelper("p/Helper", "ovr", "x.Tgt", "t"))
+        writeClass(dir, "p/Caller", classCalling("x/Tgt", "t", "(I)Ljava/lang/String;")
+                .let { renameClass(it, "p/Caller") })
+        val out = ConditionalOnBytecode.rewrite(dir.toString(), request(StringMode.CHAR_ARRAY_MODEL))
+        val callerCalls = methodCallsOf(out, "p/Caller")
+        assertTrue(callerCalls.contains("INVOKESTATIC p/Helper.ovr(I)Ljava/lang/String;"),
+                "the cross-class x/Tgt.t call must be redirected to p/Helper.ovr: $callerCalls")
+        assertFalse(callerCalls.any { it.contains("x/Tgt.t") },
+                "the original x/Tgt.t call must be gone: $callerCalls")
+    }
+
     companion object {
+
+        private fun ref(owner: String, name: String): ConditionalOnBytecode.OverrideRef =
+                ConditionalOnBytecode.OverrideRef(owner, name)
 
         private fun request(mode: StringMode): BmcRequest =
                 BmcRequest("p.Caller", "p.Caller.use", "", 1, true, 16, stringMode = mode)
@@ -123,6 +159,29 @@ internal class ConditionalOnBytecodeTest {
             val av: AnnotationVisitor = mv.visitAnnotation("Lorg/bmc4j/ConditionalOn;", true)
             av.visitEnum("condition", "Lorg/bmc4j/BmcCondition;", BmcCondition.STRING_REFINEMENT_OFF.name)
             av.visit("target", "tgt")
+            av.visitEnd()
+            mv.visitCode()
+            mv.visitInsn(Opcodes.ACONST_NULL)
+            mv.visitInsn(Opcodes.ARETURN)
+            mv.visitMaxs(0, 0)
+            mv.visitEnd()
+            cw.visitEnd()
+            return cw.toByteArray()
+        }
+
+        /** A helper class [owner] with a static `ovr(int):String` carrying a CROSS-CLASS
+         *  `@ConditionalOn(STRING_REFINEMENT_OFF, targetClass=<targetClass>, target=<target>)` (no
+         *  same-class target). The body returns null (irrelevant for the redirect). */
+        private fun crossClassHelper(owner: String, ovrName: String, targetClass: String,
+                                     target: String): ByteArray {
+            val cw = ClassWriter(ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES)
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null)
+            val mv = cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, ovrName,
+                    "(I)Ljava/lang/String;", null, null)
+            val av: AnnotationVisitor = mv.visitAnnotation("Lorg/bmc4j/ConditionalOn;", true)
+            av.visitEnum("condition", "Lorg/bmc4j/BmcCondition;", BmcCondition.STRING_REFINEMENT_OFF.name)
+            av.visit("target", target)
+            av.visit("targetClass", targetClass)
             av.visitEnd()
             mv.visitCode()
             mv.visitInsn(Opcodes.ACONST_NULL)
