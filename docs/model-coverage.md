@@ -424,6 +424,23 @@ Real surface: 21 members — modeled 17, unmodelable 4, not-needed 0, tail 0.
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
 
 
+## `java.util.Hashtable`
+
+Real surface: 28 members — modeled 23, unmodelable 0, not-needed 0, tail 5.
+
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `isEmpty()`, `keySet()`, `keys()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `size()`, `values()`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 5 members, all loud): Hashtable's IO/clone/view/rehash surface (keySet/values/entrySet + their iterators, rehash/contains-as-Map.containsValue duplication, equals/hashCode/toString, the load-factor constructors' internals) is out of scope for this bounded observable-state model; the core Dictionary/Map operations (get/put/remove/size/isEmpty/containsKey/containsValue/contains/keys/elements/getOrDefault/putIfAbsent/clear) are modeled and audited</summary>
+
+- `clone()`
+- `putAll(Map)`
+- `rehash()`
+- `remove(Object, Object)`
+- `replaceAll(BiFunction)`
+
+</details>
+
+
 ## `java.util.IntSummaryStatistics`
 
 Real surface: 8 members — modeled 7, unmodelable 0, not-needed 1, tail 0.
@@ -538,6 +555,36 @@ Real surface: 25 members — modeled 22, unmodelable 3, not-needed 0, tail 0.
 | `spliterator()` | parallel-decomposition Spliterator (a tryAdvance/trySplit traversal view a sequential bounded model can't represent) — iterate the model or use stream() instead |
 | `toArray(IntFunction)` | array snapshot via a reflective IntFunction generator (creates a T[] of a reflective component type) — iterate the model instead |
 | `toArray(Object[])` | typed array snapshot — iterate the model instead |
+
+
+## `java.util.Properties`
+
+Real surface: 44 members — modeled 26, unmodelable 0, not-needed 0, tail 18.
+
+**Modeled** (`@BmcModelConforms`): `clear()`, `compute(Object, BiFunction)`, `computeIfAbsent(Object, Function)`, `computeIfPresent(Object, BiFunction)`, `contains(Object)`, `containsKey(Object)`, `containsValue(Object)`, `elements()`, `entrySet()`, `forEach(BiConsumer)`, `get(Object)`, `getOrDefault(Object, Object)`, `getProperty(String)`, `getProperty(String, String)`, `isEmpty()`, `keySet()`, `keys()`, `merge(Object, Object, BiFunction)`, `put(Object, Object)`, `putIfAbsent(Object, Object)`, `remove(Object)`, `replace(Object, Object)`, `replace(Object, Object, Object)`, `setProperty(String, String)`, `size()`, `values()`
+
+<details><summary><b>Tail</b> (<code>@BmcModelTail</code>, 18 members, all loud): Properties' IO/listing surface (load/store/save/list/loadFromXML/storeToXML/propertyNames/stringPropertyNames) is unbounded external-world I/O out of scope for this bounded model; the in-memory property surface (getProperty/getProperty+default/setProperty + the inherited Hashtable get/put/remove/size/…) is modeled and audited</summary>
+
+- `clone()`
+- `list(PrintStream)`
+- `list(PrintWriter)`
+- `load(InputStream)`
+- `load(Reader)`
+- `loadFromXML(InputStream)`
+- `propertyNames()`
+- `putAll(Map)`
+- `rehash()`
+- `remove(Object, Object)`
+- `replaceAll(BiFunction)`
+- `save(OutputStream, String)`
+- `store(OutputStream, String)`
+- `store(Writer, String)`
+- `storeToXML(OutputStream, String)`
+- `storeToXML(OutputStream, String, Charset)`
+- `storeToXML(OutputStream, String, String)`
+- `stringPropertyNames()`
+
+</details>
 
 
 ## `java.util.Random`
