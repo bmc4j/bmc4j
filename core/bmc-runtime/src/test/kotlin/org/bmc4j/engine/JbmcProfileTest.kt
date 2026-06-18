@@ -510,6 +510,37 @@ internal class JbmcProfileTest {
     }
 
     @Test
+    fun reconstructs_the_call_path_to_each_unwound_loop() {
+        // Live symex stream: outer -> mid -> inner (loop fires), return to mid, then mid -> other (loop
+        // fires). The `BMC at ... function ...` lines drive the shadow call stack; the unwind lines snapshot
+        // it. Reconstruction is heuristic but exact for this non-recursive shape.
+        val json = """
+            [
+              {"messageText":"BMC at file Foo.java line 2 function java::Foo.outer:(I)I (depth 5)"},
+              {"messageText":"BMC at file Foo.java line 3 function java::Foo.mid:(I)I bytecode-index 1 (depth 12)"},
+              {"messageText":"BMC at file Foo.java line 4 function java::Foo.inner:(I)I bytecode-index 1 (depth 15)"},
+              {"messageText":"Unwinding loop java::Foo.inner:(I)I.0 iteration 1 file Foo.java line 4 function java::Foo.inner:(I)I bytecode-index 12 thread 0"},
+              {"messageText":"BMC at file Foo.java line 3 function java::Foo.mid:(I)I bytecode-index 4 (depth 30)"},
+              {"messageText":"BMC at file Foo.java line 9 function java::Foo.other:(I)I bytecode-index 1 (depth 33)"},
+              {"messageText":"Unwinding loop java::Foo.other:(I)I.0 iteration 1 file Foo.java line 9 function java::Foo.other:(I)I bytecode-index 12 thread 0"}
+            ]""".trimIndent()
+        val p = JbmcProfile.parse(json)
+
+        val inner = p.unwindingLoops.single { it.loopId == "java::Foo.inner:(I)I.0" }
+        val other = p.unwindingLoops.single { it.loopId == "java::Foo.other:(I)I.0" }
+        assertEquals(listOf("Foo.outer", "Foo.mid", "Foo.inner"), inner.callPath,
+                "the call path to the inner loop is reconstructed, outermost first")
+        // After inner returns (the function field reverts to mid), the inner frame is popped, so the later
+        // 'other' call is NOT nested under inner.
+        assertEquals(listOf("Foo.outer", "Foo.mid", "Foo.other"), other.callPath,
+                "reverting to an ancestor pops the returned frame before the next call")
+
+        val rendered = p.render("Foo.proof", "TIMEOUT")
+        assertTrue(rendered.contains("reached via Foo.outer > Foo.mid > Foo.inner"),
+                "the reconstructed call path is rendered under the loop: $rendered")
+    }
+
+    @Test
     fun no_loops_means_no_targetable_loops_section() {
         val json = """[{"messageText":"Runtime Solver: 1.0s"}]"""
         val rendered = JbmcProfile.parse(json).render("pkg.Tests.proof", "VERIFIED")
