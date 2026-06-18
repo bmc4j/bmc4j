@@ -154,6 +154,16 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.Iterator" to "interface — via collection iteration",
     "java.util.Enumeration" to "interface — via Collections.enumeration's concrete bounded enumeration",
     "java.util.NoSuchElementException" to "exception type (no behavior)",
+    // The index/bounds exception family, modeled MESSAGE-FREE: their real JDK (int) constructors concat
+    // "...out of range: " + index, and under the char-array String model a SYMBOLIC index (an out-of-bounds
+    // charAt/substring branch) makes that concat a new String(char[],0,count) with symbolic count whose copy
+    // loop unwinds without bound. The models keep the TYPE + control flow exactly and only drop the detail
+    // message (the (int) ctor builds nothing; the (String) ctor passes the concrete reference through), so a
+    // bounds throw no longer poisons the proof. Exception types whose only "behavior" is type + the deliberate
+    // message suppression — exercised via proofs.strings.BoundsExceptionLaws — so waived like the sibling above.
+    "java.lang.IndexOutOfBoundsException" to "exception type — message-free model (no symbolic detail-message build); exercised via proofs.strings.BoundsExceptionLaws",
+    "java.lang.StringIndexOutOfBoundsException" to "exception type — message-free model (no symbolic detail-message build); exercised via proofs.strings.BoundsExceptionLaws",
+    "java.lang.ArrayIndexOutOfBoundsException" to "exception type — message-free model (no symbolic detail-message build); exercised via proofs.strings.BoundsExceptionLaws",
     "java.util.concurrent.BlockingQueue" to "interface — via ArrayBlockingQueue/LinkedBlockingQueue",
     "java.util.concurrent.Executor" to "interface — via ImmediateExecutorService",
     "java.util.concurrent.ExecutorService" to "interface — via ImmediateExecutorService",
