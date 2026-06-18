@@ -421,6 +421,29 @@ internal class JbmcProfileTest {
     }
 
     @Test
+    fun loop_unwind_bound_is_the_deepest_single_unwind_not_the_firing_total() {
+        // The SAME loop reached in TWO encounters: first to depth 3 (iterations 1,2,3), then to depth 2
+        // (iterations 1,2). That's 5 firings but the loop only needs bound 3 per encounter. The old code
+        // suggested `bound = firings` (5) -> pinning it over-unwinds every encounter and bloats the formula.
+        val json = """
+            [
+              {"messageText":"Unwinding loop java::pkg.C.scan:()V.0 iteration 1 file C.java line 9"},
+              {"messageText":"Unwinding loop java::pkg.C.scan:()V.0 iteration 2 file C.java line 9"},
+              {"messageText":"Unwinding loop java::pkg.C.scan:()V.0 iteration 3 file C.java line 9"},
+              {"messageText":"Unwinding loop java::pkg.C.scan:()V.0 iteration 1 file C.java line 9"},
+              {"messageText":"Unwinding loop java::pkg.C.scan:()V.0 iteration 2 file C.java line 9"}
+            ]""".trimIndent()
+        val loop = JbmcProfile.parse(json).unwindingLoops.single()
+        assertEquals(5, loop.iterations, "firings is the total across encounters")
+        assertEquals(3, loop.maxDepth, "maxDepth is the deepest single unwind")
+        assertEquals("@LoopUnwind(loop = \"java::pkg.C.scan:()V.0\", bound = 3)", loop.suggestion(),
+                "the pin bound is the per-encounter depth (3), NOT the firing total (5)")
+        val rendered = JbmcProfile.parse(json).render("pkg.Tests.scan", "TIMEOUT")
+        assertTrue(rendered.contains("x5 firings, deepest 3"),
+                "the display shows firings and the deepest depth: $rendered")
+    }
+
+    @Test
     fun reconstructs_the_call_path_to_a_recursive_method() {
         // The live BMC-at stream drives the shadow stack (outer -> mid -> fib); the recursion firing then
         // snapshots it, so a recursive method shows where it was driven from, not just a count.
@@ -510,8 +533,8 @@ internal class JbmcProfileTest {
         val rendered = p.render("okio.Tests.decimal", "TIMEOUT")
         assertTrue(rendered.contains("targetable loops:"),
                 "the targetable-loops section is present: $rendered")
-        assertTrue(rendered.contains("java::okio.Buffer.readDecimalLong:()J.0  x2  (Buffer.java:41)"),
-                "the full id + iterations + location is shown: $rendered")
+        assertTrue(rendered.contains("java::okio.Buffer.readDecimalLong:()J.0  x2 firings  (Buffer.java:41)"),
+                "the full id + firings + location is shown: $rendered")
         assertTrue(rendered.contains("only loops that unwound in THIS run"),
                 "the partial-list caveat is noted: $rendered")
 

@@ -111,19 +111,27 @@ class JbmcProfile private constructor(
     class LoopInfo(@get:JvmName("loopId") val loopId: String,
                    @get:JvmName("file") val file: String?,
                    @get:JvmName("line") val line: Int,
+                   /** TOTAL `Unwinding loop` firings for this id, summed across every time the loop was
+                    *  encountered — a cost signal, NOT the @LoopUnwind bound (see [maxDepth]). */
                    @get:JvmName("iterations") val iterations: Int,
                    /** Best-effort call path (OUTERMOST first, ending in this loop's own method) that the
                     *  symex took to reach this loop, reconstructed from the live `BMC at ... function ...`
                     *  stream. Empty when no call context was captured. HEURISTIC, not a true engine call
                     *  stack: it is inferred from source-frame transitions, so deep recursion / re-entry to
                     *  the same method can mislabel a frame. Tells "real path vs dead-but-explored branch". */
-                   @get:JvmName("callPath") val callPath: List<String> = emptyList()) {
+                   @get:JvmName("callPath") val callPath: List<String> = emptyList(),
+                   /** DEEPEST single unwind (max `iteration N`) — the correct per-encounter @LoopUnwind
+                    *  bound. Defaults to [iterations] for callers/tests that don't distinguish (a
+                    *  single-encounter loop has firings == maxDepth). */
+                   @get:JvmName("maxDepth") val maxDepth: Int = iterations) {
 
-        /** A ready-to-paste pin for THIS loop: `@LoopUnwind(loop = "<id>", bound = <iterations>)`. The
-         *  bound defaults to the iterations observed — a sound starting point (it covers what this run
-         *  reached); raise it if the loop is still under-bounded, lower it to cap cost. */
+        /** A ready-to-paste pin for THIS loop: `@LoopUnwind(loop = "<id>", bound = <maxDepth>)`. The bound
+         *  is the DEEPEST single unwind observed (max `iteration N`) — the per-encounter depth `--unwindset`
+         *  actually wants. It is NOT the total firing count: a loop hit K times to depth D logs K*D firings
+         *  but only needs bound D, so pinning the firing count would over-unwind every encounter and bloat
+         *  the formula. Raise it if the loop is still under-bounded, lower it to cap cost. */
         fun suggestion(): String =
-                "@LoopUnwind(loop = \"$loopId\", bound = $iterations)"
+                "@LoopUnwind(loop = \"$loopId\", bound = $maxDepth)"
 
         /** The [callPath] as `outer > mid > inner` (outermost caller first), or empty when none captured. */
         fun callPathString(): String = callPath.joinToString(" > ")
@@ -354,7 +362,12 @@ class JbmcProfile private constructor(
                 add("   targetable loops:")
                 shown.forEach { loop ->
                     val where = if (loop.file != null) "  (${loop.file}:${loop.line})" else ""
-                    add("       ${loop.loopId}  x${loop.iterations}$where")
+                    // Show total firings AND the deepest single unwind. The pin bound is the deepest (what
+                    // --unwindset wants per encounter); the firing total is the cost signal. They differ when
+                    // a loop is reached many times (high firings, small depth) - the case the old "bound =
+                    // firings" suggestion got wrong.
+                    val depth = if (loop.maxDepth != loop.iterations) ", deepest ${loop.maxDepth}" else ""
+                    add("       ${loop.loopId}  x${loop.iterations} firings$depth$where")
                     // The reconstructed call path that reached this loop (outermost first). Shown only when
                     // there is caller context beyond the loop's own method, so a reader can tell a loop on a
                     // real path from one reached via a dead-but-explored branch. Heuristic - see LoopInfo.
@@ -366,8 +379,9 @@ class JbmcProfile private constructor(
                     add("       (+ ${unwindingLoops.size - TOP_N} more)")
                 }
                 add("       NOTE: only loops that unwound in THIS run are listed (a loop the bound never" +
-                        " reached won't appear); the suggested bound is the iterations observed - raise it" +
-                        " if a loop is still under-bounded.")
+                        " reached won't appear); the suggested bound is the DEEPEST single unwind (the" +
+                        " per-encounter depth --unwindset wants, not the firing total) - raise it if a loop" +
+                        " is still under-bounded.")
                 // Then ALL the pins as ONE contiguous, flush-left, UNTAGGED block (see RAW_LINE_MARKER):
                 // select the whole block in one go and paste it straight onto the proof's @BmcProof —
                 // a multi-line terminal copy carries no `bmc4j[profile]:` prefix to hand-strip.
@@ -574,7 +588,7 @@ class JbmcProfile private constructor(
          *  the source file/line when present. We count one firing per line, attribute it to the loop id
          *  (and, via [renderMethod], to its method for the by-method offenders list). */
         private val UNWIND_LOOP_RE =
-                Regex("""^Unwinding loop (\S+) iteration \d+(?: file (.+?) line (\d+))?""")
+                Regex("""^Unwinding loop (\S+) iteration (\d+)(?: file (.+?) line (\d+))?""")
         /** `Unwinding recursion java::pkg.Class.method ...`. */
         private val UNWIND_RECURSION_RE =
                 Regex("""^Unwinding recursion (\S+)""")
@@ -689,14 +703,19 @@ class JbmcProfile private constructor(
                     // Ensure the loop's own method tops the shadow stack (the preceding `BMC at` lines should
                     // have pushed it; this is a backstop if one was missed), then snapshot the call path.
                     enterFunction(loopId)
-                    // Per-loop detail: bump the iteration count for this FULL id and remember its source
-                    // location + the call path that reached it, the FIRST time we see it (later iterations
-                    // repeat the same location, and the stack may have unwound past it by then).
+                    // Per-loop detail: source location + the call path, captured the FIRST time we see it.
+                    // file/line are groups 3/4 now that the iteration number is captured as group 2.
                     val acc = loopInfos.getOrPut(loopId) {
-                        LoopAcc(it.groupValues[2].ifEmpty { null }, it.groupValues[3].toIntOrNull() ?: 0,
+                        LoopAcc(it.groupValues[3].ifEmpty { null }, it.groupValues[4].toIntOrNull() ?: 0,
                                 ArrayList(frames))
                     }
-                    acc.iterations++
+                    acc.firings++
+                    // The @LoopUnwind bound is the DEEPEST single unwind (max `iteration N`), NOT the total
+                    // firing count: --unwindset unwinds a loop N times PER ENCOUNTER, so a loop reached K
+                    // times to depth D logs K*D firings but only needs bound D. Tracking the max keeps the
+                    // suggested pin from over-unwinding every encounter.
+                    val iterN = it.groupValues[2].toIntOrNull() ?: 0
+                    if (iterN > acc.maxDepth) acc.maxDepth = iterN
                     return
                 }
                 UNWIND_RECURSION_RE.find(line)?.let {
@@ -776,10 +795,10 @@ class JbmcProfile private constructor(
             /** The per-loop detail, highest-iteration first then by id (a stable, deterministic order). */
             private fun sortedLoops(infos: Map<String, LoopAcc>): List<LoopInfo> =
                     infos.entries
-                            .sortedWith(compareByDescending<Map.Entry<String, LoopAcc>> { it.value.iterations }
+                            .sortedWith(compareByDescending<Map.Entry<String, LoopAcc>> { it.value.firings }
                                     .thenBy { it.key })
-                            .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.iterations,
-                                    it.value.callPath) }
+                            .map { LoopInfo(it.key, it.value.file, it.value.line, it.value.firings,
+                                    it.value.callPath, it.value.maxDepth) }
 
             /** Per-method recursion detail, highest-firings first then by method (stable, deterministic). */
             private fun sortedRecursion(infos: Map<String, RecursionAcc>): List<RecursionInfo> =
@@ -793,7 +812,10 @@ class JbmcProfile private constructor(
          *  call path that reached the loop. */
         private class LoopAcc(@JvmField val file: String?, @JvmField val line: Int,
                               @JvmField val callPath: List<String>) {
-            @JvmField var iterations: Int = 0
+            /** Total `Unwinding loop` firings for this id (a cost signal — summed across every encounter). */
+            @JvmField var firings: Int = 0
+            /** Deepest single unwind (max `iteration N`) — the correct per-encounter @LoopUnwind bound. */
+            @JvmField var maxDepth: Int = 0
         }
 
         /** Mutable per-method recursion tally: firings seen plus the (first-observed) call path. */
