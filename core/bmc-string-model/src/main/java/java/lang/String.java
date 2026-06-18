@@ -116,7 +116,12 @@ public final class String implements CharSequence, Comparable<String> {
         if (beginIndex < 0 || endIndex > b.length || beginIndex > endIndex) {
             throw new StringIndexOutOfBoundsException();
         }
-        return new String(b, beginIndex, endIndex - beginIndex);
+        // Copy the sub-range once and ADOPT it clone-free, instead of new String(b,off,count) -> ofChars's
+        // StringBuilder append + toString (a wasted second copy: the toString is a String.<init> loop).
+        int count = endIndex - beginIndex;
+        char[] out = new char[count];
+        System.arraycopy(b, beginIndex, out, 0, count);
+        return adoptChars(out);
     }
 
     @Override
@@ -267,7 +272,11 @@ public final class String implements CharSequence, Comparable<String> {
             // Sound, length-preserving ASCII fold: 'A'..'Z' -> +32 ('I' already trapped), else unchanged.
             out[i] = (c >= 0x0041 && c <= 0x005A) ? (char) (c + 32) : c;
         }
-        return new String(out);
+        // ADOPT the array we just built, clone-free. `new String(out)` would route (under no-refine) through
+        // ofChars's StringBuilder append + toString rebuild, whose toString copy is a String.<init> loop that
+        // dominates the profile under symbolic length (pre-sizing the builder can't fold a symbolic-length
+        // dead growth branch). We already own `out` and its length, so adopt it directly: no builder, no copy.
+        return adoptChars(out);
     }
 
     /**
