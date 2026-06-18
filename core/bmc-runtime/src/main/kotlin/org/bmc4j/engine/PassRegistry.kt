@@ -18,7 +18,7 @@ internal object PassRegistry {
             // Cacheable prefix (run-wide, env-independent; hoistable into the Gradle mirror).
             DesugarPass, AnyRefPass, ConfigPass, KotlinParamPass, ReachabilityPass, NondetTagPass,
             // Per-proof tail.
-            ContractRewritePass, AssumeContractPass, StringLengthPass,
+            ContractRewritePass, AssumeContractPass, StringLengthPass, ConditionalOnPass,
             PurityAuditPass, ExceptionMessageElisionPass, ConstructReceiverPass, ModelSlicePass)
 
     /** The generic orchestrator over [ALL]; validation runs in its constructor. */

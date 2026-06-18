@@ -36,6 +36,12 @@ val COVERED: Set<String> = setOf(
     // @BmcModelConforms with a throw-loud boundary. NOT per-member-enforced (only the commonly-reached
     // static surface is modeled; the rest is simply absent from the model class).
     "java.lang.Character",
+    // NB int/long -> String bounding is NOT a java.lang.Integer/Long model — shadowing those pervasive
+    // classes perturbs autoboxing / Comparable / compare across every proof. It lives in the
+    // org.bmc4j.engine.BmcStrings.ofInt/ofLong @ConditionalOn(STRING_REFINEMENT_OFF) overrides, which
+    // redirect the single refinement primitive every int/long -> String funnel bottoms out in
+    // (org.cprover.CProverString.toString) to a bounded char[] digit build under no-refine. Covered by
+    // model proofs proofs.strings.IntToStringLaws / LongToStringLaws (no model class to register here).
     "java.time.Instant", "java.time.Duration", "java.time.LocalDate",
     "java.time.LocalTime", "java.time.LocalDateTime", "java.time.Period",
     // java.time small enums + the offset wrapper. The enums (DayOfWeek/Month/IsoEra) carry method-level

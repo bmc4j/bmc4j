@@ -169,6 +169,26 @@ public final class String implements CharSequence, Comparable<String> {
         return this;
     }
 
+    /**
+     * {@code int -> String}, routed through the refinement primitive {@code CProverString.toString(int)}
+     * so it funnels into the SAME choke point {@code Integer.toString} does. Under no-refine the
+     * {@code @ConditionalOn} pass redirects that primitive to the bounded {@code BmcStrings.ofInt} digit
+     * build, so a {@code String.valueOf(int)} result is length-bounded (<= 11) here too.
+     *
+     * <p>Required because this model SHADOWS {@code java.lang.String} wholesale under no-refine: without
+     * its own {@code valueOf(int)} the call would land on a missing member and JBMC would nondet-stub it
+     * to an unconstrained-length String (the very blowup the bound exists to remove).
+     */
+    public static String valueOf(int i) {
+        return org.cprover.CProverString.toString(i);
+    }
+
+    /** {@code long -> String}, the {@code long} twin of {@link #valueOf(int)} (redirected under no-refine
+     *  to the bounded {@code BmcStrings.ofLong}, <= 20 chars). */
+    public static String valueOf(long l) {
+        return org.cprover.CProverString.toString(l);
+    }
+
     public char[] toCharArray() {
         return backing().clone();
     }

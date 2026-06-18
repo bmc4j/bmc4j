@@ -84,4 +84,36 @@ public final class CProverString {
         }
         return sb.toString();
     }
+
+    /**
+     * Sound {@code long -> String}, the {@code long} twin of {@link #toString(int)}: the conversion JBMC's
+     * frontend emits for {@code Long.toString(long)} / {@code String.valueOf(long)} (lowered to this
+     * fully-qualified intrinsic by name+descriptor). Same rationale and same bounded body as the
+     * {@code int} form, widened to {@code long}: peel digits keeping the value NEGATIVE so
+     * {@link Long#MIN_VALUE} is representable (its positive twin overflows), write them into a fixed
+     * 20-char buffer (19 digits + a possible sign) from the back, then append the populated tail via the
+     * sound {@code StringBuilder.append(char)} primitive. Bounded: the digit loop runs at most 19 times.
+     */
+    public static String toString(long i) {
+        if (i == 0) {
+            return "0";
+        }
+        boolean negative = i < 0;
+        long n = negative ? i : -i;
+        char[] buf = new char[20];          // max long is 19 digits, plus a possible '-' sign
+        int pos = buf.length;
+        while (n < 0) {
+            int digit = (int) -(n % 10);    // n is <= 0, so n % 10 is in [-9, 0]; negate to a 0..9 digit
+            buf[--pos] = (char) ('0' + digit);
+            n = n / 10;
+        }
+        if (negative) {
+            buf[--pos] = '-';
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int k = pos; k < buf.length; k++) {
+            sb.append(buf[k]);
+        }
+        return sb.toString();
+    }
 }

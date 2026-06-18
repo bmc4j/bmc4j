@@ -351,6 +351,16 @@ class JbmcBackend : VerificationBackend {
             if (coreModels != null) {
                 classpath = classpath + File.pathSeparator + coreModels
             }
+            // @ConditionalOn: swap in each model override whose BmcCondition holds for this run's resolved
+            // config (today: string mode), by redirecting its target's call sites to the override. Runs
+            // HERE - after every model jar (user, Kotlin, char-array String, core-models) is spliced - so
+            // both the override classes and their target call sites are on the classpath. Per-proof (the
+            // condition is mode-keyed) and a no-op when no override fires; under refinement only a
+            // STRING_REFINEMENT_ON override would fire (none today), so the common path is a memoized scan
+            // that finds nothing. Motivating use: Integer/Long.toString get a bounded no-refine override so
+            // int->String is length-bounded under CHAR_ARRAY_MODEL instead of the unconstrained
+            // CProverString.toString intrinsic result.
+            classpath = pass(ConditionalOnPass, ClassSet(classpath)).classpath
             // Purity audit (soundness): a contract redirects every call site of its target to a stub
             // that summarizes only the RETURN value, so any caller-observable side effect of the body
             // is silently dropped — and the enforce-proof still passes (it checks @Ensures, not
