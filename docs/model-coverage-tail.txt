@@ -2,4 +2,26 @@
 # The tail no-growth ratchet (conformance.ModelAuditGateTest) diffs the actual tail against this.
 # Do NOT edit by hand: regenerate with
 #   gradlew -p core :bmc-models-conformance:test --tests conformance.ModelAuditGateTest -Dbmc.regenerateDocs=true
-
+java.util.Hashtable#clone()
+java.util.Hashtable#putAll(Map)
+java.util.Hashtable#rehash()
+java.util.Hashtable#remove(Object, Object)
+java.util.Hashtable#replaceAll(BiFunction)
+java.util.Properties#clone()
+java.util.Properties#list(PrintStream)
+java.util.Properties#list(PrintWriter)
+java.util.Properties#load(InputStream)
+java.util.Properties#load(Reader)
+java.util.Properties#loadFromXML(InputStream)
+java.util.Properties#propertyNames()
+java.util.Properties#putAll(Map)
+java.util.Properties#rehash()
+java.util.Properties#remove(Object, Object)
+java.util.Properties#replaceAll(BiFunction)
+java.util.Properties#save(OutputStream, String)
+java.util.Properties#store(OutputStream, String)
+java.util.Properties#store(Writer, String)
+java.util.Properties#storeToXML(OutputStream, String)
+java.util.Properties#storeToXML(OutputStream, String, Charset)
+java.util.Properties#storeToXML(OutputStream, String, String)
+java.util.Properties#stringPropertyNames()

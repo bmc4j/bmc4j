@@ -14,6 +14,12 @@ val COVERED: Set<String> = setOf(
     // models (differential MapConformanceTest/JavaUtilTailConformanceTest + @BmcProof). Objects: the
     // null-safe / bounds-check static utility (differential JavaUtilTailConformanceTest + @BmcProof).
     "java.util.EnumMap", "java.util.EnumSet", "java.util.Objects",
+    // The legacy Dictionary/Hashtable/Properties family, brought onto the same faithful shared-state
+    // footing as the HashMap family (parallel bounded arrays + linear lookup). Hashtable/Properties are
+    // per-member-enforced (concrete recurring-disease classes — the static-Properties-in-<clinit> case
+    // that havocs getProperty to a nondet unbounded String); Dictionary is the abstract base (WAIVED).
+    // Model proofs: proofs.properties (HashtableLaws / PropertiesLaws).
+    "java.util.Hashtable", "java.util.Properties",
     "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
@@ -119,6 +125,7 @@ val WAIVED: Map<String, String> = mapOf(
     "java.util.AbstractList" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
     "java.util.AbstractSet" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
     "java.util.AbstractMap" to "abstract skeletal base — exercised via user subclasses (AbstractCollectionSubclassLaws)",
+    "java.util.Dictionary" to "abstract skeletal base — exercised via the concrete Hashtable/Properties models (per-member-enforced)",
     // The kotlin.collections.Abstract* skeletal bases the Kotlin stdlib's read-only/mutable collections
     // and library persistent collections (kotlinx.collections.immutable) extend. They keep the size
     // primitive (getSize) abstract so it resolves to the concrete override, and supply the derived
@@ -229,6 +236,7 @@ val PER_MEMBER_ENFORCED: Set<String> = setOf(
     "java.util.ArrayList", "java.util.LinkedList", "java.util.HashMap", "java.util.LinkedHashMap",
     "java.util.TreeMap", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
     "java.util.EnumMap", "java.util.EnumSet", "java.util.Objects",
+    "java.util.Hashtable", "java.util.Properties",
     "java.util.ArrayDeque", "java.util.PriorityQueue",
     "java.util.Optional",
     "java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble", "java.util.Arrays",
