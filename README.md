@@ -126,19 +126,6 @@ property so you can reproduce it.
 2. **Developer experience.** Proofs are ordinary JUnit 5 tests: one Gradle plugin, the IDE
    gutter, real stack traces, and counterexamples reported as the concrete input that breaks the property.
 
-**What's supported today:**
-
-- **Kotlin (2.0–2.4) and Java (17–25)** as first-class, re-verified-on-every-merge languages — analysis is bytecode-level, so the build doesn't change beyond the plugin
-- `@BmcProof` JUnit 5 proofs with symbolic inputs (`anyInt(...)` & friends), `assume`/`check`, and expected-verdict pins (`expect = REFUTED/UNKNOWN/...`) so deliberate failures are regression-tested
-- `assumeValid { ... }` — Kotlin `require(...)`/`init` invariants (value classes included) folded straight into the proof domain
-- **Method contracts** (`@Requires`/`@Ensures`): modular proofs via contract redirect, auto-generated enforce proofs, a conservative purity audit — Kotlin-first, including `suspend` functions
-- **Jakarta validation integration**: `assumeValid(bean)` generated from constraint annotations, including `@Valid` cascades and container-element constraints
-- Conformance-proven **JDK + Kotlin stdlib models** (collections, streams, BigDecimal/BigInteger, java.time, coroutines under the immediate-dispatch idealization) with the per-member audit above
-- **Fast re-runs**: proofs run in parallel, and verdict caching skips proofs whose module hasn't changed
-- **Vacuity detection** — a proof whose assumptions rule out every input is flagged, not passed
-- **User models with declared intent** (`conformant`/`domain`) — shadow any class on the analysis path, with provenance footnotes naming every model/stub a green verdict relied on
-- **Bundled engines** for windows-x64, linux-x64/arm64 (glibc), linux-x64 (musl/Alpine), and macos-x64/arm64 — no install
-
 ## What is bounded model checking?
 
 Instead of *running* your code on some inputs, BMC **translates** it — bytecode,
@@ -156,7 +143,7 @@ simultaneously, with a solver doing the search.
 |---|---|---|---|
 | **Unit test** | the inputs you wrote down | everything you didn't think of | a known case |
 | **Property-based test** | a few hundred random samples per run | needle-in-a-haystack inputs (one bad value in 4 billion), rare branch combinations | a shrunken sample, if sampling found one |
-| **`@BmcProof`** | **every input within the bound** | nothing inside the bound — refutation is guaranteed if a bad input exists | the exact counterexample, rendered as runnable code |
+| **`@BmcProof`** | **every input within the bound** | nothing inside the bound — refutation is guaranteed if a bad input exists | the exact counterexample |
 
 The off-by-one that only fires at `score = 100`, the overflow at `Integer.MIN_VALUE`,
 the rounding rule that's wrong in one of 10⁹ cases — sampling is structurally bad at
@@ -167,14 +154,7 @@ your unit tests nor your integration tests; it covers the class of bug they can'
 ## When to use it
 
 `@BmcProof` answers *"is my logic sound?"* It shines on pure(ish), bounded logic where
-a wrong answer is expensive:
-
-- **Money & rounding** — pricing, tax, interest, `BigDecimal` scale rules
-- **Parsers, codecs, serializers** — round-trips, bounds, malformed input
-- **State machines & business rules** — invariants, unreachable-state proofs
-- **Validation & clamping** — range checks, normalization, overflow on arithmetic
-- **Index arithmetic** — pagination, buffers, windowing, binary search
-- **Equality/ordering laws** — `equals`/`hashCode`/`compareTo` contracts, record laws
+a wrong answer is expensive.
 
 It's also a **debugger that works backwards**: when you know a bad state exists — the
 total that went negative in production, the enum combination that "can't happen", the
@@ -202,7 +182,7 @@ verification (see the note below).
 > each tool catching exactly the bug the other is blind to. bmc4j is Lincheck's
 > complement for sequential logic, not its competitor.
 
-## The tradeoffs, honestly
+## The tradeoffs/limits
 
 Bounded model checking is a power tool with a real contract. The short version:
 
@@ -228,12 +208,8 @@ Bounded model checking is a power tool with a real contract. The short version:
   sound forms in bmc4j's own layer; vacuous proofs (contradictory `assume`s) fail
   loudly instead of passing over an empty domain. And the models themselves are
   **verified on two axes** — differential property tests against the real JDK, plus
-  ~200 `@BmcProof` laws proven under the engine itself — with a coverage gate that
-  fails the build on any unverified model
-  ([how we know the models are sound](docs/model-soundness.md)).
+  ~200 `@BmcProof` laws proven under the engine itself.
 
-The full, unvarnished list — including what is still stubbed and the residual quirks —
-is in [docs/limits.md](docs/limits.md). Read it before trusting a proof with money.
 
 ## New to BMC? About proof runtimes
 
@@ -249,34 +225,6 @@ different blow-up and **composable**. The [performance docs](https://bmc4j.githu
 decision tree — which shape explodes, which lever fixes it, and how to stack them (a
 domain split can reclaim a slow proof's full range by solving each slice independently).
 
-## Documentation
-
-The full guide — getting started, the `Bmc.*` API and annotation reference, method
-contracts, models, string modes, the `bmc { }` plugin configuration, and the performance
-toolbox — lives on the documentation site:
-
-### **➜ [bmc4j.github.io/docs](https://bmc4j.github.io/docs/)**
-
-A few reference pages stay in this repo alongside the code:
-
-| | |
-|---|---|
-| [docs/trust.md](docs/trust.md) | trust & isolation: the bundled-engine model, `jbmcPath` escape hatch |
-| [docs/model-soundness.md](docs/model-soundness.md) | how we know the models are sound: differential conformance vs the real JDK + the models' own laws proven under the engine, gated in CI |
-| [docs/coverage.md](docs/coverage.md) | the coverage map: every language construct and stdlib API — modeled / partial / stubbed / out-of-scope |
-| [docs/model-coverage.md](docs/model-coverage.md) | the generated per-member model audit: every member of each audited JDK target, classified |
-| [docs/limits.md](docs/limits.md) | known limits, in full |
-| [`examples/`](examples) | a guided, read-along tour — 9 topic modules, each concept with its own README, code, and expected output |
-
-## Status
-
-| | |
-|---|---|
-| Engine | CBMC 6.9.0 / JBMC, bundled per platform: windows-x64, linux-x64/arm64 (glibc), linux-x64 (musl/Alpine), macos-x64/arm64. Windows-arm64 is unsupported (fail fast) |
-| Kotlin | 2.0 – 2.4 verified on every merge via a consumer-compiler matrix (null-safety, data classes, collections, `runBlocking` logic); 1.9 supported via the artifacts' 1.9 metadata/stdlib floor |
-| Java | 17 – 25 verified on every merge (full suite on 21/25, core + conformance on the 17 floor) |
-| CI | per-platform engine jars + a proof gate on every platform, every supported JDK, and consumer-Kotlin 2.0/2.2/2.3/2.4 |
-| License | [Apache-2.0](LICENSE); bundled engine binaries under the [CBMC license](THIRD-PARTY-NOTICES.md) |
 
 ## Developing
 
