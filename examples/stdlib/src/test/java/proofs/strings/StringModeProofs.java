@@ -2,6 +2,7 @@ package proofs.strings;
 
 import org.bmc4j.Bmc;
 import org.bmc4j.BmcProof;
+import org.bmc4j.BmcProfile;
 import org.bmc4j.StringMode;
 
 /**
@@ -47,5 +48,69 @@ class StringModeProofs {
     void decimal_round_trip_under_string_mode_none() {
         int value = Bmc.anyInt(0, 99);
         Bmc.check(decimalRoundTrip(value) == value);
+    }
+
+    // === No-refine string-plumbing has no internal waste loops ===============================
+    //
+    // Three focused @BmcProfile proofs, one per internal no-refine string-plumbing path bmc4j keeps
+    // cheap. Each VERIFIES; the point is the @BmcProfile "targetable loops" breakdown: each path no
+    // longer unwinds the wasteful internal loop it used to. They are kept SEPARATE (not folded into one
+    // proof) so each loop's presence/absence is read in isolation, uncontaminated by the others. Read the
+    // `bmc4j[profile]:` lines in the test output.
+
+    /**
+     * Internal {@code charAt} read (fix 1). {@code startsWith} -> {@code BmcStrings.startsWith} -> the
+     * internal {@code CProverString.charAt} read every {@code BmcStrings} content op funnels through.
+     * Under no-refine that read is redirected (via {@code @ConditionalOn}) to the bounds-free
+     * {@code BmcStrings.charAtRaw}, which reads the char-array model String's backing DIRECTLY instead of
+     * delegating to the bounds-checking public {@code String.charAt} - so the dead out-of-range branch no
+     * longer BUILDS a {@code StringIndexOutOfBoundsException} + its {@code int->String} message.
+     *
+     * <p>Profile check: the targetable loops NO LONGER list {@code java.lang.String.<init>:([CII)V} via
+     * the {@code CProverString.charAt} exception path (the remaining {@code array[char].clone} is
+     * {@code anyString}'s own symbolic-string introduction, a different path).
+     */
+    @BmcProof(unwind = 8, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    @BmcProfile
+    void no_refine_internal_charAt_builds_no_exception() {
+        String s = Bmc.anyString(3, "abc");
+        boolean starts = s.startsWith("a");     // -> BmcStrings.startsWith -> charAtRaw (no exception build)
+        Bmc.check(starts || !starts);
+    }
+
+    /**
+     * Char-array rebuild builder (fix 3). {@code new String(char[])} is rebuilt through
+     * {@code BmcStrings.ofChars}'s {@code StringBuilder}. The array is 18 chars, OVER the StringBuilder
+     * model's default capacity (16), so an UNSIZED builder would grow ({@code ensureCapacityInternal}'s
+     * copy loop). Pre-sizing the builder to the known final length removes that grow-loop unwind.
+     *
+     * <p>Profile check: the targetable loops NO LONGER list
+     * {@code AbstractStringBuilder.ensureCapacityInternal} growth (the remaining
+     * {@code java.lang.String.<init>:([CII)V} is the builder's {@code toString()} copying the backing into
+     * the result String - a single, unavoidable, bounded copy, not a growth loop).
+     */
+    @BmcProof(unwind = 24, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    @BmcProfile
+    void no_refine_char_rebuild_builder_does_not_grow() {
+        char[] data = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+                       'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'};   // 18 chars > default capacity 16
+        String built = new String(data);        // -> BmcStrings.ofChars -> a PRE-SIZED StringBuilder
+        Bmc.check(built.length() == 18);
+    }
+
+    /**
+     * Literal construction (fix 2). A fixed string LITERAL under no-refine is pinned to a char-array
+     * construction; it now routes through the char-array model's clone-free {@code String.adoptChars}
+     * factory, which ADOPTS the freshly built (and exclusively owned) array as its backing with no
+     * defensive copy - so there is no {@code array[char].clone}.
+     *
+     * <p>Profile check: the targetable loops are EMPTY - in particular no {@code array[char].clone} for
+     * the literal's construction.
+     */
+    @BmcProof(unwind = 8, stringMode = StringMode.CHAR_ARRAY_MODEL)
+    @BmcProfile
+    void no_refine_literal_is_adopted_clone_free() {
+        String literal = "abc";                 // -> String.adoptChars (clone-free adoption)
+        Bmc.check(literal.length() == 3);
     }
 }

@@ -84,7 +84,10 @@ public final class BmcStrings {
         if (offset < 0 || count < 0 || offset + count > data.length) {
             throw new StringIndexOutOfBoundsException();   // matches String(char[],int,int) bounds checking
         }
-        StringBuilder sb = new StringBuilder();
+        // Pre-size to the EXACT final length: under no-refine the StringBuilder model's default capacity
+        // can be exceeded by `count`, firing the grow loop (ensureCapacityInternal) whose unwind is pure
+        // waste when the final size is known. Sizing it away leaves no growth branch to unwind.
+        StringBuilder sb = new StringBuilder(count);
         for (int i = 0; i < count; i++) {
             sb.append(data[offset + i]);
         }
@@ -107,25 +110,9 @@ public final class BmcStrings {
         return ofChars(data, 0, data.length);
     }
 
-    /**
-     * Loop-free construction for a FIXED STRING LITERAL (its chars are concrete and it is never read back
-     * char-by-char): the char-array String model's copying constructor in one shot. {@code StringBytecode}
-     * sends user {@code new String(char[])} sites to {@link #ofChars(char[])} (the StringBuilder rebuild,
-     * which the no-refinement engine explores far more cheaply for read-back); the literal-pinning pass
-     * ({@code StringLengthBytecode}) sends string LITERALS here instead, so a literal LONGER than the
-     * unwind bound does not cost a per-char {@code StringBuilder.append} unwind. The literal's length is
-     * already concrete (the pass unrolls the char[] build), so this stays sound.
-     */
-    public static String ofCharsLiteral(char[] data) {
-        if (data == null) {
-            throw new NullPointerException();
-        }
-        return new String(data);
-    }
-
     /** Sound stand-in for {@code String.valueOf(char)} / {@code Character.toString(char)} (single char). */
     public static String ofChar(char c) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(1);   // exact final length: no growth-loop unwind
         sb.append(c);
         return sb.toString();
     }
@@ -204,6 +191,44 @@ public final class BmcStrings {
             buf[--pos] = '-';
         }
         return ofChars(buf, pos, buf.length - pos);
+    }
+
+    /**
+     * Bounds-free internal character read, the no-refine override for
+     * {@code org.cprover.CProverString.charAt(String,int)}. Under StringMode.CHAR_ARRAY_MODEL the
+     * {@code @ConditionalOn} pass redirects every {@code CProverString.charAt(s, i)} call site to this
+     * helper; under refinement it does NOT fire and {@code CProverString.charAt} stays the fast intrinsic.
+     *
+     * <p><b>Why.</b> With refinement OFF, {@code CProverString.charAt} delegates to the public
+     * {@code String.charAt}, whose char-array-model body bounds-checks the index and THROWS a
+     * {@code StringIndexOutOfBoundsException(index)} when out of range. That throw branch is DEAD for every
+     * caller here ({@link #equals}/{@link #startsWith}/{@link #endsWith}/{@link #contains}/{@link #hashCode}
+     * and {@code anyString} all read with {@code i < length()}), but the engine still encodes the exception
+     * object AND its {@code int -> String} message build - the dominant residual cost under no-refine.
+     *
+     * <p>This helper reads the char-array-model String's BACKING array DIRECTLY (via the model's
+     * {@code getChars}, a {@code System.arraycopy} with no per-element Java bounds check - the same direct
+     * read {@code AbstractStringBuilder.append(String)} uses), so the only safety obligation is jbmc's
+     * built-in array-bounds VCC - a dead assertion for the in-bounds callers, NOT a Java exception object
+     * with a message. No {@code StringIndexOutOfBoundsException} and no message String is ever built.
+     *
+     * <p>SOUND: {@code CProverString.charAt} is bmc4j-internal plumbing, never user-observable, and every
+     * caller here is in-bounds by construction; this changes only the (dead) out-of-range behaviour of an
+     * internal read. The PUBLIC {@code String.charAt} is untouched, so user code keeps its real exception
+     * semantics. Under refinement the redirect never fires.
+     *
+     * <p>{@code getChars(i, i + 1, one, 0)} copies exactly {@code backing[i]} into {@code one[0]} (the real
+     * {@code String.getChars} contract, mirrored by the model), so the read agrees char-for-char with
+     * {@code charAt}.
+     */
+    @ConditionalOn(condition = BmcCondition.STRING_REFINEMENT_OFF,
+            targetClass = "org.cprover.CProverString", target = "charAt")
+    public static char charAtRaw(String s, int index) {
+        char[] one = new char[1];
+        // Direct backing read: under no-refine s is the char-array String model, whose getChars bulk-copies
+        // off its backing array with NO per-element bounds check / no thrown exception (see String.getChars).
+        s.getChars(index, index + 1, one, 0);
+        return one[0];
     }
 
     /** Sound stand-in for {@code receiver.equals(other)} where the receiver is a String. */
@@ -525,7 +550,7 @@ public final class BmcStrings {
 
     /** Latin-1 / ASCII decode: char = byte &amp; 0xFF, one byte to one char. Trivially sound. */
     private static String decodeLatin1(byte[] data, int offset, int length) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(length);   // exact final length: no growth-loop unwind
         for (int i = 0; i < length; i++) {
             sb.append((char) (data[offset + i] & 0xFF));
         }
@@ -540,7 +565,10 @@ public final class BmcStrings {
      * unwinds to the byte count, so this is sound and cheap for bounded byte arrays.
      */
     private static String decodeUtf8(byte[] data, int offset, int length) {
-        StringBuilder sb = new StringBuilder();
+        // At most `length` chars (1 char per byte for ASCII; multi-byte sequences yield FEWER, and the
+        // astral 4-byte case yields 2 chars per 4 bytes <= length). Pre-sizing to `length` thus never
+        // under-allocates, so the grow loop's unwind is removed for the common bounded-byte-array case.
+        StringBuilder sb = new StringBuilder(length);
         int i = 0;
         while (i < length) {
             int b0 = data[offset + i] & 0xFF;
